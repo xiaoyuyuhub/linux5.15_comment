@@ -1,0 +1,1009 @@
+\hypertarget{mce_2amd_8c}{}\doxysection{arch/x86/kernel/cpu/mce/amd.c File Reference}
+\label{mce_2amd_8c}\index{arch/x86/kernel/cpu/mce/amd.c@{arch/x86/kernel/cpu/mce/amd.c}}
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/notifier.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kobject.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/errno.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sysfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$asm/amd\+\_\+nb.\+h$>$}\newline
+{\ttfamily \#include $<$asm/traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/apic.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mce.\+h$>$}\newline
+{\ttfamily \#include $<$asm/msr.\+h$>$}\newline
+{\ttfamily \#include $<$asm/trace/irq\+\_\+vectors.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}internal.\+h\char`\"{}}\newline
+Include dependency graph for amd.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structsmca__bank__name}{smca\+\_\+bank\+\_\+name}}
+\item 
+struct \mbox{\hyperlink{structthresh__restart}{thresh\+\_\+restart}}
+\item 
+struct \mbox{\hyperlink{structthreshold__attr}{threshold\+\_\+attr}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_ac762e8160636051d94dbf9d8135b806e}{N\+R\+\_\+\+B\+L\+O\+C\+KS}}~5
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_ab468cd6410e5d23829fc609c96431489}{T\+H\+R\+E\+S\+H\+O\+L\+D\+\_\+\+M\+AX}}~0x\+F\+FF
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a14ef351c084753c08b84a309b8971228}{I\+N\+T\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+P\+IC}}~0x00020000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a542828bd7835f4b88ea0f8da388d901a}{M\+A\+S\+K\+\_\+\+V\+A\+L\+I\+D\+\_\+\+HI}}~0x80000000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a043e7e5be4682f058bb6097ced5cefac}{M\+A\+S\+K\+\_\+\+C\+N\+T\+P\+\_\+\+HI}}~0x40000000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_abd51fbe8de3dea7d4543b355a2edecd5}{M\+A\+S\+K\+\_\+\+L\+O\+C\+K\+E\+D\+\_\+\+HI}}~0x20000000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a08389e341838b5c46cf35e0c2c3a7168}{M\+A\+S\+K\+\_\+\+L\+V\+T\+O\+F\+F\+\_\+\+HI}}~0x00\+F00000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a0bde174b144a16bc71f37694a1b4a880}{M\+A\+S\+K\+\_\+\+C\+O\+U\+N\+T\+\_\+\+E\+N\+\_\+\+HI}}~0x00080000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a8dd51a9bc8b858898e457c15b937d857}{M\+A\+S\+K\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+P\+E\+\_\+\+HI}}~0x00060000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a294ca2d47c60ed28a279bd82d8c4c345}{M\+A\+S\+K\+\_\+\+O\+V\+E\+R\+F\+L\+O\+W\+\_\+\+HI}}~0x00010000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a17c85bbd91f0ce6158e02e60387a87e7}{M\+A\+S\+K\+\_\+\+E\+R\+R\+\_\+\+C\+O\+U\+N\+T\+\_\+\+HI}}~0x00000\+F\+FF
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a367714ea7c25ed4232b946c4c58f354a}{M\+A\+S\+K\+\_\+\+B\+L\+K\+P\+T\+R\+\_\+\+LO}}~0x\+F\+F000000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a95d4c3648c5f6217b57b243759319bac}{M\+C\+G\+\_\+\+X\+B\+L\+K\+\_\+\+A\+D\+DR}}~0x\+C0000400
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a3046705fa2d9a33a717fcbe91f790cd4}{M\+S\+R\+\_\+\+C\+U\+\_\+\+D\+E\+F\+\_\+\+E\+RR}}~0x\+C0000410
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_ad0018fae4e1ab2d46a3c2223dfd7361d}{M\+A\+S\+K\+\_\+\+D\+E\+F\+\_\+\+L\+V\+T\+O\+FF}}~0x000000\+F0
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a776ccb4437d68e5f7697edb7f92d99bf}{M\+A\+S\+K\+\_\+\+D\+E\+F\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+PE}}~0x00000006
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_af263a99bde5a08e36de44b2f5e8f824b}{D\+E\+F\+\_\+\+L\+V\+T\+\_\+\+O\+FF}}~0x2
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a39deb829616bec7ab21866f85c083bea}{D\+E\+F\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+P\+IC}}~0x2
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a03384046c463a2c9755494b5910c4eb8}{S\+M\+C\+A\+\_\+\+T\+H\+R\+\_\+\+L\+V\+T\+\_\+\+O\+FF}}~0x\+F000
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a4e46f7ed9d691121efcbdacfaf50f81e}{M\+A\+X\+\_\+\+M\+C\+A\+T\+Y\+P\+E\+\_\+\+N\+A\+M\+E\+\_\+\+L\+EN}}~30
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a894fc7df3fe0f709ad5c25dc7d110c40}{S\+H\+O\+W\+\_\+\+F\+I\+E\+L\+DS}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}})
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a72a33a4e82a9afd24b9ea286dae1929d}{R\+W\+\_\+\+A\+T\+TR}}(\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a81e4ac0fcf11d6c8e0106735ef97e499}{to\+\_\+block}}(\mbox{\hyperlink{decode__rs_8c_ab66ed8e0098c0a86b458672a55a9cca9}{k}})~\mbox{\hyperlink{linux_2kernel_8h_af8c317a42292b61c93aae91e59118a46}{container\+\_\+of}}(\mbox{\hyperlink{decode__rs_8c_ab66ed8e0098c0a86b458672a55a9cca9}{k}}, struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}}, kobj)
+\item 
+\#define \mbox{\hyperlink{mce_2amd_8c_a96ccf6f974999182c067649508699d04}{to\+\_\+attr}}(a)~\mbox{\hyperlink{linux_2kernel_8h_af8c317a42292b61c93aae91e59118a46}{container\+\_\+of}}(a, struct \mbox{\hyperlink{structthreshold__attr}{threshold\+\_\+attr}}, \mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static const char $\ast$ \mbox{\hyperlink{mce_2amd_8c_a1923211c5cdfdb873aaff9d3c98994b3}{smca\+\_\+get\+\_\+name}} (\mbox{\hyperlink{interfaceenum}{enum}} smca\+\_\+bank\+\_\+types \mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+const char $\ast$ \mbox{\hyperlink{mce_2amd_8c_a45c3ce24a7e8d5811b1a1f896bcddc66}{smca\+\_\+get\+\_\+long\+\_\+name}} (\mbox{\hyperlink{interfaceenum}{enum}} smca\+\_\+bank\+\_\+types \mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+\mbox{\hyperlink{mce_2amd_8c_ab34ae194e4694feba6cf78da6d8280c9}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{mce_2amd_8c_a45c3ce24a7e8d5811b1a1f896bcddc66}{smca\+\_\+get\+\_\+long\+\_\+name}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} smca\+\_\+bank\+\_\+types \mbox{\hyperlink{mce_2amd_8c_ae62e9b62501b3aa2d17549359730fbec}{smca\+\_\+get\+\_\+bank\+\_\+type}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+\mbox{\hyperlink{mce_2amd_8c_ae8c5f82e1b52cde1fc6233659b80cf4c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{mce_2amd_8c_a9f37c1cf839fc3e1bd1753c60c77bc1f}{smca\+\_\+banks}})
+\item 
+static \mbox{\hyperlink{mce_2amd_8c_a558d8b8fffceb4f77bb4dc9e53128abb}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$$\ast$, threshold\+\_\+banks)
+\item 
+static \mbox{\hyperlink{mce_2amd_8c_a599f441770b28d20cbfe71d7f0472826}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, bank\+\_\+map)
+\item 
+static \mbox{\hyperlink{mce_2amd_8c_aa4bbde9f3427d90fef348c92484782df}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}, smca\+\_\+misc\+\_\+banks\+\_\+map)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a3c81e8788a431a66cdf5b7d023c76fe4}{amd\+\_\+threshold\+\_\+interrupt}} (void)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a29f67f874e76ca453f61f8baeefdb39a}{amd\+\_\+deferred\+\_\+error\+\_\+interrupt}} (void)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a1896c6b8bd454f67eeeeaaec58d2294d}{default\+\_\+deferred\+\_\+error\+\_\+interrupt}} (void)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_af9792200565af3e9fe4378fb6eb705b3}{smca\+\_\+configure}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mce_2amd_8c_aa73ddd3822fca4acaed61d161fee3d7e}{is\+\_\+shared\+\_\+bank}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static const char $\ast$ \mbox{\hyperlink{mce_2amd_8c_a5ce04ed91815ef37b6c381f6ef1ee686}{bank4\+\_\+names}} (const struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mce_2amd_8c_ab9e94c035fa513ec3d4cd5ab444d59e9}{lvt\+\_\+interrupt\+\_\+supported}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} msr\+\_\+high\+\_\+bits)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_abfca887b2f80d3c207309fb1776139b2}{lvt\+\_\+off\+\_\+valid}} (struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{bman_8h_a7a66d23e01a6d1a4c8c44448eca98526}{lo}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{bman_8h_ac4fcba1deb8da291e469612fa7ad9f39}{hi}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a84629ba4c6c65b0090fc42b3901c4daa}{threshold\+\_\+restart\+\_\+bank}} (void $\ast$\+\_\+tr)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a2fc900a3c52a294bca612b4b663daf6a}{mce\+\_\+threshold\+\_\+block\+\_\+init}} (struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_ab82a1876fc8526544658022ac22bcdf3}{setup\+\_\+\+A\+P\+I\+C\+\_\+mce\+\_\+threshold}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{video_2uvesafb_8h_aa49bbb20f9060779dca7f98dcda000dd}{reserved}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_afada94781c23f309b6bc08a47a10deb2}{setup\+\_\+\+A\+P\+I\+C\+\_\+deferred\+\_\+error}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{video_2uvesafb_8h_aa49bbb20f9060779dca7f98dcda000dd}{reserved}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a84185eb7daea9fada23e7b8810048fe9}{deferred\+\_\+error\+\_\+interrupt\+\_\+enable}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{mce_2amd_8c_a4aab21821fb7847b3257c12426429452}{smca\+\_\+get\+\_\+block\+\_\+address}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{mce_2amd_8c_a048f3158273c6ed743c39d6a739bca9e}{get\+\_\+block\+\_\+address}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} current\+\_\+addr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{mtrr_2centaur_8c_a64e9a758e6dcce0cfb91479c8f2af27b}{low}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{mtrr_2centaur_8c_ab3daacef0d09908846c505fb603fc331}{high}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_ad710879a652ac70f6f7f28481a4b8c5a}{prepare\+\_\+threshold\+\_\+block}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} misc\+\_\+high)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mce_2amd_8c_a7142f3291bbfd5b2f2fae992c664a8d0}{amd\+\_\+filter\+\_\+mce}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_af864c6f61b8cbdd3b22139ed0661f689}{disable\+\_\+err\+\_\+thresholding}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+void \mbox{\hyperlink{mce_2amd_8c_aaa7212732ddb5b1e7b1db7272c479607}{mce\+\_\+amd\+\_\+feature\+\_\+init}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_ac3fd94c493ed73ce41f20f8c06efaeeb}{umc\+\_\+normaddr\+\_\+to\+\_\+sysaddr}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} norm\+\_\+addr, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} nid, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} umc, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$sys\+\_\+addr)
+\item 
+\mbox{\hyperlink{mce_2amd_8c_a9992998ea69b18fabec8155a590056c4}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{mce_2amd_8c_ac3fd94c493ed73ce41f20f8c06efaeeb}{umc\+\_\+normaddr\+\_\+to\+\_\+sysaddr}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mce_2amd_8c_a5e22895d6b937456db99f5ddb7d6ebd8}{amd\+\_\+mce\+\_\+is\+\_\+memory\+\_\+error}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_aeb4a4dec84e8c495bec7bcd6ac294cde}{\+\_\+\+\_\+log\+\_\+error}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{virtio__scsi_8h_afff5af38f43b41844351f5397c1bd0f5}{status}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{drm__edid_8h_a80d8f411f06975911f234ab917b7d9d4}{misc}})
+\item 
+\mbox{\hyperlink{mce_2amd_8c_a17f4f99a744162e36ef668a748982e6f}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+S\+Y\+S\+V\+EC}} (sysvec\+\_\+deferred\+\_\+error)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mce_2amd_8c_a79d4ebfe5543831f92f8c51bb56e4df9}{\+\_\+log\+\_\+error\+\_\+bank}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} msr\+\_\+stat, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} msr\+\_\+addr, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{drm__edid_8h_a80d8f411f06975911f234ab917b7d9d4}{misc}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_af8a49d75116bddce75f9bc2dd9e6f1d7}{log\+\_\+error\+\_\+deferred}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_affb373677bba1b99d3c27778193e7281}{log\+\_\+error\+\_\+thresholding}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{drm__edid_8h_a80d8f411f06975911f234ab917b7d9d4}{misc}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a5c5bce39e87209e97802c73cd1919ebf}{log\+\_\+and\+\_\+reset\+\_\+block}} (struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{mce_2amd_8c_a7eb7bb387dfc1845da915ac98feed1a0}{store\+\_\+interrupt\+\_\+enable}} (struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{mce_2amd_8c_aece09436cbaa1004732a86260d1eb7a3}{store\+\_\+threshold\+\_\+limit}} (struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{mce_2amd_8c_a908d5a8548402d4b77452bb9d14a190d}{show\+\_\+error\+\_\+count}} (struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+\mbox{\hyperlink{mce_2amd_8c_a3976f06f6e3f4ecaa67db21928bfb59a}{R\+W\+\_\+\+A\+T\+TR}} (interrupt\+\_\+enable)
+\item 
+\mbox{\hyperlink{mce_2amd_8c_afcf4bd76d4c778e110888a148cb746e5}{R\+W\+\_\+\+A\+T\+TR}} (threshold\+\_\+limit)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{mce_2amd_8c_ac99979b2ec2263dc2678203fadcf978f}{show}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{mce_2amd_8c_a98380bf0c60f20c2d9a4d6dd3eb20037}{store}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_ae8649313d51bbd15fad2aaf190379907}{threshold\+\_\+block\+\_\+release}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj)
+\item 
+static const char $\ast$ \mbox{\hyperlink{mce_2amd_8c_a96112c868b42ad674543d70cd6187029}{get\+\_\+name}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_ab33ca063164b738d02bb6de60c496917}{allocate\+\_\+threshold\+\_\+blocks}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$\mbox{\hyperlink{structtb}{tb}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{structaddress}{address}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_aa87631485e804a404c62ce9d8c060398}{\+\_\+\+\_\+threshold\+\_\+add\+\_\+blocks}} (struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_ad4c1992a752f1fb010fe84f6eec774bf}{threshold\+\_\+create\+\_\+bank}} (struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$$\ast$bp, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a2ff32d54ad1b97fc9b233adfceada06e}{deallocate\+\_\+threshold\+\_\+blocks}} (struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$bank)
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_af2a119a9e3c8b10b5186d8f57854e66d}{\+\_\+\+\_\+threshold\+\_\+remove\+\_\+blocks}} (struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+static void \mbox{\hyperlink{mce_2amd_8c_a6d6ce245fb6f9e25553eaf41cdb071fc}{threshold\+\_\+remove\+\_\+bank}} (struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$bank)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_ad1855fe618586f8adedd23c94b14abd9}{mce\+\_\+threshold\+\_\+remove\+\_\+device}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mce_2amd_8c_a478783ed5c7b06d5fa65c7a0c8a4e904}{mce\+\_\+threshold\+\_\+create\+\_\+device}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mce_2amd_8c_a7f1b78777375d8610fabb7bdd1d87f9c}{thresholding\+\_\+irq\+\_\+en}}
+\item 
+static const char $\ast$const \mbox{\hyperlink{mce_2amd_8c_ac99b57c42d970a9b1653e198237d857c}{th\+\_\+names}} \mbox{[}$\,$\mbox{]}
+\item 
+static const char $\ast$const \mbox{\hyperlink{mce_2amd_8c_acd9ee531c77486442a30aa121f896d55}{smca\+\_\+umc\+\_\+block\+\_\+names}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structsmca__bank__name}{smca\+\_\+bank\+\_\+name}} \mbox{\hyperlink{mce_2amd_8c_a75dc1c444412e25ecb29ca76f17dbd88}{smca\+\_\+names}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct smca\+\_\+hwid \mbox{\hyperlink{mce_2amd_8c_a961ba731bc972aadeba706d4862e15ce}{smca\+\_\+hwid\+\_\+mcatypes}} \mbox{[}$\,$\mbox{]}
+\item 
+struct smca\+\_\+bank \mbox{\hyperlink{mce_2amd_8c_a9f37c1cf839fc3e1bd1753c60c77bc1f}{smca\+\_\+banks}} \mbox{[}\mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_a2a2a32e2f45de684118ecc081d49a3d0}{M\+A\+X\+\_\+\+N\+R\+\_\+\+B\+A\+N\+KS}}\mbox{]}
+\item 
+static char \mbox{\hyperlink{mce_2amd_8c_aa4ee68bbfbc28f927bb5e69cf1e7b69d}{buf\+\_\+mcatype}} \mbox{[}\mbox{\hyperlink{mce_2amd_8c_a4e46f7ed9d691121efcbdacfaf50f81e}{M\+A\+X\+\_\+\+M\+C\+A\+T\+Y\+P\+E\+\_\+\+N\+A\+M\+E\+\_\+\+L\+EN}}\mbox{]}
+\item 
+void($\ast$ \mbox{\hyperlink{mce_2amd_8c_a8d5f72894b66eb11c26138cc6a30c344}{deferred\+\_\+error\+\_\+int\+\_\+vector}} )(void)
+\item 
+static struct \mbox{\hyperlink{structthreshold__attr}{threshold\+\_\+attr}} \mbox{\hyperlink{mce_2amd_8c_a0bde92c370f20246268663892d2b7e68}{error\+\_\+count}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{mce_2amd_8c_ae0811b5a10781d3b0243f7fb8a9e7743}{default\+\_\+attrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structsysfs__ops}{sysfs\+\_\+ops}} \mbox{\hyperlink{mce_2amd_8c_a9a3dc4f618025d947c821d0601110947}{threshold\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structkobj__type}{kobj\+\_\+type}} \mbox{\hyperlink{mce_2amd_8c_a562d54b2787afafc36088ab7aab909ab}{threshold\+\_\+ktype}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{mce_2amd_8c_a39deb829616bec7ab21866f85c083bea}\label{mce_2amd_8c_a39deb829616bec7ab21866f85c083bea}} 
+\index{amd.c@{amd.c}!DEF\_INT\_TYPE\_APIC@{DEF\_INT\_TYPE\_APIC}}
+\index{DEF\_INT\_TYPE\_APIC@{DEF\_INT\_TYPE\_APIC}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{DEF\_INT\_TYPE\_APIC}{DEF\_INT\_TYPE\_APIC}}
+{\footnotesize\ttfamily \#define D\+E\+F\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+P\+IC~0x2}
+
+\mbox{\Hypertarget{mce_2amd_8c_af263a99bde5a08e36de44b2f5e8f824b}\label{mce_2amd_8c_af263a99bde5a08e36de44b2f5e8f824b}} 
+\index{amd.c@{amd.c}!DEF\_LVT\_OFF@{DEF\_LVT\_OFF}}
+\index{DEF\_LVT\_OFF@{DEF\_LVT\_OFF}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{DEF\_LVT\_OFF}{DEF\_LVT\_OFF}}
+{\footnotesize\ttfamily \#define D\+E\+F\+\_\+\+L\+V\+T\+\_\+\+O\+FF~0x2}
+
+\mbox{\Hypertarget{mce_2amd_8c_a14ef351c084753c08b84a309b8971228}\label{mce_2amd_8c_a14ef351c084753c08b84a309b8971228}} 
+\index{amd.c@{amd.c}!INT\_TYPE\_APIC@{INT\_TYPE\_APIC}}
+\index{INT\_TYPE\_APIC@{INT\_TYPE\_APIC}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{INT\_TYPE\_APIC}{INT\_TYPE\_APIC}}
+{\footnotesize\ttfamily \#define I\+N\+T\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+P\+IC~0x00020000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a367714ea7c25ed4232b946c4c58f354a}\label{mce_2amd_8c_a367714ea7c25ed4232b946c4c58f354a}} 
+\index{amd.c@{amd.c}!MASK\_BLKPTR\_LO@{MASK\_BLKPTR\_LO}}
+\index{MASK\_BLKPTR\_LO@{MASK\_BLKPTR\_LO}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_BLKPTR\_LO}{MASK\_BLKPTR\_LO}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+B\+L\+K\+P\+T\+R\+\_\+\+LO~0x\+F\+F000000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a043e7e5be4682f058bb6097ced5cefac}\label{mce_2amd_8c_a043e7e5be4682f058bb6097ced5cefac}} 
+\index{amd.c@{amd.c}!MASK\_CNTP\_HI@{MASK\_CNTP\_HI}}
+\index{MASK\_CNTP\_HI@{MASK\_CNTP\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_CNTP\_HI}{MASK\_CNTP\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+C\+N\+T\+P\+\_\+\+HI~0x40000000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a0bde174b144a16bc71f37694a1b4a880}\label{mce_2amd_8c_a0bde174b144a16bc71f37694a1b4a880}} 
+\index{amd.c@{amd.c}!MASK\_COUNT\_EN\_HI@{MASK\_COUNT\_EN\_HI}}
+\index{MASK\_COUNT\_EN\_HI@{MASK\_COUNT\_EN\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_COUNT\_EN\_HI}{MASK\_COUNT\_EN\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+C\+O\+U\+N\+T\+\_\+\+E\+N\+\_\+\+HI~0x00080000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a776ccb4437d68e5f7697edb7f92d99bf}\label{mce_2amd_8c_a776ccb4437d68e5f7697edb7f92d99bf}} 
+\index{amd.c@{amd.c}!MASK\_DEF\_INT\_TYPE@{MASK\_DEF\_INT\_TYPE}}
+\index{MASK\_DEF\_INT\_TYPE@{MASK\_DEF\_INT\_TYPE}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_DEF\_INT\_TYPE}{MASK\_DEF\_INT\_TYPE}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+D\+E\+F\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+PE~0x00000006}
+
+\mbox{\Hypertarget{mce_2amd_8c_ad0018fae4e1ab2d46a3c2223dfd7361d}\label{mce_2amd_8c_ad0018fae4e1ab2d46a3c2223dfd7361d}} 
+\index{amd.c@{amd.c}!MASK\_DEF\_LVTOFF@{MASK\_DEF\_LVTOFF}}
+\index{MASK\_DEF\_LVTOFF@{MASK\_DEF\_LVTOFF}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_DEF\_LVTOFF}{MASK\_DEF\_LVTOFF}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+D\+E\+F\+\_\+\+L\+V\+T\+O\+FF~0x000000\+F0}
+
+\mbox{\Hypertarget{mce_2amd_8c_a17c85bbd91f0ce6158e02e60387a87e7}\label{mce_2amd_8c_a17c85bbd91f0ce6158e02e60387a87e7}} 
+\index{amd.c@{amd.c}!MASK\_ERR\_COUNT\_HI@{MASK\_ERR\_COUNT\_HI}}
+\index{MASK\_ERR\_COUNT\_HI@{MASK\_ERR\_COUNT\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_ERR\_COUNT\_HI}{MASK\_ERR\_COUNT\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+E\+R\+R\+\_\+\+C\+O\+U\+N\+T\+\_\+\+HI~0x00000\+F\+FF}
+
+\mbox{\Hypertarget{mce_2amd_8c_a8dd51a9bc8b858898e457c15b937d857}\label{mce_2amd_8c_a8dd51a9bc8b858898e457c15b937d857}} 
+\index{amd.c@{amd.c}!MASK\_INT\_TYPE\_HI@{MASK\_INT\_TYPE\_HI}}
+\index{MASK\_INT\_TYPE\_HI@{MASK\_INT\_TYPE\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_INT\_TYPE\_HI}{MASK\_INT\_TYPE\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+P\+E\+\_\+\+HI~0x00060000}
+
+\mbox{\Hypertarget{mce_2amd_8c_abd51fbe8de3dea7d4543b355a2edecd5}\label{mce_2amd_8c_abd51fbe8de3dea7d4543b355a2edecd5}} 
+\index{amd.c@{amd.c}!MASK\_LOCKED\_HI@{MASK\_LOCKED\_HI}}
+\index{MASK\_LOCKED\_HI@{MASK\_LOCKED\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_LOCKED\_HI}{MASK\_LOCKED\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+L\+O\+C\+K\+E\+D\+\_\+\+HI~0x20000000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a08389e341838b5c46cf35e0c2c3a7168}\label{mce_2amd_8c_a08389e341838b5c46cf35e0c2c3a7168}} 
+\index{amd.c@{amd.c}!MASK\_LVTOFF\_HI@{MASK\_LVTOFF\_HI}}
+\index{MASK\_LVTOFF\_HI@{MASK\_LVTOFF\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_LVTOFF\_HI}{MASK\_LVTOFF\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+L\+V\+T\+O\+F\+F\+\_\+\+HI~0x00\+F00000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a294ca2d47c60ed28a279bd82d8c4c345}\label{mce_2amd_8c_a294ca2d47c60ed28a279bd82d8c4c345}} 
+\index{amd.c@{amd.c}!MASK\_OVERFLOW\_HI@{MASK\_OVERFLOW\_HI}}
+\index{MASK\_OVERFLOW\_HI@{MASK\_OVERFLOW\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_OVERFLOW\_HI}{MASK\_OVERFLOW\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+O\+V\+E\+R\+F\+L\+O\+W\+\_\+\+HI~0x00010000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a542828bd7835f4b88ea0f8da388d901a}\label{mce_2amd_8c_a542828bd7835f4b88ea0f8da388d901a}} 
+\index{amd.c@{amd.c}!MASK\_VALID\_HI@{MASK\_VALID\_HI}}
+\index{MASK\_VALID\_HI@{MASK\_VALID\_HI}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MASK\_VALID\_HI}{MASK\_VALID\_HI}}
+{\footnotesize\ttfamily \#define M\+A\+S\+K\+\_\+\+V\+A\+L\+I\+D\+\_\+\+HI~0x80000000}
+
+\mbox{\Hypertarget{mce_2amd_8c_a4e46f7ed9d691121efcbdacfaf50f81e}\label{mce_2amd_8c_a4e46f7ed9d691121efcbdacfaf50f81e}} 
+\index{amd.c@{amd.c}!MAX\_MCATYPE\_NAME\_LEN@{MAX\_MCATYPE\_NAME\_LEN}}
+\index{MAX\_MCATYPE\_NAME\_LEN@{MAX\_MCATYPE\_NAME\_LEN}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_MCATYPE\_NAME\_LEN}{MAX\_MCATYPE\_NAME\_LEN}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+M\+C\+A\+T\+Y\+P\+E\+\_\+\+N\+A\+M\+E\+\_\+\+L\+EN~30}
+
+\mbox{\Hypertarget{mce_2amd_8c_a95d4c3648c5f6217b57b243759319bac}\label{mce_2amd_8c_a95d4c3648c5f6217b57b243759319bac}} 
+\index{amd.c@{amd.c}!MCG\_XBLK\_ADDR@{MCG\_XBLK\_ADDR}}
+\index{MCG\_XBLK\_ADDR@{MCG\_XBLK\_ADDR}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MCG\_XBLK\_ADDR}{MCG\_XBLK\_ADDR}}
+{\footnotesize\ttfamily \#define M\+C\+G\+\_\+\+X\+B\+L\+K\+\_\+\+A\+D\+DR~0x\+C0000400}
+
+\mbox{\Hypertarget{mce_2amd_8c_a3046705fa2d9a33a717fcbe91f790cd4}\label{mce_2amd_8c_a3046705fa2d9a33a717fcbe91f790cd4}} 
+\index{amd.c@{amd.c}!MSR\_CU\_DEF\_ERR@{MSR\_CU\_DEF\_ERR}}
+\index{MSR\_CU\_DEF\_ERR@{MSR\_CU\_DEF\_ERR}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_CU\_DEF\_ERR}{MSR\_CU\_DEF\_ERR}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+C\+U\+\_\+\+D\+E\+F\+\_\+\+E\+RR~0x\+C0000410}
+
+\mbox{\Hypertarget{mce_2amd_8c_ac762e8160636051d94dbf9d8135b806e}\label{mce_2amd_8c_ac762e8160636051d94dbf9d8135b806e}} 
+\index{amd.c@{amd.c}!NR\_BLOCKS@{NR\_BLOCKS}}
+\index{NR\_BLOCKS@{NR\_BLOCKS}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{NR\_BLOCKS}{NR\_BLOCKS}}
+{\footnotesize\ttfamily \#define N\+R\+\_\+\+B\+L\+O\+C\+KS~5}
+
+\mbox{\Hypertarget{mce_2amd_8c_a72a33a4e82a9afd24b9ea286dae1929d}\label{mce_2amd_8c_a72a33a4e82a9afd24b9ea286dae1929d}} 
+\index{amd.c@{amd.c}!RW\_ATTR@{RW\_ATTR}}
+\index{RW\_ATTR@{RW\_ATTR}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{RW\_ATTR}{RW\_ATTR}}
+{\footnotesize\ttfamily \#define R\+W\+\_\+\+A\+T\+TR(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keyword}{static} \textcolor{keyword}{struct }\mbox{\hyperlink{structthreshold__attr}{threshold\_attr}} \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}} = \{                   \(\backslash\)}
+\DoxyCodeLine{    .attr   = \{.name = \mbox{\hyperlink{stringify_8h_a535c7880ab1eea2a5bb39bdf71f2f860}{\_\_stringify}}(\mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}), .mode = 0644 \},      \(\backslash\)}
+\DoxyCodeLine{    .show   = show\_\#\# \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}},                       \(\backslash\)}
+\DoxyCodeLine{    .store  = store\_\#\# \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}},                      \(\backslash\)}
+\DoxyCodeLine{\};}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_a894fc7df3fe0f709ad5c25dc7d110c40}\label{mce_2amd_8c_a894fc7df3fe0f709ad5c25dc7d110c40}} 
+\index{amd.c@{amd.c}!SHOW\_FIELDS@{SHOW\_FIELDS}}
+\index{SHOW\_FIELDS@{SHOW\_FIELDS}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{SHOW\_FIELDS}{SHOW\_FIELDS}}
+{\footnotesize\ttfamily \#define S\+H\+O\+W\+\_\+\+F\+I\+E\+L\+DS(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keyword}{static} \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\_t}} show\_ \#\# \mbox{\hyperlink{arch_2x86_2events_2intel_2core_8c_afc65b5080badbd1e1482dae3cc685b5b}{name}}(\textcolor{keyword}{struct} \mbox{\hyperlink{structthreshold__block}{threshold\_block}} *\mbox{\hyperlink{pldmfw__private_8h_ae3e2e7ad2eb34d9a81e936c4c9270ac9}{b}}, \textcolor{keywordtype}{char} *\mbox{\hyperlink{build_8c_a675dff0779f67d2367fa21647c505f5d}{buf}})    \(\backslash\)}
+\DoxyCodeLine{\{                                   \(\backslash\)}
+\DoxyCodeLine{    return \mbox{\hyperlink{boot_2boot_8h_ac38cd16373d98782e1465bd3d5aba470}{sprintf}}(\mbox{\hyperlink{build_8c_a675dff0779f67d2367fa21647c505f5d}{buf}}, \textcolor{stringliteral}{"\%lu\(\backslash\)n"}, (\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long}) \mbox{\hyperlink{pldmfw__private_8h_ae3e2e7ad2eb34d9a81e936c4c9270ac9}{b}}-\/>name);       \(\backslash\)}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_a03384046c463a2c9755494b5910c4eb8}\label{mce_2amd_8c_a03384046c463a2c9755494b5910c4eb8}} 
+\index{amd.c@{amd.c}!SMCA\_THR\_LVT\_OFF@{SMCA\_THR\_LVT\_OFF}}
+\index{SMCA\_THR\_LVT\_OFF@{SMCA\_THR\_LVT\_OFF}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{SMCA\_THR\_LVT\_OFF}{SMCA\_THR\_LVT\_OFF}}
+{\footnotesize\ttfamily \#define S\+M\+C\+A\+\_\+\+T\+H\+R\+\_\+\+L\+V\+T\+\_\+\+O\+FF~0x\+F000}
+
+\mbox{\Hypertarget{mce_2amd_8c_ab468cd6410e5d23829fc609c96431489}\label{mce_2amd_8c_ab468cd6410e5d23829fc609c96431489}} 
+\index{amd.c@{amd.c}!THRESHOLD\_MAX@{THRESHOLD\_MAX}}
+\index{THRESHOLD\_MAX@{THRESHOLD\_MAX}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{THRESHOLD\_MAX}{THRESHOLD\_MAX}}
+{\footnotesize\ttfamily \#define T\+H\+R\+E\+S\+H\+O\+L\+D\+\_\+\+M\+AX~0x\+F\+FF}
+
+\mbox{\Hypertarget{mce_2amd_8c_a96ccf6f974999182c067649508699d04}\label{mce_2amd_8c_a96ccf6f974999182c067649508699d04}} 
+\index{amd.c@{amd.c}!to\_attr@{to\_attr}}
+\index{to\_attr@{to\_attr}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{to\_attr}{to\_attr}}
+{\footnotesize\ttfamily \#define to\+\_\+attr(\begin{DoxyParamCaption}\item[{}]{a }\end{DoxyParamCaption})~\mbox{\hyperlink{linux_2kernel_8h_af8c317a42292b61c93aae91e59118a46}{container\+\_\+of}}(a, struct \mbox{\hyperlink{structthreshold__attr}{threshold\+\_\+attr}}, \mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}})}
+
+\mbox{\Hypertarget{mce_2amd_8c_a81e4ac0fcf11d6c8e0106735ef97e499}\label{mce_2amd_8c_a81e4ac0fcf11d6c8e0106735ef97e499}} 
+\index{amd.c@{amd.c}!to\_block@{to\_block}}
+\index{to\_block@{to\_block}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{to\_block}{to\_block}}
+{\footnotesize\ttfamily \#define to\+\_\+block(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_ab66ed8e0098c0a86b458672a55a9cca9}{k}} }\end{DoxyParamCaption})~\mbox{\hyperlink{linux_2kernel_8h_af8c317a42292b61c93aae91e59118a46}{container\+\_\+of}}(\mbox{\hyperlink{decode__rs_8c_ab66ed8e0098c0a86b458672a55a9cca9}{k}}, struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}}, kobj)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{mce_2amd_8c_aeb4a4dec84e8c495bec7bcd6ac294cde}\label{mce_2amd_8c_aeb4a4dec84e8c495bec7bcd6ac294cde}} 
+\index{amd.c@{amd.c}!\_\_log\_error@{\_\_log\_error}}
+\index{\_\_log\_error@{\_\_log\_error}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{\_\_log\_error()}{\_\_log\_error()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+log\+\_\+error (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{status,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{addr,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{misc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{mce_2amd_8c_aa87631485e804a404c62ce9d8c060398}\label{mce_2amd_8c_aa87631485e804a404c62ce9d8c060398}} 
+\index{amd.c@{amd.c}!\_\_threshold\_add\_blocks@{\_\_threshold\_add\_blocks}}
+\index{\_\_threshold\_add\_blocks@{\_\_threshold\_add\_blocks}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{\_\_threshold\_add\_blocks()}{\_\_threshold\_add\_blocks()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+threshold\+\_\+add\+\_\+blocks (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$}]{b }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{mce_2amd_8c_af2a119a9e3c8b10b5186d8f57854e66d}\label{mce_2amd_8c_af2a119a9e3c8b10b5186d8f57854e66d}} 
+\index{amd.c@{amd.c}!\_\_threshold\_remove\_blocks@{\_\_threshold\_remove\_blocks}}
+\index{\_\_threshold\_remove\_blocks@{\_\_threshold\_remove\_blocks}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{\_\_threshold\_remove\_blocks()}{\_\_threshold\_remove\_blocks()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+threshold\+\_\+remove\+\_\+blocks (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$}]{b }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{mce_2amd_8c_a79d4ebfe5543831f92f8c51bb56e4df9}\label{mce_2amd_8c_a79d4ebfe5543831f92f8c51bb56e4df9}} 
+\index{amd.c@{amd.c}!\_log\_error\_bank@{\_log\_error\_bank}}
+\index{\_log\_error\_bank@{\_log\_error\_bank}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{\_log\_error\_bank()}{\_log\_error\_bank()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+log\+\_\+error\+\_\+bank (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{msr\+\_\+stat,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{msr\+\_\+addr,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{misc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{mce_2amd_8c_ab33ca063164b738d02bb6de60c496917}\label{mce_2amd_8c_ab33ca063164b738d02bb6de60c496917}} 
+\index{amd.c@{amd.c}!allocate\_threshold\_blocks@{allocate\_threshold\_blocks}}
+\index{allocate\_threshold\_blocks@{allocate\_threshold\_blocks}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{allocate\_threshold\_blocks()}{allocate\_threshold\_blocks()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} allocate\+\_\+threshold\+\_\+blocks (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$}]{tb,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{block,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{address }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{mce_2amd_8c_a29f67f874e76ca453f61f8baeefdb39a}\label{mce_2amd_8c_a29f67f874e76ca453f61f8baeefdb39a}} 
+\index{amd.c@{amd.c}!amd\_deferred\_error\_interrupt@{amd\_deferred\_error\_interrupt}}
+\index{amd\_deferred\_error\_interrupt@{amd\_deferred\_error\_interrupt}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{amd\_deferred\_error\_interrupt()}{amd\_deferred\_error\_interrupt()}}
+{\footnotesize\ttfamily static void amd\+\_\+deferred\+\_\+error\+\_\+interrupt (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{mce_2amd_8c_a7142f3291bbfd5b2f2fae992c664a8d0}\label{mce_2amd_8c_a7142f3291bbfd5b2f2fae992c664a8d0}} 
+\index{amd.c@{amd.c}!amd\_filter\_mce@{amd\_filter\_mce}}
+\index{amd\_filter\_mce@{amd\_filter\_mce}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{amd\_filter\_mce()}{amd\_filter\_mce()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} amd\+\_\+filter\+\_\+mce (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{mce_2amd_8c_a5e22895d6b937456db99f5ddb7d6ebd8}\label{mce_2amd_8c_a5e22895d6b937456db99f5ddb7d6ebd8}} 
+\index{amd.c@{amd.c}!amd\_mce\_is\_memory\_error@{amd\_mce\_is\_memory\_error}}
+\index{amd\_mce\_is\_memory\_error@{amd\_mce\_is\_memory\_error}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{amd\_mce\_is\_memory\_error()}{amd\_mce\_is\_memory\_error()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} amd\+\_\+mce\+\_\+is\+\_\+memory\+\_\+error (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{mce_2amd_8c_a3c81e8788a431a66cdf5b7d023c76fe4}\label{mce_2amd_8c_a3c81e8788a431a66cdf5b7d023c76fe4}} 
+\index{amd.c@{amd.c}!amd\_threshold\_interrupt@{amd\_threshold\_interrupt}}
+\index{amd\_threshold\_interrupt@{amd\_threshold\_interrupt}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{amd\_threshold\_interrupt()}{amd\_threshold\_interrupt()}}
+{\footnotesize\ttfamily static void amd\+\_\+threshold\+\_\+interrupt (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{mce_2amd_8c_a5ce04ed91815ef37b6c381f6ef1ee686}\label{mce_2amd_8c_a5ce04ed91815ef37b6c381f6ef1ee686}} 
+\index{amd.c@{amd.c}!bank4\_names@{bank4\_names}}
+\index{bank4\_names@{bank4\_names}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{bank4\_names()}{bank4\_names()}}
+{\footnotesize\ttfamily static const char$\ast$ bank4\+\_\+names (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{b }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{mce_2amd_8c_a2ff32d54ad1b97fc9b233adfceada06e}\label{mce_2amd_8c_a2ff32d54ad1b97fc9b233adfceada06e}} 
+\index{amd.c@{amd.c}!deallocate\_threshold\_blocks@{deallocate\_threshold\_blocks}}
+\index{deallocate\_threshold\_blocks@{deallocate\_threshold\_blocks}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{deallocate\_threshold\_blocks()}{deallocate\_threshold\_blocks()}}
+{\footnotesize\ttfamily static void deallocate\+\_\+threshold\+\_\+blocks (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{mce_2amd_8c_a1896c6b8bd454f67eeeeaaec58d2294d}\label{mce_2amd_8c_a1896c6b8bd454f67eeeeaaec58d2294d}} 
+\index{amd.c@{amd.c}!default\_deferred\_error\_interrupt@{default\_deferred\_error\_interrupt}}
+\index{default\_deferred\_error\_interrupt@{default\_deferred\_error\_interrupt}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{default\_deferred\_error\_interrupt()}{default\_deferred\_error\_interrupt()}}
+{\footnotesize\ttfamily static void default\+\_\+deferred\+\_\+error\+\_\+interrupt (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_a84185eb7daea9fada23e7b8810048fe9}\label{mce_2amd_8c_a84185eb7daea9fada23e7b8810048fe9}} 
+\index{amd.c@{amd.c}!deferred\_error\_interrupt\_enable@{deferred\_error\_interrupt\_enable}}
+\index{deferred\_error\_interrupt\_enable@{deferred\_error\_interrupt\_enable}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{deferred\_error\_interrupt\_enable()}{deferred\_error\_interrupt\_enable()}}
+{\footnotesize\ttfamily static void deferred\+\_\+error\+\_\+interrupt\+\_\+enable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{mce_2amd_8c_a17f4f99a744162e36ef668a748982e6f}\label{mce_2amd_8c_a17f4f99a744162e36ef668a748982e6f}} 
+\index{amd.c@{amd.c}!DEFINE\_IDTENTRY\_SYSVEC@{DEFINE\_IDTENTRY\_SYSVEC}}
+\index{DEFINE\_IDTENTRY\_SYSVEC@{DEFINE\_IDTENTRY\_SYSVEC}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_SYSVEC()}{DEFINE\_IDTENTRY\_SYSVEC()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+S\+Y\+S\+V\+EC (\begin{DoxyParamCaption}\item[{sysvec\+\_\+deferred\+\_\+error}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{mce_2amd_8c_a558d8b8fffceb4f77bb4dc9e53128abb}\label{mce_2amd_8c_a558d8b8fffceb4f77bb4dc9e53128abb}} 
+\index{amd.c@{amd.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$$\ast$}]{,  }\item[{threshold\+\_\+banks}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_aa4bbde9f3427d90fef348c92484782df}\label{mce_2amd_8c_aa4bbde9f3427d90fef348c92484782df}} 
+\index{amd.c@{amd.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{,  }\item[{smca\+\_\+misc\+\_\+banks\+\_\+map}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_a599f441770b28d20cbfe71d7f0472826}\label{mce_2amd_8c_a599f441770b28d20cbfe71d7f0472826}} 
+\index{amd.c@{amd.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{bank\+\_\+map}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_af864c6f61b8cbdd3b22139ed0661f689}\label{mce_2amd_8c_af864c6f61b8cbdd3b22139ed0661f689}} 
+\index{amd.c@{amd.c}!disable\_err\_thresholding@{disable\_err\_thresholding}}
+\index{disable\_err\_thresholding@{disable\_err\_thresholding}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{disable\_err\_thresholding()}{disable\_err\_thresholding()}}
+{\footnotesize\ttfamily static void disable\+\_\+err\+\_\+thresholding (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{mce_2amd_8c_ae8c5f82e1b52cde1fc6233659b80cf4c}\label{mce_2amd_8c_ae8c5f82e1b52cde1fc6233659b80cf4c}} 
+\index{amd.c@{amd.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mce_2amd_8c_a9f37c1cf839fc3e1bd1753c60c77bc1f}{smca\+\_\+banks}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mce_2amd_8c_ab34ae194e4694feba6cf78da6d8280c9}\label{mce_2amd_8c_ab34ae194e4694feba6cf78da6d8280c9}} 
+\index{amd.c@{amd.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mce_2amd_8c_a45c3ce24a7e8d5811b1a1f896bcddc66}{smca\+\_\+get\+\_\+long\+\_\+name}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mce_2amd_8c_a9992998ea69b18fabec8155a590056c4}\label{mce_2amd_8c_a9992998ea69b18fabec8155a590056c4}} 
+\index{amd.c@{amd.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mce_2amd_8c_ac3fd94c493ed73ce41f20f8c06efaeeb}{umc\+\_\+normaddr\+\_\+to\+\_\+sysaddr}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mce_2amd_8c_a048f3158273c6ed743c39d6a739bca9e}\label{mce_2amd_8c_a048f3158273c6ed743c39d6a739bca9e}} 
+\index{amd.c@{amd.c}!get\_block\_address@{get\_block\_address}}
+\index{get\_block\_address@{get\_block\_address}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{get\_block\_address()}{get\_block\_address()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} get\+\_\+block\+\_\+address (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{current\+\_\+addr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{low,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{high,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{block,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{mce_2amd_8c_a96112c868b42ad674543d70cd6187029}\label{mce_2amd_8c_a96112c868b42ad674543d70cd6187029}} 
+\index{amd.c@{amd.c}!get\_name@{get\_name}}
+\index{get\_name@{get\_name}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{get\_name()}{get\_name()}}
+{\footnotesize\ttfamily static const char$\ast$ get\+\_\+name (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{b }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{mce_2amd_8c_aa73ddd3822fca4acaed61d161fee3d7e}\label{mce_2amd_8c_aa73ddd3822fca4acaed61d161fee3d7e}} 
+\index{amd.c@{amd.c}!is\_shared\_bank@{is\_shared\_bank}}
+\index{is\_shared\_bank@{is\_shared\_bank}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{is\_shared\_bank()}{is\_shared\_bank()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+shared\+\_\+bank (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{mce_2amd_8c_a5c5bce39e87209e97802c73cd1919ebf}\label{mce_2amd_8c_a5c5bce39e87209e97802c73cd1919ebf}} 
+\index{amd.c@{amd.c}!log\_and\_reset\_block@{log\_and\_reset\_block}}
+\index{log\_and\_reset\_block@{log\_and\_reset\_block}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{log\_and\_reset\_block()}{log\_and\_reset\_block()}}
+{\footnotesize\ttfamily static void log\+\_\+and\+\_\+reset\+\_\+block (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{block }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{mce_2amd_8c_af8a49d75116bddce75f9bc2dd9e6f1d7}\label{mce_2amd_8c_af8a49d75116bddce75f9bc2dd9e6f1d7}} 
+\index{amd.c@{amd.c}!log\_error\_deferred@{log\_error\_deferred}}
+\index{log\_error\_deferred@{log\_error\_deferred}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{log\_error\_deferred()}{log\_error\_deferred()}}
+{\footnotesize\ttfamily static void log\+\_\+error\+\_\+deferred (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{mce_2amd_8c_affb373677bba1b99d3c27778193e7281}\label{mce_2amd_8c_affb373677bba1b99d3c27778193e7281}} 
+\index{amd.c@{amd.c}!log\_error\_thresholding@{log\_error\_thresholding}}
+\index{log\_error\_thresholding@{log\_error\_thresholding}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{log\_error\_thresholding()}{log\_error\_thresholding()}}
+{\footnotesize\ttfamily static void log\+\_\+error\+\_\+thresholding (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{misc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{mce_2amd_8c_ab9e94c035fa513ec3d4cd5ab444d59e9}\label{mce_2amd_8c_ab9e94c035fa513ec3d4cd5ab444d59e9}} 
+\index{amd.c@{amd.c}!lvt\_interrupt\_supported@{lvt\_interrupt\_supported}}
+\index{lvt\_interrupt\_supported@{lvt\_interrupt\_supported}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{lvt\_interrupt\_supported()}{lvt\_interrupt\_supported()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} lvt\+\_\+interrupt\+\_\+supported (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{msr\+\_\+high\+\_\+bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{mce_2amd_8c_abfca887b2f80d3c207309fb1776139b2}\label{mce_2amd_8c_abfca887b2f80d3c207309fb1776139b2}} 
+\index{amd.c@{amd.c}!lvt\_off\_valid@{lvt\_off\_valid}}
+\index{lvt\_off\_valid@{lvt\_off\_valid}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{lvt\_off\_valid()}{lvt\_off\_valid()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lvt\+\_\+off\+\_\+valid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{b,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{lo,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{hi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{mce_2amd_8c_aaa7212732ddb5b1e7b1db7272c479607}\label{mce_2amd_8c_aaa7212732ddb5b1e7b1db7272c479607}} 
+\index{amd.c@{amd.c}!mce\_amd\_feature\_init@{mce\_amd\_feature\_init}}
+\index{mce\_amd\_feature\_init@{mce\_amd\_feature\_init}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{mce\_amd\_feature\_init()}{mce\_amd\_feature\_init()}}
+{\footnotesize\ttfamily void mce\+\_\+amd\+\_\+feature\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{mce_2amd_8c_a2fc900a3c52a294bca612b4b663daf6a}\label{mce_2amd_8c_a2fc900a3c52a294bca612b4b663daf6a}} 
+\index{amd.c@{amd.c}!mce\_threshold\_block\_init@{mce\_threshold\_block\_init}}
+\index{mce\_threshold\_block\_init@{mce\_threshold\_block\_init}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{mce\_threshold\_block\_init()}{mce\_threshold\_block\_init()}}
+{\footnotesize\ttfamily static void mce\+\_\+threshold\+\_\+block\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{b,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{mce_2amd_8c_a478783ed5c7b06d5fa65c7a0c8a4e904}\label{mce_2amd_8c_a478783ed5c7b06d5fa65c7a0c8a4e904}} 
+\index{amd.c@{amd.c}!mce\_threshold\_create\_device@{mce\_threshold\_create\_device}}
+\index{mce\_threshold\_create\_device@{mce\_threshold\_create\_device}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{mce\_threshold\_create\_device()}{mce\_threshold\_create\_device()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+threshold\+\_\+create\+\_\+device (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+mce\+\_\+threshold\+\_\+create\+\_\+device -\/ Create the per-\/\+C\+PU M\+CE threshold device @cpu\+: \mbox{\hyperlink{classThe}{The}} plugged in C\+PU
+
+Create directories and files for all valid threshold banks.
+
+This is invoked from the C\+PU hotplug callback which was installed in \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a578b1f63e4be29b8fdd4589c77a46a0d}{mcheck\+\_\+init\+\_\+device()}}. \mbox{\hyperlink{classThe}{The}} invocation happens in context of the hotplug thread running on @cpu. \mbox{\hyperlink{classThe}{The}} callback is invoked on all C\+P\+Us which are online when the callback is installed or during a real hotplug event. Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{mce_2amd_8c_ad1855fe618586f8adedd23c94b14abd9}\label{mce_2amd_8c_ad1855fe618586f8adedd23c94b14abd9}} 
+\index{amd.c@{amd.c}!mce\_threshold\_remove\_device@{mce\_threshold\_remove\_device}}
+\index{mce\_threshold\_remove\_device@{mce\_threshold\_remove\_device}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{mce\_threshold\_remove\_device()}{mce\_threshold\_remove\_device()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+threshold\+\_\+remove\+\_\+device (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{mce_2amd_8c_ad710879a652ac70f6f7f28481a4b8c5a}\label{mce_2amd_8c_ad710879a652ac70f6f7f28481a4b8c5a}} 
+\index{amd.c@{amd.c}!prepare\_threshold\_block@{prepare\_threshold\_block}}
+\index{prepare\_threshold\_block@{prepare\_threshold\_block}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{prepare\_threshold\_block()}{prepare\_threshold\_block()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prepare\+\_\+threshold\+\_\+block (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{block,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{addr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{offset,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{misc\+\_\+high }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{mce_2amd_8c_a3976f06f6e3f4ecaa67db21928bfb59a}\label{mce_2amd_8c_a3976f06f6e3f4ecaa67db21928bfb59a}} 
+\index{amd.c@{amd.c}!RW\_ATTR@{RW\_ATTR}}
+\index{RW\_ATTR@{RW\_ATTR}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{RW\_ATTR()}{RW\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily R\+W\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{interrupt\+\_\+enable}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mce_2amd_8c_afcf4bd76d4c778e110888a148cb746e5}\label{mce_2amd_8c_afcf4bd76d4c778e110888a148cb746e5}} 
+\index{amd.c@{amd.c}!RW\_ATTR@{RW\_ATTR}}
+\index{RW\_ATTR@{RW\_ATTR}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{RW\_ATTR()}{RW\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily R\+W\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{threshold\+\_\+limit}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mce_2amd_8c_afada94781c23f309b6bc08a47a10deb2}\label{mce_2amd_8c_afada94781c23f309b6bc08a47a10deb2}} 
+\index{amd.c@{amd.c}!setup\_APIC\_deferred\_error@{setup\_APIC\_deferred\_error}}
+\index{setup\_APIC\_deferred\_error@{setup\_APIC\_deferred\_error}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{setup\_APIC\_deferred\_error()}{setup\_APIC\_deferred\_error()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} setup\+\_\+\+A\+P\+I\+C\+\_\+deferred\+\_\+error (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{reserved,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{new }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{mce_2amd_8c_ab82a1876fc8526544658022ac22bcdf3}\label{mce_2amd_8c_ab82a1876fc8526544658022ac22bcdf3}} 
+\index{amd.c@{amd.c}!setup\_APIC\_mce\_threshold@{setup\_APIC\_mce\_threshold}}
+\index{setup\_APIC\_mce\_threshold@{setup\_APIC\_mce\_threshold}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{setup\_APIC\_mce\_threshold()}{setup\_APIC\_mce\_threshold()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} setup\+\_\+\+A\+P\+I\+C\+\_\+mce\+\_\+threshold (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{reserved,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{new }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{mce_2amd_8c_ac99979b2ec2263dc2678203fadcf978f}\label{mce_2amd_8c_ac99979b2ec2263dc2678203fadcf978f}} 
+\index{amd.c@{amd.c}!show@{show}}
+\index{show@{show}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{show()}{show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{mce_2amd_8c_a908d5a8548402d4b77452bb9d14a190d}\label{mce_2amd_8c_a908d5a8548402d4b77452bb9d14a190d}} 
+\index{amd.c@{amd.c}!show\_error\_count@{show\_error\_count}}
+\index{show\_error\_count@{show\_error\_count}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{show\_error\_count()}{show\_error\_count()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} show\+\_\+error\+\_\+count (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{b,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{mce_2amd_8c_af9792200565af3e9fe4378fb6eb705b3}\label{mce_2amd_8c_af9792200565af3e9fe4378fb6eb705b3}} 
+\index{amd.c@{amd.c}!smca\_configure@{smca\_configure}}
+\index{smca\_configure@{smca\_configure}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_configure()}{smca\_configure()}}
+{\footnotesize\ttfamily static void smca\+\_\+configure (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{mce_2amd_8c_ae62e9b62501b3aa2d17549359730fbec}\label{mce_2amd_8c_ae62e9b62501b3aa2d17549359730fbec}} 
+\index{amd.c@{amd.c}!smca\_get\_bank\_type@{smca\_get\_bank\_type}}
+\index{smca\_get\_bank\_type@{smca\_get\_bank\_type}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_get\_bank\_type()}{smca\_get\_bank\_type()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} smca\+\_\+bank\+\_\+types smca\+\_\+get\+\_\+bank\+\_\+type (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{mce_2amd_8c_a4aab21821fb7847b3257c12426429452}\label{mce_2amd_8c_a4aab21821fb7847b3257c12426429452}} 
+\index{amd.c@{amd.c}!smca\_get\_block\_address@{smca\_get\_block\_address}}
+\index{smca\_get\_block\_address@{smca\_get\_block\_address}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_get\_block\_address()}{smca\_get\_block\_address()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} smca\+\_\+get\+\_\+block\+\_\+address (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{block,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{mce_2amd_8c_a45c3ce24a7e8d5811b1a1f896bcddc66}\label{mce_2amd_8c_a45c3ce24a7e8d5811b1a1f896bcddc66}} 
+\index{amd.c@{amd.c}!smca\_get\_long\_name@{smca\_get\_long\_name}}
+\index{smca\_get\_long\_name@{smca\_get\_long\_name}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_get\_long\_name()}{smca\_get\_long\_name()}}
+{\footnotesize\ttfamily const char$\ast$ smca\+\_\+get\+\_\+long\+\_\+name (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{interfaceenum}{enum}} smca\+\_\+bank\+\_\+types}]{t }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mce_2amd_8c_a1923211c5cdfdb873aaff9d3c98994b3}\label{mce_2amd_8c_a1923211c5cdfdb873aaff9d3c98994b3}} 
+\index{amd.c@{amd.c}!smca\_get\_name@{smca\_get\_name}}
+\index{smca\_get\_name@{smca\_get\_name}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_get\_name()}{smca\_get\_name()}}
+{\footnotesize\ttfamily static const char$\ast$ smca\+\_\+get\+\_\+name (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{interfaceenum}{enum}} smca\+\_\+bank\+\_\+types}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{mce_2amd_8c_a98380bf0c60f20c2d9a4d6dd3eb20037}\label{mce_2amd_8c_a98380bf0c60f20c2d9a4d6dd3eb20037}} 
+\index{amd.c@{amd.c}!store@{store}}
+\index{store@{store}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{store()}{store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{mce_2amd_8c_a7eb7bb387dfc1845da915ac98feed1a0}\label{mce_2amd_8c_a7eb7bb387dfc1845da915ac98feed1a0}} 
+\index{amd.c@{amd.c}!store\_interrupt\_enable@{store\_interrupt\_enable}}
+\index{store\_interrupt\_enable@{store\_interrupt\_enable}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{store\_interrupt\_enable()}{store\_interrupt\_enable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} store\+\_\+interrupt\+\_\+enable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{b,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{mce_2amd_8c_aece09436cbaa1004732a86260d1eb7a3}\label{mce_2amd_8c_aece09436cbaa1004732a86260d1eb7a3}} 
+\index{amd.c@{amd.c}!store\_threshold\_limit@{store\_threshold\_limit}}
+\index{store\_threshold\_limit@{store\_threshold\_limit}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{store\_threshold\_limit()}{store\_threshold\_limit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} store\+\_\+threshold\+\_\+limit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__block}{threshold\+\_\+block}} $\ast$}]{b,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{mce_2amd_8c_ae8649313d51bbd15fad2aaf190379907}\label{mce_2amd_8c_ae8649313d51bbd15fad2aaf190379907}} 
+\index{amd.c@{amd.c}!threshold\_block\_release@{threshold\_block\_release}}
+\index{threshold\_block\_release@{threshold\_block\_release}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{threshold\_block\_release()}{threshold\_block\_release()}}
+{\footnotesize\ttfamily static void threshold\+\_\+block\+\_\+release (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{mce_2amd_8c_ad4c1992a752f1fb010fe84f6eec774bf}\label{mce_2amd_8c_ad4c1992a752f1fb010fe84f6eec774bf}} 
+\index{amd.c@{amd.c}!threshold\_create\_bank@{threshold\_create\_bank}}
+\index{threshold\_create\_bank@{threshold\_create\_bank}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{threshold\_create\_bank()}{threshold\_create\_bank()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} threshold\+\_\+create\+\_\+bank (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$$\ast$}]{bp,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{mce_2amd_8c_a6d6ce245fb6f9e25553eaf41cdb071fc}\label{mce_2amd_8c_a6d6ce245fb6f9e25553eaf41cdb071fc}} 
+\index{amd.c@{amd.c}!threshold\_remove\_bank@{threshold\_remove\_bank}}
+\index{threshold\_remove\_bank@{threshold\_remove\_bank}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{threshold\_remove\_bank()}{threshold\_remove\_bank()}}
+{\footnotesize\ttfamily static void threshold\+\_\+remove\+\_\+bank (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structthreshold__bank}{threshold\+\_\+bank}} $\ast$}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{mce_2amd_8c_a84629ba4c6c65b0090fc42b3901c4daa}\label{mce_2amd_8c_a84629ba4c6c65b0090fc42b3901c4daa}} 
+\index{amd.c@{amd.c}!threshold\_restart\_bank@{threshold\_restart\_bank}}
+\index{threshold\_restart\_bank@{threshold\_restart\_bank}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{threshold\_restart\_bank()}{threshold\_restart\_bank()}}
+{\footnotesize\ttfamily static void threshold\+\_\+restart\+\_\+bank (\begin{DoxyParamCaption}\item[{void $\ast$}]{\+\_\+tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{mce_2amd_8c_ac3fd94c493ed73ce41f20f8c06efaeeb}\label{mce_2amd_8c_ac3fd94c493ed73ce41f20f8c06efaeeb}} 
+\index{amd.c@{amd.c}!umc\_normaddr\_to\_sysaddr@{umc\_normaddr\_to\_sysaddr}}
+\index{umc\_normaddr\_to\_sysaddr@{umc\_normaddr\_to\_sysaddr}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{umc\_normaddr\_to\_sysaddr()}{umc\_normaddr\_to\_sysaddr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} umc\+\_\+normaddr\+\_\+to\+\_\+sysaddr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{norm\+\_\+addr,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{nid,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{umc,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{sys\+\_\+addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 71
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{mce_2amd_8c_aa4ee68bbfbc28f927bb5e69cf1e7b69d}\label{mce_2amd_8c_aa4ee68bbfbc28f927bb5e69cf1e7b69d}} 
+\index{amd.c@{amd.c}!buf\_mcatype@{buf\_mcatype}}
+\index{buf\_mcatype@{buf\_mcatype}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{buf\_mcatype}{buf\_mcatype}}
+{\footnotesize\ttfamily char buf\+\_\+mcatype\mbox{[}\mbox{\hyperlink{mce_2amd_8c_a4e46f7ed9d691121efcbdacfaf50f81e}{M\+A\+X\+\_\+\+M\+C\+A\+T\+Y\+P\+E\+\_\+\+N\+A\+M\+E\+\_\+\+L\+EN}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_ae0811b5a10781d3b0243f7fb8a9e7743}\label{mce_2amd_8c_ae0811b5a10781d3b0243f7fb8a9e7743}} 
+\index{amd.c@{amd.c}!default\_attrs@{default\_attrs}}
+\index{default\_attrs@{default\_attrs}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{default\_attrs}{default\_attrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ default\+\_\+attrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&threshold\_limit.attr,}
+\DoxyCodeLine{    \&\mbox{\hyperlink{mce_2amd_8c_a0bde92c370f20246268663892d2b7e68}{error\_count}}.\mbox{\hyperlink{structthreshold__attr_a5affb2067d0f12a9177e9a4a1993bef2}{attr}},}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},   }
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_a8d5f72894b66eb11c26138cc6a30c344}\label{mce_2amd_8c_a8d5f72894b66eb11c26138cc6a30c344}} 
+\index{amd.c@{amd.c}!deferred\_error\_int\_vector@{deferred\_error\_int\_vector}}
+\index{deferred\_error\_int\_vector@{deferred\_error\_int\_vector}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{deferred\_error\_int\_vector}{deferred\_error\_int\_vector}}
+{\footnotesize\ttfamily void($\ast$ deferred\+\_\+error\+\_\+int\+\_\+vector) (void)\hspace{0.3cm}{\ttfamily [default]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_a0bde92c370f20246268663892d2b7e68}\label{mce_2amd_8c_a0bde92c370f20246268663892d2b7e68}} 
+\index{amd.c@{amd.c}!error\_count@{error\_count}}
+\index{error\_count@{error\_count}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{error\_count}{error\_count}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structthreshold__attr}{threshold\+\_\+attr}} error\+\_\+count\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .attr = \{.name = \mbox{\hyperlink{stringify_8h_a535c7880ab1eea2a5bb39bdf71f2f860}{\_\_stringify}}(\mbox{\hyperlink{mce_2amd_8c_a0bde92c370f20246268663892d2b7e68}{error\_count}}), .mode = 0444 \},}
+\DoxyCodeLine{    .show = \mbox{\hyperlink{mce_2amd_8c_a908d5a8548402d4b77452bb9d14a190d}{show\_error\_count}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_a9f37c1cf839fc3e1bd1753c60c77bc1f}\label{mce_2amd_8c_a9f37c1cf839fc3e1bd1753c60c77bc1f}} 
+\index{amd.c@{amd.c}!smca\_banks@{smca\_banks}}
+\index{smca\_banks@{smca\_banks}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_banks}{smca\_banks}}
+{\footnotesize\ttfamily struct smca\+\_\+bank smca\+\_\+banks\mbox{[}\mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_a2a2a32e2f45de684118ecc081d49a3d0}{M\+A\+X\+\_\+\+N\+R\+\_\+\+B\+A\+N\+KS}}\mbox{]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_a961ba731bc972aadeba706d4862e15ce}\label{mce_2amd_8c_a961ba731bc972aadeba706d4862e15ce}} 
+\index{amd.c@{amd.c}!smca\_hwid\_mcatypes@{smca\_hwid\_mcatypes}}
+\index{smca\_hwid\_mcatypes@{smca\_hwid\_mcatypes}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_hwid\_mcatypes}{smca\_hwid\_mcatypes}}
+{\footnotesize\ttfamily struct smca\+\_\+hwid smca\+\_\+hwid\+\_\+mcatypes\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mce_2amd_8c_a75dc1c444412e25ecb29ca76f17dbd88}\label{mce_2amd_8c_a75dc1c444412e25ecb29ca76f17dbd88}} 
+\index{amd.c@{amd.c}!smca\_names@{smca\_names}}
+\index{smca\_names@{smca\_names}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_names}{smca\_names}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsmca__bank__name}{smca\+\_\+bank\+\_\+name}} smca\+\_\+names\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [SMCA\_LS ... SMCA\_LS\_V2]    = \{ \textcolor{stringliteral}{"load\_store"},   \textcolor{stringliteral}{"Load Store Unit"} \},}
+\DoxyCodeLine{    [SMCA\_IF]           = \{ \textcolor{stringliteral}{"insn\_fetch"},   \textcolor{stringliteral}{"Instruction Fetch Unit"} \},}
+\DoxyCodeLine{    [SMCA\_L2\_CACHE]         = \{ \textcolor{stringliteral}{"l2\_cache"},     \textcolor{stringliteral}{"L2 Cache"} \},}
+\DoxyCodeLine{    [SMCA\_DE]           = \{ \textcolor{stringliteral}{"decode\_unit"},  \textcolor{stringliteral}{"Decode Unit"} \},}
+\DoxyCodeLine{    [SMCA\_RESERVED]         = \{ \textcolor{stringliteral}{"reserved"},     \textcolor{stringliteral}{"Reserved"} \},}
+\DoxyCodeLine{    [SMCA\_EX]           = \{ \textcolor{stringliteral}{"execution\_unit"},   \textcolor{stringliteral}{"Execution Unit"} \},}
+\DoxyCodeLine{    [SMCA\_FP]           = \{ \textcolor{stringliteral}{"floating\_point"},   \textcolor{stringliteral}{"Floating Point Unit"} \},}
+\DoxyCodeLine{    [SMCA\_L3\_CACHE]         = \{ \textcolor{stringliteral}{"l3\_cache"},     \textcolor{stringliteral}{"L3 Cache"} \},}
+\DoxyCodeLine{    [SMCA\_CS ... SMCA\_CS\_V2]    = \{ \textcolor{stringliteral}{"coherent\_slave"},   \textcolor{stringliteral}{"Coherent Slave"} \},}
+\DoxyCodeLine{    [SMCA\_PIE]          = \{ \textcolor{stringliteral}{"pie"},      \textcolor{stringliteral}{"Power, Interrupts, etc."} \},}
+\DoxyCodeLine{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    [SMCA\_UMC]          = \{ \textcolor{stringliteral}{"umc"},      \textcolor{stringliteral}{"Unified Memory Controller"} \},}
+\DoxyCodeLine{    [SMCA\_UMC\_V2]           = \{ \textcolor{stringliteral}{"umc\_v2"},       \textcolor{stringliteral}{"Unified Memory Controller v2"} \},}
+\DoxyCodeLine{    [SMCA\_PB]           = \{ \textcolor{stringliteral}{"param\_block"},  \textcolor{stringliteral}{"Parameter Block"} \},}
+\DoxyCodeLine{    [SMCA\_PSP ... SMCA\_PSP\_V2]  = \{ \textcolor{stringliteral}{"psp"},      \textcolor{stringliteral}{"Platform Security Processor"} \},}
+\DoxyCodeLine{    [SMCA\_SMU ... SMCA\_SMU\_V2]  = \{ \textcolor{stringliteral}{"smu"},      \textcolor{stringliteral}{"System Management Unit"} \},}
+\DoxyCodeLine{    [SMCA\_MP5]          = \{ \textcolor{stringliteral}{"mp5"},      \textcolor{stringliteral}{"Microprocessor 5 Unit"} \},}
+\DoxyCodeLine{    [SMCA\_NBIO]         = \{ \textcolor{stringliteral}{"nbio"},     \textcolor{stringliteral}{"Northbridge IO Unit"} \},}
+\DoxyCodeLine{    [SMCA\_PCIE ... SMCA\_PCIE\_V2]    = \{ \textcolor{stringliteral}{"pcie"},     \textcolor{stringliteral}{"PCI Express Unit"} \},}
+\DoxyCodeLine{    [SMCA\_XGMI\_PCS]         = \{ \textcolor{stringliteral}{"xgmi\_pcs"},     \textcolor{stringliteral}{"Ext Global Memory Interconnect PCS Unit"} \},}
+\DoxyCodeLine{    [SMCA\_XGMI\_PHY]         = \{ \textcolor{stringliteral}{"xgmi\_phy"},     \textcolor{stringliteral}{"Ext Global Memory Interconnect PHY Unit"} \},}
+\DoxyCodeLine{    [SMCA\_WAFL\_PHY]         = \{ \textcolor{stringliteral}{"wafl\_phy"},     \textcolor{stringliteral}{"WAFL PHY Unit"} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_acd9ee531c77486442a30aa121f896d55}\label{mce_2amd_8c_acd9ee531c77486442a30aa121f896d55}} 
+\index{amd.c@{amd.c}!smca\_umc\_block\_names@{smca\_umc\_block\_names}}
+\index{smca\_umc\_block\_names@{smca\_umc\_block\_names}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{smca\_umc\_block\_names}{smca\_umc\_block\_names}}
+{\footnotesize\ttfamily const char$\ast$ const smca\+\_\+umc\+\_\+block\+\_\+names\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \textcolor{stringliteral}{"dram\_ecc"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"misc\_umc"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_ac99b57c42d970a9b1653e198237d857c}\label{mce_2amd_8c_ac99b57c42d970a9b1653e198237d857c}} 
+\index{amd.c@{amd.c}!th\_names@{th\_names}}
+\index{th\_names@{th\_names}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{th\_names}{th\_names}}
+{\footnotesize\ttfamily const char$\ast$ const th\+\_\+names\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \textcolor{stringliteral}{"load\_store"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"insn\_fetch"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"combined\_unit"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"decode\_unit"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"northbridge"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"execution\_unit"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_a562d54b2787afafc36088ab7aab909ab}\label{mce_2amd_8c_a562d54b2787afafc36088ab7aab909ab}} 
+\index{amd.c@{amd.c}!threshold\_ktype@{threshold\_ktype}}
+\index{threshold\_ktype@{threshold\_ktype}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{threshold\_ktype}{threshold\_ktype}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkobj__type}{kobj\+\_\+type}} threshold\+\_\+ktype\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .sysfs\_ops      = \&\mbox{\hyperlink{mce_2amd_8c_a9a3dc4f618025d947c821d0601110947}{threshold\_ops}},}
+\DoxyCodeLine{    .default\_attrs      = \mbox{\hyperlink{mce_2amd_8c_ae0811b5a10781d3b0243f7fb8a9e7743}{default\_attrs}},}
+\DoxyCodeLine{    .release        = \mbox{\hyperlink{mce_2amd_8c_ae8649313d51bbd15fad2aaf190379907}{threshold\_block\_release}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_a9a3dc4f618025d947c821d0601110947}\label{mce_2amd_8c_a9a3dc4f618025d947c821d0601110947}} 
+\index{amd.c@{amd.c}!threshold\_ops@{threshold\_ops}}
+\index{threshold\_ops@{threshold\_ops}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{threshold\_ops}{threshold\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structsysfs__ops}{sysfs\+\_\+ops}} threshold\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .show           = \mbox{\hyperlink{mce_2amd_8c_ac99979b2ec2263dc2678203fadcf978f}{show}},}
+\DoxyCodeLine{    .store          = \mbox{\hyperlink{mce_2amd_8c_a98380bf0c60f20c2d9a4d6dd3eb20037}{store}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{mce_2amd_8c_a7f1b78777375d8610fabb7bdd1d87f9c}\label{mce_2amd_8c_a7f1b78777375d8610fabb7bdd1d87f9c}} 
+\index{amd.c@{amd.c}!thresholding\_irq\_en@{thresholding\_irq\_en}}
+\index{thresholding\_irq\_en@{thresholding\_irq\_en}!amd.c@{amd.c}}
+\doxysubsubsection{\texorpdfstring{thresholding\_irq\_en}{thresholding\_irq\_en}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} thresholding\+\_\+irq\+\_\+en\hspace{0.3cm}{\ttfamily [static]}}
+

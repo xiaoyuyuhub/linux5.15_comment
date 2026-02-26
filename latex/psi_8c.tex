@@ -1,0 +1,725 @@
+\hypertarget{psi_8c}{}\doxysection{kernel/sched/psi.c File Reference}
+\label{psi_8c}\index{kernel/sched/psi.c@{kernel/sched/psi.c}}
+{\ttfamily \#include \char`\"{}../workqueue\+\_\+internal.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$linux/sched/loadavg.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/proc\+\_\+fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seqlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cgroup.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ctype.\+h$>$}\newline
+{\ttfamily \#include $<$linux/file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/poll.\+h$>$}\newline
+{\ttfamily \#include $<$linux/psi.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}sched.\+h\char`\"{}}\newline
+Include dependency graph for psi.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{psi_8c_a6ce6490cc9e36e39d79bcb875c342760}{P\+S\+I\+\_\+\+F\+R\+EQ}}~(2$\ast$\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}+1)	/$\ast$ 2 \mbox{\hyperlink{include_2xen_2arm_2interface_8h_a54133e749174aa89a94df513e043988b}{sec}} intervals $\ast$/
+\item 
+\#define \mbox{\hyperlink{psi_8c_ac53e32028f3f9abf42c333bd0953dad2}{E\+X\+P\+\_\+10s}}~1677		/$\ast$ 1/\mbox{\hyperlink{single_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}(2\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}/10s) as \mbox{\hyperlink{if__hippi_8h_aa8c04383b0ff6d4eabbee260e38e6053}{fixed}}-\/point $\ast$/
+\item 
+\#define \mbox{\hyperlink{psi_8c_ade20db8d72004c64b0f120083b3b65cf}{E\+X\+P\+\_\+60s}}~1981		/$\ast$ 1/\mbox{\hyperlink{single_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}(2\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}/60s) $\ast$/
+\item 
+\#define \mbox{\hyperlink{psi_8c_af709386cdffa57a6eaf16d14b59cd072}{E\+X\+P\+\_\+300s}}~2034		/$\ast$ 1/\mbox{\hyperlink{single_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}(2\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}/300s) $\ast$/
+\item 
+\#define \mbox{\hyperlink{psi_8c_a6ed3e69dad4cd51b0c24a80c02db5d6f}{W\+I\+N\+D\+O\+W\+\_\+\+M\+I\+N\+\_\+\+US}}~500000	/$\ast$ Min window \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} is 500ms $\ast$/
+\item 
+\#define \mbox{\hyperlink{psi_8c_aab1b84c5b3c77c93855c9ea09a93244b}{W\+I\+N\+D\+O\+W\+\_\+\+M\+A\+X\+\_\+\+US}}~10000000	/$\ast$ Max window \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} is 10s $\ast$/
+\item 
+\#define \mbox{\hyperlink{psi_8c_a165cbfdebbc463f5ad0e70ef997eb667}{U\+P\+D\+A\+T\+E\+S\+\_\+\+P\+E\+R\+\_\+\+W\+I\+N\+D\+OW}}~10	/$\ast$ 10 updates per window $\ast$/
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{psi_8c_ac16e38e1af0ef06f37c38da1e7eab992}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (psi\+\_\+disabled)
+\item 
+\mbox{\hyperlink{psi_8c_a60942b6494966044c3d768a7e23bda8e}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+T\+R\+UE}} (psi\+\_\+cgroups\+\_\+enabled)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{psi_8c_a06cbe54e2148b01ddd2b9b118e5a7c5d}{setup\+\_\+psi}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{psi_8c_ad543a70e21443be9f6f5ae0c8379fa4e}{\+\_\+\+\_\+setup}} (\char`\"{}psi=\char`\"{}, setup\+\_\+psi)
+\item 
+static \mbox{\hyperlink{psi_8c_af9277b787734fe16d4d871562f4a2338}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct psi\+\_\+group\+\_\+cpu, system\+\_\+group\+\_\+pcpu)
+\item 
+static void \mbox{\hyperlink{psi_8c_a243a530be388e197757ad99a8b1a5b11}{psi\+\_\+avgs\+\_\+work}} (struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$work)
+\item 
+static void \mbox{\hyperlink{psi_8c_a1f160d17497a82cba9c0168c6a9821b2}{poll\+\_\+timer\+\_\+fn}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+static void \mbox{\hyperlink{psi_8c_a1c14813504ded317979c8adde3dcbbe1}{group\+\_\+init}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{psi_8c_ac238c42312ea56f36f5657cc3ace7bd3}{psi\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{psi_8c_a21d66c1f793bf48fa6472f378e34e857}{test\+\_\+state}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$tasks, \mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+states \mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}})
+\item 
+static void \mbox{\hyperlink{psi_8c_a0edaf19ca341196ec4d557654605dfa6}{get\+\_\+recent\+\_\+times}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, \mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+aggregators \mbox{\hyperlink{structaggregator}{aggregator}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$times, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$pchanged\+\_\+states)
+\item 
+static void \mbox{\hyperlink{psi_8c_a1dc065dfba30dc033b12db345d9f42b5}{calc\+\_\+avgs}} (unsigned long avg\mbox{[}3\mbox{]}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} missed\+\_\+periods, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} period)
+\item 
+static void \mbox{\hyperlink{psi_8c_a1606e4610edd50f0cc4d855dc11393e9}{collect\+\_\+percpu\+\_\+times}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, \mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+aggregators \mbox{\hyperlink{structaggregator}{aggregator}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$pchanged\+\_\+states)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{psi_8c_a12d8fd1ff1b745f01a2051b2116d5207}{update\+\_\+averages}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} now)
+\item 
+static void \mbox{\hyperlink{psi_8c_aea45d2ba0005355b6fe97d8129e3d6ba}{window\+\_\+reset}} (struct psi\+\_\+window $\ast$win, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} now, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} prev\+\_\+growth)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{psi_8c_aa110d1a3bbc65db8e74478722e75575d}{window\+\_\+update}} (struct psi\+\_\+window $\ast$win, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} now, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}})
+\item 
+static void \mbox{\hyperlink{psi_8c_ac4b8c9c6765e0930137b36546210c1cb}{init\+\_\+triggers}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} now)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{psi_8c_ac5c915b661f3e1e09029d146b8062dcb}{update\+\_\+triggers}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} now)
+\item 
+static void \mbox{\hyperlink{psi_8c_af0eefab36e74f3657ca6f803ab1b1c48}{psi\+\_\+schedule\+\_\+poll\+\_\+work}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, unsigned long \mbox{\hyperlink{preemptirq__delay__test_8c_ab04e4956157b6df8791c0d45b81049d8}{delay}})
+\item 
+static void \mbox{\hyperlink{psi_8c_a044d5c2054a4c7858d0554838f148aee}{psi\+\_\+poll\+\_\+work}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_a1a0edaf70409fdae53644a914b84b04d}{psi\+\_\+poll\+\_\+worker}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{psi_8c_a46448c880d808ce5bd84f1c947dbad1b}{record\+\_\+times}} (struct psi\+\_\+group\+\_\+cpu $\ast$groupc, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} now)
+\item 
+static void \mbox{\hyperlink{psi_8c_a26a458b05ab6f01bff37a87f76cbdcf7}{psi\+\_\+group\+\_\+change}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{nl80211_8h_aa32dc92d0a8e963b0834f4f6a0f97b18}{set}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} now, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} wake\+\_\+clock)
+\item 
+static struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$ \mbox{\hyperlink{psi_8c_a50c651fc593ca10e705212d52a1912db}{iterate\+\_\+groups}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, void $\ast$$\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a169ff8d863e9abaaa0b5cd1c86e305a8}{iter}})
+\item 
+static void \mbox{\hyperlink{psi_8c_a9cb7645d7682a170a0ac95901e494ed0}{psi\+\_\+flags\+\_\+change}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{nl80211_8h_aa32dc92d0a8e963b0834f4f6a0f97b18}{set}})
+\item 
+void \mbox{\hyperlink{psi_8c_a16d9d5a35e8364b882f3dc67a8dbb585}{psi\+\_\+task\+\_\+change}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{nl80211_8h_aa32dc92d0a8e963b0834f4f6a0f97b18}{set}})
+\item 
+void \mbox{\hyperlink{psi_8c_a6852c55665fc3f634059add61d48c4de}{psi\+\_\+task\+\_\+switch}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{mm_2interval__tree_8c_a79511b35a6c382701f3d62fa2a4aa741}{prev}}, struct task\+\_\+struct $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} sleep)
+\item 
+void \mbox{\hyperlink{psi_8c_a9aa03d4b740b4b339172c0b63aea07f9}{psi\+\_\+memstall\+\_\+enter}} (unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+void \mbox{\hyperlink{psi_8c_ad335ebe3c43cf2d091c7d91f09b84938}{psi\+\_\+memstall\+\_\+leave}} (unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_ad6c1a35f83ba67e6c10b68d12f5d9750}{psi\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, \mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+res \mbox{\hyperlink{microcode__amd_8h_aa3807d4a2518de9df382dd18616f2e4f}{res}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_a3660f4e1b97a9450f6995cbf9b4570dc}{psi\+\_\+io\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$v)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_a108f23bcbff12f1a23ef77d88d2fda76}{psi\+\_\+memory\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$v)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_afbadffa428f428826610f7e6b343f372}{psi\+\_\+cpu\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$v)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_a5be21deae0c552f3210bf02ab297f85f}{psi\+\_\+open}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}($\ast$\mbox{\hyperlink{psi_8c_ad6c1a35f83ba67e6c10b68d12f5d9750}{psi\+\_\+show}})(struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$, void $\ast$))
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_a7d6ecbcc4b1fdbeec4cb7f6087497027}{psi\+\_\+io\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_ac033701a65380d3a5f88331033dd8088}{psi\+\_\+memory\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_a7252e2af153d51378c3e17773152c78c}{psi\+\_\+cpu\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+struct psi\+\_\+trigger $\ast$ \mbox{\hyperlink{psi_8c_ae6b6e60eaaed7c922a9462d2e1709791}{psi\+\_\+trigger\+\_\+create}} (struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$group, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_adb81ec8a5887d505d7ef1ddc72f03d54}{nbytes}}, \mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+res \mbox{\hyperlink{microcode__amd_8h_aa3807d4a2518de9df382dd18616f2e4f}{res}})
+\item 
+static void \mbox{\hyperlink{psi_8c_aad056469d9eedc8f8b29206ed39f69f6}{psi\+\_\+trigger\+\_\+destroy}} (struct \mbox{\hyperlink{structkref}{kref}} $\ast$ref)
+\item 
+void \mbox{\hyperlink{psi_8c_abfe6bbcffbcfc69f1f3ce19c6345d8a8}{psi\+\_\+trigger\+\_\+replace}} (void $\ast$$\ast$trigger\+\_\+ptr, struct psi\+\_\+trigger $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}})
+\item 
+\mbox{\hyperlink{include_2uapi_2linux_2types_8h_a5fd99f90a96467cc608d4f842deb22c8}{\+\_\+\+\_\+poll\+\_\+t}} \mbox{\hyperlink{psi_8c_a0b9d0bc1c24830e183a717d24632059d}{psi\+\_\+trigger\+\_\+poll}} (void $\ast$$\ast$trigger\+\_\+ptr, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, \mbox{\hyperlink{include_2linux_2poll_8h_af88310209cdf46352f032da75703552c}{poll\+\_\+table}} $\ast$\mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{psi_8c_abbe6800efefa8a225f69e84eb0dd6678}{psi\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+buf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_adb81ec8a5887d505d7ef1ddc72f03d54}{nbytes}}, \mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+res \mbox{\hyperlink{microcode__amd_8h_aa3807d4a2518de9df382dd18616f2e4f}{res}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{psi_8c_a611aac900c840cae0b6fb0b58b228632}{psi\+\_\+io\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+buf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_adb81ec8a5887d505d7ef1ddc72f03d54}{nbytes}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{psi_8c_aadf8effb52cfc57ead8104fd30d7dd8b}{psi\+\_\+memory\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+buf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_adb81ec8a5887d505d7ef1ddc72f03d54}{nbytes}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{psi_8c_ac7780509fc4f326255fba66fbd9a166e}{psi\+\_\+cpu\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+buf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_adb81ec8a5887d505d7ef1ddc72f03d54}{nbytes}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{include_2uapi_2linux_2types_8h_a5fd99f90a96467cc608d4f842deb22c8}{\+\_\+\+\_\+poll\+\_\+t}} \mbox{\hyperlink{psi_8c_ab4db3676e334eefbdf6363c8be2690d4}{psi\+\_\+fop\+\_\+poll}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, \mbox{\hyperlink{include_2linux_2poll_8h_af88310209cdf46352f032da75703552c}{poll\+\_\+table}} $\ast$\mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{psi_8c_a3420641e37b0d94ba9cd9709f28dc424}{psi\+\_\+fop\+\_\+release}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{psi_8c_ae93efdf834a4a6fb029a43c411619185}{psi\+\_\+proc\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{psi_8c_a3ae2c7f0961b35b9c3160bf28e8ff97c}{module\+\_\+init}} (\mbox{\hyperlink{psi_8c_ae93efdf834a4a6fb029a43c411619185}{psi\+\_\+proc\+\_\+init}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+bug \mbox{\hyperlink{psi_8c_adfabbe674600dea58f115bb81eefad55}{\+\_\+\+\_\+read\+\_\+mostly}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{psi_8c_a43014fcf9762ecf99c6ee236bef0057a}{psi\+\_\+enable}} = \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}
+\item 
+struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} \mbox{\hyperlink{psi_8c_adc76d539c6b1b61ef2d41e487123d0bb}{psi\+\_\+system}}
+\item 
+static const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} \mbox{\hyperlink{psi_8c_aead809479e85014aa0dca287816932c2}{psi\+\_\+io\+\_\+proc\+\_\+ops}}
+\item 
+static const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} \mbox{\hyperlink{psi_8c_a5637ff12e5c65f1c20b188fe6cf54f6b}{psi\+\_\+memory\+\_\+proc\+\_\+ops}}
+\item 
+static const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} \mbox{\hyperlink{psi_8c_a2a6da8c7f74fd4153fde95f48d75f865}{psi\+\_\+cpu\+\_\+proc\+\_\+ops}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{psi_8c_ac53e32028f3f9abf42c333bd0953dad2}\label{psi_8c_ac53e32028f3f9abf42c333bd0953dad2}} 
+\index{psi.c@{psi.c}!EXP\_10s@{EXP\_10s}}
+\index{EXP\_10s@{EXP\_10s}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{EXP\_10s}{EXP\_10s}}
+{\footnotesize\ttfamily \#define E\+X\+P\+\_\+10s~1677		/$\ast$ 1/\mbox{\hyperlink{single_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}(2\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}/10s) as \mbox{\hyperlink{if__hippi_8h_aa8c04383b0ff6d4eabbee260e38e6053}{fixed}}-\/point $\ast$/}
+
+\mbox{\Hypertarget{psi_8c_af709386cdffa57a6eaf16d14b59cd072}\label{psi_8c_af709386cdffa57a6eaf16d14b59cd072}} 
+\index{psi.c@{psi.c}!EXP\_300s@{EXP\_300s}}
+\index{EXP\_300s@{EXP\_300s}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{EXP\_300s}{EXP\_300s}}
+{\footnotesize\ttfamily \#define E\+X\+P\+\_\+300s~2034		/$\ast$ 1/\mbox{\hyperlink{single_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}(2\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}/300s) $\ast$/}
+
+\mbox{\Hypertarget{psi_8c_ade20db8d72004c64b0f120083b3b65cf}\label{psi_8c_ade20db8d72004c64b0f120083b3b65cf}} 
+\index{psi.c@{psi.c}!EXP\_60s@{EXP\_60s}}
+\index{EXP\_60s@{EXP\_60s}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{EXP\_60s}{EXP\_60s}}
+{\footnotesize\ttfamily \#define E\+X\+P\+\_\+60s~1981		/$\ast$ 1/\mbox{\hyperlink{single_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}(2\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}/60s) $\ast$/}
+
+\mbox{\Hypertarget{psi_8c_a6ce6490cc9e36e39d79bcb875c342760}\label{psi_8c_a6ce6490cc9e36e39d79bcb875c342760}} 
+\index{psi.c@{psi.c}!PSI\_FREQ@{PSI\_FREQ}}
+\index{PSI\_FREQ@{PSI\_FREQ}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{PSI\_FREQ}{PSI\_FREQ}}
+{\footnotesize\ttfamily \#define P\+S\+I\+\_\+\+F\+R\+EQ~(2$\ast$\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}+1)	/$\ast$ 2 \mbox{\hyperlink{include_2xen_2arm_2interface_8h_a54133e749174aa89a94df513e043988b}{sec}} intervals $\ast$/}
+
+\mbox{\Hypertarget{psi_8c_a165cbfdebbc463f5ad0e70ef997eb667}\label{psi_8c_a165cbfdebbc463f5ad0e70ef997eb667}} 
+\index{psi.c@{psi.c}!UPDATES\_PER\_WINDOW@{UPDATES\_PER\_WINDOW}}
+\index{UPDATES\_PER\_WINDOW@{UPDATES\_PER\_WINDOW}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{UPDATES\_PER\_WINDOW}{UPDATES\_PER\_WINDOW}}
+{\footnotesize\ttfamily \#define U\+P\+D\+A\+T\+E\+S\+\_\+\+P\+E\+R\+\_\+\+W\+I\+N\+D\+OW~10	/$\ast$ 10 updates per window $\ast$/}
+
+\mbox{\Hypertarget{psi_8c_aab1b84c5b3c77c93855c9ea09a93244b}\label{psi_8c_aab1b84c5b3c77c93855c9ea09a93244b}} 
+\index{psi.c@{psi.c}!WINDOW\_MAX\_US@{WINDOW\_MAX\_US}}
+\index{WINDOW\_MAX\_US@{WINDOW\_MAX\_US}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{WINDOW\_MAX\_US}{WINDOW\_MAX\_US}}
+{\footnotesize\ttfamily \#define W\+I\+N\+D\+O\+W\+\_\+\+M\+A\+X\+\_\+\+US~10000000	/$\ast$ Max window \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} is 10s $\ast$/}
+
+\mbox{\Hypertarget{psi_8c_a6ed3e69dad4cd51b0c24a80c02db5d6f}\label{psi_8c_a6ed3e69dad4cd51b0c24a80c02db5d6f}} 
+\index{psi.c@{psi.c}!WINDOW\_MIN\_US@{WINDOW\_MIN\_US}}
+\index{WINDOW\_MIN\_US@{WINDOW\_MIN\_US}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{WINDOW\_MIN\_US}{WINDOW\_MIN\_US}}
+{\footnotesize\ttfamily \#define W\+I\+N\+D\+O\+W\+\_\+\+M\+I\+N\+\_\+\+US~500000	/$\ast$ Min window \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} is 500ms $\ast$/}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{psi_8c_ad543a70e21443be9f6f5ae0c8379fa4e}\label{psi_8c_ad543a70e21443be9f6f5ae0c8379fa4e}} 
+\index{psi.c@{psi.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{psi_8c_a1dc065dfba30dc033b12db345d9f42b5}\label{psi_8c_a1dc065dfba30dc033b12db345d9f42b5}} 
+\index{psi.c@{psi.c}!calc\_avgs@{calc\_avgs}}
+\index{calc\_avgs@{calc\_avgs}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{calc\_avgs()}{calc\_avgs()}}
+{\footnotesize\ttfamily static void calc\+\_\+avgs (\begin{DoxyParamCaption}\item[{unsigned long}]{avg\mbox{[}3\mbox{]},  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{missed\+\_\+periods,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{time,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{period }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{psi_8c_a1606e4610edd50f0cc4d855dc11393e9}\label{psi_8c_a1606e4610edd50f0cc4d855dc11393e9}} 
+\index{psi.c@{psi.c}!collect\_percpu\_times@{collect\_percpu\_times}}
+\index{collect\_percpu\_times@{collect\_percpu\_times}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{collect\_percpu\_times()}{collect\_percpu\_times()}}
+{\footnotesize\ttfamily static void collect\+\_\+percpu\+\_\+times (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+aggregators}]{aggregator,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$}]{pchanged\+\_\+states }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{psi_8c_af9277b787734fe16d4d871562f4a2338}\label{psi_8c_af9277b787734fe16d4d871562f4a2338}} 
+\index{psi.c@{psi.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct psi\+\_\+group\+\_\+cpu}]{,  }\item[{system\+\_\+group\+\_\+pcpu}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{psi_8c_ac16e38e1af0ef06f37c38da1e7eab992}\label{psi_8c_ac16e38e1af0ef06f37c38da1e7eab992}} 
+\index{psi.c@{psi.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{psi\+\_\+disabled}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{psi_8c_a60942b6494966044c3d768a7e23bda8e}\label{psi_8c_a60942b6494966044c3d768a7e23bda8e}} 
+\index{psi.c@{psi.c}!DEFINE\_STATIC\_KEY\_TRUE@{DEFINE\_STATIC\_KEY\_TRUE}}
+\index{DEFINE\_STATIC\_KEY\_TRUE@{DEFINE\_STATIC\_KEY\_TRUE}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_TRUE()}{DEFINE\_STATIC\_KEY\_TRUE()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+T\+R\+UE (\begin{DoxyParamCaption}\item[{psi\+\_\+cgroups\+\_\+enabled}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{psi_8c_a0edaf19ca341196ec4d557654605dfa6}\label{psi_8c_a0edaf19ca341196ec4d557654605dfa6}} 
+\index{psi.c@{psi.c}!get\_recent\_times@{get\_recent\_times}}
+\index{get\_recent\_times@{get\_recent\_times}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{get\_recent\_times()}{get\_recent\_times()}}
+{\footnotesize\ttfamily static void get\+\_\+recent\+\_\+times (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+aggregators}]{aggregator,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$}]{times,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$}]{pchanged\+\_\+states }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{psi_8c_a1c14813504ded317979c8adde3dcbbe1}\label{psi_8c_a1c14813504ded317979c8adde3dcbbe1}} 
+\index{psi.c@{psi.c}!group\_init@{group\_init}}
+\index{group\_init@{group\_init}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{group\_init()}{group\_init()}}
+{\footnotesize\ttfamily static void group\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{psi_8c_ac4b8c9c6765e0930137b36546210c1cb}\label{psi_8c_ac4b8c9c6765e0930137b36546210c1cb}} 
+\index{psi.c@{psi.c}!init\_triggers@{init\_triggers}}
+\index{init\_triggers@{init\_triggers}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{init\_triggers()}{init\_triggers()}}
+{\footnotesize\ttfamily static void init\+\_\+triggers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{psi_8c_a50c651fc593ca10e705212d52a1912db}\label{psi_8c_a50c651fc593ca10e705212d52a1912db}} 
+\index{psi.c@{psi.c}!iterate\_groups@{iterate\_groups}}
+\index{iterate\_groups@{iterate\_groups}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{iterate\_groups()}{iterate\_groups()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}}$\ast$ iterate\+\_\+groups (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{void $\ast$$\ast$}]{iter }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{psi_8c_a3ae2c7f0961b35b9c3160bf28e8ff97c}\label{psi_8c_a3ae2c7f0961b35b9c3160bf28e8ff97c}} 
+\index{psi.c@{psi.c}!module\_init@{module\_init}}
+\index{module\_init@{module\_init}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{module\_init()}{module\_init()}}
+{\footnotesize\ttfamily module\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{psi_8c_ae93efdf834a4a6fb029a43c411619185}{psi\+\_\+proc\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{psi_8c_a1f160d17497a82cba9c0168c6a9821b2}\label{psi_8c_a1f160d17497a82cba9c0168c6a9821b2}} 
+\index{psi.c@{psi.c}!poll\_timer\_fn@{poll\_timer\_fn}}
+\index{poll\_timer\_fn@{poll\_timer\_fn}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{poll\_timer\_fn()}{poll\_timer\_fn()}}
+{\footnotesize\ttfamily static void poll\+\_\+timer\+\_\+fn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{psi_8c_a243a530be388e197757ad99a8b1a5b11}\label{psi_8c_a243a530be388e197757ad99a8b1a5b11}} 
+\index{psi.c@{psi.c}!psi\_avgs\_work@{psi\_avgs\_work}}
+\index{psi\_avgs\_work@{psi\_avgs\_work}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_avgs\_work()}{psi\_avgs\_work()}}
+{\footnotesize\ttfamily static void psi\+\_\+avgs\+\_\+work (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$}]{work }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{psi_8c_a7252e2af153d51378c3e17773152c78c}\label{psi_8c_a7252e2af153d51378c3e17773152c78c}} 
+\index{psi.c@{psi.c}!psi\_cpu\_open@{psi\_cpu\_open}}
+\index{psi\_cpu\_open@{psi\_cpu\_open}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_cpu\_open()}{psi\_cpu\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+cpu\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{psi_8c_afbadffa428f428826610f7e6b343f372}\label{psi_8c_afbadffa428f428826610f7e6b343f372}} 
+\index{psi.c@{psi.c}!psi\_cpu\_show@{psi\_cpu\_show}}
+\index{psi\_cpu\_show@{psi\_cpu\_show}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_cpu\_show()}{psi\_cpu\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+cpu\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{psi_8c_ac7780509fc4f326255fba66fbd9a166e}\label{psi_8c_ac7780509fc4f326255fba66fbd9a166e}} 
+\index{psi.c@{psi.c}!psi\_cpu\_write@{psi\_cpu\_write}}
+\index{psi\_cpu\_write@{psi\_cpu\_write}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_cpu\_write()}{psi\_cpu\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} psi\+\_\+cpu\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{nbytes,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{psi_8c_a9cb7645d7682a170a0ac95901e494ed0}\label{psi_8c_a9cb7645d7682a170a0ac95901e494ed0}} 
+\index{psi.c@{psi.c}!psi\_flags\_change@{psi\_flags\_change}}
+\index{psi\_flags\_change@{psi\_flags\_change}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_flags\_change()}{psi\_flags\_change()}}
+{\footnotesize\ttfamily static void psi\+\_\+flags\+\_\+change (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{clear,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{set }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{psi_8c_ab4db3676e334eefbdf6363c8be2690d4}\label{psi_8c_ab4db3676e334eefbdf6363c8be2690d4}} 
+\index{psi.c@{psi.c}!psi\_fop\_poll@{psi\_fop\_poll}}
+\index{psi\_fop\_poll@{psi\_fop\_poll}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_fop\_poll()}{psi\_fop\_poll()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2uapi_2linux_2types_8h_a5fd99f90a96467cc608d4f842deb22c8}{\+\_\+\+\_\+poll\+\_\+t}} psi\+\_\+fop\+\_\+poll (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{\mbox{\hyperlink{include_2linux_2poll_8h_af88310209cdf46352f032da75703552c}{poll\+\_\+table}} $\ast$}]{wait }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{psi_8c_a3420641e37b0d94ba9cd9709f28dc424}\label{psi_8c_a3420641e37b0d94ba9cd9709f28dc424}} 
+\index{psi.c@{psi.c}!psi\_fop\_release@{psi\_fop\_release}}
+\index{psi\_fop\_release@{psi\_fop\_release}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_fop\_release()}{psi\_fop\_release()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+fop\+\_\+release (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{psi_8c_a26a458b05ab6f01bff37a87f76cbdcf7}\label{psi_8c_a26a458b05ab6f01bff37a87f76cbdcf7}} 
+\index{psi.c@{psi.c}!psi\_group\_change@{psi\_group\_change}}
+\index{psi\_group\_change@{psi\_group\_change}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_group\_change()}{psi\_group\_change()}}
+{\footnotesize\ttfamily static void psi\+\_\+group\+\_\+change (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{clear,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{set,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{now,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{wake\+\_\+clock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{psi_8c_ac238c42312ea56f36f5657cc3ace7bd3}\label{psi_8c_ac238c42312ea56f36f5657cc3ace7bd3}} 
+\index{psi.c@{psi.c}!psi\_init@{psi\_init}}
+\index{psi\_init@{psi\_init}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_init()}{psi\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} psi\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{psi_8c_a7d6ecbcc4b1fdbeec4cb7f6087497027}\label{psi_8c_a7d6ecbcc4b1fdbeec4cb7f6087497027}} 
+\index{psi.c@{psi.c}!psi\_io\_open@{psi\_io\_open}}
+\index{psi\_io\_open@{psi\_io\_open}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_io\_open()}{psi\_io\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+io\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{psi_8c_a3660f4e1b97a9450f6995cbf9b4570dc}\label{psi_8c_a3660f4e1b97a9450f6995cbf9b4570dc}} 
+\index{psi.c@{psi.c}!psi\_io\_show@{psi\_io\_show}}
+\index{psi\_io\_show@{psi\_io\_show}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_io\_show()}{psi\_io\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+io\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{psi_8c_a611aac900c840cae0b6fb0b58b228632}\label{psi_8c_a611aac900c840cae0b6fb0b58b228632}} 
+\index{psi.c@{psi.c}!psi\_io\_write@{psi\_io\_write}}
+\index{psi\_io\_write@{psi\_io\_write}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_io\_write()}{psi\_io\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} psi\+\_\+io\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{nbytes,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{psi_8c_ac033701a65380d3a5f88331033dd8088}\label{psi_8c_ac033701a65380d3a5f88331033dd8088}} 
+\index{psi.c@{psi.c}!psi\_memory\_open@{psi\_memory\_open}}
+\index{psi\_memory\_open@{psi\_memory\_open}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_memory\_open()}{psi\_memory\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+memory\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{psi_8c_a108f23bcbff12f1a23ef77d88d2fda76}\label{psi_8c_a108f23bcbff12f1a23ef77d88d2fda76}} 
+\index{psi.c@{psi.c}!psi\_memory\_show@{psi\_memory\_show}}
+\index{psi\_memory\_show@{psi\_memory\_show}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_memory\_show()}{psi\_memory\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+memory\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{psi_8c_aadf8effb52cfc57ead8104fd30d7dd8b}\label{psi_8c_aadf8effb52cfc57ead8104fd30d7dd8b}} 
+\index{psi.c@{psi.c}!psi\_memory\_write@{psi\_memory\_write}}
+\index{psi\_memory\_write@{psi\_memory\_write}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_memory\_write()}{psi\_memory\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} psi\+\_\+memory\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{nbytes,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{psi_8c_a9aa03d4b740b4b339172c0b63aea07f9}\label{psi_8c_a9aa03d4b740b4b339172c0b63aea07f9}} 
+\index{psi.c@{psi.c}!psi\_memstall\_enter@{psi\_memstall\_enter}}
+\index{psi\_memstall\_enter@{psi\_memstall\_enter}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_memstall\_enter()}{psi\_memstall\_enter()}}
+{\footnotesize\ttfamily void psi\+\_\+memstall\+\_\+enter (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{flags }\end{DoxyParamCaption})}
+
+psi\+\_\+memstall\+\_\+enter -\/ mark the beginning of a memory stall section @flags\+: flags to handle nested sections
+
+Marks the calling task as being stalled due to a lack of memory, such as waiting for a refault or performing reclaim. Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{psi_8c_ad335ebe3c43cf2d091c7d91f09b84938}\label{psi_8c_ad335ebe3c43cf2d091c7d91f09b84938}} 
+\index{psi.c@{psi.c}!psi\_memstall\_leave@{psi\_memstall\_leave}}
+\index{psi\_memstall\_leave@{psi\_memstall\_leave}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_memstall\_leave()}{psi\_memstall\_leave()}}
+{\footnotesize\ttfamily void psi\+\_\+memstall\+\_\+leave (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{flags }\end{DoxyParamCaption})}
+
+psi\+\_\+memstall\+\_\+leave -\/ mark the end of an memory stall section @flags\+: flags to handle nested memdelay sections
+
+Marks the calling task as no longer stalled due to lack of memory. Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{psi_8c_a5be21deae0c552f3210bf02ab297f85f}\label{psi_8c_a5be21deae0c552f3210bf02ab297f85f}} 
+\index{psi.c@{psi.c}!psi\_open@{psi\_open}}
+\index{psi\_open@{psi\_open}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_open()}{psi\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}($\ast$)(struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$, void $\ast$)}]{psi\+\_\+show }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{psi_8c_a044d5c2054a4c7858d0554838f148aee}\label{psi_8c_a044d5c2054a4c7858d0554838f148aee}} 
+\index{psi.c@{psi.c}!psi\_poll\_work@{psi\_poll\_work}}
+\index{psi\_poll\_work@{psi\_poll\_work}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_poll\_work()}{psi\_poll\_work()}}
+{\footnotesize\ttfamily static void psi\+\_\+poll\+\_\+work (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{psi_8c_a1a0edaf70409fdae53644a914b84b04d}\label{psi_8c_a1a0edaf70409fdae53644a914b84b04d}} 
+\index{psi.c@{psi.c}!psi\_poll\_worker@{psi\_poll\_worker}}
+\index{psi\_poll\_worker@{psi\_poll\_worker}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_poll\_worker()}{psi\_poll\_worker()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+poll\+\_\+worker (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{psi_8c_ae93efdf834a4a6fb029a43c411619185}\label{psi_8c_ae93efdf834a4a6fb029a43c411619185}} 
+\index{psi.c@{psi.c}!psi\_proc\_init@{psi\_proc\_init}}
+\index{psi\_proc\_init@{psi\_proc\_init}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_proc\_init()}{psi\_proc\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} psi\+\_\+proc\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{psi_8c_af0eefab36e74f3657ca6f803ab1b1c48}\label{psi_8c_af0eefab36e74f3657ca6f803ab1b1c48}} 
+\index{psi.c@{psi.c}!psi\_schedule\_poll\_work@{psi\_schedule\_poll\_work}}
+\index{psi\_schedule\_poll\_work@{psi\_schedule\_poll\_work}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_schedule\_poll\_work()}{psi\_schedule\_poll\_work()}}
+{\footnotesize\ttfamily static void psi\+\_\+schedule\+\_\+poll\+\_\+work (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{unsigned long}]{delay }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{psi_8c_ad6c1a35f83ba67e6c10b68d12f5d9750}\label{psi_8c_ad6c1a35f83ba67e6c10b68d12f5d9750}} 
+\index{psi.c@{psi.c}!psi\_show@{psi\_show}}
+\index{psi\_show@{psi\_show}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_show()}{psi\_show()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} psi\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+res}]{res }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{psi_8c_a16d9d5a35e8364b882f3dc67a8dbb585}\label{psi_8c_a16d9d5a35e8364b882f3dc67a8dbb585}} 
+\index{psi.c@{psi.c}!psi\_task\_change@{psi\_task\_change}}
+\index{psi\_task\_change@{psi\_task\_change}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_task\_change()}{psi\_task\_change()}}
+{\footnotesize\ttfamily void psi\+\_\+task\+\_\+change (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{clear,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{set }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{psi_8c_a6852c55665fc3f634059add61d48c4de}\label{psi_8c_a6852c55665fc3f634059add61d48c4de}} 
+\index{psi.c@{psi.c}!psi\_task\_switch@{psi\_task\_switch}}
+\index{psi\_task\_switch@{psi\_task\_switch}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_task\_switch()}{psi\_task\_switch()}}
+{\footnotesize\ttfamily void psi\+\_\+task\+\_\+switch (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{prev,  }\item[{struct task\+\_\+struct $\ast$}]{next,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{sleep }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{psi_8c_ae6b6e60eaaed7c922a9462d2e1709791}\label{psi_8c_ae6b6e60eaaed7c922a9462d2e1709791}} 
+\index{psi.c@{psi.c}!psi\_trigger\_create@{psi\_trigger\_create}}
+\index{psi\_trigger\_create@{psi\_trigger\_create}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_trigger\_create()}{psi\_trigger\_create()}}
+{\footnotesize\ttfamily struct psi\+\_\+trigger$\ast$ psi\+\_\+trigger\+\_\+create (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{nbytes,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+res}]{res }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{psi_8c_aad056469d9eedc8f8b29206ed39f69f6}\label{psi_8c_aad056469d9eedc8f8b29206ed39f69f6}} 
+\index{psi.c@{psi.c}!psi\_trigger\_destroy@{psi\_trigger\_destroy}}
+\index{psi\_trigger\_destroy@{psi\_trigger\_destroy}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_trigger\_destroy()}{psi\_trigger\_destroy()}}
+{\footnotesize\ttfamily static void psi\+\_\+trigger\+\_\+destroy (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkref}{kref}} $\ast$}]{ref }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{psi_8c_a0b9d0bc1c24830e183a717d24632059d}\label{psi_8c_a0b9d0bc1c24830e183a717d24632059d}} 
+\index{psi.c@{psi.c}!psi\_trigger\_poll@{psi\_trigger\_poll}}
+\index{psi\_trigger\_poll@{psi\_trigger\_poll}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_trigger\_poll()}{psi\_trigger\_poll()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2uapi_2linux_2types_8h_a5fd99f90a96467cc608d4f842deb22c8}{\+\_\+\+\_\+poll\+\_\+t}} psi\+\_\+trigger\+\_\+poll (\begin{DoxyParamCaption}\item[{void $\ast$$\ast$}]{trigger\+\_\+ptr,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{\mbox{\hyperlink{include_2linux_2poll_8h_af88310209cdf46352f032da75703552c}{poll\+\_\+table}} $\ast$}]{wait }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{psi_8c_abfe6bbcffbcfc69f1f3ce19c6345d8a8}\label{psi_8c_abfe6bbcffbcfc69f1f3ce19c6345d8a8}} 
+\index{psi.c@{psi.c}!psi\_trigger\_replace@{psi\_trigger\_replace}}
+\index{psi\_trigger\_replace@{psi\_trigger\_replace}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_trigger\_replace()}{psi\_trigger\_replace()}}
+{\footnotesize\ttfamily void psi\+\_\+trigger\+\_\+replace (\begin{DoxyParamCaption}\item[{void $\ast$$\ast$}]{trigger\+\_\+ptr,  }\item[{struct psi\+\_\+trigger $\ast$}]{new }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{psi_8c_abbe6800efefa8a225f69e84eb0dd6678}\label{psi_8c_abbe6800efefa8a225f69e84eb0dd6678}} 
+\index{psi.c@{psi.c}!psi\_write@{psi\_write}}
+\index{psi\_write@{psi\_write}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_write()}{psi\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} psi\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{nbytes,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+res}]{res }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{psi_8c_a46448c880d808ce5bd84f1c947dbad1b}\label{psi_8c_a46448c880d808ce5bd84f1c947dbad1b}} 
+\index{psi.c@{psi.c}!record\_times@{record\_times}}
+\index{record\_times@{record\_times}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{record\_times()}{record\_times()}}
+{\footnotesize\ttfamily static void record\+\_\+times (\begin{DoxyParamCaption}\item[{struct psi\+\_\+group\+\_\+cpu $\ast$}]{groupc,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{psi_8c_a06cbe54e2148b01ddd2b9b118e5a7c5d}\label{psi_8c_a06cbe54e2148b01ddd2b9b118e5a7c5d}} 
+\index{psi.c@{psi.c}!setup\_psi@{setup\_psi}}
+\index{setup\_psi@{setup\_psi}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{setup\_psi()}{setup\_psi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} setup\+\_\+psi (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{psi_8c_a21d66c1f793bf48fa6472f378e34e857}\label{psi_8c_a21d66c1f793bf48fa6472f378e34e857}} 
+\index{psi.c@{psi.c}!test\_state@{test\_state}}
+\index{test\_state@{test\_state}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{test\_state()}{test\_state()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} test\+\_\+state (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{tasks,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} psi\+\_\+states}]{state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{psi_8c_a12d8fd1ff1b745f01a2051b2116d5207}\label{psi_8c_a12d8fd1ff1b745f01a2051b2116d5207}} 
+\index{psi.c@{psi.c}!update\_averages@{update\_averages}}
+\index{update\_averages@{update\_averages}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{update\_averages()}{update\_averages()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} update\+\_\+averages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{psi_8c_ac5c915b661f3e1e09029d146b8062dcb}\label{psi_8c_ac5c915b661f3e1e09029d146b8062dcb}} 
+\index{psi.c@{psi.c}!update\_triggers@{update\_triggers}}
+\index{update\_triggers@{update\_triggers}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{update\_triggers()}{update\_triggers()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} update\+\_\+triggers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} $\ast$}]{group,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{psi_8c_aea45d2ba0005355b6fe97d8129e3d6ba}\label{psi_8c_aea45d2ba0005355b6fe97d8129e3d6ba}} 
+\index{psi.c@{psi.c}!window\_reset@{window\_reset}}
+\index{window\_reset@{window\_reset}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{window\_reset()}{window\_reset()}}
+{\footnotesize\ttfamily static void window\+\_\+reset (\begin{DoxyParamCaption}\item[{struct psi\+\_\+window $\ast$}]{win,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{now,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{value,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{prev\+\_\+growth }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{psi_8c_aa110d1a3bbc65db8e74478722e75575d}\label{psi_8c_aa110d1a3bbc65db8e74478722e75575d}} 
+\index{psi.c@{psi.c}!window\_update@{window\_update}}
+\index{window\_update@{window\_update}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{window\_update()}{window\_update()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} window\+\_\+update (\begin{DoxyParamCaption}\item[{struct psi\+\_\+window $\ast$}]{win,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{now,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{psi_8c_adfabbe674600dea58f115bb81eefad55}\label{psi_8c_adfabbe674600dea58f115bb81eefad55}} 
+\index{psi.c@{psi.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} psi\+\_\+period \+\_\+\+\_\+read\+\_\+mostly\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{psi_8c_a2a6da8c7f74fd4153fde95f48d75f865}\label{psi_8c_a2a6da8c7f74fd4153fde95f48d75f865}} 
+\index{psi.c@{psi.c}!psi\_cpu\_proc\_ops@{psi\_cpu\_proc\_ops}}
+\index{psi\_cpu\_proc\_ops@{psi\_cpu\_proc\_ops}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_cpu\_proc\_ops}{psi\_cpu\_proc\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} psi\+\_\+cpu\+\_\+proc\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .proc\_open  = \mbox{\hyperlink{psi_8c_a7252e2af153d51378c3e17773152c78c}{psi\_cpu\_open}},}
+\DoxyCodeLine{    .proc\_read  = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .proc\_lseek = \mbox{\hyperlink{seq__file_8h_afb0190ee914a16a926d673a6a91949a9}{seq\_lseek}},}
+\DoxyCodeLine{    .proc\_write = \mbox{\hyperlink{psi_8c_ac7780509fc4f326255fba66fbd9a166e}{psi\_cpu\_write}},}
+\DoxyCodeLine{    .proc\_poll  = \mbox{\hyperlink{psi_8c_ab4db3676e334eefbdf6363c8be2690d4}{psi\_fop\_poll}},}
+\DoxyCodeLine{    .proc\_release   = \mbox{\hyperlink{psi_8c_a3420641e37b0d94ba9cd9709f28dc424}{psi\_fop\_release}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{psi_8c_a43014fcf9762ecf99c6ee236bef0057a}\label{psi_8c_a43014fcf9762ecf99c6ee236bef0057a}} 
+\index{psi.c@{psi.c}!psi\_enable@{psi\_enable}}
+\index{psi\_enable@{psi\_enable}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_enable}{psi\_enable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} psi\+\_\+enable = \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{psi_8c_aead809479e85014aa0dca287816932c2}\label{psi_8c_aead809479e85014aa0dca287816932c2}} 
+\index{psi.c@{psi.c}!psi\_io\_proc\_ops@{psi\_io\_proc\_ops}}
+\index{psi\_io\_proc\_ops@{psi\_io\_proc\_ops}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_io\_proc\_ops}{psi\_io\_proc\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} psi\+\_\+io\+\_\+proc\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .proc\_open  = \mbox{\hyperlink{psi_8c_a7d6ecbcc4b1fdbeec4cb7f6087497027}{psi\_io\_open}},}
+\DoxyCodeLine{    .proc\_read  = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .proc\_lseek = \mbox{\hyperlink{seq__file_8h_afb0190ee914a16a926d673a6a91949a9}{seq\_lseek}},}
+\DoxyCodeLine{    .proc\_write = \mbox{\hyperlink{psi_8c_a611aac900c840cae0b6fb0b58b228632}{psi\_io\_write}},}
+\DoxyCodeLine{    .proc\_poll  = \mbox{\hyperlink{psi_8c_ab4db3676e334eefbdf6363c8be2690d4}{psi\_fop\_poll}},}
+\DoxyCodeLine{    .proc\_release   = \mbox{\hyperlink{psi_8c_a3420641e37b0d94ba9cd9709f28dc424}{psi\_fop\_release}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{psi_8c_a5637ff12e5c65f1c20b188fe6cf54f6b}\label{psi_8c_a5637ff12e5c65f1c20b188fe6cf54f6b}} 
+\index{psi.c@{psi.c}!psi\_memory\_proc\_ops@{psi\_memory\_proc\_ops}}
+\index{psi\_memory\_proc\_ops@{psi\_memory\_proc\_ops}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_memory\_proc\_ops}{psi\_memory\_proc\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} psi\+\_\+memory\+\_\+proc\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .proc\_open  = \mbox{\hyperlink{psi_8c_ac033701a65380d3a5f88331033dd8088}{psi\_memory\_open}},}
+\DoxyCodeLine{    .proc\_read  = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .proc\_lseek = \mbox{\hyperlink{seq__file_8h_afb0190ee914a16a926d673a6a91949a9}{seq\_lseek}},}
+\DoxyCodeLine{    .proc\_write = \mbox{\hyperlink{psi_8c_aadf8effb52cfc57ead8104fd30d7dd8b}{psi\_memory\_write}},}
+\DoxyCodeLine{    .proc\_poll  = \mbox{\hyperlink{psi_8c_ab4db3676e334eefbdf6363c8be2690d4}{psi\_fop\_poll}},}
+\DoxyCodeLine{    .proc\_release   = \mbox{\hyperlink{psi_8c_a3420641e37b0d94ba9cd9709f28dc424}{psi\_fop\_release}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{psi_8c_adc76d539c6b1b61ef2d41e487123d0bb}\label{psi_8c_adc76d539c6b1b61ef2d41e487123d0bb}} 
+\index{psi.c@{psi.c}!psi\_system@{psi\_system}}
+\index{psi\_system@{psi\_system}!psi.c@{psi.c}}
+\doxysubsubsection{\texorpdfstring{psi\_system}{psi\_system}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structpsi__group}{psi\+\_\+group}} psi\+\_\+system}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .pcpu = \&system\_group\_pcpu,}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

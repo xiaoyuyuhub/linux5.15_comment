@@ -1,0 +1,1669 @@
+\hypertarget{io__apic_8c}{}\doxysection{arch/x86/kernel/apic/io\+\_\+apic.c File Reference}
+\label{io__apic_8c}\index{arch/x86/kernel/apic/io\_apic.c@{arch/x86/kernel/apic/io\_apic.c}}
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irq.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pci.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mc146818rtc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/compiler.\+h$>$}\newline
+{\ttfamily \#include $<$linux/acpi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscore\+\_\+ops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/freezer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jiffies.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memblock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/msi.\+h$>$}\newline
+{\ttfamily \#include $<$asm/irqdomain.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io.\+h$>$}\newline
+{\ttfamily \#include $<$asm/smp.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$asm/desc.\+h$>$}\newline
+{\ttfamily \#include $<$asm/proto.\+h$>$}\newline
+{\ttfamily \#include $<$asm/acpi.\+h$>$}\newline
+{\ttfamily \#include $<$asm/dma.\+h$>$}\newline
+{\ttfamily \#include $<$asm/timer.\+h$>$}\newline
+{\ttfamily \#include $<$asm/time.\+h$>$}\newline
+{\ttfamily \#include $<$asm/i8259.\+h$>$}\newline
+{\ttfamily \#include $<$asm/setup.\+h$>$}\newline
+{\ttfamily \#include $<$asm/irq\+\_\+remapping.\+h$>$}\newline
+{\ttfamily \#include $<$asm/hw\+\_\+irq.\+h$>$}\newline
+{\ttfamily \#include $<$asm/apic.\+h$>$}\newline
+Include dependency graph for io\+\_\+apic.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structirq__pin__list}{irq\+\_\+pin\+\_\+list}}
+\item 
+struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}}
+\item 
+struct \mbox{\hyperlink{structmp__ioapic__gsi}{mp\+\_\+ioapic\+\_\+gsi}}
+\item 
+struct \mbox{\hyperlink{structioapic}{ioapic}}
+\item 
+struct \mbox{\hyperlink{structio__apic}{io\+\_\+apic}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_a5296e1ba407c39472822f352310ba419}{for\+\_\+each\+\_\+ioapic}}(\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})~\mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} ((\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) = 0; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) $<$ \mbox{\hyperlink{io__apic_8c_ab62ece750ce94fcf323fd00aa7153f19}{nr\+\_\+ioapics}}; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})++)
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_ac3d81190d9d65737c7232a6ae636a6fe}{for\+\_\+each\+\_\+ioapic\+\_\+reverse}}(\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})~\mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} ((\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) = \mbox{\hyperlink{io__apic_8c_ab62ece750ce94fcf323fd00aa7153f19}{nr\+\_\+ioapics}} -\/ 1; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) $>$= 0; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})-\/-\/)
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_a9ddae6ad3bda8d0db9d6c7e410a23c1f}{for\+\_\+each\+\_\+pin}}(\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}},  \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})~\mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} ((\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}) = 0; (\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}) $<$ \mbox{\hyperlink{io__apic_8c_a27082d7160bbb7be47b139accc109f11}{ioapics}}\mbox{[}(\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})\mbox{]}.nr\+\_\+registers; (\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})++)
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_ad28624e8974d2dee360d1bc568439b50}{for\+\_\+each\+\_\+ioapic\+\_\+pin}}(\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}},  \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_af9a44d2e3e5cd7a81ae77b6ced157274}{for\+\_\+each\+\_\+irq\+\_\+pin}}(entry,  \mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}})~\mbox{\hyperlink{list_8h_a9b782fefb5ab71ce9762182e45a615e1}{list\+\_\+for\+\_\+each\+\_\+entry}}(entry, \&\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, list)
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_a6d282f93d1c737a0469c49de431710cc}{mpc\+\_\+ioapic\+\_\+ver}}(ioapic\+\_\+idx)~\mbox{\hyperlink{io__apic_8c_a27082d7160bbb7be47b139accc109f11}{ioapics}}\mbox{[}ioapic\+\_\+idx\mbox{]}.mp\+\_\+config.\+apicver
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_a7a1b723ab939add8e6321e66db30d31f}{P\+I\+C\+\_\+\+I\+R\+QS}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{i8259_8h_a08519690901632ac90d55f7fd822a6fe}{P\+I\+C\+\_\+\+C\+A\+S\+C\+A\+D\+E\+\_\+\+IR}})
+\item 
+\#define \mbox{\hyperlink{io__apic_8c_a108346d5b34459da0b1534876217d3ee}{I\+O\+A\+P\+I\+C\+\_\+\+R\+E\+S\+O\+U\+R\+C\+E\+\_\+\+N\+A\+M\+E\+\_\+\+S\+I\+ZE}}~11
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{io__apic_8c_a4f2fd5d8aeebc83b65cb6dc02f80407d}{D\+E\+F\+I\+N\+E\+\_\+\+R\+A\+W\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (ioapic\+\_\+lock)
+\item 
+static \mbox{\hyperlink{io__apic_8c_aa403f13ec13815eaaa23ff0a3736df97}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (ioapic\+\_\+mutex)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a67b3cd67db19ab1f5bec01f63a574225}{mpc\+\_\+ioapic\+\_\+id}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+idx)
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a8daee9c844494e64789d6c38e46ece36}{mpc\+\_\+ioapic\+\_\+addr}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+idx)
+\item 
+static struct \mbox{\hyperlink{structmp__ioapic__gsi}{mp\+\_\+ioapic\+\_\+gsi}} $\ast$ \mbox{\hyperlink{io__apic_8c_a34cc14526702aab0c085ef96140c1e3f}{mp\+\_\+ioapic\+\_\+gsi\+\_\+routing}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+idx)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a06ebefb1e55245618bb30c932c8bc114}{mp\+\_\+ioapic\+\_\+pin\+\_\+count}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}})
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{io__apic_8c_a1f08b83c65373bd1c470bc9f3a2df648}{mp\+\_\+pin\+\_\+to\+\_\+gsi}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{io__apic_8c_a6c271de625f8748242ba6096a5a0d400}{mp\+\_\+is\+\_\+legacy\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$ \mbox{\hyperlink{io__apic_8c_a6eaf42aa1bc7bd309e8cfd0b0961012c}{mp\+\_\+ioapic\+\_\+irqdomain}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}})
+\item 
+\mbox{\hyperlink{io__apic_8c_ae6104398831b3a5f7f3d5c731576f298}{D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP}} (mp\+\_\+bus\+\_\+not\+\_\+pci, \mbox{\hyperlink{mpspec_8h_ad5dd05ed109bce24f0c6ef6d5817243d}{M\+A\+X\+\_\+\+M\+P\+\_\+\+B\+U\+S\+S\+ES}})
+\item 
+void \mbox{\hyperlink{io__apic_8c_a3e17b646b4d28322a796e7e69cb62cfe}{disable\+\_\+ioapic\+\_\+support}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a700cdad99aac829dc48f26d0e623a967}{parse\+\_\+noapic}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{io__apic_8c_a5a81b62d1cc578b18a7f1cd823606563}{early\+\_\+param}} (\char`\"{}noapic\char`\"{}, parse\+\_\+noapic)
+\item 
+void \mbox{\hyperlink{io__apic_8c_a627eeed01b5a900a210ae5f5bbce05b4}{mp\+\_\+save\+\_\+irq}} (struct \mbox{\hyperlink{structmpc__intsrc}{mpc\+\_\+intsrc}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_ad9d76e7f1f826e45d77a0660c941ec89}{alloc\+\_\+ioapic\+\_\+saved\+\_\+registers}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_ac58fdf1f8fcd86f00a52221b5ccc5add}{free\+\_\+ioapic\+\_\+saved\+\_\+registers}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_ad80ea4b566fc39a65e124f3933263237}{arch\+\_\+early\+\_\+ioapic\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{pq_8h_abea77661c5bf0bc3e4cf992f84a42c5b}{\+\_\+\+\_\+attribute\+\_\+const\+\_\+\+\_\+}} struct \mbox{\hyperlink{structio__apic}{io\+\_\+apic}} \mbox{\hyperlink{compiler__types_8h_af6b4077d1d8ce49175e6fcb91788634a}{\+\_\+\+\_\+iomem}} $\ast$ \mbox{\hyperlink{io__apic_8c_ad850dbc86dfa7bf073aec43166ed1833}{io\+\_\+apic\+\_\+base}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a0208faad0249941f7b220151bd3d78e4}{io\+\_\+apic\+\_\+eoi}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2include_2asm_2msi_8h_a5ee73934739d0ba93bed4bd3baaeef42}{vector}})
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ad62ebb186f081b5c2b1b2841d50eeec4}{native\+\_\+io\+\_\+apic\+\_\+read}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{decode__rs_8c_a99b5f8166060fedc2cb6562e969667f7}{reg}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a98d3ca795630d5d4859d01bdefa14fa1}{io\+\_\+apic\+\_\+write}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{decode__rs_8c_a99b5f8166060fedc2cb6562e969667f7}{reg}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}})
+\item 
+static struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} \mbox{\hyperlink{io__apic_8c_a745dd17742e87e685c5b243ad92b7902}{\+\_\+\+\_\+ioapic\+\_\+read\+\_\+entry}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} \mbox{\hyperlink{io__apic_8c_aea2d634dd190d5d31dc2b3ea912b14a5}{ioapic\+\_\+read\+\_\+entry}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a5510700a7a999272df149e85d35541a3}{\+\_\+\+\_\+ioapic\+\_\+write\+\_\+entry}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}, struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} e)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a739e0a80a7a1c9434b67670afd16cb7a}{ioapic\+\_\+write\+\_\+entry}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}, struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} e)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a8f392ab50a67a640caf0bf097790d994}{ioapic\+\_\+mask\+\_\+entry}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a48c8b9b4fb0c091a70e067fb208158b7}{\+\_\+\+\_\+add\+\_\+pin\+\_\+to\+\_\+irq\+\_\+node}} (struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a783a8413f358d9a19b6f18bfd74219e2}{\+\_\+\+\_\+remove\+\_\+pin\+\_\+from\+\_\+irq}} (struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_aac3d82cd6d55519b29a04a68f20a5207}{add\+\_\+pin\+\_\+to\+\_\+irq\+\_\+node}} (struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a7a1526d666c89f0ccabdfb4e92db0acd}{replace\+\_\+pin\+\_\+at\+\_\+irq\+\_\+node}} (struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} oldapic, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} oldpin, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} newapic, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} newpin)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_addfa590ef5fcd4169698d20c12e5e04c}{io\+\_\+apic\+\_\+modify\+\_\+irq}} (struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{io__apic_8h_ab736dc86b676a5f3b3dde72ef88c3d55}{masked}}, void($\ast$final)(struct \mbox{\hyperlink{structirq__pin__list}{irq\+\_\+pin\+\_\+list}} $\ast$entry))
+\item 
+static void \mbox{\hyperlink{io__apic_8c_adb70a8b769441cf33eb911e39d114b7f}{io\+\_\+apic\+\_\+sync}} (struct \mbox{\hyperlink{structirq__pin__list}{irq\+\_\+pin\+\_\+list}} $\ast$entry)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_af2fa0e5fd348500969880b0f33f2e656}{mask\+\_\+ioapic\+\_\+irq}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a4ba4d0d2447d207230cd57d6497738cc}{\+\_\+\+\_\+unmask\+\_\+ioapic}} (struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a1ff986f17db5ac6d5462268780ebf412}{unmask\+\_\+ioapic\+\_\+irq}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a27c415794e3559fff5aea3dbd0656ceb}{\+\_\+\+\_\+eoi\+\_\+ioapic\+\_\+pin}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2include_2asm_2msi_8h_a5ee73934739d0ba93bed4bd3baaeef42}{vector}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a9ef70c91cc7ae32a22152a81cdb90e87}{eoi\+\_\+ioapic\+\_\+pin}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2include_2asm_2msi_8h_a5ee73934739d0ba93bed4bd3baaeef42}{vector}}, struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a094a89a9079f0b69122edeee97270dae}{clear\+\_\+\+I\+O\+\_\+\+A\+P\+I\+C\+\_\+pin}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+void \mbox{\hyperlink{io__apic_8c_a1125094821d1b5c69b38a4c1ebf40c54}{clear\+\_\+\+I\+O\+\_\+\+A\+P\+IC}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a92f7df20939615db8c35b6a49e696a2e}{save\+\_\+ioapic\+\_\+entries}} (void)
+\item 
+void \mbox{\hyperlink{io__apic_8c_acdd28f31b98a1ea56bf7b1844d628379}{mask\+\_\+ioapic\+\_\+entries}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a1b1147ef6261e9eb8691c36a26d9797a}{restore\+\_\+ioapic\+\_\+entries}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ae0cfba3a0c900f58fa9121c5eb4c631a}{find\+\_\+irq\+\_\+entry}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+idx, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a7e02c11a57c230d6a3d65cd4f1ebeb99}{find\+\_\+isa\+\_\+irq\+\_\+pin}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a1969d0b4514e70fb8dcbd46b561322eb}{find\+\_\+isa\+\_\+irq\+\_\+apic}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{io__apic_8c_af6c9b9eb5272db718391b450e642af0a}{irq\+\_\+active\+\_\+low}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ab0bec9b4fc4b36db04cc93ef3d467195}{eisa\+\_\+irq\+\_\+is\+\_\+level}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uhid_8h_aa240a74a32c7ffc940e36c0df9e5f8e9}{bus}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{io__apic_8c_a3906e9e49236d95b4a6b7956049b77ac}{irq\+\_\+is\+\_\+level}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ae3d232df62c078568e5c91c3be3b0fcb}{\+\_\+\+\_\+acpi\+\_\+get\+\_\+override\+\_\+irq}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$\mbox{\hyperlink{apicdef_8h_a804f970130b8a370e6d477d763566cdb}{trigger}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$\mbox{\hyperlink{apicdef_8h_a540fe2de57b8e6562e6ed81935b32572}{polarity}})
+\item 
+void \mbox{\hyperlink{io__apic_8c_ac58d1974203db3c24f689be4cf82cb8f}{ioapic\+\_\+set\+\_\+alloc\+\_\+attr}} (struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{apicdef_8h_a804f970130b8a370e6d477d763566cdb}{trigger}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{apicdef_8h_a540fe2de57b8e6562e6ed81935b32572}{polarity}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_ada629c204af5dbf67f5916571fd06146}{ioapic\+\_\+copy\+\_\+alloc\+\_\+attr}} (struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+idx, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a02f0966625bb54d665f6cbf83b851f80}{ioapic\+\_\+alloc\+\_\+attr\+\_\+node}} (struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_ae39fe24ba7924708de48a8deac2f7142}{mp\+\_\+register\+\_\+handler}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{io__apic_8c_a773e9a61d76b5ddaf8c8c463e480edb7}{mp\+\_\+check\+\_\+pin\+\_\+attr}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ad394d312de8f5812f709855edb75f817}{alloc\+\_\+irq\+\_\+from\+\_\+domain}} (struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$domain, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi, struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a9ac96a24f1e0675b255ec8af0f103d65}{alloc\+\_\+isa\+\_\+irq\+\_\+from\+\_\+domain}} (struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$domain, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}, struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ad41d92c5a4451b99732f832198a6707d}{mp\+\_\+map\+\_\+pin\+\_\+to\+\_\+irq}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_acbf8c2c29aae8ff86cf8e894f6d3382d}{pin\+\_\+2\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a70ad09495ca164bfb46ccdb2ce86d74b}{mp\+\_\+map\+\_\+gsi\+\_\+to\+\_\+irq}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+void \mbox{\hyperlink{io__apic_8c_adc865e2897f22220dde7a93d45d3e0ec}{mp\+\_\+unmap\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a073f6d67084fc60e1cd210cc7fd46fcd}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+get\+\_\+\+P\+C\+I\+\_\+irq\+\_\+vector}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uhid_8h_aa240a74a32c7ffc940e36c0df9e5f8e9}{bus}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+\mbox{\hyperlink{io__apic_8c_a2533458581fa92ec223a94e8bf73d2f0}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{io__apic_8c_a073f6d67084fc60e1cd210cc7fd46fcd}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+get\+\_\+\+P\+C\+I\+\_\+irq\+\_\+vector}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a8028c9dd07839d300e70120a2b0a25cf}{setup\+\_\+\+I\+O\+\_\+\+A\+P\+I\+C\+\_\+irqs}} (void)
+\item 
+void \mbox{\hyperlink{io__apic_8c_ac4bed2d9cfd67314dbba13163e50e07d}{ioapic\+\_\+zap\+\_\+locks}} (void)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a3b6236a7e81fe0512439027821346028}{io\+\_\+apic\+\_\+print\+\_\+entries}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+entries)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a1ce94b795b5879db6870cb9e3fe71b7c}{print\+\_\+\+I\+O\+\_\+\+A\+P\+IC}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+idx)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a1bfc7eec52876cb17d366f346c571b69}{print\+\_\+\+I\+O\+\_\+\+A\+P\+I\+Cs}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a3158a0e199445d72357d578d8e19b4f8}{enable\+\_\+\+I\+O\+\_\+\+A\+P\+IC}} (void)
+\item 
+void \mbox{\hyperlink{io__apic_8c_a713558ad751e7065f639961ab7a9ca4c}{native\+\_\+restore\+\_\+boot\+\_\+irq\+\_\+mode}} (void)
+\item 
+void \mbox{\hyperlink{io__apic_8c_a9d5c2bd39e42b714c8ef50796b319f6d}{restore\+\_\+boot\+\_\+irq\+\_\+mode}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_ad5f80c2a56f06ab5195c438c4bcde35e}{notimercheck}} (char $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+\mbox{\hyperlink{io__apic_8c_aa4a952d87fe67dd64b4e701758771854}{\+\_\+\+\_\+setup}} (\char`\"{}no\+\_\+timer\+\_\+check\char`\"{}, notimercheck)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_ab5c4dcd9739b11ef44f41d242522b564}{delay\+\_\+with\+\_\+tsc}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a6848a35561f73f43960e85d8392239e0}{delay\+\_\+without\+\_\+tsc}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a013eb3ce804e367b16b215dfa247a165}{timer\+\_\+irq\+\_\+works}} (void)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a97f0d9f48e8c338144123f2a948e42d0}{startup\+\_\+ioapic\+\_\+irq}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{io__apic_8c_a3db85918d3f8f4e15b6e138c7f4f1d5a}{ioapic\+\_\+prepare\+\_\+move}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a4b880a306f9f7c62168cdcbb2b0f9223}{ioapic\+\_\+finish\+\_\+move}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} moveit)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_ab2608c6e62d1d261a7d6918b4cb331fb}{ioapic\+\_\+ack\+\_\+level}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a1977e3798fcd3c9adae36bbbbad76d55}{ioapic\+\_\+ir\+\_\+ack\+\_\+level}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_aa41c0e0a6afcc23539032b2b2f9feb3c}{ioapic\+\_\+setup\+\_\+msg\+\_\+from\+\_\+msi}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}}, struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} $\ast$entry)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a2482a0d791f22dbbae97af31e6e34180}{ioapic\+\_\+configure\+\_\+entry}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$irqd)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aef9a7a7ec120d2f7ee25488d816058d5}{ioapic\+\_\+set\+\_\+affinity}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}}, const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{iris_8c_a4b73e33b57ae387dc418906492d5f998}{force}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_abb4d89322186eb78d874ffd0dd554291}{ioapic\+\_\+irq\+\_\+get\+\_\+chip\+\_\+state}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$irqd, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{interrupt_8h_a0dc60b0877d4f7ebae1850f27d46efd6}{irqchip\+\_\+irq\+\_\+state}} which, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$\mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a2092df3b926de9229194064d727c1b8e}{init\+\_\+\+I\+O\+\_\+\+A\+P\+I\+C\+\_\+traps}} (void)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_ab6480090a8dc5e69edd9f75a66e96460}{mask\+\_\+lapic\+\_\+irq}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a75ffb53fb8a0f857f32c2d16fa9ea8d3}{unmask\+\_\+lapic\+\_\+irq}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_ae831ee39d0f9d9af5ec3b7414576af1e}{ack\+\_\+lapic\+\_\+irq}} (struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_aa95b07d4fa509faf3316c847bd9c4cfa}{lapic\+\_\+register\+\_\+intr}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a10ff6d99ab5fd7156f0b284837aba69d}{unlock\+\_\+\+Ext\+I\+N\+T\+\_\+logic}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a81ebc9eb73e694068ec00769da3b25a3}{disable\+\_\+timer\+\_\+pin\+\_\+setup}} (char $\ast$arg)
+\item 
+\mbox{\hyperlink{io__apic_8c_aa136efe997fd0ce77c84147c6fa20dde}{early\+\_\+param}} (\char`\"{}disable\+\_\+timer\+\_\+pin\+\_\+1\char`\"{}, disable\+\_\+timer\+\_\+pin\+\_\+setup)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_acb012c55d7cfbc8a7074dd473d76852d}{mp\+\_\+alloc\+\_\+timer\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a7fd13e45ae5cae8f106d07ef0b19196a}{check\+\_\+timer}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a85b3ae8f725cacd0c0b3cd8ddeb1c610}{mp\+\_\+irqdomain\+\_\+create}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a9366f527ec49004647a56a4e1ddada20}{ioapic\+\_\+destroy\+\_\+irqdomain}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a89ce770c02ca0cbc02bf29e6a0560154}{setup\+\_\+\+I\+O\+\_\+\+A\+P\+IC}} (void)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a3ed624a35da0a4f4cc5efebef5a14835}{resume\+\_\+ioapic\+\_\+id}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+idx)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_aeca1f2b6f03579044b94884aa5f58a81}{ioapic\+\_\+resume}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a27cb0c1592550f73080f11cc588ae8c3}{ioapic\+\_\+init\+\_\+ops}} (void)
+\item 
+\mbox{\hyperlink{io__apic_8c_abab5e5439b8963d19621b1b15e0d6ffa}{device\+\_\+initcall}} (\mbox{\hyperlink{io__apic_8c_a27cb0c1592550f73080f11cc588ae8c3}{ioapic\+\_\+init\+\_\+ops}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ad809359bf19770820cff8a650bf6759d}{io\+\_\+apic\+\_\+get\+\_\+redir\+\_\+entries}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}})
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a817283925baac3e83e949da04bf01a36}{arch\+\_\+dynirq\+\_\+lower\+\_\+bound}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2nbd_8h_a40a5b09b54e6b509d25739f0d9a626e9}{from}})
+\item 
+static \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{io__apic_8c_a9c7753a7957a50737e648cefb1a634a6}{io\+\_\+apic\+\_\+unique\+\_\+id}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ada00292fcbfb71125213c479511fdd76}{io\+\_\+apic\+\_\+get\+\_\+version}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}})
+\item 
+static struct \mbox{\hyperlink{structresource}{resource}} $\ast$\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a123ad7179f1cd41cdc35cf64976f6c86}{ioapic\+\_\+setup\+\_\+resources}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_ad002e6098b4b81d73b1844e7176608c7}{io\+\_\+apic\+\_\+init\+\_\+mappings}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{io__apic_8c_a2d505129405794c603ee09925a524128}{ioapic\+\_\+insert\+\_\+resources}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a27b513bf54320c0adeac4f32f0f76f83}{mp\+\_\+find\+\_\+ioapic}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a95397971bcf4d52bdeebea632d962b25}{mp\+\_\+find\+\_\+ioapic\+\_\+pin}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structioapic}{ioapic}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_acf1aa5ce0fabcfcca84f983e25191356}{bad\+\_\+ioapic\+\_\+register}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a317423872b0ac81ebc6bb250b1fc1bf8}{find\+\_\+free\+\_\+ioapic\+\_\+entry}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a78a7b468896e770c84ad54a2bfa23d9a}{mp\+\_\+register\+\_\+ioapic}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{structaddress}{address}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi\+\_\+base, struct ioapic\+\_\+domain\+\_\+cfg $\ast$\mbox{\hyperlink{qman_8h_aaa443a27e2e72392ab29cc186a40656f}{cfg}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ac015159ec9b854a4025043cb8b3ca38b}{mp\+\_\+unregister\+\_\+ioapic}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi\+\_\+base)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aa2be9906681b619186b5ca1dea31b6fb}{mp\+\_\+ioapic\+\_\+registered}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi\+\_\+base)
+\item 
+static void \mbox{\hyperlink{io__apic_8c_a8bd7796814056ae53e58925bcea1c150}{mp\+\_\+irqdomain\+\_\+get\+\_\+attr}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi, struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, struct irq\+\_\+alloc\+\_\+info $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static void \mbox{\hyperlink{io__apic_8c_aeb4a6e081945230559a47ff0e5ae9029}{mp\+\_\+preconfigure\+\_\+entry}} (struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aef9c39b0e3f46671e1d51cda2d7d9c95}{mp\+\_\+irqdomain\+\_\+alloc}} (struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$domain, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} virq, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{linux_2irqnr_8h_a6c811594afe785e3e32729836beeb8de}{nr\+\_\+irqs}}, void $\ast$arg)
+\item 
+void \mbox{\hyperlink{io__apic_8c_a7675b6ca696f8abc1c694934a09b3913}{mp\+\_\+irqdomain\+\_\+free}} (struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$domain, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} virq, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{linux_2irqnr_8h_a6c811594afe785e3e32729836beeb8de}{nr\+\_\+irqs}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ad6ac549046571b77fb6838a3f4a1931f}{mp\+\_\+irqdomain\+\_\+activate}} (struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$domain, struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} reserve)
+\item 
+void \mbox{\hyperlink{io__apic_8c_a3f5a35aca3734b242de7f97bc961f817}{mp\+\_\+irqdomain\+\_\+deactivate}} (struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$domain, struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$\mbox{\hyperlink{structirq__data}{irq\+\_\+data}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a171695db631bbf05ad015d68d51d86e5}{mp\+\_\+irqdomain\+\_\+ioapic\+\_\+idx}} (struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$domain)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a6b2dd66d47a6799f747a554d7f00da49}{ioapic\+\_\+dynirq\+\_\+base}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_af45ca496c6cdc677bb0d77285d287a74}{ioapic\+\_\+initialized}}
+\item 
+static struct \mbox{\hyperlink{structioapic}{ioapic}} \mbox{\hyperlink{io__apic_8c_a27082d7160bbb7be47b139accc109f11}{ioapics}} \mbox{[}\mbox{\hyperlink{apicdef_8h_aca4b48b752db253514869cd1fbe256c1}{M\+A\+X\+\_\+\+I\+O\+\_\+\+A\+P\+I\+CS}}\mbox{]}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ab62ece750ce94fcf323fd00aa7153f19}{nr\+\_\+ioapics}}
+\item 
+\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{io__apic_8c_a3dd10672dc04e43ccd03d3c8455293a6}{gsi\+\_\+top}}
+\item 
+struct \mbox{\hyperlink{structmpc__intsrc}{mpc\+\_\+intsrc}} \mbox{\hyperlink{io__apic_8c_a71ed6c612713f3de970c3252a6c2bfd4}{mp\+\_\+irqs}} \mbox{[}\mbox{\hyperlink{mpspec_8h_a16c306d75c67bc9042e8e58ebdf52dc4}{M\+A\+X\+\_\+\+I\+R\+Q\+\_\+\+S\+O\+U\+R\+C\+ES}}\mbox{]}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a47d7384618fb7e2348d4d24d9d58a614}{mp\+\_\+irq\+\_\+entries}}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_a4e1ec1307c07a2f06f240e723a67039e}{skip\+\_\+ioapic\+\_\+setup}}
+\item 
+static struct \mbox{\hyperlink{structirq__chip}{irq\+\_\+chip}} ioapic\+\_\+chip \mbox{\hyperlink{io__apic_8c_a1b2fd81c3ee6199092ba72e23d4a41d1}{ioapic\+\_\+ir\+\_\+chip}}
+\item 
+\begin{tabbing}
+xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=\kill
+struct \{\\
+\>\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}\\
+\>\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{io__apic_8c_ae196c8c6dbdfef490fdf9432a6160bea}{apic}}\\
+\} \mbox{\hyperlink{io__apic_8c_ad84c443720ac63f2226e9124dc2a86ae}{ioapic\_i8259}} = \{ -\/1, -\/1 \}\\
+
+\end{tabbing}\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2include_2asm_2timer_8h_a9164d1a5c92a0ed70f602e4cda2f07e8}{no\+\_\+timer\+\_\+check}} \mbox{\hyperlink{io__apic_8c_aaf8e3aed450bf8ca51c092abbd7d51d3}{\+\_\+\+\_\+initdata}}
+\item 
+\mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{io__apic_8c_aafb941076e3ebf4e3831906f50248476}{irq\+\_\+mis\+\_\+count}}
+\item 
+static struct \mbox{\hyperlink{structirq__chip}{irq\+\_\+chip}} ioapic\+\_\+chip \mbox{\hyperlink{io__apic_8c_ac1ae96b6023b5045024785e394003cde}{\+\_\+\+\_\+read\+\_\+mostly}}
+\item 
+static struct \mbox{\hyperlink{structsyscore__ops}{syscore\+\_\+ops}} \mbox{\hyperlink{io__apic_8c_a1c2b7238aaef50bffd2a40683b7027eb}{ioapic\+\_\+syscore\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structresource}{resource}} $\ast$ \mbox{\hyperlink{io__apic_8c_aa932e5a20802ecba4a473568a12d678f}{ioapic\+\_\+resources}}
+\item 
+const struct \mbox{\hyperlink{structirq__domain__ops}{irq\+\_\+domain\+\_\+ops}} \mbox{\hyperlink{io__apic_8c_aa6917a367f96d6f372e4f83215d9d838}{mp\+\_\+ioapic\+\_\+irqdomain\+\_\+ops}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{io__apic_8c_a5296e1ba407c39472822f352310ba419}\label{io__apic_8c_a5296e1ba407c39472822f352310ba419}} 
+\index{io\_apic.c@{io\_apic.c}!for\_each\_ioapic@{for\_each\_ioapic}}
+\index{for\_each\_ioapic@{for\_each\_ioapic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{for\_each\_ioapic}{for\_each\_ioapic}}
+{\footnotesize\ttfamily \#define for\+\_\+each\+\_\+ioapic(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}} }\end{DoxyParamCaption})~\mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} ((\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) = 0; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) $<$ \mbox{\hyperlink{io__apic_8c_ab62ece750ce94fcf323fd00aa7153f19}{nr\+\_\+ioapics}}; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})++)}
+
+\mbox{\Hypertarget{io__apic_8c_ad28624e8974d2dee360d1bc568439b50}\label{io__apic_8c_ad28624e8974d2dee360d1bc568439b50}} 
+\index{io\_apic.c@{io\_apic.c}!for\_each\_ioapic\_pin@{for\_each\_ioapic\_pin}}
+\index{for\_each\_ioapic\_pin@{for\_each\_ioapic\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{for\_each\_ioapic\_pin}{for\_each\_ioapic\_pin}}
+{\footnotesize\ttfamily \#define for\+\_\+each\+\_\+ioapic\+\_\+pin(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}},  }\item[{}]{\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \mbox{\hyperlink{io__apic_8c_a5296e1ba407c39472822f352310ba419}{for\_each\_ioapic}}((\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}))        \(\backslash\)}
+\DoxyCodeLine{        for\_each\_pin((\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}), (\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{io__apic_8c_ac3d81190d9d65737c7232a6ae636a6fe}\label{io__apic_8c_ac3d81190d9d65737c7232a6ae636a6fe}} 
+\index{io\_apic.c@{io\_apic.c}!for\_each\_ioapic\_reverse@{for\_each\_ioapic\_reverse}}
+\index{for\_each\_ioapic\_reverse@{for\_each\_ioapic\_reverse}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{for\_each\_ioapic\_reverse}{for\_each\_ioapic\_reverse}}
+{\footnotesize\ttfamily \#define for\+\_\+each\+\_\+ioapic\+\_\+reverse(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}} }\end{DoxyParamCaption})~\mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} ((\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) = \mbox{\hyperlink{io__apic_8c_ab62ece750ce94fcf323fd00aa7153f19}{nr\+\_\+ioapics}} -\/ 1; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) $>$= 0; (\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})-\/-\/)}
+
+\mbox{\Hypertarget{io__apic_8c_af9a44d2e3e5cd7a81ae77b6ced157274}\label{io__apic_8c_af9a44d2e3e5cd7a81ae77b6ced157274}} 
+\index{io\_apic.c@{io\_apic.c}!for\_each\_irq\_pin@{for\_each\_irq\_pin}}
+\index{for\_each\_irq\_pin@{for\_each\_irq\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{for\_each\_irq\_pin}{for\_each\_irq\_pin}}
+{\footnotesize\ttfamily \#define for\+\_\+each\+\_\+irq\+\_\+pin(\begin{DoxyParamCaption}\item[{}]{entry,  }\item[{}]{\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}} }\end{DoxyParamCaption})~\mbox{\hyperlink{list_8h_a9b782fefb5ab71ce9762182e45a615e1}{list\+\_\+for\+\_\+each\+\_\+entry}}(entry, \&\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, list)}
+
+\mbox{\Hypertarget{io__apic_8c_a9ddae6ad3bda8d0db9d6c7e410a23c1f}\label{io__apic_8c_a9ddae6ad3bda8d0db9d6c7e410a23c1f}} 
+\index{io\_apic.c@{io\_apic.c}!for\_each\_pin@{for\_each\_pin}}
+\index{for\_each\_pin@{for\_each\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{for\_each\_pin}{for\_each\_pin}}
+{\footnotesize\ttfamily \#define for\+\_\+each\+\_\+pin(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}},  }\item[{}]{\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}} }\end{DoxyParamCaption})~\mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} ((\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}) = 0; (\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}}) $<$ \mbox{\hyperlink{io__apic_8c_a27082d7160bbb7be47b139accc109f11}{ioapics}}\mbox{[}(\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})\mbox{]}.nr\+\_\+registers; (\mbox{\hyperlink{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}{pin}})++)}
+
+\mbox{\Hypertarget{io__apic_8c_a108346d5b34459da0b1534876217d3ee}\label{io__apic_8c_a108346d5b34459da0b1534876217d3ee}} 
+\index{io\_apic.c@{io\_apic.c}!IOAPIC\_RESOURCE\_NAME\_SIZE@{IOAPIC\_RESOURCE\_NAME\_SIZE}}
+\index{IOAPIC\_RESOURCE\_NAME\_SIZE@{IOAPIC\_RESOURCE\_NAME\_SIZE}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{IOAPIC\_RESOURCE\_NAME\_SIZE}{IOAPIC\_RESOURCE\_NAME\_SIZE}}
+{\footnotesize\ttfamily \#define I\+O\+A\+P\+I\+C\+\_\+\+R\+E\+S\+O\+U\+R\+C\+E\+\_\+\+N\+A\+M\+E\+\_\+\+S\+I\+ZE~11}
+
+\mbox{\Hypertarget{io__apic_8c_a6d282f93d1c737a0469c49de431710cc}\label{io__apic_8c_a6d282f93d1c737a0469c49de431710cc}} 
+\index{io\_apic.c@{io\_apic.c}!mpc\_ioapic\_ver@{mpc\_ioapic\_ver}}
+\index{mpc\_ioapic\_ver@{mpc\_ioapic\_ver}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mpc\_ioapic\_ver}{mpc\_ioapic\_ver}}
+{\footnotesize\ttfamily \#define mpc\+\_\+ioapic\+\_\+ver(\begin{DoxyParamCaption}\item[{}]{ioapic\+\_\+idx }\end{DoxyParamCaption})~\mbox{\hyperlink{io__apic_8c_a27082d7160bbb7be47b139accc109f11}{ioapics}}\mbox{[}ioapic\+\_\+idx\mbox{]}.mp\+\_\+config.\+apicver}
+
+\mbox{\Hypertarget{io__apic_8c_a7a1b723ab939add8e6321e66db30d31f}\label{io__apic_8c_a7a1b723ab939add8e6321e66db30d31f}} 
+\index{io\_apic.c@{io\_apic.c}!PIC\_IRQS@{PIC\_IRQS}}
+\index{PIC\_IRQS@{PIC\_IRQS}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{PIC\_IRQS}{PIC\_IRQS}}
+{\footnotesize\ttfamily \#define P\+I\+C\+\_\+\+I\+R\+QS~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{i8259_8h_a08519690901632ac90d55f7fd822a6fe}{P\+I\+C\+\_\+\+C\+A\+S\+C\+A\+D\+E\+\_\+\+IR}})}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{io__apic_8c_ae3d232df62c078568e5c91c3be3b0fcb}\label{io__apic_8c_ae3d232df62c078568e5c91c3be3b0fcb}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_acpi\_get\_override\_irq@{\_\_acpi\_get\_override\_irq}}
+\index{\_\_acpi\_get\_override\_irq@{\_\_acpi\_get\_override\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_acpi\_get\_override\_irq()}{\_\_acpi\_get\_override\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+acpi\+\_\+get\+\_\+override\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$}]{trigger,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$}]{polarity }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{io__apic_8c_a48c8b9b4fb0c091a70e067fb208158b7}\label{io__apic_8c_a48c8b9b4fb0c091a70e067fb208158b7}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_add\_pin\_to\_irq\_node@{\_\_add\_pin\_to\_irq\_node}}
+\index{\_\_add\_pin\_to\_irq\_node@{\_\_add\_pin\_to\_irq\_node}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_add\_pin\_to\_irq\_node()}{\_\_add\_pin\_to\_irq\_node()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+add\+\_\+pin\+\_\+to\+\_\+irq\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{io__apic_8c_a27c415794e3559fff5aea3dbd0656ceb}\label{io__apic_8c_a27c415794e3559fff5aea3dbd0656ceb}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_eoi\_ioapic\_pin@{\_\_eoi\_ioapic\_pin}}
+\index{\_\_eoi\_ioapic\_pin@{\_\_eoi\_ioapic\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_eoi\_ioapic\_pin()}{\_\_eoi\_ioapic\_pin()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+eoi\+\_\+ioapic\+\_\+pin (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{vector }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{io__apic_8c_a745dd17742e87e685c5b243ad92b7902}\label{io__apic_8c_a745dd17742e87e685c5b243ad92b7902}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_ioapic\_read\_entry@{\_\_ioapic\_read\_entry}}
+\index{\_\_ioapic\_read\_entry@{\_\_ioapic\_read\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ioapic\_read\_entry()}{\_\_ioapic\_read\_entry()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} \+\_\+\+\_\+ioapic\+\_\+read\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{io__apic_8c_a5510700a7a999272df149e85d35541a3}\label{io__apic_8c_a5510700a7a999272df149e85d35541a3}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_ioapic\_write\_entry@{\_\_ioapic\_write\_entry}}
+\index{\_\_ioapic\_write\_entry@{\_\_ioapic\_write\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ioapic\_write\_entry()}{\_\_ioapic\_write\_entry()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+ioapic\+\_\+write\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin,  }\item[{struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}}}]{e }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{io__apic_8c_a783a8413f358d9a19b6f18bfd74219e2}\label{io__apic_8c_a783a8413f358d9a19b6f18bfd74219e2}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_remove\_pin\_from\_irq@{\_\_remove\_pin\_from\_irq}}
+\index{\_\_remove\_pin\_from\_irq@{\_\_remove\_pin\_from\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_remove\_pin\_from\_irq()}{\_\_remove\_pin\_from\_irq()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+remove\+\_\+pin\+\_\+from\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{io__apic_8c_aa4a952d87fe67dd64b4e701758771854}\label{io__apic_8c_aa4a952d87fe67dd64b4e701758771854}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}no\+\_\+timer\+\_\+check\char`\"{}}]{,  }\item[{\mbox{\hyperlink{io__apic_8c_ad5f80c2a56f06ab5195c438c4bcde35e}{notimercheck}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{io__apic_8c_a4ba4d0d2447d207230cd57d6497738cc}\label{io__apic_8c_a4ba4d0d2447d207230cd57d6497738cc}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_unmask\_ioapic@{\_\_unmask\_ioapic}}
+\index{\_\_unmask\_ioapic@{\_\_unmask\_ioapic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_unmask\_ioapic()}{\_\_unmask\_ioapic()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+unmask\+\_\+ioapic (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{io__apic_8c_ae831ee39d0f9d9af5ec3b7414576af1e}\label{io__apic_8c_ae831ee39d0f9d9af5ec3b7414576af1e}} 
+\index{io\_apic.c@{io\_apic.c}!ack\_lapic\_irq@{ack\_lapic\_irq}}
+\index{ack\_lapic\_irq@{ack\_lapic\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ack\_lapic\_irq()}{ack\_lapic\_irq()}}
+{\footnotesize\ttfamily static void ack\+\_\+lapic\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{io__apic_8c_aac3d82cd6d55519b29a04a68f20a5207}\label{io__apic_8c_aac3d82cd6d55519b29a04a68f20a5207}} 
+\index{io\_apic.c@{io\_apic.c}!add\_pin\_to\_irq\_node@{add\_pin\_to\_irq\_node}}
+\index{add\_pin\_to\_irq\_node@{add\_pin\_to\_irq\_node}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{add\_pin\_to\_irq\_node()}{add\_pin\_to\_irq\_node()}}
+{\footnotesize\ttfamily static void add\+\_\+pin\+\_\+to\+\_\+irq\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{io__apic_8c_ad9d76e7f1f826e45d77a0660c941ec89}\label{io__apic_8c_ad9d76e7f1f826e45d77a0660c941ec89}} 
+\index{io\_apic.c@{io\_apic.c}!alloc\_ioapic\_saved\_registers@{alloc\_ioapic\_saved\_registers}}
+\index{alloc\_ioapic\_saved\_registers@{alloc\_ioapic\_saved\_registers}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_ioapic\_saved\_registers()}{alloc\_ioapic\_saved\_registers()}}
+{\footnotesize\ttfamily static void alloc\+\_\+ioapic\+\_\+saved\+\_\+registers (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{io__apic_8c_ad394d312de8f5812f709855edb75f817}\label{io__apic_8c_ad394d312de8f5812f709855edb75f817}} 
+\index{io\_apic.c@{io\_apic.c}!alloc\_irq\_from\_domain@{alloc\_irq\_from\_domain}}
+\index{alloc\_irq\_from\_domain@{alloc\_irq\_from\_domain}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_irq\_from\_domain()}{alloc\_irq\_from\_domain()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+irq\+\_\+from\+\_\+domain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$}]{domain,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi,  }\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{io__apic_8c_a9ac96a24f1e0675b255ec8af0f103d65}\label{io__apic_8c_a9ac96a24f1e0675b255ec8af0f103d65}} 
+\index{io\_apic.c@{io\_apic.c}!alloc\_isa\_irq\_from\_domain@{alloc\_isa\_irq\_from\_domain}}
+\index{alloc\_isa\_irq\_from\_domain@{alloc\_isa\_irq\_from\_domain}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_isa\_irq\_from\_domain()}{alloc\_isa\_irq\_from\_domain()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+isa\+\_\+irq\+\_\+from\+\_\+domain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$}]{domain,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin,  }\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{io__apic_8c_a817283925baac3e83e949da04bf01a36}\label{io__apic_8c_a817283925baac3e83e949da04bf01a36}} 
+\index{io\_apic.c@{io\_apic.c}!arch\_dynirq\_lower\_bound@{arch\_dynirq\_lower\_bound}}
+\index{arch\_dynirq\_lower\_bound@{arch\_dynirq\_lower\_bound}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{arch\_dynirq\_lower\_bound()}{arch\_dynirq\_lower\_bound()}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arch\+\_\+dynirq\+\_\+lower\+\_\+bound (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{from }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{io__apic_8c_ad80ea4b566fc39a65e124f3933263237}\label{io__apic_8c_ad80ea4b566fc39a65e124f3933263237}} 
+\index{io\_apic.c@{io\_apic.c}!arch\_early\_ioapic\_init@{arch\_early\_ioapic\_init}}
+\index{arch\_early\_ioapic\_init@{arch\_early\_ioapic\_init}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{arch\_early\_ioapic\_init()}{arch\_early\_ioapic\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} arch\+\_\+early\+\_\+ioapic\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{io__apic_8c_acf1aa5ce0fabcfcca84f983e25191356}\label{io__apic_8c_acf1aa5ce0fabcfcca84f983e25191356}} 
+\index{io\_apic.c@{io\_apic.c}!bad\_ioapic\_register@{bad\_ioapic\_register}}
+\index{bad\_ioapic\_register@{bad\_ioapic\_register}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{bad\_ioapic\_register()}{bad\_ioapic\_register()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bad\+\_\+ioapic\+\_\+register (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{io__apic_8c_a7fd13e45ae5cae8f106d07ef0b19196a}\label{io__apic_8c_a7fd13e45ae5cae8f106d07ef0b19196a}} 
+\index{io\_apic.c@{io\_apic.c}!check\_timer@{check\_timer}}
+\index{check\_timer@{check\_timer}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{check\_timer()}{check\_timer()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} check\+\_\+timer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{io__apic_8c_a1125094821d1b5c69b38a4c1ebf40c54}\label{io__apic_8c_a1125094821d1b5c69b38a4c1ebf40c54}} 
+\index{io\_apic.c@{io\_apic.c}!clear\_IO\_APIC@{clear\_IO\_APIC}}
+\index{clear\_IO\_APIC@{clear\_IO\_APIC}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{clear\_IO\_APIC()}{clear\_IO\_APIC()}}
+{\footnotesize\ttfamily void clear\+\_\+\+I\+O\+\_\+\+A\+P\+IC (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{io__apic_8c_a094a89a9079f0b69122edeee97270dae}\label{io__apic_8c_a094a89a9079f0b69122edeee97270dae}} 
+\index{io\_apic.c@{io\_apic.c}!clear\_IO\_APIC\_pin@{clear\_IO\_APIC\_pin}}
+\index{clear\_IO\_APIC\_pin@{clear\_IO\_APIC\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{clear\_IO\_APIC\_pin()}{clear\_IO\_APIC\_pin()}}
+{\footnotesize\ttfamily static void clear\+\_\+\+I\+O\+\_\+\+A\+P\+I\+C\+\_\+pin (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{io__apic_8c_ae6104398831b3a5f7f3d5c731576f298}\label{io__apic_8c_ae6104398831b3a5f7f3d5c731576f298}} 
+\index{io\_apic.c@{io\_apic.c}!DECLARE\_BITMAP@{DECLARE\_BITMAP}}
+\index{DECLARE\_BITMAP@{DECLARE\_BITMAP}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_BITMAP()}{DECLARE\_BITMAP()}}
+{\footnotesize\ttfamily D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP (\begin{DoxyParamCaption}\item[{mp\+\_\+bus\+\_\+not\+\_\+pci}]{,  }\item[{\mbox{\hyperlink{mpspec_8h_ad5dd05ed109bce24f0c6ef6d5817243d}{M\+A\+X\+\_\+\+M\+P\+\_\+\+B\+U\+S\+S\+ES}}}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{io__apic_8c_aa403f13ec13815eaaa23ff0a3736df97}\label{io__apic_8c_aa403f13ec13815eaaa23ff0a3736df97}} 
+\index{io\_apic.c@{io\_apic.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{ioapic\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_a4f2fd5d8aeebc83b65cb6dc02f80407d}\label{io__apic_8c_a4f2fd5d8aeebc83b65cb6dc02f80407d}} 
+\index{io\_apic.c@{io\_apic.c}!DEFINE\_RAW\_SPINLOCK@{DEFINE\_RAW\_SPINLOCK}}
+\index{DEFINE\_RAW\_SPINLOCK@{DEFINE\_RAW\_SPINLOCK}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_RAW\_SPINLOCK()}{DEFINE\_RAW\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+R\+A\+W\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{ioapic\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_ab5c4dcd9739b11ef44f41d242522b564}\label{io__apic_8c_ab5c4dcd9739b11ef44f41d242522b564}} 
+\index{io\_apic.c@{io\_apic.c}!delay\_with\_tsc@{delay\_with\_tsc}}
+\index{delay\_with\_tsc@{delay\_with\_tsc}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{delay\_with\_tsc()}{delay\_with\_tsc()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} delay\+\_\+with\+\_\+tsc (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{io__apic_8c_a6848a35561f73f43960e85d8392239e0}\label{io__apic_8c_a6848a35561f73f43960e85d8392239e0}} 
+\index{io\_apic.c@{io\_apic.c}!delay\_without\_tsc@{delay\_without\_tsc}}
+\index{delay\_without\_tsc@{delay\_without\_tsc}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{delay\_without\_tsc()}{delay\_without\_tsc()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} delay\+\_\+without\+\_\+tsc (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{io__apic_8c_abab5e5439b8963d19621b1b15e0d6ffa}\label{io__apic_8c_abab5e5439b8963d19621b1b15e0d6ffa}} 
+\index{io\_apic.c@{io\_apic.c}!device\_initcall@{device\_initcall}}
+\index{device\_initcall@{device\_initcall}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{device\_initcall()}{device\_initcall()}}
+{\footnotesize\ttfamily device\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{io__apic_8c_a27cb0c1592550f73080f11cc588ae8c3}{ioapic\+\_\+init\+\_\+ops}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{io__apic_8c_a3e17b646b4d28322a796e7e69cb62cfe}\label{io__apic_8c_a3e17b646b4d28322a796e7e69cb62cfe}} 
+\index{io\_apic.c@{io\_apic.c}!disable\_ioapic\_support@{disable\_ioapic\_support}}
+\index{disable\_ioapic\_support@{disable\_ioapic\_support}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{disable\_ioapic\_support()}{disable\_ioapic\_support()}}
+{\footnotesize\ttfamily void disable\+\_\+ioapic\+\_\+support (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{io__apic_8c_a3e17b646b4d28322a796e7e69cb62cfe}{disable\+\_\+ioapic\+\_\+support()}} -\/ disables ioapic support at runtime Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{io__apic_8c_a81ebc9eb73e694068ec00769da3b25a3}\label{io__apic_8c_a81ebc9eb73e694068ec00769da3b25a3}} 
+\index{io\_apic.c@{io\_apic.c}!disable\_timer\_pin\_setup@{disable\_timer\_pin\_setup}}
+\index{disable\_timer\_pin\_setup@{disable\_timer\_pin\_setup}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{disable\_timer\_pin\_setup()}{disable\_timer\_pin\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} disable\+\_\+timer\+\_\+pin\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_aa136efe997fd0ce77c84147c6fa20dde}\label{io__apic_8c_aa136efe997fd0ce77c84147c6fa20dde}} 
+\index{io\_apic.c@{io\_apic.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}disable\+\_\+timer\+\_\+pin\+\_\+1\char`\"{}}]{,  }\item[{\mbox{\hyperlink{io__apic_8c_a81ebc9eb73e694068ec00769da3b25a3}{disable\+\_\+timer\+\_\+pin\+\_\+setup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{io__apic_8c_a5a81b62d1cc578b18a7f1cd823606563}\label{io__apic_8c_a5a81b62d1cc578b18a7f1cd823606563}} 
+\index{io\_apic.c@{io\_apic.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}noapic\char`\"{}}]{,  }\item[{\mbox{\hyperlink{io__apic_8c_a700cdad99aac829dc48f26d0e623a967}{parse\+\_\+noapic}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{io__apic_8c_ab0bec9b4fc4b36db04cc93ef3d467195}\label{io__apic_8c_ab0bec9b4fc4b36db04cc93ef3d467195}} 
+\index{io\_apic.c@{io\_apic.c}!eisa\_irq\_is\_level@{eisa\_irq\_is\_level}}
+\index{eisa\_irq\_is\_level@{eisa\_irq\_is\_level}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{eisa\_irq\_is\_level()}{eisa\_irq\_is\_level()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} eisa\+\_\+irq\+\_\+is\+\_\+level (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bus,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{io__apic_8c_a3158a0e199445d72357d578d8e19b4f8}\label{io__apic_8c_a3158a0e199445d72357d578d8e19b4f8}} 
+\index{io\_apic.c@{io\_apic.c}!enable\_IO\_APIC@{enable\_IO\_APIC}}
+\index{enable\_IO\_APIC@{enable\_IO\_APIC}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{enable\_IO\_APIC()}{enable\_IO\_APIC()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} enable\+\_\+\+I\+O\+\_\+\+A\+P\+IC (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{io__apic_8c_a9ef70c91cc7ae32a22152a81cdb90e87}\label{io__apic_8c_a9ef70c91cc7ae32a22152a81cdb90e87}} 
+\index{io\_apic.c@{io\_apic.c}!eoi\_ioapic\_pin@{eoi\_ioapic\_pin}}
+\index{eoi\_ioapic\_pin@{eoi\_ioapic\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{eoi\_ioapic\_pin()}{eoi\_ioapic\_pin()}}
+{\footnotesize\ttfamily static void eoi\+\_\+ioapic\+\_\+pin (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{vector,  }\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{io__apic_8c_a2533458581fa92ec223a94e8bf73d2f0}\label{io__apic_8c_a2533458581fa92ec223a94e8bf73d2f0}} 
+\index{io\_apic.c@{io\_apic.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{io__apic_8c_a073f6d67084fc60e1cd210cc7fd46fcd}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+get\+\_\+\+P\+C\+I\+\_\+irq\+\_\+vector}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{io__apic_8c_a317423872b0ac81ebc6bb250b1fc1bf8}\label{io__apic_8c_a317423872b0ac81ebc6bb250b1fc1bf8}} 
+\index{io\_apic.c@{io\_apic.c}!find\_free\_ioapic\_entry@{find\_free\_ioapic\_entry}}
+\index{find\_free\_ioapic\_entry@{find\_free\_ioapic\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{find\_free\_ioapic\_entry()}{find\_free\_ioapic\_entry()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} find\+\_\+free\+\_\+ioapic\+\_\+entry (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{io__apic_8c_ae0cfba3a0c900f58fa9121c5eb4c631a}\label{io__apic_8c_ae0cfba3a0c900f58fa9121c5eb4c631a}} 
+\index{io\_apic.c@{io\_apic.c}!find\_irq\_entry@{find\_irq\_entry}}
+\index{find\_irq\_entry@{find\_irq\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{find\_irq\_entry()}{find\_irq\_entry()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} find\+\_\+irq\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic\+\_\+idx,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{io__apic_8c_a1969d0b4514e70fb8dcbd46b561322eb}\label{io__apic_8c_a1969d0b4514e70fb8dcbd46b561322eb}} 
+\index{io\_apic.c@{io\_apic.c}!find\_isa\_irq\_apic@{find\_isa\_irq\_apic}}
+\index{find\_isa\_irq\_apic@{find\_isa\_irq\_apic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{find\_isa\_irq\_apic()}{find\_isa\_irq\_apic()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} find\+\_\+isa\+\_\+irq\+\_\+apic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{io__apic_8c_a7e02c11a57c230d6a3d65cd4f1ebeb99}\label{io__apic_8c_a7e02c11a57c230d6a3d65cd4f1ebeb99}} 
+\index{io\_apic.c@{io\_apic.c}!find\_isa\_irq\_pin@{find\_isa\_irq\_pin}}
+\index{find\_isa\_irq\_pin@{find\_isa\_irq\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{find\_isa\_irq\_pin()}{find\_isa\_irq\_pin()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} find\+\_\+isa\+\_\+irq\+\_\+pin (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{io__apic_8c_ac58fdf1f8fcd86f00a52221b5ccc5add}\label{io__apic_8c_ac58fdf1f8fcd86f00a52221b5ccc5add}} 
+\index{io\_apic.c@{io\_apic.c}!free\_ioapic\_saved\_registers@{free\_ioapic\_saved\_registers}}
+\index{free\_ioapic\_saved\_registers@{free\_ioapic\_saved\_registers}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{free\_ioapic\_saved\_registers()}{free\_ioapic\_saved\_registers()}}
+{\footnotesize\ttfamily static void free\+\_\+ioapic\+\_\+saved\+\_\+registers (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{io__apic_8c_a2092df3b926de9229194064d727c1b8e}\label{io__apic_8c_a2092df3b926de9229194064d727c1b8e}} 
+\index{io\_apic.c@{io\_apic.c}!init\_IO\_APIC\_traps@{init\_IO\_APIC\_traps}}
+\index{init\_IO\_APIC\_traps@{init\_IO\_APIC\_traps}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{init\_IO\_APIC\_traps()}{init\_IO\_APIC\_traps()}}
+{\footnotesize\ttfamily static void init\+\_\+\+I\+O\+\_\+\+A\+P\+I\+C\+\_\+traps (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{io__apic_8c_ad850dbc86dfa7bf073aec43166ed1833}\label{io__apic_8c_ad850dbc86dfa7bf073aec43166ed1833}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_base@{io\_apic\_base}}
+\index{io\_apic\_base@{io\_apic\_base}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_base()}{io\_apic\_base()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{pq_8h_abea77661c5bf0bc3e4cf992f84a42c5b}{\+\_\+\+\_\+attribute\+\_\+const\+\_\+\+\_\+}} struct \mbox{\hyperlink{structio__apic}{io\+\_\+apic}} \mbox{\hyperlink{compiler__types_8h_af6b4077d1d8ce49175e6fcb91788634a}{\+\_\+\+\_\+iomem}}$\ast$ io\+\_\+apic\+\_\+base (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{io__apic_8c_a0208faad0249941f7b220151bd3d78e4}\label{io__apic_8c_a0208faad0249941f7b220151bd3d78e4}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_eoi@{io\_apic\_eoi}}
+\index{io\_apic\_eoi@{io\_apic\_eoi}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_eoi()}{io\_apic\_eoi()}}
+{\footnotesize\ttfamily static void io\+\_\+apic\+\_\+eoi (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{vector }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{io__apic_8c_a073f6d67084fc60e1cd210cc7fd46fcd}\label{io__apic_8c_a073f6d67084fc60e1cd210cc7fd46fcd}} 
+\index{io\_apic.c@{io\_apic.c}!IO\_APIC\_get\_PCI\_irq\_vector@{IO\_APIC\_get\_PCI\_irq\_vector}}
+\index{IO\_APIC\_get\_PCI\_irq\_vector@{IO\_APIC\_get\_PCI\_irq\_vector}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{IO\_APIC\_get\_PCI\_irq\_vector()}{IO\_APIC\_get\_PCI\_irq\_vector()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} I\+O\+\_\+\+A\+P\+I\+C\+\_\+get\+\_\+\+P\+C\+I\+\_\+irq\+\_\+vector (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bus,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{slot,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{io__apic_8c_ad809359bf19770820cff8a650bf6759d}\label{io__apic_8c_ad809359bf19770820cff8a650bf6759d}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_get\_redir\_entries@{io\_apic\_get\_redir\_entries}}
+\index{io\_apic\_get\_redir\_entries@{io\_apic\_get\_redir\_entries}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_get\_redir\_entries()}{io\_apic\_get\_redir\_entries()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} io\+\_\+apic\+\_\+get\+\_\+redir\+\_\+entries (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{io__apic_8c_ada00292fcbfb71125213c479511fdd76}\label{io__apic_8c_ada00292fcbfb71125213c479511fdd76}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_get\_version@{io\_apic\_get\_version}}
+\index{io\_apic\_get\_version@{io\_apic\_get\_version}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_get\_version()}{io\_apic\_get\_version()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} io\+\_\+apic\+\_\+get\+\_\+version (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{io__apic_8c_ad002e6098b4b81d73b1844e7176608c7}\label{io__apic_8c_ad002e6098b4b81d73b1844e7176608c7}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_init\_mappings@{io\_apic\_init\_mappings}}
+\index{io\_apic\_init\_mappings@{io\_apic\_init\_mappings}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_init\_mappings()}{io\_apic\_init\_mappings()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} io\+\_\+apic\+\_\+init\+\_\+mappings (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{io__apic_8c_addfa590ef5fcd4169698d20c12e5e04c}\label{io__apic_8c_addfa590ef5fcd4169698d20c12e5e04c}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_modify\_irq@{io\_apic\_modify\_irq}}
+\index{io\_apic\_modify\_irq@{io\_apic\_modify\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_modify\_irq()}{io\_apic\_modify\_irq()}}
+{\footnotesize\ttfamily static void io\+\_\+apic\+\_\+modify\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{masked,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structirq__pin__list}{irq\+\_\+pin\+\_\+list}} $\ast$entry)}]{final }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{io__apic_8c_a3b6236a7e81fe0512439027821346028}\label{io__apic_8c_a3b6236a7e81fe0512439027821346028}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_print\_entries@{io\_apic\_print\_entries}}
+\index{io\_apic\_print\_entries@{io\_apic\_print\_entries}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_print\_entries()}{io\_apic\_print\_entries()}}
+{\footnotesize\ttfamily static void io\+\_\+apic\+\_\+print\+\_\+entries (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+entries }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{io__apic_8c_adb70a8b769441cf33eb911e39d114b7f}\label{io__apic_8c_adb70a8b769441cf33eb911e39d114b7f}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_sync@{io\_apic\_sync}}
+\index{io\_apic\_sync@{io\_apic\_sync}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_sync()}{io\_apic\_sync()}}
+{\footnotesize\ttfamily static void io\+\_\+apic\+\_\+sync (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__pin__list}{irq\+\_\+pin\+\_\+list}} $\ast$}]{entry }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{io__apic_8c_a9c7753a7957a50737e648cefb1a634a6}\label{io__apic_8c_a9c7753a7957a50737e648cefb1a634a6}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_unique\_id@{io\_apic\_unique\_id}}
+\index{io\_apic\_unique\_id@{io\_apic\_unique\_id}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_unique\_id()}{io\_apic\_unique\_id()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} io\+\_\+apic\+\_\+unique\+\_\+id (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{io__apic_8c_a98d3ca795630d5d4859d01bdefa14fa1}\label{io__apic_8c_a98d3ca795630d5d4859d01bdefa14fa1}} 
+\index{io\_apic.c@{io\_apic.c}!io\_apic\_write@{io\_apic\_write}}
+\index{io\_apic\_write@{io\_apic\_write}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{io\_apic\_write()}{io\_apic\_write()}}
+{\footnotesize\ttfamily static void io\+\_\+apic\+\_\+write (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{reg,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{io__apic_8c_ab2608c6e62d1d261a7d6918b4cb331fb}\label{io__apic_8c_ab2608c6e62d1d261a7d6918b4cb331fb}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_ack\_level@{ioapic\_ack\_level}}
+\index{ioapic\_ack\_level@{ioapic\_ack\_level}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_ack\_level()}{ioapic\_ack\_level()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+ack\+\_\+level (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{io__apic_8c_a02f0966625bb54d665f6cbf83b851f80}\label{io__apic_8c_a02f0966625bb54d665f6cbf83b851f80}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_alloc\_attr\_node@{ioapic\_alloc\_attr\_node}}
+\index{ioapic\_alloc\_attr\_node@{ioapic\_alloc\_attr\_node}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_alloc\_attr\_node()}{ioapic\_alloc\_attr\_node()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+alloc\+\_\+attr\+\_\+node (\begin{DoxyParamCaption}\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{io__apic_8c_a2482a0d791f22dbbae97af31e6e34180}\label{io__apic_8c_a2482a0d791f22dbbae97af31e6e34180}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_configure\_entry@{ioapic\_configure\_entry}}
+\index{ioapic\_configure\_entry@{ioapic\_configure\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_configure\_entry()}{ioapic\_configure\_entry()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+configure\+\_\+entry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irqd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{io__apic_8c_ada629c204af5dbf67f5916571fd06146}\label{io__apic_8c_ada629c204af5dbf67f5916571fd06146}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_copy\_alloc\_attr@{ioapic\_copy\_alloc\_attr}}
+\index{ioapic\_copy\_alloc\_attr@{ioapic\_copy\_alloc\_attr}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_copy\_alloc\_attr()}{ioapic\_copy\_alloc\_attr()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+copy\+\_\+alloc\+\_\+attr (\begin{DoxyParamCaption}\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{dst,  }\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{src,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic\+\_\+idx,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 79
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{io__apic_8c_a9366f527ec49004647a56a4e1ddada20}\label{io__apic_8c_a9366f527ec49004647a56a4e1ddada20}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_destroy\_irqdomain@{ioapic\_destroy\_irqdomain}}
+\index{ioapic\_destroy\_irqdomain@{ioapic\_destroy\_irqdomain}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_destroy\_irqdomain()}{ioapic\_destroy\_irqdomain()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+destroy\+\_\+irqdomain (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{io__apic_8c_a4b880a306f9f7c62168cdcbb2b0f9223}\label{io__apic_8c_a4b880a306f9f7c62168cdcbb2b0f9223}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_finish\_move@{ioapic\_finish\_move}}
+\index{ioapic\_finish\_move@{ioapic\_finish\_move}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_finish\_move()}{ioapic\_finish\_move()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+finish\+\_\+move (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{data,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{moveit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{io__apic_8c_a27cb0c1592550f73080f11cc588ae8c3}\label{io__apic_8c_a27cb0c1592550f73080f11cc588ae8c3}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_init\_ops@{ioapic\_init\_ops}}
+\index{ioapic\_init\_ops@{ioapic\_init\_ops}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_init\_ops()}{ioapic\_init\_ops()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ioapic\+\_\+init\+\_\+ops (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{io__apic_8c_a2d505129405794c603ee09925a524128}\label{io__apic_8c_a2d505129405794c603ee09925a524128}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_insert\_resources@{ioapic\_insert\_resources}}
+\index{ioapic\_insert\_resources@{ioapic\_insert\_resources}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_insert\_resources()}{ioapic\_insert\_resources()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ioapic\+\_\+insert\+\_\+resources (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 85
+Here is the caller graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{io__apic_8c_a1977e3798fcd3c9adae36bbbbad76d55}\label{io__apic_8c_a1977e3798fcd3c9adae36bbbbad76d55}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_ir\_ack\_level@{ioapic\_ir\_ack\_level}}
+\index{ioapic\_ir\_ack\_level@{ioapic\_ir\_ack\_level}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_ir\_ack\_level()}{ioapic\_ir\_ack\_level()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+ir\+\_\+ack\+\_\+level (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{io__apic_8c_abb4d89322186eb78d874ffd0dd554291}\label{io__apic_8c_abb4d89322186eb78d874ffd0dd554291}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_irq\_get\_chip\_state@{ioapic\_irq\_get\_chip\_state}}
+\index{ioapic\_irq\_get\_chip\_state@{ioapic\_irq\_get\_chip\_state}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_irq\_get\_chip\_state()}{ioapic\_irq\_get\_chip\_state()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+irq\+\_\+get\+\_\+chip\+\_\+state (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irqd,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{interrupt_8h_a0dc60b0877d4f7ebae1850f27d46efd6}{irqchip\+\_\+irq\+\_\+state}}}]{which,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$}]{state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{io__apic_8c_a8f392ab50a67a640caf0bf097790d994}\label{io__apic_8c_a8f392ab50a67a640caf0bf097790d994}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_mask\_entry@{ioapic\_mask\_entry}}
+\index{ioapic\_mask\_entry@{ioapic\_mask\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_mask\_entry()}{ioapic\_mask\_entry()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+mask\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 89
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{io__apic_8c_a3db85918d3f8f4e15b6e138c7f4f1d5a}\label{io__apic_8c_a3db85918d3f8f4e15b6e138c7f4f1d5a}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_prepare\_move@{ioapic\_prepare\_move}}
+\index{ioapic\_prepare\_move@{ioapic\_prepare\_move}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_prepare\_move()}{ioapic\_prepare\_move()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} ioapic\+\_\+prepare\+\_\+move (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{io__apic_8c_aea2d634dd190d5d31dc2b3ea912b14a5}\label{io__apic_8c_aea2d634dd190d5d31dc2b3ea912b14a5}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_read\_entry@{ioapic\_read\_entry}}
+\index{ioapic\_read\_entry@{ioapic\_read\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_read\_entry()}{ioapic\_read\_entry()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} ioapic\+\_\+read\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 92
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{io__apic_8c_aeca1f2b6f03579044b94884aa5f58a81}\label{io__apic_8c_aeca1f2b6f03579044b94884aa5f58a81}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_resume@{ioapic\_resume}}
+\index{ioapic\_resume@{ioapic\_resume}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_resume()}{ioapic\_resume()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+resume (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{io__apic_8c_aef9a7a7ec120d2f7ee25488d816058d5}\label{io__apic_8c_aef9a7a7ec120d2f7ee25488d816058d5}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_set\_affinity@{ioapic\_set\_affinity}}
+\index{ioapic\_set\_affinity@{ioapic\_set\_affinity}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_set\_affinity()}{ioapic\_set\_affinity()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+set\+\_\+affinity (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data,  }\item[{const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$}]{mask,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{force }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{io__apic_8c_ac58d1974203db3c24f689be4cf82cb8f}\label{io__apic_8c_ac58d1974203db3c24f689be4cf82cb8f}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_set\_alloc\_attr@{ioapic\_set\_alloc\_attr}}
+\index{ioapic\_set\_alloc\_attr@{ioapic\_set\_alloc\_attr}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_set\_alloc\_attr()}{ioapic\_set\_alloc\_attr()}}
+{\footnotesize\ttfamily void ioapic\+\_\+set\+\_\+alloc\+\_\+attr (\begin{DoxyParamCaption}\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trigger,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{polarity }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{io__apic_8c_aa41c0e0a6afcc23539032b2b2f9feb3c}\label{io__apic_8c_aa41c0e0a6afcc23539032b2b2f9feb3c}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_setup\_msg\_from\_msi@{ioapic\_setup\_msg\_from\_msi}}
+\index{ioapic\_setup\_msg\_from\_msi@{ioapic\_setup\_msg\_from\_msi}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_setup\_msg\_from\_msi()}{ioapic\_setup\_msg\_from\_msi()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+setup\+\_\+msg\+\_\+from\+\_\+msi (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data,  }\item[{struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}} $\ast$}]{entry }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 98
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{io__apic_8c_a123ad7179f1cd41cdc35cf64976f6c86}\label{io__apic_8c_a123ad7179f1cd41cdc35cf64976f6c86}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_setup\_resources@{ioapic\_setup\_resources}}
+\index{ioapic\_setup\_resources@{ioapic\_setup\_resources}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_setup\_resources()}{ioapic\_setup\_resources()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structresource}{resource}}$\ast$ \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ioapic\+\_\+setup\+\_\+resources (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 100
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{io__apic_8c_a739e0a80a7a1c9434b67670afd16cb7a}\label{io__apic_8c_a739e0a80a7a1c9434b67670afd16cb7a}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_write\_entry@{ioapic\_write\_entry}}
+\index{ioapic\_write\_entry@{ioapic\_write\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_write\_entry()}{ioapic\_write\_entry()}}
+{\footnotesize\ttfamily static void ioapic\+\_\+write\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin,  }\item[{struct \mbox{\hyperlink{structIO__APIC__route__entry}{I\+O\+\_\+\+A\+P\+I\+C\+\_\+route\+\_\+entry}}}]{e }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 102
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{io__apic_8c_ac4bed2d9cfd67314dbba13163e50e07d}\label{io__apic_8c_ac4bed2d9cfd67314dbba13163e50e07d}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_zap\_locks@{ioapic\_zap\_locks}}
+\index{ioapic\_zap\_locks@{ioapic\_zap\_locks}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_zap\_locks()}{ioapic\_zap\_locks()}}
+{\footnotesize\ttfamily void ioapic\+\_\+zap\+\_\+locks (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{io__apic_8c_af6c9b9eb5272db718391b450e642af0a}\label{io__apic_8c_af6c9b9eb5272db718391b450e642af0a}} 
+\index{io\_apic.c@{io\_apic.c}!irq\_active\_low@{irq\_active\_low}}
+\index{irq\_active\_low@{irq\_active\_low}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{irq\_active\_low()}{irq\_active\_low()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} irq\+\_\+active\+\_\+low (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{io__apic_8c_a3906e9e49236d95b4a6b7956049b77ac}\label{io__apic_8c_a3906e9e49236d95b4a6b7956049b77ac}} 
+\index{io\_apic.c@{io\_apic.c}!irq\_is\_level@{irq\_is\_level}}
+\index{irq\_is\_level@{irq\_is\_level}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{irq\_is\_level()}{irq\_is\_level()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} irq\+\_\+is\+\_\+level (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{io__apic_8c_aa95b07d4fa509faf3316c847bd9c4cfa}\label{io__apic_8c_aa95b07d4fa509faf3316c847bd9c4cfa}} 
+\index{io\_apic.c@{io\_apic.c}!lapic\_register\_intr@{lapic\_register\_intr}}
+\index{lapic\_register\_intr@{lapic\_register\_intr}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{lapic\_register\_intr()}{lapic\_register\_intr()}}
+{\footnotesize\ttfamily static void lapic\+\_\+register\+\_\+intr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{io__apic_8c_acdd28f31b98a1ea56bf7b1844d628379}\label{io__apic_8c_acdd28f31b98a1ea56bf7b1844d628379}} 
+\index{io\_apic.c@{io\_apic.c}!mask\_ioapic\_entries@{mask\_ioapic\_entries}}
+\index{mask\_ioapic\_entries@{mask\_ioapic\_entries}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mask\_ioapic\_entries()}{mask\_ioapic\_entries()}}
+{\footnotesize\ttfamily void mask\+\_\+ioapic\+\_\+entries (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{io__apic_8c_af2fa0e5fd348500969880b0f33f2e656}\label{io__apic_8c_af2fa0e5fd348500969880b0f33f2e656}} 
+\index{io\_apic.c@{io\_apic.c}!mask\_ioapic\_irq@{mask\_ioapic\_irq}}
+\index{mask\_ioapic\_irq@{mask\_ioapic\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mask\_ioapic\_irq()}{mask\_ioapic\_irq()}}
+{\footnotesize\ttfamily static void mask\+\_\+ioapic\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 112
+\mbox{\Hypertarget{io__apic_8c_ab6480090a8dc5e69edd9f75a66e96460}\label{io__apic_8c_ab6480090a8dc5e69edd9f75a66e96460}} 
+\index{io\_apic.c@{io\_apic.c}!mask\_lapic\_irq@{mask\_lapic\_irq}}
+\index{mask\_lapic\_irq@{mask\_lapic\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mask\_lapic\_irq()}{mask\_lapic\_irq()}}
+{\footnotesize\ttfamily static void mask\+\_\+lapic\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{io__apic_8c_acb012c55d7cfbc8a7074dd473d76852d}\label{io__apic_8c_acb012c55d7cfbc8a7074dd473d76852d}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_alloc\_timer\_irq@{mp\_alloc\_timer\_irq}}
+\index{mp\_alloc\_timer\_irq@{mp\_alloc\_timer\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_alloc\_timer\_irq()}{mp\_alloc\_timer\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+alloc\+\_\+timer\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 114
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{io__apic_8c_a773e9a61d76b5ddaf8c8c463e480edb7}\label{io__apic_8c_a773e9a61d76b5ddaf8c8c463e480edb7}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_check\_pin\_attr@{mp\_check\_pin\_attr}}
+\index{mp\_check\_pin\_attr@{mp\_check\_pin\_attr}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_check\_pin\_attr()}{mp\_check\_pin\_attr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} mp\+\_\+check\+\_\+pin\+\_\+attr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 116
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{io__apic_8c_a27b513bf54320c0adeac4f32f0f76f83}\label{io__apic_8c_a27b513bf54320c0adeac4f32f0f76f83}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_find\_ioapic@{mp\_find\_ioapic}}
+\index{mp\_find\_ioapic@{mp\_find\_ioapic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_find\_ioapic()}{mp\_find\_ioapic()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+find\+\_\+ioapic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 118
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{io__apic_8c_a95397971bcf4d52bdeebea632d962b25}\label{io__apic_8c_a95397971bcf4d52bdeebea632d962b25}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_find\_ioapic\_pin@{mp\_find\_ioapic\_pin}}
+\index{mp\_find\_ioapic\_pin@{mp\_find\_ioapic\_pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_find\_ioapic\_pin()}{mp\_find\_ioapic\_pin()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+find\+\_\+ioapic\+\_\+pin (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 120
+Here is the caller graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{io__apic_8c_a34cc14526702aab0c085ef96140c1e3f}\label{io__apic_8c_a34cc14526702aab0c085ef96140c1e3f}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_ioapic\_gsi\_routing@{mp\_ioapic\_gsi\_routing}}
+\index{mp\_ioapic\_gsi\_routing@{mp\_ioapic\_gsi\_routing}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_ioapic\_gsi\_routing()}{mp\_ioapic\_gsi\_routing()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structmp__ioapic__gsi}{mp\+\_\+ioapic\+\_\+gsi}}$\ast$ mp\+\_\+ioapic\+\_\+gsi\+\_\+routing (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 122
+\mbox{\Hypertarget{io__apic_8c_a6eaf42aa1bc7bd309e8cfd0b0961012c}\label{io__apic_8c_a6eaf42aa1bc7bd309e8cfd0b0961012c}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_ioapic\_irqdomain@{mp\_ioapic\_irqdomain}}
+\index{mp\_ioapic\_irqdomain@{mp\_ioapic\_irqdomain}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_ioapic\_irqdomain()}{mp\_ioapic\_irqdomain()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}}$\ast$ mp\+\_\+ioapic\+\_\+irqdomain (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{io__apic_8c_a06ebefb1e55245618bb30c932c8bc114}\label{io__apic_8c_a06ebefb1e55245618bb30c932c8bc114}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_ioapic\_pin\_count@{mp\_ioapic\_pin\_count}}
+\index{mp\_ioapic\_pin\_count@{mp\_ioapic\_pin\_count}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_ioapic\_pin\_count()}{mp\_ioapic\_pin\_count()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+ioapic\+\_\+pin\+\_\+count (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 124
+Here is the caller graph for this function\+:
+% FIG 125
+\mbox{\Hypertarget{io__apic_8c_aa2be9906681b619186b5ca1dea31b6fb}\label{io__apic_8c_aa2be9906681b619186b5ca1dea31b6fb}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_ioapic\_registered@{mp\_ioapic\_registered}}
+\index{mp\_ioapic\_registered@{mp\_ioapic\_registered}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_ioapic\_registered()}{mp\_ioapic\_registered()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+ioapic\+\_\+registered (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi\+\_\+base }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 126
+\mbox{\Hypertarget{io__apic_8c_ad6ac549046571b77fb6838a3f4a1931f}\label{io__apic_8c_ad6ac549046571b77fb6838a3f4a1931f}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqdomain\_activate@{mp\_irqdomain\_activate}}
+\index{mp\_irqdomain\_activate@{mp\_irqdomain\_activate}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqdomain\_activate()}{mp\_irqdomain\_activate()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+irqdomain\+\_\+activate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$}]{domain,  }\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{reserve }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 127
+\mbox{\Hypertarget{io__apic_8c_aef9c39b0e3f46671e1d51cda2d7d9c95}\label{io__apic_8c_aef9c39b0e3f46671e1d51cda2d7d9c95}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqdomain\_alloc@{mp\_irqdomain\_alloc}}
+\index{mp\_irqdomain\_alloc@{mp\_irqdomain\_alloc}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqdomain\_alloc()}{mp\_irqdomain\_alloc()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+irqdomain\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$}]{domain,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{virq,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+irqs,  }\item[{void $\ast$}]{arg }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 128
+\mbox{\Hypertarget{io__apic_8c_a85b3ae8f725cacd0c0b3cd8ddeb1c610}\label{io__apic_8c_a85b3ae8f725cacd0c0b3cd8ddeb1c610}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqdomain\_create@{mp\_irqdomain\_create}}
+\index{mp\_irqdomain\_create@{mp\_irqdomain\_create}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqdomain\_create()}{mp\_irqdomain\_create()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+irqdomain\+\_\+create (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 129
+Here is the caller graph for this function\+:
+% FIG 130
+\mbox{\Hypertarget{io__apic_8c_a3f5a35aca3734b242de7f97bc961f817}\label{io__apic_8c_a3f5a35aca3734b242de7f97bc961f817}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqdomain\_deactivate@{mp\_irqdomain\_deactivate}}
+\index{mp\_irqdomain\_deactivate@{mp\_irqdomain\_deactivate}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqdomain\_deactivate()}{mp\_irqdomain\_deactivate()}}
+{\footnotesize\ttfamily void mp\+\_\+irqdomain\+\_\+deactivate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$}]{domain,  }\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 131
+\mbox{\Hypertarget{io__apic_8c_a7675b6ca696f8abc1c694934a09b3913}\label{io__apic_8c_a7675b6ca696f8abc1c694934a09b3913}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqdomain\_free@{mp\_irqdomain\_free}}
+\index{mp\_irqdomain\_free@{mp\_irqdomain\_free}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqdomain\_free()}{mp\_irqdomain\_free()}}
+{\footnotesize\ttfamily void mp\+\_\+irqdomain\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$}]{domain,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{virq,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+irqs }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 132
+\mbox{\Hypertarget{io__apic_8c_a8bd7796814056ae53e58925bcea1c150}\label{io__apic_8c_a8bd7796814056ae53e58925bcea1c150}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqdomain\_get\_attr@{mp\_irqdomain\_get\_attr}}
+\index{mp\_irqdomain\_get\_attr@{mp\_irqdomain\_get\_attr}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqdomain\_get\_attr()}{mp\_irqdomain\_get\_attr()}}
+{\footnotesize\ttfamily static void mp\+\_\+irqdomain\+\_\+get\+\_\+attr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi,  }\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data,  }\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 133
+Here is the caller graph for this function\+:
+% FIG 134
+\mbox{\Hypertarget{io__apic_8c_a171695db631bbf05ad015d68d51d86e5}\label{io__apic_8c_a171695db631bbf05ad015d68d51d86e5}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqdomain\_ioapic\_idx@{mp\_irqdomain\_ioapic\_idx}}
+\index{mp\_irqdomain\_ioapic\_idx@{mp\_irqdomain\_ioapic\_idx}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqdomain\_ioapic\_idx()}{mp\_irqdomain\_ioapic\_idx()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+irqdomain\+\_\+ioapic\+\_\+idx (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__domain}{irq\+\_\+domain}} $\ast$}]{domain }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 135
+\mbox{\Hypertarget{io__apic_8c_a6c271de625f8748242ba6096a5a0d400}\label{io__apic_8c_a6c271de625f8748242ba6096a5a0d400}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_is\_legacy\_irq@{mp\_is\_legacy\_irq}}
+\index{mp\_is\_legacy\_irq@{mp\_is\_legacy\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_is\_legacy\_irq()}{mp\_is\_legacy\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} mp\+\_\+is\+\_\+legacy\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 136
+Here is the caller graph for this function\+:
+% FIG 137
+\mbox{\Hypertarget{io__apic_8c_a70ad09495ca164bfb46ccdb2ce86d74b}\label{io__apic_8c_a70ad09495ca164bfb46ccdb2ce86d74b}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_map\_gsi\_to\_irq@{mp\_map\_gsi\_to\_irq}}
+\index{mp\_map\_gsi\_to\_irq@{mp\_map\_gsi\_to\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_map\_gsi\_to\_irq()}{mp\_map\_gsi\_to\_irq()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+map\+\_\+gsi\+\_\+to\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 138
+Here is the caller graph for this function\+:
+% FIG 139
+\mbox{\Hypertarget{io__apic_8c_ad41d92c5a4451b99732f832198a6707d}\label{io__apic_8c_ad41d92c5a4451b99732f832198a6707d}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_map\_pin\_to\_irq@{mp\_map\_pin\_to\_irq}}
+\index{mp\_map\_pin\_to\_irq@{mp\_map\_pin\_to\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_map\_pin\_to\_irq()}{mp\_map\_pin\_to\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+map\+\_\+pin\+\_\+to\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{struct irq\+\_\+alloc\+\_\+info $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 140
+Here is the caller graph for this function\+:
+% FIG 141
+\mbox{\Hypertarget{io__apic_8c_a1f08b83c65373bd1c470bc9f3a2df648}\label{io__apic_8c_a1f08b83c65373bd1c470bc9f3a2df648}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_pin\_to\_gsi@{mp\_pin\_to\_gsi}}
+\index{mp\_pin\_to\_gsi@{mp\_pin\_to\_gsi}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_pin\_to\_gsi()}{mp\_pin\_to\_gsi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} mp\+\_\+pin\+\_\+to\+\_\+gsi (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 142
+Here is the caller graph for this function\+:
+% FIG 143
+\mbox{\Hypertarget{io__apic_8c_aeb4a6e081945230559a47ff0e5ae9029}\label{io__apic_8c_aeb4a6e081945230559a47ff0e5ae9029}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_preconfigure\_entry@{mp\_preconfigure\_entry}}
+\index{mp\_preconfigure\_entry@{mp\_preconfigure\_entry}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_preconfigure\_entry()}{mp\_preconfigure\_entry()}}
+{\footnotesize\ttfamily static void mp\+\_\+preconfigure\+\_\+entry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 144
+\mbox{\Hypertarget{io__apic_8c_ae39fe24ba7924708de48a8deac2f7142}\label{io__apic_8c_ae39fe24ba7924708de48a8deac2f7142}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_register\_handler@{mp\_register\_handler}}
+\index{mp\_register\_handler@{mp\_register\_handler}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_register\_handler()}{mp\_register\_handler()}}
+{\footnotesize\ttfamily static void mp\+\_\+register\+\_\+handler (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 145
+Here is the caller graph for this function\+:
+% FIG 146
+\mbox{\Hypertarget{io__apic_8c_a78a7b468896e770c84ad54a2bfa23d9a}\label{io__apic_8c_a78a7b468896e770c84ad54a2bfa23d9a}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_register\_ioapic@{mp\_register\_ioapic}}
+\index{mp\_register\_ioapic@{mp\_register\_ioapic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_register\_ioapic()}{mp\_register\_ioapic()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+register\+\_\+ioapic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{id,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{address,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi\+\_\+base,  }\item[{struct ioapic\+\_\+domain\+\_\+cfg $\ast$}]{cfg }\end{DoxyParamCaption})}
+
+mp\+\_\+register\+\_\+ioapic -\/ Register an I\+O\+A\+P\+IC device @id\+: hardware I\+O\+A\+P\+IC ID @address\+: physical address of I\+O\+A\+P\+IC register area @gsi\+\_\+base\+: base of G\+SI associated with the I\+O\+A\+P\+IC @cfg\+: configuration information for the I\+O\+A\+P\+IC Here is the call graph for this function\+:
+% FIG 147
+Here is the caller graph for this function\+:
+% FIG 148
+\mbox{\Hypertarget{io__apic_8c_a627eeed01b5a900a210ae5f5bbce05b4}\label{io__apic_8c_a627eeed01b5a900a210ae5f5bbce05b4}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_save\_irq@{mp\_save\_irq}}
+\index{mp\_save\_irq@{mp\_save\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_save\_irq()}{mp\_save\_irq()}}
+{\footnotesize\ttfamily void mp\+\_\+save\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmpc__intsrc}{mpc\+\_\+intsrc}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 149
+Here is the caller graph for this function\+:
+% FIG 150
+\mbox{\Hypertarget{io__apic_8c_adc865e2897f22220dde7a93d45d3e0ec}\label{io__apic_8c_adc865e2897f22220dde7a93d45d3e0ec}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_unmap\_irq@{mp\_unmap\_irq}}
+\index{mp\_unmap\_irq@{mp\_unmap\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_unmap\_irq()}{mp\_unmap\_irq()}}
+{\footnotesize\ttfamily void mp\+\_\+unmap\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 151
+Here is the caller graph for this function\+:
+% FIG 152
+\mbox{\Hypertarget{io__apic_8c_ac015159ec9b854a4025043cb8b3ca38b}\label{io__apic_8c_ac015159ec9b854a4025043cb8b3ca38b}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_unregister\_ioapic@{mp\_unregister\_ioapic}}
+\index{mp\_unregister\_ioapic@{mp\_unregister\_ioapic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_unregister\_ioapic()}{mp\_unregister\_ioapic()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+unregister\+\_\+ioapic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{gsi\+\_\+base }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 153
+Here is the caller graph for this function\+:
+% FIG 154
+\mbox{\Hypertarget{io__apic_8c_a8daee9c844494e64789d6c38e46ece36}\label{io__apic_8c_a8daee9c844494e64789d6c38e46ece36}} 
+\index{io\_apic.c@{io\_apic.c}!mpc\_ioapic\_addr@{mpc\_ioapic\_addr}}
+\index{mpc\_ioapic\_addr@{mpc\_ioapic\_addr}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mpc\_ioapic\_addr()}{mpc\_ioapic\_addr()}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mpc\+\_\+ioapic\+\_\+addr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic\+\_\+idx }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 155
+\mbox{\Hypertarget{io__apic_8c_a67b3cd67db19ab1f5bec01f63a574225}\label{io__apic_8c_a67b3cd67db19ab1f5bec01f63a574225}} 
+\index{io\_apic.c@{io\_apic.c}!mpc\_ioapic\_id@{mpc\_ioapic\_id}}
+\index{mpc\_ioapic\_id@{mpc\_ioapic\_id}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mpc\_ioapic\_id()}{mpc\_ioapic\_id()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mpc\+\_\+ioapic\+\_\+id (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic\+\_\+idx }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 156
+\mbox{\Hypertarget{io__apic_8c_ad62ebb186f081b5c2b1b2841d50eeec4}\label{io__apic_8c_ad62ebb186f081b5c2b1b2841d50eeec4}} 
+\index{io\_apic.c@{io\_apic.c}!native\_io\_apic\_read@{native\_io\_apic\_read}}
+\index{native\_io\_apic\_read@{native\_io\_apic\_read}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{native\_io\_apic\_read()}{native\_io\_apic\_read()}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} native\+\_\+io\+\_\+apic\+\_\+read (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{apic,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{reg }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 157
+\mbox{\Hypertarget{io__apic_8c_a713558ad751e7065f639961ab7a9ca4c}\label{io__apic_8c_a713558ad751e7065f639961ab7a9ca4c}} 
+\index{io\_apic.c@{io\_apic.c}!native\_restore\_boot\_irq\_mode@{native\_restore\_boot\_irq\_mode}}
+\index{native\_restore\_boot\_irq\_mode@{native\_restore\_boot\_irq\_mode}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{native\_restore\_boot\_irq\_mode()}{native\_restore\_boot\_irq\_mode()}}
+{\footnotesize\ttfamily void native\+\_\+restore\+\_\+boot\+\_\+irq\+\_\+mode (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 158
+\mbox{\Hypertarget{io__apic_8c_ad5f80c2a56f06ab5195c438c4bcde35e}\label{io__apic_8c_ad5f80c2a56f06ab5195c438c4bcde35e}} 
+\index{io\_apic.c@{io\_apic.c}!notimercheck@{notimercheck}}
+\index{notimercheck@{notimercheck}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{notimercheck()}{notimercheck()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} notimercheck (\begin{DoxyParamCaption}\item[{char $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_a700cdad99aac829dc48f26d0e623a967}\label{io__apic_8c_a700cdad99aac829dc48f26d0e623a967}} 
+\index{io\_apic.c@{io\_apic.c}!parse\_noapic@{parse\_noapic}}
+\index{parse\_noapic@{parse\_noapic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{parse\_noapic()}{parse\_noapic()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} parse\+\_\+noapic (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 159
+\mbox{\Hypertarget{io__apic_8c_acbf8c2c29aae8ff86cf8e894f6d3382d}\label{io__apic_8c_acbf8c2c29aae8ff86cf8e894f6d3382d}} 
+\index{io\_apic.c@{io\_apic.c}!pin\_2\_irq@{pin\_2\_irq}}
+\index{pin\_2\_irq@{pin\_2\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{pin\_2\_irq()}{pin\_2\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pin\+\_\+2\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 160
+Here is the caller graph for this function\+:
+% FIG 161
+\mbox{\Hypertarget{io__apic_8c_a1ce94b795b5879db6870cb9e3fe71b7c}\label{io__apic_8c_a1ce94b795b5879db6870cb9e3fe71b7c}} 
+\index{io\_apic.c@{io\_apic.c}!print\_IO\_APIC@{print\_IO\_APIC}}
+\index{print\_IO\_APIC@{print\_IO\_APIC}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{print\_IO\_APIC()}{print\_IO\_APIC()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} print\+\_\+\+I\+O\+\_\+\+A\+P\+IC (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 162
+Here is the caller graph for this function\+:
+% FIG 163
+\mbox{\Hypertarget{io__apic_8c_a1bfc7eec52876cb17d366f346c571b69}\label{io__apic_8c_a1bfc7eec52876cb17d366f346c571b69}} 
+\index{io\_apic.c@{io\_apic.c}!print\_IO\_APICs@{print\_IO\_APICs}}
+\index{print\_IO\_APICs@{print\_IO\_APICs}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{print\_IO\_APICs()}{print\_IO\_APICs()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} print\+\_\+\+I\+O\+\_\+\+A\+P\+I\+Cs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 164
+Here is the caller graph for this function\+:
+% FIG 165
+\mbox{\Hypertarget{io__apic_8c_a7a1526d666c89f0ccabdfb4e92db0acd}\label{io__apic_8c_a7a1526d666c89f0ccabdfb4e92db0acd}} 
+\index{io\_apic.c@{io\_apic.c}!replace\_pin\_at\_irq\_node@{replace\_pin\_at\_irq\_node}}
+\index{replace\_pin\_at\_irq\_node@{replace\_pin\_at\_irq\_node}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{replace\_pin\_at\_irq\_node()}{replace\_pin\_at\_irq\_node()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} replace\+\_\+pin\+\_\+at\+\_\+irq\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmp__chip__data}{mp\+\_\+chip\+\_\+data}} $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{oldapic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{oldpin,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{newapic,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{newpin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 166
+Here is the caller graph for this function\+:
+% FIG 167
+\mbox{\Hypertarget{io__apic_8c_a9d5c2bd39e42b714c8ef50796b319f6d}\label{io__apic_8c_a9d5c2bd39e42b714c8ef50796b319f6d}} 
+\index{io\_apic.c@{io\_apic.c}!restore\_boot\_irq\_mode@{restore\_boot\_irq\_mode}}
+\index{restore\_boot\_irq\_mode@{restore\_boot\_irq\_mode}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{restore\_boot\_irq\_mode()}{restore\_boot\_irq\_mode()}}
+{\footnotesize\ttfamily void restore\+\_\+boot\+\_\+irq\+\_\+mode (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 168
+Here is the caller graph for this function\+:
+% FIG 169
+\mbox{\Hypertarget{io__apic_8c_a1b1147ef6261e9eb8691c36a26d9797a}\label{io__apic_8c_a1b1147ef6261e9eb8691c36a26d9797a}} 
+\index{io\_apic.c@{io\_apic.c}!restore\_ioapic\_entries@{restore\_ioapic\_entries}}
+\index{restore\_ioapic\_entries@{restore\_ioapic\_entries}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{restore\_ioapic\_entries()}{restore\_ioapic\_entries()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} restore\+\_\+ioapic\+\_\+entries (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 170
+Here is the caller graph for this function\+:
+% FIG 171
+\mbox{\Hypertarget{io__apic_8c_a3ed624a35da0a4f4cc5efebef5a14835}\label{io__apic_8c_a3ed624a35da0a4f4cc5efebef5a14835}} 
+\index{io\_apic.c@{io\_apic.c}!resume\_ioapic\_id@{resume\_ioapic\_id}}
+\index{resume\_ioapic\_id@{resume\_ioapic\_id}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{resume\_ioapic\_id()}{resume\_ioapic\_id()}}
+{\footnotesize\ttfamily static void resume\+\_\+ioapic\+\_\+id (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ioapic\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 172
+Here is the caller graph for this function\+:
+% FIG 173
+\mbox{\Hypertarget{io__apic_8c_a92f7df20939615db8c35b6a49e696a2e}\label{io__apic_8c_a92f7df20939615db8c35b6a49e696a2e}} 
+\index{io\_apic.c@{io\_apic.c}!save\_ioapic\_entries@{save\_ioapic\_entries}}
+\index{save\_ioapic\_entries@{save\_ioapic\_entries}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{save\_ioapic\_entries()}{save\_ioapic\_entries()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} save\+\_\+ioapic\+\_\+entries (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 174
+Here is the caller graph for this function\+:
+% FIG 175
+\mbox{\Hypertarget{io__apic_8c_a89ce770c02ca0cbc02bf29e6a0560154}\label{io__apic_8c_a89ce770c02ca0cbc02bf29e6a0560154}} 
+\index{io\_apic.c@{io\_apic.c}!setup\_IO\_APIC@{setup\_IO\_APIC}}
+\index{setup\_IO\_APIC@{setup\_IO\_APIC}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{setup\_IO\_APIC()}{setup\_IO\_APIC()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} setup\+\_\+\+I\+O\+\_\+\+A\+P\+IC (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 176
+Here is the caller graph for this function\+:
+% FIG 177
+\mbox{\Hypertarget{io__apic_8c_a8028c9dd07839d300e70120a2b0a25cf}\label{io__apic_8c_a8028c9dd07839d300e70120a2b0a25cf}} 
+\index{io\_apic.c@{io\_apic.c}!setup\_IO\_APIC\_irqs@{setup\_IO\_APIC\_irqs}}
+\index{setup\_IO\_APIC\_irqs@{setup\_IO\_APIC\_irqs}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{setup\_IO\_APIC\_irqs()}{setup\_IO\_APIC\_irqs()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} setup\+\_\+\+I\+O\+\_\+\+A\+P\+I\+C\+\_\+irqs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 178
+Here is the caller graph for this function\+:
+% FIG 179
+\mbox{\Hypertarget{io__apic_8c_a97f0d9f48e8c338144123f2a948e42d0}\label{io__apic_8c_a97f0d9f48e8c338144123f2a948e42d0}} 
+\index{io\_apic.c@{io\_apic.c}!startup\_ioapic\_irq@{startup\_ioapic\_irq}}
+\index{startup\_ioapic\_irq@{startup\_ioapic\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{startup\_ioapic\_irq()}{startup\_ioapic\_irq()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} startup\+\_\+ioapic\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 180
+\mbox{\Hypertarget{io__apic_8c_a013eb3ce804e367b16b215dfa247a165}\label{io__apic_8c_a013eb3ce804e367b16b215dfa247a165}} 
+\index{io\_apic.c@{io\_apic.c}!timer\_irq\_works@{timer\_irq\_works}}
+\index{timer\_irq\_works@{timer\_irq\_works}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{timer\_irq\_works()}{timer\_irq\_works()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} timer\+\_\+irq\+\_\+works (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 181
+Here is the caller graph for this function\+:
+% FIG 182
+\mbox{\Hypertarget{io__apic_8c_a10ff6d99ab5fd7156f0b284837aba69d}\label{io__apic_8c_a10ff6d99ab5fd7156f0b284837aba69d}} 
+\index{io\_apic.c@{io\_apic.c}!unlock\_ExtINT\_logic@{unlock\_ExtINT\_logic}}
+\index{unlock\_ExtINT\_logic@{unlock\_ExtINT\_logic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{unlock\_ExtINT\_logic()}{unlock\_ExtINT\_logic()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} unlock\+\_\+\+Ext\+I\+N\+T\+\_\+logic (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 183
+Here is the caller graph for this function\+:
+% FIG 184
+\mbox{\Hypertarget{io__apic_8c_a1ff986f17db5ac6d5462268780ebf412}\label{io__apic_8c_a1ff986f17db5ac6d5462268780ebf412}} 
+\index{io\_apic.c@{io\_apic.c}!unmask\_ioapic\_irq@{unmask\_ioapic\_irq}}
+\index{unmask\_ioapic\_irq@{unmask\_ioapic\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{unmask\_ioapic\_irq()}{unmask\_ioapic\_irq()}}
+{\footnotesize\ttfamily static void unmask\+\_\+ioapic\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{irq\+\_\+data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 185
+Here is the caller graph for this function\+:
+% FIG 186
+\mbox{\Hypertarget{io__apic_8c_a75ffb53fb8a0f857f32c2d16fa9ea8d3}\label{io__apic_8c_a75ffb53fb8a0f857f32c2d16fa9ea8d3}} 
+\index{io\_apic.c@{io\_apic.c}!unmask\_lapic\_irq@{unmask\_lapic\_irq}}
+\index{unmask\_lapic\_irq@{unmask\_lapic\_irq}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{unmask\_lapic\_irq()}{unmask\_lapic\_irq()}}
+{\footnotesize\ttfamily static void unmask\+\_\+lapic\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__data}{irq\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 187
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{io__apic_8c_aaf8e3aed450bf8ca51c092abbd7d51d3}\label{io__apic_8c_aaf8e3aed450bf8ca51c092abbd7d51d3}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_initdata@{\_\_initdata}}
+\index{\_\_initdata@{\_\_initdata}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initdata}{\_\_initdata}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} disable\+\_\+timer\+\_\+pin\+\_\+1 \+\_\+\+\_\+initdata}
+
+\mbox{\Hypertarget{io__apic_8c_ac1ae96b6023b5045024785e394003cde}\label{io__apic_8c_ac1ae96b6023b5045024785e394003cde}} 
+\index{io\_apic.c@{io\_apic.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structirq__chip}{irq\+\_\+chip}} lapic\+\_\+chip \+\_\+\+\_\+read\+\_\+mostly\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name           = \textcolor{stringliteral}{"IO-\/APIC"},}
+\DoxyCodeLine{    .irq\_startup        = \mbox{\hyperlink{io__apic_8c_a97f0d9f48e8c338144123f2a948e42d0}{startup\_ioapic\_irq}},}
+\DoxyCodeLine{    .irq\_mask       = \mbox{\hyperlink{io__apic_8c_af2fa0e5fd348500969880b0f33f2e656}{mask\_ioapic\_irq}},}
+\DoxyCodeLine{    .irq\_unmask     = \mbox{\hyperlink{io__apic_8c_a1ff986f17db5ac6d5462268780ebf412}{unmask\_ioapic\_irq}},}
+\DoxyCodeLine{    .irq\_ack        = irq\_chip\_ack\_parent,}
+\DoxyCodeLine{    .irq\_eoi        = \mbox{\hyperlink{io__apic_8c_ab2608c6e62d1d261a7d6918b4cb331fb}{ioapic\_ack\_level}},}
+\DoxyCodeLine{    .irq\_set\_affinity   = \mbox{\hyperlink{io__apic_8c_aef9a7a7ec120d2f7ee25488d816058d5}{ioapic\_set\_affinity}},}
+\DoxyCodeLine{    .irq\_retrigger      = irq\_chip\_retrigger\_hierarchy,}
+\DoxyCodeLine{    .irq\_get\_irqchip\_state  = \mbox{\hyperlink{io__apic_8c_abb4d89322186eb78d874ffd0dd554291}{ioapic\_irq\_get\_chip\_state}},}
+\DoxyCodeLine{    .flags          = \mbox{\hyperlink{include_2linux_2irq_8h_a526f814ea56cc8c5aa0524824a3bc24bae98d324a288e6b180bba5d7eed99b3bb}{IRQCHIP\_SKIP\_SET\_WAKE}} |}
+\DoxyCodeLine{                  \mbox{\hyperlink{include_2linux_2irq_8h_a526f814ea56cc8c5aa0524824a3bc24ba1ed0b36dd7fb885053b1bbdcadc4705f}{IRQCHIP\_AFFINITY\_PRE\_STARTUP}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{io__apic_8c_ae196c8c6dbdfef490fdf9432a6160bea}\label{io__apic_8c_ae196c8c6dbdfef490fdf9432a6160bea}} 
+\index{io\_apic.c@{io\_apic.c}!apic@{apic}}
+\index{apic@{apic}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{apic}{apic}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structapic}{apic}}}
+
+\mbox{\Hypertarget{io__apic_8c_a3dd10672dc04e43ccd03d3c8455293a6}\label{io__apic_8c_a3dd10672dc04e43ccd03d3c8455293a6}} 
+\index{io\_apic.c@{io\_apic.c}!gsi\_top@{gsi\_top}}
+\index{gsi\_top@{gsi\_top}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{gsi\_top}{gsi\_top}}
+{\footnotesize\ttfamily \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} gsi\+\_\+top}
+
+\mbox{\Hypertarget{io__apic_8c_a6b2dd66d47a6799f747a554d7f00da49}\label{io__apic_8c_a6b2dd66d47a6799f747a554d7f00da49}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_dynirq\_base@{ioapic\_dynirq\_base}}
+\index{ioapic\_dynirq\_base@{ioapic\_dynirq\_base}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_dynirq\_base}{ioapic\_dynirq\_base}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+dynirq\+\_\+base\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_ad84c443720ac63f2226e9124dc2a86ae}\label{io__apic_8c_ad84c443720ac63f2226e9124dc2a86ae}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_i8259@{ioapic\_i8259}}
+\index{ioapic\_i8259@{ioapic\_i8259}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_i8259}{ioapic\_i8259}}
+{\footnotesize\ttfamily struct \{ ... \}  ioapic\+\_\+i8259\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_af45ca496c6cdc677bb0d77285d287a74}\label{io__apic_8c_af45ca496c6cdc677bb0d77285d287a74}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_initialized@{ioapic\_initialized}}
+\index{ioapic\_initialized@{ioapic\_initialized}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_initialized}{ioapic\_initialized}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ioapic\+\_\+initialized\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_a1b2fd81c3ee6199092ba72e23d4a41d1}\label{io__apic_8c_a1b2fd81c3ee6199092ba72e23d4a41d1}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_ir\_chip@{ioapic\_ir\_chip}}
+\index{ioapic\_ir\_chip@{ioapic\_ir\_chip}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_ir\_chip}{ioapic\_ir\_chip}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structirq__chip}{irq\+\_\+chip}} ioapic\+\_\+chip ioapic\+\_\+ir\+\_\+chip\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_aa932e5a20802ecba4a473568a12d678f}\label{io__apic_8c_aa932e5a20802ecba4a473568a12d678f}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_resources@{ioapic\_resources}}
+\index{ioapic\_resources@{ioapic\_resources}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_resources}{ioapic\_resources}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structresource}{resource}}$\ast$ ioapic\+\_\+resources\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_a1c2b7238aaef50bffd2a40683b7027eb}\label{io__apic_8c_a1c2b7238aaef50bffd2a40683b7027eb}} 
+\index{io\_apic.c@{io\_apic.c}!ioapic\_syscore\_ops@{ioapic\_syscore\_ops}}
+\index{ioapic\_syscore\_ops@{ioapic\_syscore\_ops}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapic\_syscore\_ops}{ioapic\_syscore\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsyscore__ops}{syscore\+\_\+ops}} ioapic\+\_\+syscore\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .suspend = \mbox{\hyperlink{io__apic_8c_a92f7df20939615db8c35b6a49e696a2e}{save\_ioapic\_entries}},}
+\DoxyCodeLine{    .resume = \mbox{\hyperlink{io__apic_8c_aeca1f2b6f03579044b94884aa5f58a81}{ioapic\_resume}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{io__apic_8c_a27082d7160bbb7be47b139accc109f11}\label{io__apic_8c_a27082d7160bbb7be47b139accc109f11}} 
+\index{io\_apic.c@{io\_apic.c}!ioapics@{ioapics}}
+\index{ioapics@{ioapics}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{ioapics}{ioapics}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structioapic}{ioapic}} ioapics\mbox{[}\mbox{\hyperlink{apicdef_8h_aca4b48b752db253514869cd1fbe256c1}{M\+A\+X\+\_\+\+I\+O\+\_\+\+A\+P\+I\+CS}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{io__apic_8c_aafb941076e3ebf4e3831906f50248476}\label{io__apic_8c_aafb941076e3ebf4e3831906f50248476}} 
+\index{io\_apic.c@{io\_apic.c}!irq\_mis\_count@{irq\_mis\_count}}
+\index{irq\_mis\_count@{irq\_mis\_count}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{irq\_mis\_count}{irq\_mis\_count}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} irq\+\_\+mis\+\_\+count}
+
+\mbox{\Hypertarget{io__apic_8c_aa6917a367f96d6f372e4f83215d9d838}\label{io__apic_8c_aa6917a367f96d6f372e4f83215d9d838}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_ioapic\_irqdomain\_ops@{mp\_ioapic\_irqdomain\_ops}}
+\index{mp\_ioapic\_irqdomain\_ops@{mp\_ioapic\_irqdomain\_ops}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_ioapic\_irqdomain\_ops}{mp\_ioapic\_irqdomain\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structirq__domain__ops}{irq\+\_\+domain\+\_\+ops}} mp\+\_\+ioapic\+\_\+irqdomain\+\_\+ops}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .alloc      = \mbox{\hyperlink{io__apic_8c_aef9c39b0e3f46671e1d51cda2d7d9c95}{mp\_irqdomain\_alloc}},}
+\DoxyCodeLine{    .free       = \mbox{\hyperlink{io__apic_8c_a7675b6ca696f8abc1c694934a09b3913}{mp\_irqdomain\_free}},}
+\DoxyCodeLine{    .activate   = \mbox{\hyperlink{io__apic_8c_ad6ac549046571b77fb6838a3f4a1931f}{mp\_irqdomain\_activate}},}
+\DoxyCodeLine{    .deactivate = \mbox{\hyperlink{io__apic_8c_a3f5a35aca3734b242de7f97bc961f817}{mp\_irqdomain\_deactivate}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{io__apic_8c_a47d7384618fb7e2348d4d24d9d58a614}\label{io__apic_8c_a47d7384618fb7e2348d4d24d9d58a614}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irq\_entries@{mp\_irq\_entries}}
+\index{mp\_irq\_entries@{mp\_irq\_entries}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irq\_entries}{mp\_irq\_entries}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mp\+\_\+irq\+\_\+entries}
+
+\mbox{\Hypertarget{io__apic_8c_a71ed6c612713f3de970c3252a6c2bfd4}\label{io__apic_8c_a71ed6c612713f3de970c3252a6c2bfd4}} 
+\index{io\_apic.c@{io\_apic.c}!mp\_irqs@{mp\_irqs}}
+\index{mp\_irqs@{mp\_irqs}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{mp\_irqs}{mp\_irqs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmpc__intsrc}{mpc\+\_\+intsrc}} mp\+\_\+irqs\mbox{[}\mbox{\hyperlink{mpspec_8h_a16c306d75c67bc9042e8e58ebdf52dc4}{M\+A\+X\+\_\+\+I\+R\+Q\+\_\+\+S\+O\+U\+R\+C\+ES}}\mbox{]}}
+
+\mbox{\Hypertarget{io__apic_8c_ab62ece750ce94fcf323fd00aa7153f19}\label{io__apic_8c_ab62ece750ce94fcf323fd00aa7153f19}} 
+\index{io\_apic.c@{io\_apic.c}!nr\_ioapics@{nr\_ioapics}}
+\index{nr\_ioapics@{nr\_ioapics}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{nr\_ioapics}{nr\_ioapics}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+ioapics}
+
+\mbox{\Hypertarget{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}\label{io__apic_8c_aeabac9491522ec7f68102bfeab33d5c1}} 
+\index{io\_apic.c@{io\_apic.c}!pin@{pin}}
+\index{pin@{pin}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{pin}{pin}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pin}
+
+\mbox{\Hypertarget{io__apic_8c_a4e1ec1307c07a2f06f240e723a67039e}\label{io__apic_8c_a4e1ec1307c07a2f06f240e723a67039e}} 
+\index{io\_apic.c@{io\_apic.c}!skip\_ioapic\_setup@{skip\_ioapic\_setup}}
+\index{skip\_ioapic\_setup@{skip\_ioapic\_setup}!io\_apic.c@{io\_apic.c}}
+\doxysubsubsection{\texorpdfstring{skip\_ioapic\_setup}{skip\_ioapic\_setup}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} skip\+\_\+ioapic\+\_\+setup}
+

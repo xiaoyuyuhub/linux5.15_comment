@@ -1,0 +1,651 @@
+\hypertarget{kernel_2power_2swap_8c}{}\doxysection{kernel/power/swap.c File Reference}
+\label{kernel_2power_2swap_8c}\index{kernel/power/swap.c@{kernel/power/swap.c}}
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/genhd.\+h$>$}\newline
+{\ttfamily \#include $<$linux/device.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bio.\+h$>$}\newline
+{\ttfamily \#include $<$linux/blkdev.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swapops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/lzo.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpumask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/crc32.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ktime.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}power.\+h\char`\"{}}\newline
+Include dependency graph for swap.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structswap__map__page}{swap\+\_\+map\+\_\+page}}
+\item 
+struct \mbox{\hyperlink{structswap__map__page__list}{swap\+\_\+map\+\_\+page\+\_\+list}}
+\item 
+struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}}
+\item 
+struct \mbox{\hyperlink{structswsusp__header}{swsusp\+\_\+header}}
+\item 
+struct \mbox{\hyperlink{structswsusp__extent}{swsusp\+\_\+extent}}
+\item 
+struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}}
+\item 
+struct \mbox{\hyperlink{structcrc__data}{crc\+\_\+data}}
+\item 
+struct \mbox{\hyperlink{structcmp__data}{cmp\+\_\+data}}
+\item 
+struct \mbox{\hyperlink{structdec__data}{dec\+\_\+data}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}P\+M\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_afc4a071ee56f86ac715408e6f2767490}{H\+I\+B\+E\+R\+N\+A\+T\+E\+\_\+\+S\+IG}}~\char`\"{}S1\+S\+U\+S\+P\+E\+ND\char`\"{}
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_a0afcabc1b5dd928faa8a92a591da8636}{M\+A\+P\+\_\+\+P\+A\+G\+E\+\_\+\+E\+N\+T\+R\+I\+ES}}~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} / \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(\mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}}) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_a589a2a01d85abc27435d2bbb00121335}{L\+Z\+O\+\_\+\+H\+E\+A\+D\+ER}}~\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}})
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_acea3f0c98d241fe34bfebd5f55b20167}{L\+Z\+O\+\_\+\+U\+N\+C\+\_\+\+P\+A\+G\+ES}}~32
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_aa961a4ac7e758d7fd65e92a5546a9605}{L\+Z\+O\+\_\+\+U\+N\+C\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{kernel_2power_2swap_8c_acea3f0c98d241fe34bfebd5f55b20167}{L\+Z\+O\+\_\+\+U\+N\+C\+\_\+\+P\+A\+G\+ES}} $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_af26832ebf25adb898fbbe36359ed0e40}{L\+Z\+O\+\_\+\+C\+M\+P\+\_\+\+P\+A\+G\+ES}}
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_a546cd3a9509707b7c16f32f3d7d9dc86}{L\+Z\+O\+\_\+\+C\+M\+P\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{kernel_2power_2swap_8c_af26832ebf25adb898fbbe36359ed0e40}{L\+Z\+O\+\_\+\+C\+M\+P\+\_\+\+P\+A\+G\+ES}} $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_a4e435549cfc963c8db91a45f708f0abd}{L\+Z\+O\+\_\+\+T\+H\+R\+E\+A\+DS}}~3
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_aeb7ef8f1ec2f8940511aed4ed9711f96}{L\+Z\+O\+\_\+\+M\+I\+N\+\_\+\+R\+D\+\_\+\+P\+A\+G\+ES}}~1024
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2swap_8c_a39ed3973a997109b483e3bd8d5d99f65}{L\+Z\+O\+\_\+\+M\+A\+X\+\_\+\+R\+D\+\_\+\+P\+A\+G\+ES}}~8192
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static unsigned long \mbox{\hyperlink{kernel_2power_2swap_8c_a876d160ae183288df8404124ad6b4839}{low\+\_\+free\+\_\+pages}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{kernel_2power_2swap_8c_ab595c193651bd0453b78f9dfa92b172e}{reqd\+\_\+free\+\_\+pages}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a5c730d788d3b9f6167330813d5c2dcc3}{swsusp\+\_\+extents\+\_\+insert}} (unsigned long swap\+\_\+offset)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}} \mbox{\hyperlink{kernel_2power_2swap_8c_af630262acbf37c7185bd4634d0be0ef2}{alloc\+\_\+swapdev\+\_\+block}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{minmax_8h_a3ca5ecd34b04d6a243c054ac3a57f68d}{swap}})
+\item 
+void \mbox{\hyperlink{kernel_2power_2swap_8c_a7c543543a2e7dc1abd3f33932680f012}{free\+\_\+all\+\_\+swap\+\_\+pages}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{minmax_8h_a3ca5ecd34b04d6a243c054ac3a57f68d}{swap}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a8e94e8863e1aedf14f7c16abb846c2cb}{swsusp\+\_\+swap\+\_\+in\+\_\+use}} (void)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2swap_8c_ac666f1b7edc88943f05bf13ee0c9be9f}{hib\+\_\+init\+\_\+batch}} (struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$hb)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2swap_8c_a72c664d5d1b226f20f49c9ff9d0223a5}{hib\+\_\+finish\+\_\+batch}} (struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$hb)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2swap_8c_aff53b517c7b50e8fb29991776b5ce283}{hib\+\_\+end\+\_\+io}} (struct \mbox{\hyperlink{structbio}{bio}} $\ast$\mbox{\hyperlink{structbio}{bio}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a3c26e26a9a05202a0209b7a1220d69d6}{hib\+\_\+submit\+\_\+io}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} op\+\_\+flags, \mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}} page\+\_\+off, void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$hb)
+\item 
+static \mbox{\hyperlink{blk__types_8h_af00d37d2c2527a3f43f296764c873dbe}{blk\+\_\+status\+\_\+t}} \mbox{\hyperlink{kernel_2power_2swap_8c_a21301f8e6fbce2eb55c739213eec50a2}{hib\+\_\+wait\+\_\+io}} (struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$hb)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_acec819d6296864097b82704f40a9b500}{mark\+\_\+swapfiles}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a4f9dbec572b56428b4c2326b96b6a001}{swsusp\+\_\+swap\+\_\+check}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_ad6364b9726ccd10231b212c531a6ea8a}{write\+\_\+page}} (void $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}} \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$hb)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2swap_8c_af4e6a92a9c85fb4c2c386407e486cedd}{release\+\_\+swap\+\_\+writer}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_ab373aed188d5480f0f17b1d4e7ee85b5}{get\+\_\+swap\+\_\+writer}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a30f0e85d76a59a6074f2759b1d5a1152}{swap\+\_\+write\+\_\+page}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, void $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$hb)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_ab001af0e900e10b6a49b95bd17658985}{flush\+\_\+swap\+\_\+writer}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a733e20ee1ad66b5c58b6c8a77c4ea49d}{swap\+\_\+writer\+\_\+finish}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{initramfs_8c_a9712f5d0d176ee4b1591912bc62146dc}{error}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_ab794c91f3dff20a0aefd3efdc1bc50f8}{save\+\_\+image}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$snapshot, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+to\+\_\+write)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_aff5df0909b9d0063d859a05c32996d0f}{crc32\+\_\+threadfn}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_ae97a0375658ffb69e58b0ab5abd41ef4}{lzo\+\_\+compress\+\_\+threadfn}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_acddbb0763ada5b0c2283fdd223c2a4cb}{save\+\_\+image\+\_\+lzo}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$snapshot, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+to\+\_\+write)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a06017ae67a83671827a8afb33c900bf8}{enough\+\_\+swap}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+pages)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a98062ebed0f1d6fb365900bf752f3259}{swsusp\+\_\+write}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{kernel_2power_2swap_8c_a3a484174cf7940de582f39039c3818df}{release\+\_\+swap\+\_\+reader}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_aff17c0b86448e47ac45a1e75accb42bf}{get\+\_\+swap\+\_\+reader}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$flags\+\_\+p)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_adcb9e6c9e902856a074d30d08c1d9ef3}{swap\+\_\+read\+\_\+page}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, void $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$hb)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a87d8b40b1db7342a47ee77431a464d46}{swap\+\_\+reader\+\_\+finish}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a3b9ab69adfc2b5179eb3aac89a1f1242}{load\+\_\+image}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$snapshot, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+to\+\_\+read)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_aeed48fefc14c3fdf45f9b173697d9a94}{lzo\+\_\+decompress\+\_\+threadfn}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_ad6346d9056ff3c5f356713d8c4dcf89e}{load\+\_\+image\+\_\+lzo}} (struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$snapshot, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+to\+\_\+read)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_a306da9222bd2af1c4794de78bf56a86f}{swsusp\+\_\+read}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$flags\+\_\+p)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2swap_8c_ac15188277404a2d2adc2f0d19629c5f4}{swsusp\+\_\+check}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2power_2swap_8c_aff3b46d774bccea0eafbf8b937dc1aa5}{swsusp\+\_\+close}} (\mbox{\hyperlink{include_2linux_2types_8h_a43283a9be9cf90eed0d57387ada00f12}{fmode\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_ae1b0cc5d03887945734bb59883b0e020}{mode}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2swap_8c_a802aaa11c8607eb346075557af42ad25}{swsusp\+\_\+header\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{kernel_2power_2swap_8c_a723f23f2169fb815916371b05cfeb8d2}{core\+\_\+initcall}} (\mbox{\hyperlink{kernel_2power_2swap_8c_a802aaa11c8607eb346075557af42ad25}{swsusp\+\_\+header\+\_\+init}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2power_2swap_8c_a46ee5eb4d4c247631bd217211ce87d9e}{clean\+\_\+pages\+\_\+on\+\_\+read}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2power_2swap_8c_a31d9219e2b40128e9dd91a93a81210ae}{clean\+\_\+pages\+\_\+on\+\_\+decompress}}
+\item 
+struct \mbox{\hyperlink{structswsusp__header}{swsusp\+\_\+header}} \mbox{\hyperlink{kernel_2power_2swap_8c_a85b1df57d6b154a479a31d0948c625d1}{\+\_\+\+\_\+packed}}
+\item 
+static struct \mbox{\hyperlink{structswsusp__header}{swsusp\+\_\+header}} $\ast$ \mbox{\hyperlink{kernel_2power_2swap_8c_a04bbad2df79b178e567763d46883a625}{swsusp\+\_\+header}}
+\item 
+static struct \mbox{\hyperlink{structrb__root}{rb\+\_\+root}} \mbox{\hyperlink{kernel_2power_2swap_8c_a3a848acb05a517e7c63cb4e151785674}{swsusp\+\_\+extents}} = \mbox{\hyperlink{rbtree__types_8h_a0dc291988d7286d8dd4268066e9031a4}{R\+B\+\_\+\+R\+O\+OT}}
+\item 
+static unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} \mbox{\hyperlink{kernel_2power_2swap_8c_a8a1eab2a9c76aa06704808f60b86aa41}{root\+\_\+swap}} = 0xffff
+\item 
+static struct \mbox{\hyperlink{structblock__device}{block\+\_\+device}} $\ast$ \mbox{\hyperlink{kernel_2power_2swap_8c_aff10aa21c51350cc8756fbbc2dc99d04}{hib\+\_\+resume\+\_\+bdev}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kernel_2power_2swap_8c_afc4a071ee56f86ac715408e6f2767490}\label{kernel_2power_2swap_8c_afc4a071ee56f86ac715408e6f2767490}} 
+\index{swap.c@{swap.c}!HIBERNATE\_SIG@{HIBERNATE\_SIG}}
+\index{HIBERNATE\_SIG@{HIBERNATE\_SIG}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{HIBERNATE\_SIG}{HIBERNATE\_SIG}}
+{\footnotesize\ttfamily \#define H\+I\+B\+E\+R\+N\+A\+T\+E\+\_\+\+S\+IG~\char`\"{}S1\+S\+U\+S\+P\+E\+ND\char`\"{}}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_af26832ebf25adb898fbbe36359ed0e40}\label{kernel_2power_2swap_8c_af26832ebf25adb898fbbe36359ed0e40}} 
+\index{swap.c@{swap.c}!LZO\_CMP\_PAGES@{LZO\_CMP\_PAGES}}
+\index{LZO\_CMP\_PAGES@{LZO\_CMP\_PAGES}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_CMP\_PAGES}{LZO\_CMP\_PAGES}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+C\+M\+P\+\_\+\+P\+A\+G\+ES}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                         \mbox{\hyperlink{math_8h_ab70ffcffa591efaf0981a349740f389c}{DIV\_ROUND\_UP}}(\mbox{\hyperlink{lzo_8h_a98e0b0ada042d7e4e8ea0a45e72a0c62}{lzo1x\_worst\_compress}}(\mbox{\hyperlink{kernel_2power_2swap_8c_aa961a4ac7e758d7fd65e92a5546a9605}{LZO\_UNC\_SIZE}}) + \(\backslash\)}
+\DoxyCodeLine{                         \mbox{\hyperlink{kernel_2power_2swap_8c_a589a2a01d85abc27435d2bbb00121335}{LZO\_HEADER}}, \mbox{\hyperlink{page__types_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{PAGE\_SIZE}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a546cd3a9509707b7c16f32f3d7d9dc86}\label{kernel_2power_2swap_8c_a546cd3a9509707b7c16f32f3d7d9dc86}} 
+\index{swap.c@{swap.c}!LZO\_CMP\_SIZE@{LZO\_CMP\_SIZE}}
+\index{LZO\_CMP\_SIZE@{LZO\_CMP\_SIZE}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_CMP\_SIZE}{LZO\_CMP\_SIZE}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+C\+M\+P\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{kernel_2power_2swap_8c_af26832ebf25adb898fbbe36359ed0e40}{L\+Z\+O\+\_\+\+C\+M\+P\+\_\+\+P\+A\+G\+ES}} $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a589a2a01d85abc27435d2bbb00121335}\label{kernel_2power_2swap_8c_a589a2a01d85abc27435d2bbb00121335}} 
+\index{swap.c@{swap.c}!LZO\_HEADER@{LZO\_HEADER}}
+\index{LZO\_HEADER@{LZO\_HEADER}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_HEADER}{LZO\_HEADER}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+H\+E\+A\+D\+ER~\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}})}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a39ed3973a997109b483e3bd8d5d99f65}\label{kernel_2power_2swap_8c_a39ed3973a997109b483e3bd8d5d99f65}} 
+\index{swap.c@{swap.c}!LZO\_MAX\_RD\_PAGES@{LZO\_MAX\_RD\_PAGES}}
+\index{LZO\_MAX\_RD\_PAGES@{LZO\_MAX\_RD\_PAGES}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_MAX\_RD\_PAGES}{LZO\_MAX\_RD\_PAGES}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+M\+A\+X\+\_\+\+R\+D\+\_\+\+P\+A\+G\+ES~8192}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aeb7ef8f1ec2f8940511aed4ed9711f96}\label{kernel_2power_2swap_8c_aeb7ef8f1ec2f8940511aed4ed9711f96}} 
+\index{swap.c@{swap.c}!LZO\_MIN\_RD\_PAGES@{LZO\_MIN\_RD\_PAGES}}
+\index{LZO\_MIN\_RD\_PAGES@{LZO\_MIN\_RD\_PAGES}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_MIN\_RD\_PAGES}{LZO\_MIN\_RD\_PAGES}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+M\+I\+N\+\_\+\+R\+D\+\_\+\+P\+A\+G\+ES~1024}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a4e435549cfc963c8db91a45f708f0abd}\label{kernel_2power_2swap_8c_a4e435549cfc963c8db91a45f708f0abd}} 
+\index{swap.c@{swap.c}!LZO\_THREADS@{LZO\_THREADS}}
+\index{LZO\_THREADS@{LZO\_THREADS}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_THREADS}{LZO\_THREADS}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+T\+H\+R\+E\+A\+DS~3}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_acea3f0c98d241fe34bfebd5f55b20167}\label{kernel_2power_2swap_8c_acea3f0c98d241fe34bfebd5f55b20167}} 
+\index{swap.c@{swap.c}!LZO\_UNC\_PAGES@{LZO\_UNC\_PAGES}}
+\index{LZO\_UNC\_PAGES@{LZO\_UNC\_PAGES}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_UNC\_PAGES}{LZO\_UNC\_PAGES}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+U\+N\+C\+\_\+\+P\+A\+G\+ES~32}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aa961a4ac7e758d7fd65e92a5546a9605}\label{kernel_2power_2swap_8c_aa961a4ac7e758d7fd65e92a5546a9605}} 
+\index{swap.c@{swap.c}!LZO\_UNC\_SIZE@{LZO\_UNC\_SIZE}}
+\index{LZO\_UNC\_SIZE@{LZO\_UNC\_SIZE}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{LZO\_UNC\_SIZE}{LZO\_UNC\_SIZE}}
+{\footnotesize\ttfamily \#define L\+Z\+O\+\_\+\+U\+N\+C\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{kernel_2power_2swap_8c_acea3f0c98d241fe34bfebd5f55b20167}{L\+Z\+O\+\_\+\+U\+N\+C\+\_\+\+P\+A\+G\+ES}} $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a0afcabc1b5dd928faa8a92a591da8636}\label{kernel_2power_2swap_8c_a0afcabc1b5dd928faa8a92a591da8636}} 
+\index{swap.c@{swap.c}!MAP\_PAGE\_ENTRIES@{MAP\_PAGE\_ENTRIES}}
+\index{MAP\_PAGE\_ENTRIES@{MAP\_PAGE\_ENTRIES}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{MAP\_PAGE\_ENTRIES}{MAP\_PAGE\_ENTRIES}}
+{\footnotesize\ttfamily \#define M\+A\+P\+\_\+\+P\+A\+G\+E\+\_\+\+E\+N\+T\+R\+I\+ES~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} / \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(\mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}}) -\/ 1)}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a1f8c165bf4196327bc3abff648276d92}\label{kernel_2power_2swap_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{swap.c@{swap.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}P\+M\+: \char`\"{} fmt}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kernel_2power_2swap_8c_af630262acbf37c7185bd4634d0be0ef2}\label{kernel_2power_2swap_8c_af630262acbf37c7185bd4634d0be0ef2}} 
+\index{swap.c@{swap.c}!alloc\_swapdev\_block@{alloc\_swapdev\_block}}
+\index{alloc\_swapdev\_block@{alloc\_swapdev\_block}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_swapdev\_block()}{alloc\_swapdev\_block()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}} alloc\+\_\+swapdev\+\_\+block (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{swap }\end{DoxyParamCaption})}
+
+alloc\+\_\+swapdev\+\_\+block -\/ allocate a swap page and register that it has been allocated, so that it can be freed in case of an error. Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a723f23f2169fb815916371b05cfeb8d2}\label{kernel_2power_2swap_8c_a723f23f2169fb815916371b05cfeb8d2}} 
+\index{swap.c@{swap.c}!core\_initcall@{core\_initcall}}
+\index{core\_initcall@{core\_initcall}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{core\_initcall()}{core\_initcall()}}
+{\footnotesize\ttfamily core\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2power_2swap_8c_a802aaa11c8607eb346075557af42ad25}{swsusp\+\_\+header\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aff5df0909b9d0063d859a05c32996d0f}\label{kernel_2power_2swap_8c_aff5df0909b9d0063d859a05c32996d0f}} 
+\index{swap.c@{swap.c}!crc32\_threadfn@{crc32\_threadfn}}
+\index{crc32\_threadfn@{crc32\_threadfn}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{crc32\_threadfn()}{crc32\_threadfn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} crc32\+\_\+threadfn (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+C\+R\+C32 update function that runs in its own thread. Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a06017ae67a83671827a8afb33c900bf8}\label{kernel_2power_2swap_8c_a06017ae67a83671827a8afb33c900bf8}} 
+\index{swap.c@{swap.c}!enough\_swap@{enough\_swap}}
+\index{enough\_swap@{enough\_swap}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{enough\_swap()}{enough\_swap()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} enough\+\_\+swap (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+pages }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+enough\+\_\+swap -\/ Make sure we have enough swap to save the image.
+
+Returns T\+R\+UE or F\+A\+L\+SE after checking the total amount of swap space available from the resume partition. Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ab001af0e900e10b6a49b95bd17658985}\label{kernel_2power_2swap_8c_ab001af0e900e10b6a49b95bd17658985}} 
+\index{swap.c@{swap.c}!flush\_swap\_writer@{flush\_swap\_writer}}
+\index{flush\_swap\_writer@{flush\_swap\_writer}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{flush\_swap\_writer()}{flush\_swap\_writer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} flush\+\_\+swap\+\_\+writer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a7c543543a2e7dc1abd3f33932680f012}\label{kernel_2power_2swap_8c_a7c543543a2e7dc1abd3f33932680f012}} 
+\index{swap.c@{swap.c}!free\_all\_swap\_pages@{free\_all\_swap\_pages}}
+\index{free\_all\_swap\_pages@{free\_all\_swap\_pages}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{free\_all\_swap\_pages()}{free\_all\_swap\_pages()}}
+{\footnotesize\ttfamily void free\+\_\+all\+\_\+swap\+\_\+pages (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{swap }\end{DoxyParamCaption})}
+
+free\+\_\+all\+\_\+swap\+\_\+pages -\/ free swap pages allocated for saving image data. It also frees the extents used to register which swap entries had been allocated. Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aff17c0b86448e47ac45a1e75accb42bf}\label{kernel_2power_2swap_8c_aff17c0b86448e47ac45a1e75accb42bf}} 
+\index{swap.c@{swap.c}!get\_swap\_reader@{get\_swap\_reader}}
+\index{get\_swap\_reader@{get\_swap\_reader}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{get\_swap\_reader()}{get\_swap\_reader()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+swap\+\_\+reader (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{flags\+\_\+p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ab373aed188d5480f0f17b1d4e7ee85b5}\label{kernel_2power_2swap_8c_ab373aed188d5480f0f17b1d4e7ee85b5}} 
+\index{swap.c@{swap.c}!get\_swap\_writer@{get\_swap\_writer}}
+\index{get\_swap\_writer@{get\_swap\_writer}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{get\_swap\_writer()}{get\_swap\_writer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+swap\+\_\+writer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aff53b517c7b50e8fb29991776b5ce283}\label{kernel_2power_2swap_8c_aff53b517c7b50e8fb29991776b5ce283}} 
+\index{swap.c@{swap.c}!hib\_end\_io@{hib\_end\_io}}
+\index{hib\_end\_io@{hib\_end\_io}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{hib\_end\_io()}{hib\_end\_io()}}
+{\footnotesize\ttfamily static void hib\+\_\+end\+\_\+io (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbio}{bio}} $\ast$}]{bio }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a72c664d5d1b226f20f49c9ff9d0223a5}\label{kernel_2power_2swap_8c_a72c664d5d1b226f20f49c9ff9d0223a5}} 
+\index{swap.c@{swap.c}!hib\_finish\_batch@{hib\_finish\_batch}}
+\index{hib\_finish\_batch@{hib\_finish\_batch}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{hib\_finish\_batch()}{hib\_finish\_batch()}}
+{\footnotesize\ttfamily static void hib\+\_\+finish\+\_\+batch (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ac666f1b7edc88943f05bf13ee0c9be9f}\label{kernel_2power_2swap_8c_ac666f1b7edc88943f05bf13ee0c9be9f}} 
+\index{swap.c@{swap.c}!hib\_init\_batch@{hib\_init\_batch}}
+\index{hib\_init\_batch@{hib\_init\_batch}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{hib\_init\_batch()}{hib\_init\_batch()}}
+{\footnotesize\ttfamily static void hib\+\_\+init\+\_\+batch (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a3c26e26a9a05202a0209b7a1220d69d6}\label{kernel_2power_2swap_8c_a3c26e26a9a05202a0209b7a1220d69d6}} 
+\index{swap.c@{swap.c}!hib\_submit\_io@{hib\_submit\_io}}
+\index{hib\_submit\_io@{hib\_submit\_io}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{hib\_submit\_io()}{hib\_submit\_io()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hib\+\_\+submit\+\_\+io (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{op,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{op\+\_\+flags,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}}}]{page\+\_\+off,  }\item[{void $\ast$}]{addr,  }\item[{struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a21301f8e6fbce2eb55c739213eec50a2}\label{kernel_2power_2swap_8c_a21301f8e6fbce2eb55c739213eec50a2}} 
+\index{swap.c@{swap.c}!hib\_wait\_io@{hib\_wait\_io}}
+\index{hib\_wait\_io@{hib\_wait\_io}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{hib\_wait\_io()}{hib\_wait\_io()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{blk__types_8h_af00d37d2c2527a3f43f296764c873dbe}{blk\+\_\+status\+\_\+t}} hib\+\_\+wait\+\_\+io (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a3b9ab69adfc2b5179eb3aac89a1f1242}\label{kernel_2power_2swap_8c_a3b9ab69adfc2b5179eb3aac89a1f1242}} 
+\index{swap.c@{swap.c}!load\_image@{load\_image}}
+\index{load\_image@{load\_image}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{load\_image()}{load\_image()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} load\+\_\+image (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{snapshot,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+to\+\_\+read }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+load\+\_\+image -\/ load the image using the swap map handle @handle and the snapshot handle @snapshot (assume there are @nr\+\_\+pages pages to load) Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ad6346d9056ff3c5f356713d8c4dcf89e}\label{kernel_2power_2swap_8c_ad6346d9056ff3c5f356713d8c4dcf89e}} 
+\index{swap.c@{swap.c}!load\_image\_lzo@{load\_image\_lzo}}
+\index{load\_image\_lzo@{load\_image\_lzo}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{load\_image\_lzo()}{load\_image\_lzo()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} load\+\_\+image\+\_\+lzo (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{snapshot,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+to\+\_\+read }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+load\+\_\+image\+\_\+lzo -\/ Load compressed image data and decompress them with L\+ZO. @handle\+: Swap map handle to use for loading data. @snapshot\+: Image to copy uncompressed data into. @nr\+\_\+to\+\_\+read\+: Number of pages to load. Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a876d160ae183288df8404124ad6b4839}\label{kernel_2power_2swap_8c_a876d160ae183288df8404124ad6b4839}} 
+\index{swap.c@{swap.c}!low\_free\_pages@{low\_free\_pages}}
+\index{low\_free\_pages@{low\_free\_pages}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{low\_free\_pages()}{low\_free\_pages()}}
+{\footnotesize\ttfamily static unsigned long low\+\_\+free\+\_\+pages (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ae97a0375658ffb69e58b0ab5abd41ef4}\label{kernel_2power_2swap_8c_ae97a0375658ffb69e58b0ab5abd41ef4}} 
+\index{swap.c@{swap.c}!lzo\_compress\_threadfn@{lzo\_compress\_threadfn}}
+\index{lzo\_compress\_threadfn@{lzo\_compress\_threadfn}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{lzo\_compress\_threadfn()}{lzo\_compress\_threadfn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lzo\+\_\+compress\+\_\+threadfn (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Compression function that runs in its own thread. Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aeed48fefc14c3fdf45f9b173697d9a94}\label{kernel_2power_2swap_8c_aeed48fefc14c3fdf45f9b173697d9a94}} 
+\index{swap.c@{swap.c}!lzo\_decompress\_threadfn@{lzo\_decompress\_threadfn}}
+\index{lzo\_decompress\_threadfn@{lzo\_decompress\_threadfn}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{lzo\_decompress\_threadfn()}{lzo\_decompress\_threadfn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lzo\+\_\+decompress\+\_\+threadfn (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Decompression function that runs in its own thread. Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{kernel_2power_2swap_8c_acec819d6296864097b82704f40a9b500}\label{kernel_2power_2swap_8c_acec819d6296864097b82704f40a9b500}} 
+\index{swap.c@{swap.c}!mark\_swapfiles@{mark\_swapfiles}}
+\index{mark\_swapfiles@{mark\_swapfiles}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{mark\_swapfiles()}{mark\_swapfiles()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mark\+\_\+swapfiles (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a3a484174cf7940de582f39039c3818df}\label{kernel_2power_2swap_8c_a3a484174cf7940de582f39039c3818df}} 
+\index{swap.c@{swap.c}!release\_swap\_reader@{release\_swap\_reader}}
+\index{release\_swap\_reader@{release\_swap\_reader}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{release\_swap\_reader()}{release\_swap\_reader()}}
+{\footnotesize\ttfamily static void release\+\_\+swap\+\_\+reader (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{classThe}{The}} following functions allow us to read data using a swap map in a file-\/alike way Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{kernel_2power_2swap_8c_af4e6a92a9c85fb4c2c386407e486cedd}\label{kernel_2power_2swap_8c_af4e6a92a9c85fb4c2c386407e486cedd}} 
+\index{swap.c@{swap.c}!release\_swap\_writer@{release\_swap\_writer}}
+\index{release\_swap\_writer@{release\_swap\_writer}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{release\_swap\_writer()}{release\_swap\_writer()}}
+{\footnotesize\ttfamily static void release\+\_\+swap\+\_\+writer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ab595c193651bd0453b78f9dfa92b172e}\label{kernel_2power_2swap_8c_ab595c193651bd0453b78f9dfa92b172e}} 
+\index{swap.c@{swap.c}!reqd\_free\_pages@{reqd\_free\_pages}}
+\index{reqd\_free\_pages@{reqd\_free\_pages}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{reqd\_free\_pages()}{reqd\_free\_pages()}}
+{\footnotesize\ttfamily static unsigned long reqd\+\_\+free\+\_\+pages (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ab794c91f3dff20a0aefd3efdc1bc50f8}\label{kernel_2power_2swap_8c_ab794c91f3dff20a0aefd3efdc1bc50f8}} 
+\index{swap.c@{swap.c}!save\_image@{save\_image}}
+\index{save\_image@{save\_image}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{save\_image()}{save\_image()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} save\+\_\+image (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{snapshot,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+to\+\_\+write }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+save\+\_\+image -\/ save the suspend image data Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{kernel_2power_2swap_8c_acddbb0763ada5b0c2283fdd223c2a4cb}\label{kernel_2power_2swap_8c_acddbb0763ada5b0c2283fdd223c2a4cb}} 
+\index{swap.c@{swap.c}!save\_image\_lzo@{save\_image\_lzo}}
+\index{save\_image\_lzo@{save\_image\_lzo}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{save\_image\_lzo()}{save\_image\_lzo()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} save\+\_\+image\+\_\+lzo (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{snapshot,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+to\+\_\+write }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+save\+\_\+image\+\_\+lzo -\/ Save the suspend image data compressed with L\+ZO. @handle\+: Swap map handle to use for saving the image. @snapshot\+: Image to read data from. @nr\+\_\+to\+\_\+write\+: Number of pages to save. Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{kernel_2power_2swap_8c_adcb9e6c9e902856a074d30d08c1d9ef3}\label{kernel_2power_2swap_8c_adcb9e6c9e902856a074d30d08c1d9ef3}} 
+\index{swap.c@{swap.c}!swap\_read\_page@{swap\_read\_page}}
+\index{swap\_read\_page@{swap\_read\_page}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swap\_read\_page()}{swap\_read\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swap\+\_\+read\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{void $\ast$}]{buf,  }\item[{struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a87d8b40b1db7342a47ee77431a464d46}\label{kernel_2power_2swap_8c_a87d8b40b1db7342a47ee77431a464d46}} 
+\index{swap.c@{swap.c}!swap\_reader\_finish@{swap\_reader\_finish}}
+\index{swap\_reader\_finish@{swap\_reader\_finish}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swap\_reader\_finish()}{swap\_reader\_finish()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swap\+\_\+reader\+\_\+finish (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a30f0e85d76a59a6074f2759b1d5a1152}\label{kernel_2power_2swap_8c_a30f0e85d76a59a6074f2759b1d5a1152}} 
+\index{swap.c@{swap.c}!swap\_write\_page@{swap\_write\_page}}
+\index{swap\_write\_page@{swap\_write\_page}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swap\_write\_page()}{swap\_write\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swap\+\_\+write\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{void $\ast$}]{buf,  }\item[{struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a733e20ee1ad66b5c58b6c8a77c4ea49d}\label{kernel_2power_2swap_8c_a733e20ee1ad66b5c58b6c8a77c4ea49d}} 
+\index{swap.c@{swap.c}!swap\_writer\_finish@{swap\_writer\_finish}}
+\index{swap\_writer\_finish@{swap\_writer\_finish}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swap\_writer\_finish()}{swap\_writer\_finish()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swap\+\_\+writer\+\_\+finish (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswap__map__handle}{swap\+\_\+map\+\_\+handle}} $\ast$}]{handle,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{error }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ac15188277404a2d2adc2f0d19629c5f4}\label{kernel_2power_2swap_8c_ac15188277404a2d2adc2f0d19629c5f4}} 
+\index{swap.c@{swap.c}!swsusp\_check@{swsusp\_check}}
+\index{swsusp\_check@{swsusp\_check}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_check()}{swsusp\_check()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+check (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+swsusp\+\_\+check -\/ Check for swsusp signature in the resume device Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aff3b46d774bccea0eafbf8b937dc1aa5}\label{kernel_2power_2swap_8c_aff3b46d774bccea0eafbf8b937dc1aa5}} 
+\index{swap.c@{swap.c}!swsusp\_close@{swsusp\_close}}
+\index{swsusp\_close@{swsusp\_close}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_close()}{swsusp\_close()}}
+{\footnotesize\ttfamily void swsusp\+\_\+close (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a43283a9be9cf90eed0d57387ada00f12}{fmode\+\_\+t}}}]{mode }\end{DoxyParamCaption})}
+
+swsusp\+\_\+close -\/ close swap device. Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a5c730d788d3b9f6167330813d5c2dcc3}\label{kernel_2power_2swap_8c_a5c730d788d3b9f6167330813d5c2dcc3}} 
+\index{swap.c@{swap.c}!swsusp\_extents\_insert@{swsusp\_extents\_insert}}
+\index{swsusp\_extents\_insert@{swsusp\_extents\_insert}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_extents\_insert()}{swsusp\_extents\_insert()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+extents\+\_\+insert (\begin{DoxyParamCaption}\item[{unsigned long}]{swap\+\_\+offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a802aaa11c8607eb346075557af42ad25}\label{kernel_2power_2swap_8c_a802aaa11c8607eb346075557af42ad25}} 
+\index{swap.c@{swap.c}!swsusp\_header\_init@{swsusp\_header\_init}}
+\index{swsusp\_header\_init@{swsusp\_header\_init}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_header\_init()}{swsusp\_header\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} swsusp\+\_\+header\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+swsusp\+\_\+unmark -\/ Unmark swsusp signature in the resume device Here is the call graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a306da9222bd2af1c4794de78bf56a86f}\label{kernel_2power_2swap_8c_a306da9222bd2af1c4794de78bf56a86f}} 
+\index{swap.c@{swap.c}!swsusp\_read@{swsusp\_read}}
+\index{swsusp\_read@{swsusp\_read}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_read()}{swsusp\_read()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+read (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{flags\+\_\+p }\end{DoxyParamCaption})}
+
+swsusp\+\_\+read -\/ read the hibernation image. @flags\+\_\+p\+: flags passed by the \char`\"{}frozen\char`\"{} kernel in the image header should be written into this memory location Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a4f9dbec572b56428b4c2326b96b6a001}\label{kernel_2power_2swap_8c_a4f9dbec572b56428b4c2326b96b6a001}} 
+\index{swap.c@{swap.c}!swsusp\_swap\_check@{swsusp\_swap\_check}}
+\index{swsusp\_swap\_check@{swsusp\_swap\_check}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_swap\_check()}{swsusp\_swap\_check()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+swap\+\_\+check (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+swsusp\+\_\+swap\+\_\+check -\/ check if the resume device is a swap device and get its index (if so)
+
+This is called before saving image Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a8e94e8863e1aedf14f7c16abb846c2cb}\label{kernel_2power_2swap_8c_a8e94e8863e1aedf14f7c16abb846c2cb}} 
+\index{swap.c@{swap.c}!swsusp\_swap\_in\_use@{swsusp\_swap\_in\_use}}
+\index{swsusp\_swap\_in\_use@{swsusp\_swap\_in\_use}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_swap\_in\_use()}{swsusp\_swap\_in\_use()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+swap\+\_\+in\+\_\+use (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a98062ebed0f1d6fb365900bf752f3259}\label{kernel_2power_2swap_8c_a98062ebed0f1d6fb365900bf752f3259}} 
+\index{swap.c@{swap.c}!swsusp\_write@{swsusp\_write}}
+\index{swsusp\_write@{swsusp\_write}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_write()}{swsusp\_write()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+write (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})}
+
+swsusp\+\_\+write -\/ Write entire image and metadata. @flags\+: flags to pass to the \char`\"{}boot\char`\"{} kernel in the image header
+
+It is important {\itshape N\+OT} to umount filesystems at this point. We want them synced (in case something goes wrong) but we DO not want to mark filesystem clean\+: it is not. (And it does not matter, if we resume correctly, we\textquotesingle{}ll mark system clean, anyway.) Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{kernel_2power_2swap_8c_ad6364b9726ccd10231b212c531a6ea8a}\label{kernel_2power_2swap_8c_ad6364b9726ccd10231b212c531a6ea8a}} 
+\index{swap.c@{swap.c}!write\_page@{write\_page}}
+\index{write\_page@{write\_page}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{write\_page()}{write\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write\+\_\+page (\begin{DoxyParamCaption}\item[{void $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}}}]{offset,  }\item[{struct \mbox{\hyperlink{structhib__bio__batch}{hib\+\_\+bio\+\_\+batch}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+write\+\_\+page -\/ Write one page to given swap location. @buf\+: Address we\textquotesingle{}re writing. @offset\+: Offset of the swap page we\textquotesingle{}re writing to. @hb\+: bio completion batch Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a85b1df57d6b154a479a31d0948c625d1}\label{kernel_2power_2swap_8c_a85b1df57d6b154a479a31d0948c625d1}} 
+\index{swap.c@{swap.c}!\_\_packed@{\_\_packed}}
+\index{\_\_packed@{\_\_packed}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{\_\_packed}{\_\_packed}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structswsusp__header}{swsusp\+\_\+header}} \mbox{\hyperlink{struct____packed}{\+\_\+\+\_\+packed}}}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a31d9219e2b40128e9dd91a93a81210ae}\label{kernel_2power_2swap_8c_a31d9219e2b40128e9dd91a93a81210ae}} 
+\index{swap.c@{swap.c}!clean\_pages\_on\_decompress@{clean\_pages\_on\_decompress}}
+\index{clean\_pages\_on\_decompress@{clean\_pages\_on\_decompress}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{clean\_pages\_on\_decompress}{clean\_pages\_on\_decompress}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} clean\+\_\+pages\+\_\+on\+\_\+decompress\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a46ee5eb4d4c247631bd217211ce87d9e}\label{kernel_2power_2swap_8c_a46ee5eb4d4c247631bd217211ce87d9e}} 
+\index{swap.c@{swap.c}!clean\_pages\_on\_read@{clean\_pages\_on\_read}}
+\index{clean\_pages\_on\_read@{clean\_pages\_on\_read}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{clean\_pages\_on\_read}{clean\_pages\_on\_read}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} clean\+\_\+pages\+\_\+on\+\_\+read\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_aff10aa21c51350cc8756fbbc2dc99d04}\label{kernel_2power_2swap_8c_aff10aa21c51350cc8756fbbc2dc99d04}} 
+\index{swap.c@{swap.c}!hib\_resume\_bdev@{hib\_resume\_bdev}}
+\index{hib\_resume\_bdev@{hib\_resume\_bdev}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{hib\_resume\_bdev}{hib\_resume\_bdev}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structblock__device}{block\+\_\+device}}$\ast$ hib\+\_\+resume\+\_\+bdev\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a8a1eab2a9c76aa06704808f60b86aa41}\label{kernel_2power_2swap_8c_a8a1eab2a9c76aa06704808f60b86aa41}} 
+\index{swap.c@{swap.c}!root\_swap@{root\_swap}}
+\index{root\_swap@{root\_swap}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{root\_swap}{root\_swap}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} root\+\_\+swap = 0xffff\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a3a848acb05a517e7c63cb4e151785674}\label{kernel_2power_2swap_8c_a3a848acb05a517e7c63cb4e151785674}} 
+\index{swap.c@{swap.c}!swsusp\_extents@{swsusp\_extents}}
+\index{swsusp\_extents@{swsusp\_extents}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_extents}{swsusp\_extents}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrb__root}{rb\+\_\+root}} swsusp\+\_\+extents = \mbox{\hyperlink{rbtree__types_8h_a0dc291988d7286d8dd4268066e9031a4}{R\+B\+\_\+\+R\+O\+OT}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2swap_8c_a04bbad2df79b178e567763d46883a625}\label{kernel_2power_2swap_8c_a04bbad2df79b178e567763d46883a625}} 
+\index{swap.c@{swap.c}!swsusp\_header@{swsusp\_header}}
+\index{swsusp\_header@{swsusp\_header}!swap.c@{swap.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_header}{swsusp\_header}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structswsusp__header}{swsusp\+\_\+header}}$\ast$ \mbox{\hyperlink{structswsusp__header}{swsusp\+\_\+header}}\hspace{0.3cm}{\ttfamily [static]}}
+

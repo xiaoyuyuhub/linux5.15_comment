@@ -1,0 +1,122 @@
+\hypertarget{structi915__context__engines__load__balance}{}\doxysection{i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance Struct Reference}
+\label{structi915__context__engines__load__balance}\index{i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}}
+
+
+{\ttfamily \#include $<$i915\+\_\+drm.\+h$>$}
+
+
+
+Collaboration diagram for i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance\+:
+% FIG 0
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structi915__user__extension}{i915\+\_\+user\+\_\+extension}} \mbox{\hyperlink{structi915__context__engines__load__balance_a778e2450e0542e646fcbb85387590f3d}{base}}
+\item 
+\mbox{\hyperlink{int-l64_8h_ac915988d8c60a3b943f936c25f9eca6e}{\+\_\+\+\_\+u16}} \mbox{\hyperlink{structi915__context__engines__load__balance_a5e4dbcff5ad7db993c98d1117b684599}{engine\+\_\+index}}
+\item 
+\mbox{\hyperlink{int-l64_8h_ac915988d8c60a3b943f936c25f9eca6e}{\+\_\+\+\_\+u16}} \mbox{\hyperlink{structi915__context__engines__load__balance_a850ce9fe6b3a4061520ef47bd6e6dbff}{num\+\_\+siblings}}
+\item 
+\mbox{\hyperlink{int-l64_8h_a4f988f49a84c0ed5eeaf5ff589f81e47}{\+\_\+\+\_\+u32}} \mbox{\hyperlink{structi915__context__engines__load__balance_acf5f057c9c1de0f1054c95d4dbd94c49}{flags}}
+\item 
+\mbox{\hyperlink{int-l64_8h_a947777212765fe39c759169773688cf2}{\+\_\+\+\_\+u64}} \mbox{\hyperlink{structi915__context__engines__load__balance_a26fed953afff2eab68bc0d6596a40617}{mbz64}}
+\item 
+struct \mbox{\hyperlink{structi915__engine__class__instance}{i915\+\_\+engine\+\_\+class\+\_\+instance}} \mbox{\hyperlink{structi915__context__engines__load__balance_a15fcd6c567ccae7a89e0bb663abf01e9}{engines}} \mbox{[}0\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+D\+OC\+: Virtual Engine u\+A\+PI
+
+Virtual engine is a concept where userspace is able to configure a set of physical engines, submit a batch buffer, and let the driver execute it on any engine from the set as it sees fit.
+
+This is primarily useful on parts which have multiple instances of a same class engine, like for example G\+T3+ Skylake parts with their two V\+CS engines.
+
+For instance userspace can enumerate all engines of a certain class using the previously described {\ttfamily Engine Discovery u\+A\+PI}\+\_\+. After that userspace can create a G\+EM context with a placeholder slot for the virtual engine (using {\ttfamily I915\+\_\+\+E\+N\+G\+I\+N\+E\+\_\+\+C\+L\+A\+S\+S\+\_\+\+I\+N\+V\+A\+L\+ID} and {\ttfamily I915\+\_\+\+E\+N\+G\+I\+N\+E\+\_\+\+C\+L\+A\+S\+S\+\_\+\+I\+N\+V\+A\+L\+I\+D\+\_\+\+N\+O\+NE} for class and instance respectively) and finally using the {\ttfamily I915\+\_\+\+C\+O\+N\+T\+E\+X\+T\+\_\+\+E\+N\+G\+I\+N\+E\+S\+\_\+\+E\+X\+T\+\_\+\+L\+O\+A\+D\+\_\+\+B\+A\+L\+A\+N\+CE} extension place a virtual engine in the same reserved slot.
+
+Example of creating a virtual engine and submitting a batch buffer to it\+:
+
+.. code-\/block\+:: C \begin{DoxyVerb}I915_DEFINE_CONTEXT_ENGINES_LOAD_BALANCE(virtual, 2) = {
+    .base.name = I915_CONTEXT_ENGINES_EXT_LOAD_BALANCE,
+    .engine_index = 0, // Place this virtual engine into engine map slot 0
+    .num_siblings = 2,
+    .engines = { { I915_ENGINE_CLASS_VIDEO, 0 },
+             { I915_ENGINE_CLASS_VIDEO, 1 }, },
+};
+I915_DEFINE_CONTEXT_PARAM_ENGINES(engines, 1) = {
+    .engines = { { I915_ENGINE_CLASS_INVALID,
+               I915_ENGINE_CLASS_INVALID_NONE } },
+    .extensions = to_user_pointer(&virtual), // Chains after load_balance extension
+};
+struct drm_i915_gem_context_create_ext_setparam p_engines = {
+    .base = {
+        .name = I915_CONTEXT_CREATE_EXT_SETPARAM,
+    },
+    .param = {
+        .param = I915_CONTEXT_PARAM_ENGINES,
+        .value = to_user_pointer(&engines),
+        .size = sizeof(engines),
+    },
+};
+struct drm_i915_gem_context_create_ext create = {
+    .flags = I915_CONTEXT_CREATE_FLAGS_USE_EXTENSIONS,
+    .extensions = to_user_pointer(&p_engines);
+};
+
+ctx_id = gem_context_create_ext(drm_fd, &create);
+
+// Now we have created a GEM context with its engine map containing a
+// single virtual engine. Submissions to this slot can go either to
+// vcs0 or vcs1, depending on the load balancing algorithm used inside
+// the driver. The load balancing is dynamic from one batch buffer to
+// another and transparent to userspace.
+
+...
+execbuf.rsvd1 = ctx_id;
+execbuf.flags = 0; // Submits to index 0 which is the virtual engine
+gem_execbuf(drm_fd, &execbuf);
+\end{DoxyVerb}
+ 
+
+\doxysubsection{Member Data Documentation}
+\mbox{\Hypertarget{structi915__context__engines__load__balance_a778e2450e0542e646fcbb85387590f3d}\label{structi915__context__engines__load__balance_a778e2450e0542e646fcbb85387590f3d}} 
+\index{i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}!base@{base}}
+\index{base@{base}!i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}}
+\doxysubsubsection{\texorpdfstring{base}{base}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structi915__user__extension}{i915\+\_\+user\+\_\+extension}} i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance\+::base}
+
+\mbox{\Hypertarget{structi915__context__engines__load__balance_a5e4dbcff5ad7db993c98d1117b684599}\label{structi915__context__engines__load__balance_a5e4dbcff5ad7db993c98d1117b684599}} 
+\index{i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}!engine\_index@{engine\_index}}
+\index{engine\_index@{engine\_index}!i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}}
+\doxysubsubsection{\texorpdfstring{engine\_index}{engine\_index}}
+{\footnotesize\ttfamily \mbox{\hyperlink{int-l64_8h_ac915988d8c60a3b943f936c25f9eca6e}{\+\_\+\+\_\+u16}} i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance\+::engine\+\_\+index}
+
+\mbox{\Hypertarget{structi915__context__engines__load__balance_a15fcd6c567ccae7a89e0bb663abf01e9}\label{structi915__context__engines__load__balance_a15fcd6c567ccae7a89e0bb663abf01e9}} 
+\index{i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}!engines@{engines}}
+\index{engines@{engines}!i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}}
+\doxysubsubsection{\texorpdfstring{engines}{engines}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structi915__engine__class__instance}{i915\+\_\+engine\+\_\+class\+\_\+instance}} i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance\+::engines\mbox{[}0\mbox{]}}
+
+\mbox{\Hypertarget{structi915__context__engines__load__balance_acf5f057c9c1de0f1054c95d4dbd94c49}\label{structi915__context__engines__load__balance_acf5f057c9c1de0f1054c95d4dbd94c49}} 
+\index{i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}!flags@{flags}}
+\index{flags@{flags}!i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}}
+\doxysubsubsection{\texorpdfstring{flags}{flags}}
+{\footnotesize\ttfamily \mbox{\hyperlink{int-l64_8h_a4f988f49a84c0ed5eeaf5ff589f81e47}{\+\_\+\+\_\+u32}} i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance\+::flags}
+
+\mbox{\Hypertarget{structi915__context__engines__load__balance_a26fed953afff2eab68bc0d6596a40617}\label{structi915__context__engines__load__balance_a26fed953afff2eab68bc0d6596a40617}} 
+\index{i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}!mbz64@{mbz64}}
+\index{mbz64@{mbz64}!i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}}
+\doxysubsubsection{\texorpdfstring{mbz64}{mbz64}}
+{\footnotesize\ttfamily \mbox{\hyperlink{int-l64_8h_a947777212765fe39c759169773688cf2}{\+\_\+\+\_\+u64}} i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance\+::mbz64}
+
+\mbox{\Hypertarget{structi915__context__engines__load__balance_a850ce9fe6b3a4061520ef47bd6e6dbff}\label{structi915__context__engines__load__balance_a850ce9fe6b3a4061520ef47bd6e6dbff}} 
+\index{i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}!num\_siblings@{num\_siblings}}
+\index{num\_siblings@{num\_siblings}!i915\_context\_engines\_load\_balance@{i915\_context\_engines\_load\_balance}}
+\doxysubsubsection{\texorpdfstring{num\_siblings}{num\_siblings}}
+{\footnotesize\ttfamily \mbox{\hyperlink{int-l64_8h_ac915988d8c60a3b943f936c25f9eca6e}{\+\_\+\+\_\+u16}} i915\+\_\+context\+\_\+engines\+\_\+load\+\_\+balance\+::num\+\_\+siblings}
+
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/uapi/drm/\mbox{\hyperlink{uapi_2drm_2i915__drm_8h}{i915\+\_\+drm.\+h}}\end{DoxyCompactItemize}

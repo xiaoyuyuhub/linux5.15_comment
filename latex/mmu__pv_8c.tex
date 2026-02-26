@@ -1,0 +1,1572 @@
+\hypertarget{mmu__pv_8c}{}\doxysection{arch/x86/xen/mmu\+\_\+pv.c File Reference}
+\label{mmu__pv_8c}\index{arch/x86/xen/mmu\_pv.c@{arch/x86/xen/mmu\_pv.c}}
+{\ttfamily \#include $<$linux/sched/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/highmem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/gfp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memblock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/crash\+\_\+dump.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pgtable.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/xen.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/fixmap.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mmu\+\_\+context.\+h$>$}\newline
+{\ttfamily \#include $<$asm/setup.\+h$>$}\newline
+{\ttfamily \#include $<$asm/paravirt.\+h$>$}\newline
+{\ttfamily \#include $<$asm/e820/api.\+h$>$}\newline
+{\ttfamily \#include $<$asm/linkage.\+h$>$}\newline
+{\ttfamily \#include $<$asm/page.\+h$>$}\newline
+{\ttfamily \#include $<$asm/init.\+h$>$}\newline
+{\ttfamily \#include $<$asm/memtype.\+h$>$}\newline
+{\ttfamily \#include $<$asm/smp.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlb.\+h$>$}\newline
+{\ttfamily \#include $<$asm/xen/hypercall.\+h$>$}\newline
+{\ttfamily \#include $<$asm/xen/hypervisor.\+h$>$}\newline
+{\ttfamily \#include $<$xen/xen.\+h$>$}\newline
+{\ttfamily \#include $<$xen/page.\+h$>$}\newline
+{\ttfamily \#include $<$xen/interface/xen.\+h$>$}\newline
+{\ttfamily \#include $<$xen/interface/hvm/hvm\+\_\+op.\+h$>$}\newline
+{\ttfamily \#include $<$xen/interface/version.\+h$>$}\newline
+{\ttfamily \#include $<$xen/interface/memory.\+h$>$}\newline
+{\ttfamily \#include $<$xen/hvc-\/console.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}multicalls.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}mmu.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}debugfs.\+h\char`\"{}}\newline
+Include dependency graph for mmu\+\_\+pv.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structremap__data}{remap\+\_\+data}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{mmu__pv_8c_af5547ed125c7d14ac730b5644b343830}{U\+S\+E\+R\+\_\+\+L\+I\+M\+IT}}~((\mbox{\hyperlink{page__64__types_8h_a57c61dd0217e3d9cffcce9c8c88db152}{S\+T\+A\+C\+K\+\_\+\+T\+O\+P\+\_\+\+M\+AX}} + \mbox{\hyperlink{pgtable__64__types_8h_a973d0c37c53087972d69bd37a1f05add}{P\+G\+D\+I\+R\+\_\+\+S\+I\+ZE}} -\/ 1) \& \mbox{\hyperlink{pgtable__64__types_8h_a1fd2535a7a68d6176439d2d7e825e48a}{P\+G\+D\+I\+R\+\_\+\+M\+A\+SK}})
+\item 
+\#define \mbox{\hyperlink{mmu__pv_8c_a87469696ebb84a83dd574b9e8ee12f6d}{M\+A\+X\+\_\+\+C\+O\+N\+T\+I\+G\+\_\+\+O\+R\+D\+ER}}~9 /$\ast$ 2\mbox{\hyperlink{zstd__internal_8h_aa6b38d492364d98453284934ed7caee9}{MB}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{mmu__pv_8c_adaec7dfde53f572d581f8247f5f8f2a4}{V\+O\+I\+D\+\_\+\+P\+TE}}~(\mbox{\hyperlink{arch_2x86_2include_2asm_2xen_2page_8h_a3cc9e2a37c226edafaab1595b01a2be0}{mfn\+\_\+pte}}(0, \mbox{\hyperlink{include_2asm-generic_2page_8h_a3229d63d516d27f251870149747fa12c}{\+\_\+\+\_\+pgprot}}(0)))
+\item 
+\#define \mbox{\hyperlink{mmu__pv_8c_a9326173aeb09beaa2ba96b8d0dd15ea5}{R\+E\+M\+A\+P\+\_\+\+B\+A\+T\+C\+H\+\_\+\+S\+I\+ZE}}~16
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{mmu__pv_8c_a83a2b948a3363f00531a63944bf13ca3}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (xen\+\_\+reservation\+\_\+lock)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a5a7ce1ffaee51b371758d84e7b65eb4e}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned long, xen\+\_\+cr3)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_afd8240946487f10ca664fe107cf6f07f}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned long, xen\+\_\+current\+\_\+cr3)
+\item 
+static \mbox{\hyperlink{mmu__pv_8c_a475ece74830a92d03666f9070aff33d9}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (xen\+\_\+struct\+\_\+pages\+\_\+ready)
+\item 
+void \mbox{\hyperlink{mmu__pv_8c_a9c5b2c1158d5e899233e9c223bb2f856}{make\+\_\+lowmem\+\_\+page\+\_\+readonly}} (void $\ast$vaddr)
+\item 
+void \mbox{\hyperlink{mmu__pv_8c_a5c19f64bb06c12165dc90c79434af5a3}{make\+\_\+lowmem\+\_\+page\+\_\+readwrite}} (void $\ast$vaddr)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mmu__pv_8c_af5e1385b579bb880104803bb8f2c2bec}{xen\+\_\+page\+\_\+pinned}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a50bc3db0e0b30405d910610b38271580}{xen\+\_\+extend\+\_\+mmu\+\_\+update}} (const struct \mbox{\hyperlink{structmmu__update}{mmu\+\_\+update}} $\ast$\mbox{\hyperlink{btree-type_8h_abb86d64836d1548827639bb096b571dd}{update}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a3b7fd52c4f4dc53e68049afa1f50bf73}{xen\+\_\+extend\+\_\+mmuext\+\_\+op}} (const struct \mbox{\hyperlink{structmmuext__op}{mmuext\+\_\+op}} $\ast$\mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ac2b562f17fec102d66e5cf77c735f59e}{xen\+\_\+set\+\_\+pmd\+\_\+hyper}} (\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ac5d3f4b89d7820337a34920be44defa5}{xen\+\_\+set\+\_\+pmd}} (\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+void \mbox{\hyperlink{mmu__pv_8c_ab54b3554385506f657bd452a0f12f9d5}{set\+\_\+pte\+\_\+mfn}} (unsigned long vaddr, unsigned long mfn, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{mmu__pv_8c_a74b29bd5de66467bea1fe7ce5b8f99f9}{xen\+\_\+batched\+\_\+set\+\_\+pte}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$ptep, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} pteval)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ac8421bf7c9e2990e7457ae35a1aeed51}{\+\_\+\+\_\+xen\+\_\+set\+\_\+pte}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$ptep, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} pteval)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a6296a27487567a731ebd369640c0b20e}{xen\+\_\+set\+\_\+pte}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$ptep, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} pteval)
+\item 
+\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_ad0b82b4a12dcb2261122a9dfd9c6c8a1}{xen\+\_\+ptep\+\_\+modify\+\_\+prot\+\_\+start}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$ptep)
+\item 
+void \mbox{\hyperlink{mmu__pv_8c_a4b4ca62d6b8985ef63ee182d512c1588}{xen\+\_\+ptep\+\_\+modify\+\_\+prot\+\_\+commit}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$ptep, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} pte)
+\item 
+static \mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a73fcfe91d6ed9ec8a1d80f7592636374}{pte\+\_\+mfn\+\_\+to\+\_\+pfn}} (\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a89a4dbdbe0ab05a3b0497fac58f97f9b}{pte\+\_\+pfn\+\_\+to\+\_\+mfn}} (\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a7de6a3a67ff99371b1d3b2d0153ac211}{xen\+\_\+pte\+\_\+val}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} pte)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a85fe50ea5b5a852056ceeb9cbcb7e7f6}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_a7de6a3a67ff99371b1d3b2d0153ac211}{xen\+\_\+pte\+\_\+val}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_a8fa72757e2c0d131a305ab7e56d05f7a}{pgdval\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a120a80f6cc8b0fc38c74adacb7515e30}{xen\+\_\+pgd\+\_\+val}} (\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} pgd)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_ac4334375ede1636eccfbc51657510f22}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_a120a80f6cc8b0fc38c74adacb7515e30}{xen\+\_\+pgd\+\_\+val}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_aa8a5bae304a0e4620eb2722a49fcbfc7}{xen\+\_\+make\+\_\+pte}} (\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} pte)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a82e834ee9e7a6a877c6ed6bd9ddcec83}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_aa8a5bae304a0e4620eb2722a49fcbfc7}{xen\+\_\+make\+\_\+pte}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a5680816974b5e6e4862713e5abfde430}{xen\+\_\+make\+\_\+pgd}} (\mbox{\hyperlink{pgtable-2level__types_8h_a8fa72757e2c0d131a305ab7e56d05f7a}{pgdval\+\_\+t}} pgd)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a3afee1787ad6af809f3e0dbfb35638aa}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_a5680816974b5e6e4862713e5abfde430}{xen\+\_\+make\+\_\+pgd}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_a25e28243e545001c1c4083052127f9af}{pmdval\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a32365faf761864b25bcd65b7e044d319}{xen\+\_\+pmd\+\_\+val}} (\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} pmd)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a7b35cac60342a7ccedda75c303361bcf}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_a32365faf761864b25bcd65b7e044d319}{xen\+\_\+pmd\+\_\+val}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ab50271182506b70c3486bc9fc6724ed7}{xen\+\_\+set\+\_\+pud\+\_\+hyper}} (\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{structpud__t}{pud\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a910e4cbeb74379d18f15349defa8a1a9}{xen\+\_\+set\+\_\+pud}} (\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{structpud__t}{pud\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_ab13ef42ae12f5efbfeb3d5b8d0903da0}{xen\+\_\+make\+\_\+pmd}} (\mbox{\hyperlink{pgtable-2level__types_8h_a25e28243e545001c1c4083052127f9af}{pmdval\+\_\+t}} pmd)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a7918c0569f00476f35afa5491eed42d5}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_ab13ef42ae12f5efbfeb3d5b8d0903da0}{xen\+\_\+make\+\_\+pmd}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_ad2dc596977a7ca63cf00ebddb38b416a}{pudval\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_aedcd6b64dc1ef069a9b9750f6c9f21ad}{xen\+\_\+pud\+\_\+val}} (\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} pud)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a5ce3d8bb6fcbe08f2c25233ebb0f3110}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_aedcd6b64dc1ef069a9b9750f6c9f21ad}{xen\+\_\+pud\+\_\+val}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{structpud__t}{pud\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a80eadbcd62ad2cf84284db64b57574c0}{xen\+\_\+make\+\_\+pud}} (\mbox{\hyperlink{pgtable-2level__types_8h_ad2dc596977a7ca63cf00ebddb38b416a}{pudval\+\_\+t}} pud)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a036bc8c9ee8a06fe8bf59b780fd7f5a3}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_a80eadbcd62ad2cf84284db64b57574c0}{xen\+\_\+make\+\_\+pud}})
+\item 
+static \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$ \mbox{\hyperlink{mmu__pv_8c_a7ffe8e0241a210594183cb5e271532c7}{xen\+\_\+get\+\_\+user\+\_\+pgd}} (\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_aa8a33f785f13132ab99701b779a99565}{\+\_\+\+\_\+xen\+\_\+set\+\_\+p4d\+\_\+hyper}} (\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_aa61c37e03a63dd74288de22cd473c504}{xen\+\_\+set\+\_\+p4d\+\_\+hyper}} (\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_aecc59eb658715b9f1a9bb5c1a8e302a0}{xen\+\_\+set\+\_\+p4d}} (\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ade1b4652f5f7434fa8370d4587b6d145}{xen\+\_\+pmd\+\_\+walk}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$pmd, void($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}), \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{btree-type_8h_ad29fa532d2e37f52e677b4d81d04811b}{last}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a6a0e45edc335b6afe58a4ff0f9b5731f}{limit}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a90611d9b78dd94f890eb1a6303bbbfa7}{xen\+\_\+pud\+\_\+walk}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$pud, void($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}), \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{btree-type_8h_ad29fa532d2e37f52e677b4d81d04811b}{last}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a6a0e45edc335b6afe58a4ff0f9b5731f}{limit}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_af6d39cef86b26c0d6de8e4d7aa468a38}{xen\+\_\+p4d\+\_\+walk}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$p4d, void($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}), \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{btree-type_8h_ad29fa532d2e37f52e677b4d81d04811b}{last}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a6a0e45edc335b6afe58a4ff0f9b5731f}{limit}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a9d283f4fea294b506759f7252da2e424}{\+\_\+\+\_\+xen\+\_\+pgd\+\_\+walk}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd, void($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}), unsigned long \mbox{\hyperlink{btrfs__tree_8h_a6a0e45edc335b6afe58a4ff0f9b5731f}{limit}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ab19784ad478214a0f143861dc8c6fc42}{xen\+\_\+pgd\+\_\+walk}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, void($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}), unsigned long \mbox{\hyperlink{btrfs__tree_8h_a6a0e45edc335b6afe58a4ff0f9b5731f}{limit}})
+\item 
+static \mbox{\hyperlink{include_2linux_2spinlock__types_8h_a23e7982381ce4b480b250790ce149f3d}{spinlock\+\_\+t}} $\ast$ \mbox{\hyperlink{mmu__pv_8c_a2f8219f280bf182d585da3a41a8b7863}{xen\+\_\+pte\+\_\+lock}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a9ce7e7c58dd1ca58f1dcd60255d05733}{xen\+\_\+pte\+\_\+unlock}} (void $\ast$v)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ae8e84d4fae22c6dd3817a061d16964e3}{xen\+\_\+do\+\_\+pin}} (unsigned \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}}, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ac5fd354164afde783cf912e9b13a2c0d}{xen\+\_\+pin\+\_\+page}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}} \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a1628d93af1114da2d466d42494121497}{\+\_\+\+\_\+xen\+\_\+pgd\+\_\+pin}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a8033347f8a17771bb70754edfc86165c}{xen\+\_\+pgd\+\_\+pin}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+void \mbox{\hyperlink{mmu__pv_8c_a3135385243baadac9240e2e359ef80f0}{xen\+\_\+mm\+\_\+pin\+\_\+all}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ad615432783625f39117c08602826383d}{xen\+\_\+mark\+\_\+pinned}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}} \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a8129c8636279faf0c4e247638a9146dd}{xen\+\_\+after\+\_\+bootmem}} (void)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_af987199d49b7957d97ed3ee6b289eedf}{xen\+\_\+unpin\+\_\+page}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}} \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a0feec4fa5652673d4ef602140cf86c35}{\+\_\+\+\_\+xen\+\_\+pgd\+\_\+unpin}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a7e805927cced2738718012b3e14b6de8}{xen\+\_\+pgd\+\_\+unpin}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+void \mbox{\hyperlink{mmu__pv_8c_a3be98c1fddb8ffc60f0ae2c61bc8bd90}{xen\+\_\+mm\+\_\+unpin\+\_\+all}} (void)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a11778705815e64d68172ce7cd978eae5}{xen\+\_\+activate\+\_\+mm}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$\mbox{\hyperlink{mm_2interval__tree_8c_a79511b35a6c382701f3d62fa2a4aa741}{prev}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_adee8cb4d42cc386e47508c90e9ac5484}{xen\+\_\+dup\+\_\+mmap}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$oldmm, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a40cd715fca76dd3d527a141c792ab6e5}{drop\+\_\+mm\+\_\+ref\+\_\+this\+\_\+cpu}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_af1de856a1c5464dda224f49800329b03}{xen\+\_\+drop\+\_\+mm\+\_\+ref}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a95d0931060f0b15d9ac4bdafecaef96f}{xen\+\_\+exit\+\_\+mmap}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_acc24ee41bc4088d36bf0d3c9819ed630}{xen\+\_\+post\+\_\+allocator\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ac466a881c7f22ebbfb88752327907699}{pin\+\_\+pagetable\+\_\+pfn}} (unsigned \mbox{\hyperlink{uapi_2linux_2virtio__net_8h_a0de40fae14654a63d8d1b50cf2874806}{cmd}}, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a7cc851a76817225fd4eba399fbaa189b}{xen\+\_\+cleanhighmap}} (unsigned long vaddr, unsigned long \mbox{\hyperlink{mm_2kaslr_8c_a0108222fd229da08d03bf71009a145c2}{vaddr\+\_\+end}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a6e9c41f277be6a110d4f69a7731c9fae}{xen\+\_\+free\+\_\+ro\+\_\+pages}} (unsigned long paddr, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a25aacf74014ef847a0ee197b29526658}{xen\+\_\+cleanmfnmap\+\_\+free\+\_\+pgtbl}} (void $\ast$pgtbl, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} unpin)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a8c653e6c9efcafc7cefc74d7f7b7fc21}{xen\+\_\+cleanmfnmap\+\_\+pmd}} (\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$pmd, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} unpin)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ad040921e5294a8317939190732608d74}{xen\+\_\+cleanmfnmap\+\_\+pud}} (\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$pud, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} unpin)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_aa5361b4fa0b941f5321f08694a6c02ad}{xen\+\_\+cleanmfnmap\+\_\+p4d}} (\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$p4d, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} unpin)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a5b13dd2c1e9c7494651317fa9d870d0f}{xen\+\_\+cleanmfnmap}} (unsigned long vaddr)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a2dc84a014587245c1dafbb32ef106296}{xen\+\_\+pagetable\+\_\+p2m\+\_\+free}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_aa941df355ee5769dfa7c4b7307ac1d31}{xen\+\_\+pagetable\+\_\+cleanhighmap}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ac7e4c8bfe03a059db590b984a7c2497d}{xen\+\_\+pagetable\+\_\+p2m\+\_\+setup}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a7717c53aab9b8a77e97d34b94ee3672d}{xen\+\_\+pagetable\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_af68cdcd27b79a342c83ef36f68553f41}{xen\+\_\+write\+\_\+cr2}} (unsigned long \mbox{\hyperlink{suspend__64_8h_a2169cd7c7c3505c74623c106c1dbda6b}{cr2}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void \mbox{\hyperlink{mmu__pv_8c_ae7e1a870aa5419e92659aa2cac943ed7}{xen\+\_\+flush\+\_\+tlb}} (void)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a0d448033767700e3a9e424a9955222d1}{xen\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a58dcddee92e25fd5044bb2b42838f089}{xen\+\_\+flush\+\_\+tlb\+\_\+multi}} (const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$\mbox{\hyperlink{kernel_2power_2power_8h_a3c7b20e8a16eb4291354b9a1f318ac04}{cpus}}, const struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static unsigned long \mbox{\hyperlink{mmu__pv_8c_a835d960a6653b6f2d1058448316a91e2}{xen\+\_\+read\+\_\+cr3}} (void)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a5460d2e87e90ffc7e9a085c55c05840b}{set\+\_\+current\+\_\+cr3}} (void $\ast$v)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_afabb51b605179125c5eead71d45db1f8}{\+\_\+\+\_\+xen\+\_\+write\+\_\+cr3}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kernel, unsigned long \mbox{\hyperlink{suspend__64_8h_a821b3a6febf3029efb9ea46401ad5058}{cr3}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a664440f3ae03968aa107af5a747cc9f7}{xen\+\_\+write\+\_\+cr3}} (unsigned long \mbox{\hyperlink{suspend__64_8h_a821b3a6febf3029efb9ea46401ad5058}{cr3}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a2dbe1d69f90db42a1f64d101b0fd1500}{xen\+\_\+write\+\_\+cr3\+\_\+init}} (unsigned long \mbox{\hyperlink{suspend__64_8h_a821b3a6febf3029efb9ea46401ad5058}{cr3}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mmu__pv_8c_ae9701688bd47cea2810b0cf6c5462960}{xen\+\_\+pgd\+\_\+alloc}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a366a65262ab095c992afa1975b5b4a4a}{xen\+\_\+pgd\+\_\+free}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd)
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_abcc14dfb31fb278745ecbfe6b5f6a748}{xen\+\_\+make\+\_\+pte\+\_\+init}} (\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} pte)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_ac5513803e4fe62d99853d351dc8e7d5f}{P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK}} (\mbox{\hyperlink{mmu__pv_8c_abcc14dfb31fb278745ecbfe6b5f6a748}{xen\+\_\+make\+\_\+pte\+\_\+init}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a28aa4ef08a49fffe1e765a2b3c8a2525}{xen\+\_\+set\+\_\+pte\+\_\+init}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$ptep, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} pte)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a53ee31559c682ec9692c4e6ac2e6d24a}{xen\+\_\+alloc\+\_\+pte\+\_\+init}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a1f995cebfa9e3afcc6330141dbde0e62}{xen\+\_\+alloc\+\_\+pmd\+\_\+init}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a1214c2cd5451448eac817d2193c75a21}{xen\+\_\+release\+\_\+pte\+\_\+init}} (unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a520c4d7d1076aae74fa44c9f6f06ca95}{xen\+\_\+release\+\_\+pmd\+\_\+init}} (unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a0b38bcf2ce043a64c2fb58e85af90fab}{\+\_\+\+\_\+pin\+\_\+pagetable\+\_\+pfn}} (unsigned \mbox{\hyperlink{uapi_2linux_2virtio__net_8h_a0de40fae14654a63d8d1b50cf2874806}{cmd}}, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ad8356df561563fea1ebecb14ec36feab}{\+\_\+\+\_\+set\+\_\+pfn\+\_\+prot}} (unsigned long pfn, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a33fd8597c3eba87e5fdf20357d72ae35}{xen\+\_\+alloc\+\_\+ptpage}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long pfn, unsigned \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a0c96c4acea7ba01a22b1b1e9942e4c04}{xen\+\_\+alloc\+\_\+pte}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a885fe37947315a97e0df531d290678d9}{xen\+\_\+alloc\+\_\+pmd}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a7519e9235246f3d21e8b06fbd1797251}{xen\+\_\+release\+\_\+ptpage}} (unsigned long pfn, unsigned \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_aa651f73759236561ac67769c419c848d}{xen\+\_\+release\+\_\+pte}} (unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a8508424143d7a5a33b717cc9f5daf8d4}{xen\+\_\+release\+\_\+pmd}} (unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_abb3bda121ae9b169a73a08be4287be63}{xen\+\_\+alloc\+\_\+pud}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a883de9418253f87f3819e3fc42a7eff2}{xen\+\_\+release\+\_\+pud}} (unsigned long pfn)
+\item 
+static void $\ast$\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_accbaeed716d8c01217682d0199422376}{\+\_\+\+\_\+ka}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} paddr)
+\item 
+static unsigned long \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a5751703cdcce09c432d987c664c064f1}{m2p}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} maddr)
+\item 
+static void $\ast$\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a6f0331e40c6d9e97ce6516a227ebd235}{m2v}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} maddr)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ad5d0fc21a6026af1a6190fb477e9ac6f}{set\+\_\+page\+\_\+prot\+\_\+flags}} (void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}}, unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a6e29f159c0a7e04dece9a50e92457dc8}{set\+\_\+page\+\_\+prot}} (void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a6850f415407ead85e121a4011eaf15b6}{xen\+\_\+setup\+\_\+machphys\+\_\+mapping}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ac7e25d4faaf4066fa98c153e288cd6e3}{convert\+\_\+pfn\+\_\+mfn}} (void $\ast$v)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ad321b972fa3dd19591acfd33479d745d}{check\+\_\+pt\+\_\+base}} (unsigned long $\ast$pt\+\_\+base, unsigned long $\ast$pt\+\_\+end, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_ae42d4e9aba47de2cf1637b5ff4b5f0e2}{xen\+\_\+setup\+\_\+kernel\+\_\+pagetable}} (\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd, unsigned long \mbox{\hyperlink{memblock_8c_a17af2d8edc383fc6f567f3cc6689c0ec}{max\+\_\+pfn}})
+\item 
+static unsigned long \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a98e6f6352ab69f086cf87b5bda8b9a31}{xen\+\_\+read\+\_\+phys\+\_\+ulong}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a834995689edd9773ca6c0421ebb4fa73}{xen\+\_\+early\+\_\+virt\+\_\+to\+\_\+phys}} (unsigned long vaddr)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_af85a306be205544048ed59d85383fa8e}{xen\+\_\+relocate\+\_\+p2m}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a3e157cdf44c30aabe567d0d3d8751454}{xen\+\_\+reserve\+\_\+special\+\_\+pages}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a8d2d70e81268865c4700826024506edd}{xen\+\_\+pt\+\_\+check\+\_\+e820}} (void)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_ae98916f267445017b5fae01cf8c59342}{xen\+\_\+set\+\_\+fixmap}} (unsigned \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{uhid_8h_a21ece726f0f5682d175e43cfdb1719fc}{phys}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}})
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a22c7e7992c4fecd19260666bba3ebebb}{xen\+\_\+leave\+\_\+lazy\+\_\+mmu}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{mmu__pv_8c_a9cc6b70da2ad66bfcaec1860853848ef}{xen\+\_\+init\+\_\+mmu\+\_\+ops}} (void)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a58d077cad9b149a2c46db15f5b1d5eb6}{xen\+\_\+zap\+\_\+pfn\+\_\+range}} (unsigned long vaddr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order, unsigned long $\ast$in\+\_\+frames, unsigned long $\ast$out\+\_\+frames)
+\item 
+static void \mbox{\hyperlink{mmu__pv_8c_a754e6d5394e6a2aa67fb54e34d11eb4c}{xen\+\_\+remap\+\_\+exchanged\+\_\+ptes}} (unsigned long vaddr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order, unsigned long $\ast$\mbox{\hyperlink{xen_2setup_8c_a24d545fcee299ba5722526a5d1e02628}{mfns}}, unsigned long first\+\_\+mfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mmu__pv_8c_a15a56a8fa601b0f0b866a8fc07eb3cff}{xen\+\_\+exchange\+\_\+memory}} (unsigned long extents\+\_\+in, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order\+\_\+in, unsigned long $\ast$pfns\+\_\+in, unsigned long extents\+\_\+out, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order\+\_\+out, unsigned long $\ast$mfns\+\_\+out, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} address\+\_\+bits)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mmu__pv_8c_aba182a1d23ba70b82dec7d95c994864d}{xen\+\_\+create\+\_\+contiguous\+\_\+region}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_a9d5e8ffc527a03800d25bfb42829b209}{pstart}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} address\+\_\+bits, \mbox{\hyperlink{include_2linux_2types_8h_ac2146dd67d56069a46e7a488c5cb256b}{dma\+\_\+addr\+\_\+t}} $\ast$dma\+\_\+handle)
+\item 
+void \mbox{\hyperlink{mmu__pv_8c_a9230fd63242491f52bfe04ccc0b99a20}{xen\+\_\+destroy\+\_\+contiguous\+\_\+region}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_a9d5e8ffc527a03800d25bfb42829b209}{pstart}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void \mbox{\hyperlink{mmu__pv_8c_ad70f425b52506a1239fb89f3aff1da1d}{xen\+\_\+flush\+\_\+tlb\+\_\+all}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mmu__pv_8c_ac666f33ea6d9c6f0b24b1d84e8967c76}{remap\+\_\+area\+\_\+pfn\+\_\+pte\+\_\+fn}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$ptep, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{mmu__pv_8c_a60592822fcefff2ae43a1708c92f0dd2}{xen\+\_\+remap\+\_\+pfn}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{arch_2x86_2include_2asm_2xen_2interface_8h_afd7f0cdbbb0c230da2f64e59f1f338a6}{xen\+\_\+pfn\+\_\+t}} $\ast$pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{vsprintf_8c_a668a2ffbe48508a15e647305e07e318e}{err\+\_\+ptr}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} domid, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} no\+\_\+translate)
+\item 
+\mbox{\hyperlink{mmu__pv_8c_a4c510de934eb8d38dd392be129367c7f}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2xen_2xen-ops_8h_a2efe28a15434a55b87e3e57e5a51f6e5}{xen\+\_\+remap\+\_\+pfn}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{structpud__t}{pud\+\_\+t}} level3\+\_\+user\+\_\+vsyscall\mbox{[}\mbox{\hyperlink{pgtable-nopud_8h_a9017d2180c55d3084832996463c2da1f}{P\+T\+R\+S\+\_\+\+P\+E\+R\+\_\+\+P\+UD}}\mbox{]} \mbox{\hyperlink{mmu__pv_8c_aa755cebd0f86d1d2402e50c041d86fda}{\+\_\+\+\_\+page\+\_\+aligned\+\_\+bss}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{mmu__pv_8c_a5ee04a7d9b9c04e780deab2e19ffa622}{xen\+\_\+pt\+\_\+base}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} xen\+\_\+pt\+\_\+size \mbox{\hyperlink{mmu__pv_8c_a47295f45e24f62cd6779bf8e5fb94b9a}{\+\_\+\+\_\+initdata}}
+\item 
+static const struct \mbox{\hyperlink{structpv__mmu__ops}{pv\+\_\+mmu\+\_\+ops}} xen\+\_\+mmu\+\_\+ops \mbox{\hyperlink{mmu__pv_8c_aa032a212d01bfac5a1d26277c4fbab25}{\+\_\+\+\_\+initconst}}
+\item 
+static unsigned long \mbox{\hyperlink{mmu__pv_8c_afcf47fac0c3e7446657f52f0f9d9cb51}{discontig\+\_\+frames}} \mbox{[}1$<$$<$ \mbox{\hyperlink{mmu__pv_8c_a87469696ebb84a83dd574b9e8ee12f6d}{M\+A\+X\+\_\+\+C\+O\+N\+T\+I\+G\+\_\+\+O\+R\+D\+ER}}\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{mmu__pv_8c_a87469696ebb84a83dd574b9e8ee12f6d}\label{mmu__pv_8c_a87469696ebb84a83dd574b9e8ee12f6d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!MAX\_CONTIG\_ORDER@{MAX\_CONTIG\_ORDER}}
+\index{MAX\_CONTIG\_ORDER@{MAX\_CONTIG\_ORDER}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_CONTIG\_ORDER}{MAX\_CONTIG\_ORDER}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+C\+O\+N\+T\+I\+G\+\_\+\+O\+R\+D\+ER~9 /$\ast$ 2\mbox{\hyperlink{zstd__internal_8h_aa6b38d492364d98453284934ed7caee9}{MB}} $\ast$/}
+
+\mbox{\Hypertarget{mmu__pv_8c_a9326173aeb09beaa2ba96b8d0dd15ea5}\label{mmu__pv_8c_a9326173aeb09beaa2ba96b8d0dd15ea5}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!REMAP\_BATCH\_SIZE@{REMAP\_BATCH\_SIZE}}
+\index{REMAP\_BATCH\_SIZE@{REMAP\_BATCH\_SIZE}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{REMAP\_BATCH\_SIZE}{REMAP\_BATCH\_SIZE}}
+{\footnotesize\ttfamily \#define R\+E\+M\+A\+P\+\_\+\+B\+A\+T\+C\+H\+\_\+\+S\+I\+ZE~16}
+
+\mbox{\Hypertarget{mmu__pv_8c_af5547ed125c7d14ac730b5644b343830}\label{mmu__pv_8c_af5547ed125c7d14ac730b5644b343830}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!USER\_LIMIT@{USER\_LIMIT}}
+\index{USER\_LIMIT@{USER\_LIMIT}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{USER\_LIMIT}{USER\_LIMIT}}
+{\footnotesize\ttfamily \#define U\+S\+E\+R\+\_\+\+L\+I\+M\+IT~((\mbox{\hyperlink{page__64__types_8h_a57c61dd0217e3d9cffcce9c8c88db152}{S\+T\+A\+C\+K\+\_\+\+T\+O\+P\+\_\+\+M\+AX}} + \mbox{\hyperlink{pgtable__64__types_8h_a973d0c37c53087972d69bd37a1f05add}{P\+G\+D\+I\+R\+\_\+\+S\+I\+ZE}} -\/ 1) \& \mbox{\hyperlink{pgtable__64__types_8h_a1fd2535a7a68d6176439d2d7e825e48a}{P\+G\+D\+I\+R\+\_\+\+M\+A\+SK}})}
+
+\mbox{\Hypertarget{mmu__pv_8c_adaec7dfde53f572d581f8247f5f8f2a4}\label{mmu__pv_8c_adaec7dfde53f572d581f8247f5f8f2a4}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!VOID\_PTE@{VOID\_PTE}}
+\index{VOID\_PTE@{VOID\_PTE}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{VOID\_PTE}{VOID\_PTE}}
+{\footnotesize\ttfamily \#define V\+O\+I\+D\+\_\+\+P\+TE~(\mbox{\hyperlink{arch_2x86_2include_2asm_2xen_2page_8h_a3cc9e2a37c226edafaab1595b01a2be0}{mfn\+\_\+pte}}(0, \mbox{\hyperlink{include_2asm-generic_2page_8h_a3229d63d516d27f251870149747fa12c}{\+\_\+\+\_\+pgprot}}(0)))}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{mmu__pv_8c_accbaeed716d8c01217682d0199422376}\label{mmu__pv_8c_accbaeed716d8c01217682d0199422376}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_ka@{\_\_ka}}
+\index{\_\_ka@{\_\_ka}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ka()}{\_\_ka()}}
+{\footnotesize\ttfamily static void$\ast$ \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \+\_\+\+\_\+ka (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{paddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{mmu__pv_8c_a0b38bcf2ce043a64c2fb58e85af90fab}\label{mmu__pv_8c_a0b38bcf2ce043a64c2fb58e85af90fab}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_pin\_pagetable\_pfn@{\_\_pin\_pagetable\_pfn}}
+\index{\_\_pin\_pagetable\_pfn@{\_\_pin\_pagetable\_pfn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_pin\_pagetable\_pfn()}{\_\_pin\_pagetable\_pfn()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+pin\+\_\+pagetable\+\_\+pfn (\begin{DoxyParamCaption}\item[{unsigned}]{cmd,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 2
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{mmu__pv_8c_ad8356df561563fea1ebecb14ec36feab}\label{mmu__pv_8c_ad8356df561563fea1ebecb14ec36feab}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_set\_pfn\_prot@{\_\_set\_pfn\_prot}}
+\index{\_\_set\_pfn\_prot@{\_\_set\_pfn\_prot}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_set\_pfn\_prot()}{\_\_set\_pfn\_prot()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+set\+\_\+pfn\+\_\+prot (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{mmu__pv_8c_a1628d93af1114da2d466d42494121497}\label{mmu__pv_8c_a1628d93af1114da2d466d42494121497}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_xen\_pgd\_pin@{\_\_xen\_pgd\_pin}}
+\index{\_\_xen\_pgd\_pin@{\_\_xen\_pgd\_pin}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_xen\_pgd\_pin()}{\_\_xen\_pgd\_pin()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+xen\+\_\+pgd\+\_\+pin (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{mmu__pv_8c_a0feec4fa5652673d4ef602140cf86c35}\label{mmu__pv_8c_a0feec4fa5652673d4ef602140cf86c35}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_xen\_pgd\_unpin@{\_\_xen\_pgd\_unpin}}
+\index{\_\_xen\_pgd\_unpin@{\_\_xen\_pgd\_unpin}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_xen\_pgd\_unpin()}{\_\_xen\_pgd\_unpin()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+xen\+\_\+pgd\+\_\+unpin (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{mmu__pv_8c_a9d283f4fea294b506759f7252da2e424}\label{mmu__pv_8c_a9d283f4fea294b506759f7252da2e424}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_xen\_pgd\_walk@{\_\_xen\_pgd\_walk}}
+\index{\_\_xen\_pgd\_walk@{\_\_xen\_pgd\_walk}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_xen\_pgd\_walk()}{\_\_xen\_pgd\_walk()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+xen\+\_\+pgd\+\_\+walk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}})}]{func,  }\item[{unsigned long}]{limit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{mmu__pv_8c_aa8a33f785f13132ab99701b779a99565}\label{mmu__pv_8c_aa8a33f785f13132ab99701b779a99565}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_xen\_set\_p4d\_hyper@{\_\_xen\_set\_p4d\_hyper}}
+\index{\_\_xen\_set\_p4d\_hyper@{\_\_xen\_set\_p4d\_hyper}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_xen\_set\_p4d\_hyper()}{\_\_xen\_set\_p4d\_hyper()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+xen\+\_\+set\+\_\+p4d\+\_\+hyper (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{mmu__pv_8c_ac8421bf7c9e2990e7457ae35a1aeed51}\label{mmu__pv_8c_ac8421bf7c9e2990e7457ae35a1aeed51}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_xen\_set\_pte@{\_\_xen\_set\_pte}}
+\index{\_\_xen\_set\_pte@{\_\_xen\_set\_pte}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_xen\_set\_pte()}{\_\_xen\_set\_pte()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+xen\+\_\+set\+\_\+pte (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{ptep,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}}}]{pteval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{mmu__pv_8c_afabb51b605179125c5eead71d45db1f8}\label{mmu__pv_8c_afabb51b605179125c5eead71d45db1f8}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_xen\_write\_cr3@{\_\_xen\_write\_cr3}}
+\index{\_\_xen\_write\_cr3@{\_\_xen\_write\_cr3}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_xen\_write\_cr3()}{\_\_xen\_write\_cr3()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+xen\+\_\+write\+\_\+cr3 (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{kernel,  }\item[{unsigned long}]{cr3 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{mmu__pv_8c_ad321b972fa3dd19591acfd33479d745d}\label{mmu__pv_8c_ad321b972fa3dd19591acfd33479d745d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!check\_pt\_base@{check\_pt\_base}}
+\index{check\_pt\_base@{check\_pt\_base}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{check\_pt\_base()}{check\_pt\_base()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} check\+\_\+pt\+\_\+base (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{pt\+\_\+base,  }\item[{unsigned long $\ast$}]{pt\+\_\+end,  }\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{mmu__pv_8c_ac7e25d4faaf4066fa98c153e288cd6e3}\label{mmu__pv_8c_ac7e25d4faaf4066fa98c153e288cd6e3}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!convert\_pfn\_mfn@{convert\_pfn\_mfn}}
+\index{convert\_pfn\_mfn@{convert\_pfn\_mfn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{convert\_pfn\_mfn()}{convert\_pfn\_mfn()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} convert\+\_\+pfn\+\_\+mfn (\begin{DoxyParamCaption}\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{mmu__pv_8c_a5a7ce1ffaee51b371758d84e7b65eb4e}\label{mmu__pv_8c_a5a7ce1ffaee51b371758d84e7b65eb4e}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned long}]{,  }\item[{xen\+\_\+cr3}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_afd8240946487f10ca664fe107cf6f07f}\label{mmu__pv_8c_afd8240946487f10ca664fe107cf6f07f}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned long}]{,  }\item[{xen\+\_\+current\+\_\+cr3}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a83a2b948a3363f00531a63944bf13ca3}\label{mmu__pv_8c_a83a2b948a3363f00531a63944bf13ca3}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{xen\+\_\+reservation\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_a475ece74830a92d03666f9070aff33d9}\label{mmu__pv_8c_a475ece74830a92d03666f9070aff33d9}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{xen\+\_\+struct\+\_\+pages\+\_\+ready}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_a40cd715fca76dd3d527a141c792ab6e5}\label{mmu__pv_8c_a40cd715fca76dd3d527a141c792ab6e5}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!drop\_mm\_ref\_this\_cpu@{drop\_mm\_ref\_this\_cpu}}
+\index{drop\_mm\_ref\_this\_cpu@{drop\_mm\_ref\_this\_cpu}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{drop\_mm\_ref\_this\_cpu()}{drop\_mm\_ref\_this\_cpu()}}
+{\footnotesize\ttfamily static void drop\+\_\+mm\+\_\+ref\+\_\+this\+\_\+cpu (\begin{DoxyParamCaption}\item[{void $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{mmu__pv_8c_a4c510de934eb8d38dd392be129367c7f}\label{mmu__pv_8c_a4c510de934eb8d38dd392be129367c7f}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2xen_2xen-ops_8h_a2efe28a15434a55b87e3e57e5a51f6e5}{xen\+\_\+remap\+\_\+pfn}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a5751703cdcce09c432d987c664c064f1}\label{mmu__pv_8c_a5751703cdcce09c432d987c664c064f1}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!m2p@{m2p}}
+\index{m2p@{m2p}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{m2p()}{m2p()}}
+{\footnotesize\ttfamily static unsigned long \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} m2p (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{maddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{mmu__pv_8c_a6f0331e40c6d9e97ce6516a227ebd235}\label{mmu__pv_8c_a6f0331e40c6d9e97ce6516a227ebd235}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!m2v@{m2v}}
+\index{m2v@{m2v}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{m2v()}{m2v()}}
+{\footnotesize\ttfamily static void$\ast$ \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} m2v (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{maddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{mmu__pv_8c_a9c5b2c1158d5e899233e9c223bb2f856}\label{mmu__pv_8c_a9c5b2c1158d5e899233e9c223bb2f856}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!make\_lowmem\_page\_readonly@{make\_lowmem\_page\_readonly}}
+\index{make\_lowmem\_page\_readonly@{make\_lowmem\_page\_readonly}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{make\_lowmem\_page\_readonly()}{make\_lowmem\_page\_readonly()}}
+{\footnotesize\ttfamily void make\+\_\+lowmem\+\_\+page\+\_\+readonly (\begin{DoxyParamCaption}\item[{void $\ast$}]{vaddr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{mmu__pv_8c_a5c19f64bb06c12165dc90c79434af5a3}\label{mmu__pv_8c_a5c19f64bb06c12165dc90c79434af5a3}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!make\_lowmem\_page\_readwrite@{make\_lowmem\_page\_readwrite}}
+\index{make\_lowmem\_page\_readwrite@{make\_lowmem\_page\_readwrite}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{make\_lowmem\_page\_readwrite()}{make\_lowmem\_page\_readwrite()}}
+{\footnotesize\ttfamily void make\+\_\+lowmem\+\_\+page\+\_\+readwrite (\begin{DoxyParamCaption}\item[{void $\ast$}]{vaddr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{mmu__pv_8c_ac466a881c7f22ebbfb88752327907699}\label{mmu__pv_8c_ac466a881c7f22ebbfb88752327907699}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!pin\_pagetable\_pfn@{pin\_pagetable\_pfn}}
+\index{pin\_pagetable\_pfn@{pin\_pagetable\_pfn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{pin\_pagetable\_pfn()}{pin\_pagetable\_pfn()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pin\+\_\+pagetable\+\_\+pfn (\begin{DoxyParamCaption}\item[{unsigned}]{cmd,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{mmu__pv_8c_a73fcfe91d6ed9ec8a1d80f7592636374}\label{mmu__pv_8c_a73fcfe91d6ed9ec8a1d80f7592636374}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!pte\_mfn\_to\_pfn@{pte\_mfn\_to\_pfn}}
+\index{pte\_mfn\_to\_pfn@{pte\_mfn\_to\_pfn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{pte\_mfn\_to\_pfn()}{pte\_mfn\_to\_pfn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} pte\+\_\+mfn\+\_\+to\+\_\+pfn (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{mmu__pv_8c_a89a4dbdbe0ab05a3b0497fac58f97f9b}\label{mmu__pv_8c_a89a4dbdbe0ab05a3b0497fac58f97f9b}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!pte\_pfn\_to\_mfn@{pte\_pfn\_to\_mfn}}
+\index{pte\_pfn\_to\_mfn@{pte\_pfn\_to\_mfn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{pte\_pfn\_to\_mfn()}{pte\_pfn\_to\_mfn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} pte\+\_\+pfn\+\_\+to\+\_\+mfn (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{mmu__pv_8c_a3afee1787ad6af809f3e0dbfb35638aa}\label{mmu__pv_8c_a3afee1787ad6af809f3e0dbfb35638aa}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [1/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_a5680816974b5e6e4862713e5abfde430}{xen\+\_\+make\+\_\+pgd}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a7918c0569f00476f35afa5491eed42d5}\label{mmu__pv_8c_a7918c0569f00476f35afa5491eed42d5}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [2/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_ab13ef42ae12f5efbfeb3d5b8d0903da0}{xen\+\_\+make\+\_\+pmd}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a82e834ee9e7a6a877c6ed6bd9ddcec83}\label{mmu__pv_8c_a82e834ee9e7a6a877c6ed6bd9ddcec83}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [3/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_aa8a5bae304a0e4620eb2722a49fcbfc7}{xen\+\_\+make\+\_\+pte}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_ac5513803e4fe62d99853d351dc8e7d5f}\label{mmu__pv_8c_ac5513803e4fe62d99853d351dc8e7d5f}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [4/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_abcc14dfb31fb278745ecbfe6b5f6a748}{xen\+\_\+make\+\_\+pte\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a036bc8c9ee8a06fe8bf59b780fd7f5a3}\label{mmu__pv_8c_a036bc8c9ee8a06fe8bf59b780fd7f5a3}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [5/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_a80eadbcd62ad2cf84284db64b57574c0}{xen\+\_\+make\+\_\+pud}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_ac4334375ede1636eccfbc51657510f22}\label{mmu__pv_8c_ac4334375ede1636eccfbc51657510f22}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [6/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_a120a80f6cc8b0fc38c74adacb7515e30}{xen\+\_\+pgd\+\_\+val}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a7b35cac60342a7ccedda75c303361bcf}\label{mmu__pv_8c_a7b35cac60342a7ccedda75c303361bcf}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [7/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_a32365faf761864b25bcd65b7e044d319}{xen\+\_\+pmd\+\_\+val}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a85fe50ea5b5a852056ceeb9cbcb7e7f6}\label{mmu__pv_8c_a85fe50ea5b5a852056ceeb9cbcb7e7f6}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [8/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_a7de6a3a67ff99371b1d3b2d0153ac211}{xen\+\_\+pte\+\_\+val}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_a5ce3d8bb6fcbe08f2c25233ebb0f3110}\label{mmu__pv_8c_a5ce3d8bb6fcbe08f2c25233ebb0f3110}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}}
+\index{PV\_CALLEE\_SAVE\_REGS\_THUNK@{PV\_CALLEE\_SAVE\_REGS\_THUNK}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{PV\_CALLEE\_SAVE\_REGS\_THUNK()}{PV\_CALLEE\_SAVE\_REGS\_THUNK()}\hspace{0.1cm}{\footnotesize\ttfamily [9/9]}}
+{\footnotesize\ttfamily P\+V\+\_\+\+C\+A\+L\+L\+E\+E\+\_\+\+S\+A\+V\+E\+\_\+\+R\+E\+G\+S\+\_\+\+T\+H\+U\+NK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{mmu__pv_8c_aedcd6b64dc1ef069a9b9750f6c9f21ad}{xen\+\_\+pud\+\_\+val}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_ac666f33ea6d9c6f0b24b1d84e8967c76}\label{mmu__pv_8c_ac666f33ea6d9c6f0b24b1d84e8967c76}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!remap\_area\_pfn\_pte\_fn@{remap\_area\_pfn\_pte\_fn}}
+\index{remap\_area\_pfn\_pte\_fn@{remap\_area\_pfn\_pte\_fn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{remap\_area\_pfn\_pte\_fn()}{remap\_area\_pfn\_pte\_fn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} remap\+\_\+area\+\_\+pfn\+\_\+pte\+\_\+fn (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{ptep,  }\item[{unsigned long}]{addr,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{mmu__pv_8c_a5460d2e87e90ffc7e9a085c55c05840b}\label{mmu__pv_8c_a5460d2e87e90ffc7e9a085c55c05840b}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!set\_current\_cr3@{set\_current\_cr3}}
+\index{set\_current\_cr3@{set\_current\_cr3}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{set\_current\_cr3()}{set\_current\_cr3()}}
+{\footnotesize\ttfamily static void set\+\_\+current\+\_\+cr3 (\begin{DoxyParamCaption}\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{mmu__pv_8c_a6e29f159c0a7e04dece9a50e92457dc8}\label{mmu__pv_8c_a6e29f159c0a7e04dece9a50e92457dc8}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!set\_page\_prot@{set\_page\_prot}}
+\index{set\_page\_prot@{set\_page\_prot}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{set\_page\_prot()}{set\_page\_prot()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} set\+\_\+page\+\_\+prot (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{mmu__pv_8c_ad5d0fc21a6026af1a6190fb477e9ac6f}\label{mmu__pv_8c_ad5d0fc21a6026af1a6190fb477e9ac6f}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!set\_page\_prot\_flags@{set\_page\_prot\_flags}}
+\index{set\_page\_prot\_flags@{set\_page\_prot\_flags}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{set\_page\_prot\_flags()}{set\_page\_prot\_flags()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} set\+\_\+page\+\_\+prot\+\_\+flags (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot,  }\item[{unsigned long}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{mmu__pv_8c_ab54b3554385506f657bd452a0f12f9d5}\label{mmu__pv_8c_ab54b3554385506f657bd452a0f12f9d5}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!set\_pte\_mfn@{set\_pte\_mfn}}
+\index{set\_pte\_mfn@{set\_pte\_mfn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{set\_pte\_mfn()}{set\_pte\_mfn()}}
+{\footnotesize\ttfamily void set\+\_\+pte\+\_\+mfn (\begin{DoxyParamCaption}\item[{unsigned long}]{vaddr,  }\item[{unsigned long}]{mfn,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{flags }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{mmu__pv_8c_a11778705815e64d68172ce7cd978eae5}\label{mmu__pv_8c_a11778705815e64d68172ce7cd978eae5}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_activate\_mm@{xen\_activate\_mm}}
+\index{xen\_activate\_mm@{xen\_activate\_mm}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_activate\_mm()}{xen\_activate\_mm()}}
+{\footnotesize\ttfamily static void xen\+\_\+activate\+\_\+mm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{prev,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{next }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{mmu__pv_8c_a8129c8636279faf0c4e247638a9146dd}\label{mmu__pv_8c_a8129c8636279faf0c4e247638a9146dd}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_after\_bootmem@{xen\_after\_bootmem}}
+\index{xen\_after\_bootmem@{xen\_after\_bootmem}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_after\_bootmem()}{xen\_after\_bootmem()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+after\+\_\+bootmem (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{mmu__pv_8c_a885fe37947315a97e0df531d290678d9}\label{mmu__pv_8c_a885fe37947315a97e0df531d290678d9}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_alloc\_pmd@{xen\_alloc\_pmd}}
+\index{xen\_alloc\_pmd@{xen\_alloc\_pmd}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_alloc\_pmd()}{xen\_alloc\_pmd()}}
+{\footnotesize\ttfamily static void xen\+\_\+alloc\+\_\+pmd (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{mmu__pv_8c_a1f995cebfa9e3afcc6330141dbde0e62}\label{mmu__pv_8c_a1f995cebfa9e3afcc6330141dbde0e62}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_alloc\_pmd\_init@{xen\_alloc\_pmd\_init}}
+\index{xen\_alloc\_pmd\_init@{xen\_alloc\_pmd\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_alloc\_pmd\_init()}{xen\_alloc\_pmd\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+alloc\+\_\+pmd\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{mmu__pv_8c_a0c96c4acea7ba01a22b1b1e9942e4c04}\label{mmu__pv_8c_a0c96c4acea7ba01a22b1b1e9942e4c04}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_alloc\_pte@{xen\_alloc\_pte}}
+\index{xen\_alloc\_pte@{xen\_alloc\_pte}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_alloc\_pte()}{xen\_alloc\_pte()}}
+{\footnotesize\ttfamily static void xen\+\_\+alloc\+\_\+pte (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{mmu__pv_8c_a53ee31559c682ec9692c4e6ac2e6d24a}\label{mmu__pv_8c_a53ee31559c682ec9692c4e6ac2e6d24a}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_alloc\_pte\_init@{xen\_alloc\_pte\_init}}
+\index{xen\_alloc\_pte\_init@{xen\_alloc\_pte\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_alloc\_pte\_init()}{xen\_alloc\_pte\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+alloc\+\_\+pte\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{mmu__pv_8c_a33fd8597c3eba87e5fdf20357d72ae35}\label{mmu__pv_8c_a33fd8597c3eba87e5fdf20357d72ae35}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_alloc\_ptpage@{xen\_alloc\_ptpage}}
+\index{xen\_alloc\_ptpage@{xen\_alloc\_ptpage}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_alloc\_ptpage()}{xen\_alloc\_ptpage()}}
+{\footnotesize\ttfamily static void xen\+\_\+alloc\+\_\+ptpage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{pfn,  }\item[{unsigned}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{mmu__pv_8c_abb3bda121ae9b169a73a08be4287be63}\label{mmu__pv_8c_abb3bda121ae9b169a73a08be4287be63}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_alloc\_pud@{xen\_alloc\_pud}}
+\index{xen\_alloc\_pud@{xen\_alloc\_pud}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_alloc\_pud()}{xen\_alloc\_pud()}}
+{\footnotesize\ttfamily static void xen\+\_\+alloc\+\_\+pud (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{mmu__pv_8c_a74b29bd5de66467bea1fe7ce5b8f99f9}\label{mmu__pv_8c_a74b29bd5de66467bea1fe7ce5b8f99f9}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_batched\_set\_pte@{xen\_batched\_set\_pte}}
+\index{xen\_batched\_set\_pte@{xen\_batched\_set\_pte}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_batched\_set\_pte()}{xen\_batched\_set\_pte()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} xen\+\_\+batched\+\_\+set\+\_\+pte (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{ptep,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}}}]{pteval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{mmu__pv_8c_a7cc851a76817225fd4eba399fbaa189b}\label{mmu__pv_8c_a7cc851a76817225fd4eba399fbaa189b}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_cleanhighmap@{xen\_cleanhighmap}}
+\index{xen\_cleanhighmap@{xen\_cleanhighmap}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_cleanhighmap()}{xen\_cleanhighmap()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+cleanhighmap (\begin{DoxyParamCaption}\item[{unsigned long}]{vaddr,  }\item[{unsigned long}]{vaddr\+\_\+end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{mmu__pv_8c_a5b13dd2c1e9c7494651317fa9d870d0f}\label{mmu__pv_8c_a5b13dd2c1e9c7494651317fa9d870d0f}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_cleanmfnmap@{xen\_cleanmfnmap}}
+\index{xen\_cleanmfnmap@{xen\_cleanmfnmap}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_cleanmfnmap()}{xen\_cleanmfnmap()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+cleanmfnmap (\begin{DoxyParamCaption}\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 64
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{mmu__pv_8c_a25aacf74014ef847a0ee197b29526658}\label{mmu__pv_8c_a25aacf74014ef847a0ee197b29526658}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_cleanmfnmap\_free\_pgtbl@{xen\_cleanmfnmap\_free\_pgtbl}}
+\index{xen\_cleanmfnmap\_free\_pgtbl@{xen\_cleanmfnmap\_free\_pgtbl}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_cleanmfnmap\_free\_pgtbl()}{xen\_cleanmfnmap\_free\_pgtbl()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+cleanmfnmap\+\_\+free\+\_\+pgtbl (\begin{DoxyParamCaption}\item[{void $\ast$}]{pgtbl,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{unpin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{mmu__pv_8c_aa5361b4fa0b941f5321f08694a6c02ad}\label{mmu__pv_8c_aa5361b4fa0b941f5321f08694a6c02ad}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_cleanmfnmap\_p4d@{xen\_cleanmfnmap\_p4d}}
+\index{xen\_cleanmfnmap\_p4d@{xen\_cleanmfnmap\_p4d}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_cleanmfnmap\_p4d()}{xen\_cleanmfnmap\_p4d()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+cleanmfnmap\+\_\+p4d (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$}]{p4d,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{unpin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{mmu__pv_8c_a8c653e6c9efcafc7cefc74d7f7b7fc21}\label{mmu__pv_8c_a8c653e6c9efcafc7cefc74d7f7b7fc21}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_cleanmfnmap\_pmd@{xen\_cleanmfnmap\_pmd}}
+\index{xen\_cleanmfnmap\_pmd@{xen\_cleanmfnmap\_pmd}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_cleanmfnmap\_pmd()}{xen\_cleanmfnmap\_pmd()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+cleanmfnmap\+\_\+pmd (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$}]{pmd,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{unpin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{mmu__pv_8c_ad040921e5294a8317939190732608d74}\label{mmu__pv_8c_ad040921e5294a8317939190732608d74}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_cleanmfnmap\_pud@{xen\_cleanmfnmap\_pud}}
+\index{xen\_cleanmfnmap\_pud@{xen\_cleanmfnmap\_pud}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_cleanmfnmap\_pud()}{xen\_cleanmfnmap\_pud()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+cleanmfnmap\+\_\+pud (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$}]{pud,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{unpin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{mmu__pv_8c_aba182a1d23ba70b82dec7d95c994864d}\label{mmu__pv_8c_aba182a1d23ba70b82dec7d95c994864d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_create\_contiguous\_region@{xen\_create\_contiguous\_region}}
+\index{xen\_create\_contiguous\_region@{xen\_create\_contiguous\_region}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_create\_contiguous\_region()}{xen\_create\_contiguous\_region()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xen\+\_\+create\+\_\+contiguous\+\_\+region (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{pstart,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{address\+\_\+bits,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac2146dd67d56069a46e7a488c5cb256b}{dma\+\_\+addr\+\_\+t}} $\ast$}]{dma\+\_\+handle }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{mmu__pv_8c_a9230fd63242491f52bfe04ccc0b99a20}\label{mmu__pv_8c_a9230fd63242491f52bfe04ccc0b99a20}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_destroy\_contiguous\_region@{xen\_destroy\_contiguous\_region}}
+\index{xen\_destroy\_contiguous\_region@{xen\_destroy\_contiguous\_region}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_destroy\_contiguous\_region()}{xen\_destroy\_contiguous\_region()}}
+{\footnotesize\ttfamily void xen\+\_\+destroy\+\_\+contiguous\+\_\+region (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{pstart,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{mmu__pv_8c_ae8e84d4fae22c6dd3817a061d16964e3}\label{mmu__pv_8c_ae8e84d4fae22c6dd3817a061d16964e3}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_do\_pin@{xen\_do\_pin}}
+\index{xen\_do\_pin@{xen\_do\_pin}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_do\_pin()}{xen\_do\_pin()}}
+{\footnotesize\ttfamily static void xen\+\_\+do\+\_\+pin (\begin{DoxyParamCaption}\item[{unsigned}]{level,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{mmu__pv_8c_af1de856a1c5464dda224f49800329b03}\label{mmu__pv_8c_af1de856a1c5464dda224f49800329b03}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_drop\_mm\_ref@{xen\_drop\_mm\_ref}}
+\index{xen\_drop\_mm\_ref@{xen\_drop\_mm\_ref}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_drop\_mm\_ref()}{xen\_drop\_mm\_ref()}}
+{\footnotesize\ttfamily static void xen\+\_\+drop\+\_\+mm\+\_\+ref (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{mmu__pv_8c_adee8cb4d42cc386e47508c90e9ac5484}\label{mmu__pv_8c_adee8cb4d42cc386e47508c90e9ac5484}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_dup\_mmap@{xen\_dup\_mmap}}
+\index{xen\_dup\_mmap@{xen\_dup\_mmap}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_dup\_mmap()}{xen\_dup\_mmap()}}
+{\footnotesize\ttfamily static void xen\+\_\+dup\+\_\+mmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{oldmm,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{mmu__pv_8c_a834995689edd9773ca6c0421ebb4fa73}\label{mmu__pv_8c_a834995689edd9773ca6c0421ebb4fa73}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_early\_virt\_to\_phys@{xen\_early\_virt\_to\_phys}}
+\index{xen\_early\_virt\_to\_phys@{xen\_early\_virt\_to\_phys}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_early\_virt\_to\_phys()}{xen\_early\_virt\_to\_phys()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+early\+\_\+virt\+\_\+to\+\_\+phys (\begin{DoxyParamCaption}\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{mmu__pv_8c_a15a56a8fa601b0f0b866a8fc07eb3cff}\label{mmu__pv_8c_a15a56a8fa601b0f0b866a8fc07eb3cff}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_exchange\_memory@{xen\_exchange\_memory}}
+\index{xen\_exchange\_memory@{xen\_exchange\_memory}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_exchange\_memory()}{xen\_exchange\_memory()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xen\+\_\+exchange\+\_\+memory (\begin{DoxyParamCaption}\item[{unsigned long}]{extents\+\_\+in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order\+\_\+in,  }\item[{unsigned long $\ast$}]{pfns\+\_\+in,  }\item[{unsigned long}]{extents\+\_\+out,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order\+\_\+out,  }\item[{unsigned long $\ast$}]{mfns\+\_\+out,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{address\+\_\+bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 83
+Here is the caller graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{mmu__pv_8c_a95d0931060f0b15d9ac4bdafecaef96f}\label{mmu__pv_8c_a95d0931060f0b15d9ac4bdafecaef96f}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_exit\_mmap@{xen\_exit\_mmap}}
+\index{xen\_exit\_mmap@{xen\_exit\_mmap}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_exit\_mmap()}{xen\_exit\_mmap()}}
+{\footnotesize\ttfamily static void xen\+\_\+exit\+\_\+mmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{mmu__pv_8c_a50bc3db0e0b30405d910610b38271580}\label{mmu__pv_8c_a50bc3db0e0b30405d910610b38271580}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_extend\_mmu\_update@{xen\_extend\_mmu\_update}}
+\index{xen\_extend\_mmu\_update@{xen\_extend\_mmu\_update}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_extend\_mmu\_update()}{xen\_extend\_mmu\_update()}}
+{\footnotesize\ttfamily static void xen\+\_\+extend\+\_\+mmu\+\_\+update (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structmmu__update}{mmu\+\_\+update}} $\ast$}]{update }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{mmu__pv_8c_a3b7fd52c4f4dc53e68049afa1f50bf73}\label{mmu__pv_8c_a3b7fd52c4f4dc53e68049afa1f50bf73}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_extend\_mmuext\_op@{xen\_extend\_mmuext\_op}}
+\index{xen\_extend\_mmuext\_op@{xen\_extend\_mmuext\_op}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_extend\_mmuext\_op()}{xen\_extend\_mmuext\_op()}}
+{\footnotesize\ttfamily static void xen\+\_\+extend\+\_\+mmuext\+\_\+op (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structmmuext__op}{mmuext\+\_\+op}} $\ast$}]{op }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{mmu__pv_8c_ae7e1a870aa5419e92659aa2cac943ed7}\label{mmu__pv_8c_ae7e1a870aa5419e92659aa2cac943ed7}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_flush\_tlb@{xen\_flush\_tlb}}
+\index{xen\_flush\_tlb@{xen\_flush\_tlb}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_flush\_tlb()}{xen\_flush\_tlb()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void xen\+\_\+flush\+\_\+tlb (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{mmu__pv_8c_ad70f425b52506a1239fb89f3aff1da1d}\label{mmu__pv_8c_ad70f425b52506a1239fb89f3aff1da1d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_flush\_tlb\_all@{xen\_flush\_tlb\_all}}
+\index{xen\_flush\_tlb\_all@{xen\_flush\_tlb\_all}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_flush\_tlb\_all()}{xen\_flush\_tlb\_all()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void xen\+\_\+flush\+\_\+tlb\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 91
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{mmu__pv_8c_a58dcddee92e25fd5044bb2b42838f089}\label{mmu__pv_8c_a58dcddee92e25fd5044bb2b42838f089}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_flush\_tlb\_multi@{xen\_flush\_tlb\_multi}}
+\index{xen\_flush\_tlb\_multi@{xen\_flush\_tlb\_multi}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_flush\_tlb\_multi()}{xen\_flush\_tlb\_multi()}}
+{\footnotesize\ttfamily static void xen\+\_\+flush\+\_\+tlb\+\_\+multi (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$}]{cpus,  }\item[{const struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{mmu__pv_8c_a0d448033767700e3a9e424a9955222d1}\label{mmu__pv_8c_a0d448033767700e3a9e424a9955222d1}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_flush\_tlb\_one\_user@{xen\_flush\_tlb\_one\_user}}
+\index{xen\_flush\_tlb\_one\_user@{xen\_flush\_tlb\_one\_user}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_flush\_tlb\_one\_user()}{xen\_flush\_tlb\_one\_user()}}
+{\footnotesize\ttfamily static void xen\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{mmu__pv_8c_a6e9c41f277be6a110d4f69a7731c9fae}\label{mmu__pv_8c_a6e9c41f277be6a110d4f69a7731c9fae}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_free\_ro\_pages@{xen\_free\_ro\_pages}}
+\index{xen\_free\_ro\_pages@{xen\_free\_ro\_pages}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_free\_ro\_pages()}{xen\_free\_ro\_pages()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+free\+\_\+ro\+\_\+pages (\begin{DoxyParamCaption}\item[{unsigned long}]{paddr,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 95
+Here is the caller graph for this function\+:
+% FIG 96
+\mbox{\Hypertarget{mmu__pv_8c_a7ffe8e0241a210594183cb5e271532c7}\label{mmu__pv_8c_a7ffe8e0241a210594183cb5e271532c7}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_get\_user\_pgd@{xen\_get\_user\_pgd}}
+\index{xen\_get\_user\_pgd@{xen\_get\_user\_pgd}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_get\_user\_pgd()}{xen\_get\_user\_pgd()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}}$\ast$ xen\+\_\+get\+\_\+user\+\_\+pgd (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 97
+Here is the caller graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{mmu__pv_8c_a9cc6b70da2ad66bfcaec1860853848ef}\label{mmu__pv_8c_a9cc6b70da2ad66bfcaec1860853848ef}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_init\_mmu\_ops@{xen\_init\_mmu\_ops}}
+\index{xen\_init\_mmu\_ops@{xen\_init\_mmu\_ops}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_init\_mmu\_ops()}{xen\_init\_mmu\_ops()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+init\+\_\+mmu\+\_\+ops (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 99
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{mmu__pv_8c_a22c7e7992c4fecd19260666bba3ebebb}\label{mmu__pv_8c_a22c7e7992c4fecd19260666bba3ebebb}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_leave\_lazy\_mmu@{xen\_leave\_lazy\_mmu}}
+\index{xen\_leave\_lazy\_mmu@{xen\_leave\_lazy\_mmu}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_leave\_lazy\_mmu()}{xen\_leave\_lazy\_mmu()}}
+{\footnotesize\ttfamily static void xen\+\_\+leave\+\_\+lazy\+\_\+mmu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{mmu__pv_8c_a5680816974b5e6e4862713e5abfde430}\label{mmu__pv_8c_a5680816974b5e6e4862713e5abfde430}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_make\_pgd@{xen\_make\_pgd}}
+\index{xen\_make\_pgd@{xen\_make\_pgd}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_make\_pgd()}{xen\_make\_pgd()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} xen\+\_\+make\+\_\+pgd (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{pgtable-2level__types_8h_a8fa72757e2c0d131a305ab7e56d05f7a}{pgdval\+\_\+t}}}]{pgd }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{mmu__pv_8c_ab13ef42ae12f5efbfeb3d5b8d0903da0}\label{mmu__pv_8c_ab13ef42ae12f5efbfeb3d5b8d0903da0}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_make\_pmd@{xen\_make\_pmd}}
+\index{xen\_make\_pmd@{xen\_make\_pmd}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_make\_pmd()}{xen\_make\_pmd()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} xen\+\_\+make\+\_\+pmd (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{pgtable-2level__types_8h_a25e28243e545001c1c4083052127f9af}{pmdval\+\_\+t}}}]{pmd }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{mmu__pv_8c_aa8a5bae304a0e4620eb2722a49fcbfc7}\label{mmu__pv_8c_aa8a5bae304a0e4620eb2722a49fcbfc7}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_make\_pte@{xen\_make\_pte}}
+\index{xen\_make\_pte@{xen\_make\_pte}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_make\_pte()}{xen\_make\_pte()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} xen\+\_\+make\+\_\+pte (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}}}]{pte }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 104
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{mmu__pv_8c_abcc14dfb31fb278745ecbfe6b5f6a748}\label{mmu__pv_8c_abcc14dfb31fb278745ecbfe6b5f6a748}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_make\_pte\_init@{xen\_make\_pte\_init}}
+\index{xen\_make\_pte\_init@{xen\_make\_pte\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_make\_pte\_init()}{xen\_make\_pte\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} xen\+\_\+make\+\_\+pte\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}}}]{pte }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 106
+\mbox{\Hypertarget{mmu__pv_8c_a80eadbcd62ad2cf84284db64b57574c0}\label{mmu__pv_8c_a80eadbcd62ad2cf84284db64b57574c0}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_make\_pud@{xen\_make\_pud}}
+\index{xen\_make\_pud@{xen\_make\_pud}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_make\_pud()}{xen\_make\_pud()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{structpud__t}{pud\+\_\+t}} xen\+\_\+make\+\_\+pud (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{pgtable-2level__types_8h_ad2dc596977a7ca63cf00ebddb38b416a}{pudval\+\_\+t}}}]{pud }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{mmu__pv_8c_ad615432783625f39117c08602826383d}\label{mmu__pv_8c_ad615432783625f39117c08602826383d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_mark\_pinned@{xen\_mark\_pinned}}
+\index{xen\_mark\_pinned@{xen\_mark\_pinned}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_mark\_pinned()}{xen\_mark\_pinned()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+mark\+\_\+pinned (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 108
+\mbox{\Hypertarget{mmu__pv_8c_a3135385243baadac9240e2e359ef80f0}\label{mmu__pv_8c_a3135385243baadac9240e2e359ef80f0}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_mm\_pin\_all@{xen\_mm\_pin\_all}}
+\index{xen\_mm\_pin\_all@{xen\_mm\_pin\_all}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_mm\_pin\_all()}{xen\_mm\_pin\_all()}}
+{\footnotesize\ttfamily void xen\+\_\+mm\+\_\+pin\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 109
+Here is the caller graph for this function\+:
+% FIG 110
+\mbox{\Hypertarget{mmu__pv_8c_a3be98c1fddb8ffc60f0ae2c61bc8bd90}\label{mmu__pv_8c_a3be98c1fddb8ffc60f0ae2c61bc8bd90}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_mm\_unpin\_all@{xen\_mm\_unpin\_all}}
+\index{xen\_mm\_unpin\_all@{xen\_mm\_unpin\_all}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_mm\_unpin\_all()}{xen\_mm\_unpin\_all()}}
+{\footnotesize\ttfamily void xen\+\_\+mm\+\_\+unpin\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 111
+Here is the caller graph for this function\+:
+% FIG 112
+\mbox{\Hypertarget{mmu__pv_8c_af6d39cef86b26c0d6de8e4d7aa468a38}\label{mmu__pv_8c_af6d39cef86b26c0d6de8e4d7aa468a38}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_p4d\_walk@{xen\_p4d\_walk}}
+\index{xen\_p4d\_walk@{xen\_p4d\_walk}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_p4d\_walk()}{xen\_p4d\_walk()}}
+{\footnotesize\ttfamily static void xen\+\_\+p4d\+\_\+walk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$}]{p4d,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}})}]{func,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{last,  }\item[{unsigned long}]{limit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 113
+Here is the caller graph for this function\+:
+% FIG 114
+\mbox{\Hypertarget{mmu__pv_8c_af5e1385b579bb880104803bb8f2c2bec}\label{mmu__pv_8c_af5e1385b579bb880104803bb8f2c2bec}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_page\_pinned@{xen\_page\_pinned}}
+\index{xen\_page\_pinned@{xen\_page\_pinned}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_page\_pinned()}{xen\_page\_pinned()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} xen\+\_\+page\+\_\+pinned (\begin{DoxyParamCaption}\item[{void $\ast$}]{ptr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{mmu__pv_8c_aa941df355ee5769dfa7c4b7307ac1d31}\label{mmu__pv_8c_aa941df355ee5769dfa7c4b7307ac1d31}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pagetable\_cleanhighmap@{xen\_pagetable\_cleanhighmap}}
+\index{xen\_pagetable\_cleanhighmap@{xen\_pagetable\_cleanhighmap}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pagetable\_cleanhighmap()}{xen\_pagetable\_cleanhighmap()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+pagetable\+\_\+cleanhighmap (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 116
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{mmu__pv_8c_a7717c53aab9b8a77e97d34b94ee3672d}\label{mmu__pv_8c_a7717c53aab9b8a77e97d34b94ee3672d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pagetable\_init@{xen\_pagetable\_init}}
+\index{xen\_pagetable\_init@{xen\_pagetable\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pagetable\_init()}{xen\_pagetable\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+pagetable\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 118
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{mmu__pv_8c_a2dc84a014587245c1dafbb32ef106296}\label{mmu__pv_8c_a2dc84a014587245c1dafbb32ef106296}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pagetable\_p2m\_free@{xen\_pagetable\_p2m\_free}}
+\index{xen\_pagetable\_p2m\_free@{xen\_pagetable\_p2m\_free}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pagetable\_p2m\_free()}{xen\_pagetable\_p2m\_free()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+pagetable\+\_\+p2m\+\_\+free (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 120
+Here is the caller graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{mmu__pv_8c_ac7e4c8bfe03a059db590b984a7c2497d}\label{mmu__pv_8c_ac7e4c8bfe03a059db590b984a7c2497d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pagetable\_p2m\_setup@{xen\_pagetable\_p2m\_setup}}
+\index{xen\_pagetable\_p2m\_setup@{xen\_pagetable\_p2m\_setup}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pagetable\_p2m\_setup()}{xen\_pagetable\_p2m\_setup()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+pagetable\+\_\+p2m\+\_\+setup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 122
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{mmu__pv_8c_ae9701688bd47cea2810b0cf6c5462960}\label{mmu__pv_8c_ae9701688bd47cea2810b0cf6c5462960}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pgd\_alloc@{xen\_pgd\_alloc}}
+\index{xen\_pgd\_alloc@{xen\_pgd\_alloc}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pgd\_alloc()}{xen\_pgd\_alloc()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xen\+\_\+pgd\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 124
+\mbox{\Hypertarget{mmu__pv_8c_a366a65262ab095c992afa1975b5b4a4a}\label{mmu__pv_8c_a366a65262ab095c992afa1975b5b4a4a}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pgd\_free@{xen\_pgd\_free}}
+\index{xen\_pgd\_free@{xen\_pgd\_free}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pgd\_free()}{xen\_pgd\_free()}}
+{\footnotesize\ttfamily static void xen\+\_\+pgd\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 125
+\mbox{\Hypertarget{mmu__pv_8c_a8033347f8a17771bb70754edfc86165c}\label{mmu__pv_8c_a8033347f8a17771bb70754edfc86165c}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pgd\_pin@{xen\_pgd\_pin}}
+\index{xen\_pgd\_pin@{xen\_pgd\_pin}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pgd\_pin()}{xen\_pgd\_pin()}}
+{\footnotesize\ttfamily static void xen\+\_\+pgd\+\_\+pin (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 126
+Here is the caller graph for this function\+:
+% FIG 127
+\mbox{\Hypertarget{mmu__pv_8c_a7e805927cced2738718012b3e14b6de8}\label{mmu__pv_8c_a7e805927cced2738718012b3e14b6de8}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pgd\_unpin@{xen\_pgd\_unpin}}
+\index{xen\_pgd\_unpin@{xen\_pgd\_unpin}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pgd\_unpin()}{xen\_pgd\_unpin()}}
+{\footnotesize\ttfamily static void xen\+\_\+pgd\+\_\+unpin (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 128
+Here is the caller graph for this function\+:
+% FIG 129
+\mbox{\Hypertarget{mmu__pv_8c_a120a80f6cc8b0fc38c74adacb7515e30}\label{mmu__pv_8c_a120a80f6cc8b0fc38c74adacb7515e30}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pgd\_val@{xen\_pgd\_val}}
+\index{xen\_pgd\_val@{xen\_pgd\_val}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pgd\_val()}{xen\_pgd\_val()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_a8fa72757e2c0d131a305ab7e56d05f7a}{pgdval\+\_\+t}} xen\+\_\+pgd\+\_\+val (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}}}]{pgd }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 130
+\mbox{\Hypertarget{mmu__pv_8c_ab19784ad478214a0f143861dc8c6fc42}\label{mmu__pv_8c_ab19784ad478214a0f143861dc8c6fc42}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pgd\_walk@{xen\_pgd\_walk}}
+\index{xen\_pgd\_walk@{xen\_pgd\_walk}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pgd\_walk()}{xen\_pgd\_walk()}}
+{\footnotesize\ttfamily static void xen\+\_\+pgd\+\_\+walk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}})}]{func,  }\item[{unsigned long}]{limit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 131
+Here is the caller graph for this function\+:
+% FIG 132
+\mbox{\Hypertarget{mmu__pv_8c_ac5fd354164afde783cf912e9b13a2c0d}\label{mmu__pv_8c_ac5fd354164afde783cf912e9b13a2c0d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pin\_page@{xen\_pin\_page}}
+\index{xen\_pin\_page@{xen\_pin\_page}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pin\_page()}{xen\_pin\_page()}}
+{\footnotesize\ttfamily static void xen\+\_\+pin\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 133
+Here is the caller graph for this function\+:
+% FIG 134
+\mbox{\Hypertarget{mmu__pv_8c_a32365faf761864b25bcd65b7e044d319}\label{mmu__pv_8c_a32365faf761864b25bcd65b7e044d319}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pmd\_val@{xen\_pmd\_val}}
+\index{xen\_pmd\_val@{xen\_pmd\_val}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pmd\_val()}{xen\_pmd\_val()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_a25e28243e545001c1c4083052127f9af}{pmdval\+\_\+t}} xen\+\_\+pmd\+\_\+val (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}}}]{pmd }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 135
+\mbox{\Hypertarget{mmu__pv_8c_ade1b4652f5f7434fa8370d4587b6d145}\label{mmu__pv_8c_ade1b4652f5f7434fa8370d4587b6d145}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pmd\_walk@{xen\_pmd\_walk}}
+\index{xen\_pmd\_walk@{xen\_pmd\_walk}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pmd\_walk()}{xen\_pmd\_walk()}}
+{\footnotesize\ttfamily static void xen\+\_\+pmd\+\_\+walk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$}]{pmd,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}})}]{func,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{last,  }\item[{unsigned long}]{limit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 136
+Here is the caller graph for this function\+:
+% FIG 137
+\mbox{\Hypertarget{mmu__pv_8c_acc24ee41bc4088d36bf0d3c9819ed630}\label{mmu__pv_8c_acc24ee41bc4088d36bf0d3c9819ed630}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_post\_allocator\_init@{xen\_post\_allocator\_init}}
+\index{xen\_post\_allocator\_init@{xen\_post\_allocator\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_post\_allocator\_init()}{xen\_post\_allocator\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+post\+\_\+allocator\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 138
+Here is the caller graph for this function\+:
+% FIG 139
+\mbox{\Hypertarget{mmu__pv_8c_a8d2d70e81268865c4700826024506edd}\label{mmu__pv_8c_a8d2d70e81268865c4700826024506edd}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pt\_check\_e820@{xen\_pt\_check\_e820}}
+\index{xen\_pt\_check\_e820@{xen\_pt\_check\_e820}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pt\_check\_e820()}{xen\_pt\_check\_e820()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+pt\+\_\+check\+\_\+e820 (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 140
+Here is the caller graph for this function\+:
+% FIG 141
+\mbox{\Hypertarget{mmu__pv_8c_a2f8219f280bf182d585da3a41a8b7863}\label{mmu__pv_8c_a2f8219f280bf182d585da3a41a8b7863}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pte\_lock@{xen\_pte\_lock}}
+\index{xen\_pte\_lock@{xen\_pte\_lock}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pte\_lock()}{xen\_pte\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2spinlock__types_8h_a23e7982381ce4b480b250790ce149f3d}{spinlock\+\_\+t}}$\ast$ xen\+\_\+pte\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 142
+\mbox{\Hypertarget{mmu__pv_8c_a9ce7e7c58dd1ca58f1dcd60255d05733}\label{mmu__pv_8c_a9ce7e7c58dd1ca58f1dcd60255d05733}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pte\_unlock@{xen\_pte\_unlock}}
+\index{xen\_pte\_unlock@{xen\_pte\_unlock}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pte\_unlock()}{xen\_pte\_unlock()}}
+{\footnotesize\ttfamily static void xen\+\_\+pte\+\_\+unlock (\begin{DoxyParamCaption}\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 143
+Here is the caller graph for this function\+:
+% FIG 144
+\mbox{\Hypertarget{mmu__pv_8c_a7de6a3a67ff99371b1d3b2d0153ac211}\label{mmu__pv_8c_a7de6a3a67ff99371b1d3b2d0153ac211}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pte\_val@{xen\_pte\_val}}
+\index{xen\_pte\_val@{xen\_pte\_val}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pte\_val()}{xen\_pte\_val()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_a0bf9049c38824b6f60ad9ffa04155bd5}{pteval\+\_\+t}} xen\+\_\+pte\+\_\+val (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}}}]{pte }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 145
+\mbox{\Hypertarget{mmu__pv_8c_a4b4ca62d6b8985ef63ee182d512c1588}\label{mmu__pv_8c_a4b4ca62d6b8985ef63ee182d512c1588}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_ptep\_modify\_prot\_commit@{xen\_ptep\_modify\_prot\_commit}}
+\index{xen\_ptep\_modify\_prot\_commit@{xen\_ptep\_modify\_prot\_commit}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_ptep\_modify\_prot\_commit()}{xen\_ptep\_modify\_prot\_commit()}}
+{\footnotesize\ttfamily void xen\+\_\+ptep\+\_\+modify\+\_\+prot\+\_\+commit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{ptep,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}}}]{pte }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 146
+\mbox{\Hypertarget{mmu__pv_8c_ad0b82b4a12dcb2261122a9dfd9c6c8a1}\label{mmu__pv_8c_ad0b82b4a12dcb2261122a9dfd9c6c8a1}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_ptep\_modify\_prot\_start@{xen\_ptep\_modify\_prot\_start}}
+\index{xen\_ptep\_modify\_prot\_start@{xen\_ptep\_modify\_prot\_start}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_ptep\_modify\_prot\_start()}{xen\_ptep\_modify\_prot\_start()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} xen\+\_\+ptep\+\_\+modify\+\_\+prot\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{ptep }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mmu__pv_8c_aedcd6b64dc1ef069a9b9750f6c9f21ad}\label{mmu__pv_8c_aedcd6b64dc1ef069a9b9750f6c9f21ad}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pud\_val@{xen\_pud\_val}}
+\index{xen\_pud\_val@{xen\_pud\_val}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pud\_val()}{xen\_pud\_val()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{pgtable-2level__types_8h_ad2dc596977a7ca63cf00ebddb38b416a}{pudval\+\_\+t}} xen\+\_\+pud\+\_\+val (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpud__t}{pud\+\_\+t}}}]{pud }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 147
+\mbox{\Hypertarget{mmu__pv_8c_a90611d9b78dd94f890eb1a6303bbbfa7}\label{mmu__pv_8c_a90611d9b78dd94f890eb1a6303bbbfa7}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pud\_walk@{xen\_pud\_walk}}
+\index{xen\_pud\_walk@{xen\_pud\_walk}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pud\_walk()}{xen\_pud\_walk()}}
+{\footnotesize\ttfamily static void xen\+\_\+pud\+\_\+walk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$}]{pud,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structpage}{page}} $\ast$, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}})}]{func,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{last,  }\item[{unsigned long}]{limit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 148
+Here is the caller graph for this function\+:
+% FIG 149
+\mbox{\Hypertarget{mmu__pv_8c_a835d960a6653b6f2d1058448316a91e2}\label{mmu__pv_8c_a835d960a6653b6f2d1058448316a91e2}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_read\_cr3@{xen\_read\_cr3}}
+\index{xen\_read\_cr3@{xen\_read\_cr3}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_read\_cr3()}{xen\_read\_cr3()}}
+{\footnotesize\ttfamily static unsigned long xen\+\_\+read\+\_\+cr3 (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_a98e6f6352ab69f086cf87b5bda8b9a31}\label{mmu__pv_8c_a98e6f6352ab69f086cf87b5bda8b9a31}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_read\_phys\_ulong@{xen\_read\_phys\_ulong}}
+\index{xen\_read\_phys\_ulong@{xen\_read\_phys\_ulong}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_read\_phys\_ulong()}{xen\_read\_phys\_ulong()}}
+{\footnotesize\ttfamily static unsigned long \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+read\+\_\+phys\+\_\+ulong (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 150
+Here is the caller graph for this function\+:
+% FIG 151
+\mbox{\Hypertarget{mmu__pv_8c_a8508424143d7a5a33b717cc9f5daf8d4}\label{mmu__pv_8c_a8508424143d7a5a33b717cc9f5daf8d4}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_release\_pmd@{xen\_release\_pmd}}
+\index{xen\_release\_pmd@{xen\_release\_pmd}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_release\_pmd()}{xen\_release\_pmd()}}
+{\footnotesize\ttfamily static void xen\+\_\+release\+\_\+pmd (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 152
+Here is the caller graph for this function\+:
+% FIG 153
+\mbox{\Hypertarget{mmu__pv_8c_a520c4d7d1076aae74fa44c9f6f06ca95}\label{mmu__pv_8c_a520c4d7d1076aae74fa44c9f6f06ca95}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_release\_pmd\_init@{xen\_release\_pmd\_init}}
+\index{xen\_release\_pmd\_init@{xen\_release\_pmd\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_release\_pmd\_init()}{xen\_release\_pmd\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+release\+\_\+pmd\+\_\+init (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 154
+\mbox{\Hypertarget{mmu__pv_8c_aa651f73759236561ac67769c419c848d}\label{mmu__pv_8c_aa651f73759236561ac67769c419c848d}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_release\_pte@{xen\_release\_pte}}
+\index{xen\_release\_pte@{xen\_release\_pte}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_release\_pte()}{xen\_release\_pte()}}
+{\footnotesize\ttfamily static void xen\+\_\+release\+\_\+pte (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 155
+Here is the caller graph for this function\+:
+% FIG 156
+\mbox{\Hypertarget{mmu__pv_8c_a1214c2cd5451448eac817d2193c75a21}\label{mmu__pv_8c_a1214c2cd5451448eac817d2193c75a21}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_release\_pte\_init@{xen\_release\_pte\_init}}
+\index{xen\_release\_pte\_init@{xen\_release\_pte\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_release\_pte\_init()}{xen\_release\_pte\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+release\+\_\+pte\+\_\+init (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 157
+\mbox{\Hypertarget{mmu__pv_8c_a7519e9235246f3d21e8b06fbd1797251}\label{mmu__pv_8c_a7519e9235246f3d21e8b06fbd1797251}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_release\_ptpage@{xen\_release\_ptpage}}
+\index{xen\_release\_ptpage@{xen\_release\_ptpage}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_release\_ptpage()}{xen\_release\_ptpage()}}
+{\footnotesize\ttfamily static void xen\+\_\+release\+\_\+ptpage (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{unsigned}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 158
+Here is the caller graph for this function\+:
+% FIG 159
+\mbox{\Hypertarget{mmu__pv_8c_a883de9418253f87f3819e3fc42a7eff2}\label{mmu__pv_8c_a883de9418253f87f3819e3fc42a7eff2}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_release\_pud@{xen\_release\_pud}}
+\index{xen\_release\_pud@{xen\_release\_pud}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_release\_pud()}{xen\_release\_pud()}}
+{\footnotesize\ttfamily static void xen\+\_\+release\+\_\+pud (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 160
+Here is the caller graph for this function\+:
+% FIG 161
+\mbox{\Hypertarget{mmu__pv_8c_af85a306be205544048ed59d85383fa8e}\label{mmu__pv_8c_af85a306be205544048ed59d85383fa8e}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_relocate\_p2m@{xen\_relocate\_p2m}}
+\index{xen\_relocate\_p2m@{xen\_relocate\_p2m}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_relocate\_p2m()}{xen\_relocate\_p2m()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+relocate\+\_\+p2m (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 162
+Here is the caller graph for this function\+:
+% FIG 163
+\mbox{\Hypertarget{mmu__pv_8c_a754e6d5394e6a2aa67fb54e34d11eb4c}\label{mmu__pv_8c_a754e6d5394e6a2aa67fb54e34d11eb4c}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_remap\_exchanged\_ptes@{xen\_remap\_exchanged\_ptes}}
+\index{xen\_remap\_exchanged\_ptes@{xen\_remap\_exchanged\_ptes}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_remap\_exchanged\_ptes()}{xen\_remap\_exchanged\_ptes()}}
+{\footnotesize\ttfamily static void xen\+\_\+remap\+\_\+exchanged\+\_\+ptes (\begin{DoxyParamCaption}\item[{unsigned long}]{vaddr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order,  }\item[{unsigned long $\ast$}]{mfns,  }\item[{unsigned long}]{first\+\_\+mfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 164
+Here is the caller graph for this function\+:
+% FIG 165
+\mbox{\Hypertarget{mmu__pv_8c_a60592822fcefff2ae43a1708c92f0dd2}\label{mmu__pv_8c_a60592822fcefff2ae43a1708c92f0dd2}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_remap\_pfn@{xen\_remap\_pfn}}
+\index{xen\_remap\_pfn@{xen\_remap\_pfn}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_remap\_pfn()}{xen\_remap\_pfn()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xen\+\_\+remap\+\_\+pfn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2xen_2interface_8h_afd7f0cdbbb0c230da2f64e59f1f338a6}{xen\+\_\+pfn\+\_\+t}} $\ast$}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{err\+\_\+ptr,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{domid,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{no\+\_\+translate }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 166
+\mbox{\Hypertarget{mmu__pv_8c_a3e157cdf44c30aabe567d0d3d8751454}\label{mmu__pv_8c_a3e157cdf44c30aabe567d0d3d8751454}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_reserve\_special\_pages@{xen\_reserve\_special\_pages}}
+\index{xen\_reserve\_special\_pages@{xen\_reserve\_special\_pages}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_reserve\_special\_pages()}{xen\_reserve\_special\_pages()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+reserve\+\_\+special\+\_\+pages (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 167
+Here is the caller graph for this function\+:
+% FIG 168
+\mbox{\Hypertarget{mmu__pv_8c_ae98916f267445017b5fae01cf8c59342}\label{mmu__pv_8c_ae98916f267445017b5fae01cf8c59342}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_fixmap@{xen\_set\_fixmap}}
+\index{xen\_set\_fixmap@{xen\_set\_fixmap}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_fixmap()}{xen\_set\_fixmap()}}
+{\footnotesize\ttfamily static void xen\+\_\+set\+\_\+fixmap (\begin{DoxyParamCaption}\item[{unsigned}]{idx,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{phys,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 169
+\mbox{\Hypertarget{mmu__pv_8c_aecc59eb658715b9f1a9bb5c1a8e302a0}\label{mmu__pv_8c_aecc59eb658715b9f1a9bb5c1a8e302a0}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_p4d@{xen\_set\_p4d}}
+\index{xen\_set\_p4d@{xen\_set\_p4d}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_p4d()}{xen\_set\_p4d()}}
+{\footnotesize\ttfamily static void xen\+\_\+set\+\_\+p4d (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 170
+Here is the caller graph for this function\+:
+% FIG 171
+\mbox{\Hypertarget{mmu__pv_8c_aa61c37e03a63dd74288de22cd473c504}\label{mmu__pv_8c_aa61c37e03a63dd74288de22cd473c504}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_p4d\_hyper@{xen\_set\_p4d\_hyper}}
+\index{xen\_set\_p4d\_hyper@{xen\_set\_p4d\_hyper}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_p4d\_hyper()}{xen\_set\_p4d\_hyper()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+set\+\_\+p4d\+\_\+hyper (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{structp4d__t}{p4d\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 172
+\mbox{\Hypertarget{mmu__pv_8c_ac5d3f4b89d7820337a34920be44defa5}\label{mmu__pv_8c_ac5d3f4b89d7820337a34920be44defa5}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_pmd@{xen\_set\_pmd}}
+\index{xen\_set\_pmd@{xen\_set\_pmd}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_pmd()}{xen\_set\_pmd()}}
+{\footnotesize\ttfamily static void xen\+\_\+set\+\_\+pmd (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 173
+Here is the caller graph for this function\+:
+% FIG 174
+\mbox{\Hypertarget{mmu__pv_8c_ac2b562f17fec102d66e5cf77c735f59e}\label{mmu__pv_8c_ac2b562f17fec102d66e5cf77c735f59e}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_pmd\_hyper@{xen\_set\_pmd\_hyper}}
+\index{xen\_set\_pmd\_hyper@{xen\_set\_pmd\_hyper}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_pmd\_hyper()}{xen\_set\_pmd\_hyper()}}
+{\footnotesize\ttfamily static void xen\+\_\+set\+\_\+pmd\+\_\+hyper (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 175
+Here is the caller graph for this function\+:
+% FIG 176
+\mbox{\Hypertarget{mmu__pv_8c_a6296a27487567a731ebd369640c0b20e}\label{mmu__pv_8c_a6296a27487567a731ebd369640c0b20e}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_pte@{xen\_set\_pte}}
+\index{xen\_set\_pte@{xen\_set\_pte}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_pte()}{xen\_set\_pte()}}
+{\footnotesize\ttfamily static void xen\+\_\+set\+\_\+pte (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{ptep,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}}}]{pteval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 177
+Here is the caller graph for this function\+:
+% FIG 178
+\mbox{\Hypertarget{mmu__pv_8c_a28aa4ef08a49fffe1e765a2b3c8a2525}\label{mmu__pv_8c_a28aa4ef08a49fffe1e765a2b3c8a2525}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_pte\_init@{xen\_set\_pte\_init}}
+\index{xen\_set\_pte\_init@{xen\_set\_pte\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_pte\_init()}{xen\_set\_pte\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+set\+\_\+pte\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{ptep,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}}}]{pte }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 179
+\mbox{\Hypertarget{mmu__pv_8c_a910e4cbeb74379d18f15349defa8a1a9}\label{mmu__pv_8c_a910e4cbeb74379d18f15349defa8a1a9}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_pud@{xen\_set\_pud}}
+\index{xen\_set\_pud@{xen\_set\_pud}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_pud()}{xen\_set\_pud()}}
+{\footnotesize\ttfamily static void xen\+\_\+set\+\_\+pud (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{structpud__t}{pud\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 180
+Here is the caller graph for this function\+:
+% FIG 181
+\mbox{\Hypertarget{mmu__pv_8c_ab50271182506b70c3486bc9fc6724ed7}\label{mmu__pv_8c_ab50271182506b70c3486bc9fc6724ed7}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_set\_pud\_hyper@{xen\_set\_pud\_hyper}}
+\index{xen\_set\_pud\_hyper@{xen\_set\_pud\_hyper}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_set\_pud\_hyper()}{xen\_set\_pud\_hyper()}}
+{\footnotesize\ttfamily static void xen\+\_\+set\+\_\+pud\+\_\+hyper (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpud__t}{pud\+\_\+t}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{structpud__t}{pud\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 182
+Here is the caller graph for this function\+:
+% FIG 183
+\mbox{\Hypertarget{mmu__pv_8c_ae42d4e9aba47de2cf1637b5ff4b5f0e2}\label{mmu__pv_8c_ae42d4e9aba47de2cf1637b5ff4b5f0e2}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_setup\_kernel\_pagetable@{xen\_setup\_kernel\_pagetable}}
+\index{xen\_setup\_kernel\_pagetable@{xen\_setup\_kernel\_pagetable}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_setup\_kernel\_pagetable()}{xen\_setup\_kernel\_pagetable()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+setup\+\_\+kernel\+\_\+pagetable (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd,  }\item[{unsigned long}]{max\+\_\+pfn }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 184
+Here is the caller graph for this function\+:
+% FIG 185
+\mbox{\Hypertarget{mmu__pv_8c_a6850f415407ead85e121a4011eaf15b6}\label{mmu__pv_8c_a6850f415407ead85e121a4011eaf15b6}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_setup\_machphys\_mapping@{xen\_setup\_machphys\_mapping}}
+\index{xen\_setup\_machphys\_mapping@{xen\_setup\_machphys\_mapping}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_setup\_machphys\_mapping()}{xen\_setup\_machphys\_mapping()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+setup\+\_\+machphys\+\_\+mapping (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 186
+Here is the caller graph for this function\+:
+% FIG 187
+\mbox{\Hypertarget{mmu__pv_8c_af987199d49b7957d97ed3ee6b289eedf}\label{mmu__pv_8c_af987199d49b7957d97ed3ee6b289eedf}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_unpin\_page@{xen\_unpin\_page}}
+\index{xen\_unpin\_page@{xen\_unpin\_page}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_unpin\_page()}{xen\_unpin\_page()}}
+{\footnotesize\ttfamily static void xen\+\_\+unpin\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2xen_2mmu_8h_a7419e5a432ac7f8f41cd39407ae928e6}{pt\+\_\+level}}}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 188
+Here is the caller graph for this function\+:
+% FIG 189
+\mbox{\Hypertarget{mmu__pv_8c_af68cdcd27b79a342c83ef36f68553f41}\label{mmu__pv_8c_af68cdcd27b79a342c83ef36f68553f41}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_write\_cr2@{xen\_write\_cr2}}
+\index{xen\_write\_cr2@{xen\_write\_cr2}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_write\_cr2()}{xen\_write\_cr2()}}
+{\footnotesize\ttfamily static void xen\+\_\+write\+\_\+cr2 (\begin{DoxyParamCaption}\item[{unsigned long}]{cr2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_a664440f3ae03968aa107af5a747cc9f7}\label{mmu__pv_8c_a664440f3ae03968aa107af5a747cc9f7}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_write\_cr3@{xen\_write\_cr3}}
+\index{xen\_write\_cr3@{xen\_write\_cr3}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_write\_cr3()}{xen\_write\_cr3()}}
+{\footnotesize\ttfamily static void xen\+\_\+write\+\_\+cr3 (\begin{DoxyParamCaption}\item[{unsigned long}]{cr3 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 190
+Here is the caller graph for this function\+:
+% FIG 191
+\mbox{\Hypertarget{mmu__pv_8c_a2dbe1d69f90db42a1f64d101b0fd1500}\label{mmu__pv_8c_a2dbe1d69f90db42a1f64d101b0fd1500}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_write\_cr3\_init@{xen\_write\_cr3\_init}}
+\index{xen\_write\_cr3\_init@{xen\_write\_cr3\_init}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_write\_cr3\_init()}{xen\_write\_cr3\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} xen\+\_\+write\+\_\+cr3\+\_\+init (\begin{DoxyParamCaption}\item[{unsigned long}]{cr3 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 192
+\mbox{\Hypertarget{mmu__pv_8c_a58d077cad9b149a2c46db15f5b1d5eb6}\label{mmu__pv_8c_a58d077cad9b149a2c46db15f5b1d5eb6}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_zap\_pfn\_range@{xen\_zap\_pfn\_range}}
+\index{xen\_zap\_pfn\_range@{xen\_zap\_pfn\_range}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_zap\_pfn\_range()}{xen\_zap\_pfn\_range()}}
+{\footnotesize\ttfamily static void xen\+\_\+zap\+\_\+pfn\+\_\+range (\begin{DoxyParamCaption}\item[{unsigned long}]{vaddr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order,  }\item[{unsigned long $\ast$}]{in\+\_\+frames,  }\item[{unsigned long $\ast$}]{out\+\_\+frames }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 193
+Here is the caller graph for this function\+:
+% FIG 194
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{mmu__pv_8c_aa032a212d01bfac5a1d26277c4fbab25}\label{mmu__pv_8c_aa032a212d01bfac5a1d26277c4fbab25}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_initconst@{\_\_initconst}}
+\index{\_\_initconst@{\_\_initconst}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initconst}{\_\_initconst}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structpv__mmu__ops}{pv\+\_\+mmu\+\_\+ops}} xen\+\_\+mmu\+\_\+ops \+\_\+\+\_\+initconst\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_a47295f45e24f62cd6779bf8e5fb94b9a}\label{mmu__pv_8c_a47295f45e24f62cd6779bf8e5fb94b9a}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_initdata@{\_\_initdata}}
+\index{\_\_initdata@{\_\_initdata}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initdata}{\_\_initdata}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} xen\+\_\+pt\+\_\+size \+\_\+\+\_\+initdata\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_aa755cebd0f86d1d2402e50c041d86fda}\label{mmu__pv_8c_aa755cebd0f86d1d2402e50c041d86fda}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!\_\_page\_aligned\_bss@{\_\_page\_aligned\_bss}}
+\index{\_\_page\_aligned\_bss@{\_\_page\_aligned\_bss}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{\_\_page\_aligned\_bss}{\_\_page\_aligned\_bss}}
+{\footnotesize\ttfamily unsigned char dummy\+\_\+mapping \mbox{[}\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}}\mbox{]} \+\_\+\+\_\+page\+\_\+aligned\+\_\+bss\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_afcf47fac0c3e7446657f52f0f9d9cb51}\label{mmu__pv_8c_afcf47fac0c3e7446657f52f0f9d9cb51}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!discontig\_frames@{discontig\_frames}}
+\index{discontig\_frames@{discontig\_frames}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{discontig\_frames}{discontig\_frames}}
+{\footnotesize\ttfamily unsigned long discontig\+\_\+frames\mbox{[}1$<$$<$ \mbox{\hyperlink{mmu__pv_8c_a87469696ebb84a83dd574b9e8ee12f6d}{M\+A\+X\+\_\+\+C\+O\+N\+T\+I\+G\+\_\+\+O\+R\+D\+ER}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{mmu__pv_8c_a5ee04a7d9b9c04e780deab2e19ffa622}\label{mmu__pv_8c_a5ee04a7d9b9c04e780deab2e19ffa622}} 
+\index{mmu\_pv.c@{mmu\_pv.c}!xen\_pt\_base@{xen\_pt\_base}}
+\index{xen\_pt\_base@{xen\_pt\_base}!mmu\_pv.c@{mmu\_pv.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pt\_base}{xen\_pt\_base}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} xen\+\_\+pt\+\_\+base\hspace{0.3cm}{\ttfamily [static]}}
+

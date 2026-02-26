@@ -1,0 +1,941 @@
+\hypertarget{tsc_8c}{}\doxysection{arch/x86/kernel/tsc.c File Reference}
+\label{tsc_8c}\index{arch/x86/kernel/tsc.c@{arch/x86/kernel/tsc.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/clock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/timer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/acpi\+\_\+pmtmr.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpufreq.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/clocksource.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/timex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/static\+\_\+key.\+h$>$}\newline
+{\ttfamily \#include $<$linux/static\+\_\+call.\+h$>$}\newline
+{\ttfamily \#include $<$asm/hpet.\+h$>$}\newline
+{\ttfamily \#include $<$asm/timer.\+h$>$}\newline
+{\ttfamily \#include $<$asm/vgtod.\+h$>$}\newline
+{\ttfamily \#include $<$asm/time.\+h$>$}\newline
+{\ttfamily \#include $<$asm/delay.\+h$>$}\newline
+{\ttfamily \#include $<$asm/hypervisor.\+h$>$}\newline
+{\ttfamily \#include $<$asm/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$asm/x86\+\_\+init.\+h$>$}\newline
+{\ttfamily \#include $<$asm/geode.\+h$>$}\newline
+{\ttfamily \#include $<$asm/apic.\+h$>$}\newline
+{\ttfamily \#include $<$asm/intel-\/family.\+h$>$}\newline
+{\ttfamily \#include $<$asm/i8259.\+h$>$}\newline
+{\ttfamily \#include $<$asm/uv/uv.\+h$>$}\newline
+Include dependency graph for tsc.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structcyc2ns}{cyc2ns}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{tsc_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{tsc_8c_ae1bd66fc9846c52601de355a20901b0e}{K\+HZ}}~1000
+\item 
+\#define \mbox{\hyperlink{tsc_8c_aecf13b8dc783db2202ca5c34fe117fc3}{M\+A\+X\+\_\+\+R\+E\+T\+R\+I\+ES}}~5
+\item 
+\#define \mbox{\hyperlink{tsc_8c_a16a68dec7183cf0be2b1e14251427435}{T\+S\+C\+\_\+\+D\+E\+F\+A\+U\+L\+T\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD}}~0x20000
+\item 
+\#define \mbox{\hyperlink{tsc_8c_ada3c4040be18148110f0e0be17314be7}{C\+A\+L\+\_\+\+MS}}~10
+\item 
+\#define \mbox{\hyperlink{tsc_8c_add1c23fd83b7f661a4c787f2f5a8d886}{C\+A\+L\+\_\+\+L\+A\+T\+CH}}~(\mbox{\hyperlink{include_2linux_2timex_8h_a73bc7223eb70772e8447e5f2ce33fb00}{P\+I\+T\+\_\+\+T\+I\+C\+K\+\_\+\+R\+A\+TE}} / (1000 / \mbox{\hyperlink{tsc_8c_ada3c4040be18148110f0e0be17314be7}{C\+A\+L\+\_\+\+MS}}))
+\item 
+\#define \mbox{\hyperlink{tsc_8c_a2a351f4c86eb38c1bf4ce0afc28ecbfc}{C\+A\+L\+\_\+\+P\+I\+T\+\_\+\+L\+O\+O\+PS}}~1000
+\item 
+\#define \mbox{\hyperlink{tsc_8c_aaca000b636131ea2d2279c0dc7f14055}{C\+A\+L2\+\_\+\+MS}}~50
+\item 
+\#define \mbox{\hyperlink{tsc_8c_a5d9304d6e706a0d94f4763ad6eda2cfd}{C\+A\+L2\+\_\+\+L\+A\+T\+CH}}~(\mbox{\hyperlink{include_2linux_2timex_8h_a73bc7223eb70772e8447e5f2ce33fb00}{P\+I\+T\+\_\+\+T\+I\+C\+K\+\_\+\+R\+A\+TE}} / (1000 / \mbox{\hyperlink{tsc_8c_aaca000b636131ea2d2279c0dc7f14055}{C\+A\+L2\+\_\+\+MS}}))
+\item 
+\#define \mbox{\hyperlink{tsc_8c_a22dde606acf32bf227554ad1d5352891}{C\+A\+L2\+\_\+\+P\+I\+T\+\_\+\+L\+O\+O\+PS}}~5000
+\item 
+\#define \mbox{\hyperlink{tsc_8c_ae48dba017347d63fbdf7304852cd132b}{M\+A\+X\+\_\+\+Q\+U\+I\+C\+K\+\_\+\+P\+I\+T\+\_\+\+MS}}~50
+\item 
+\#define \mbox{\hyperlink{tsc_8c_ade0cb2c29bf42b501f4d7403e14bf56c}{M\+A\+X\+\_\+\+Q\+U\+I\+C\+K\+\_\+\+P\+I\+T\+\_\+\+I\+T\+E\+R\+A\+T\+I\+O\+NS}}~(\mbox{\hyperlink{tsc_8c_ae48dba017347d63fbdf7304852cd132b}{M\+A\+X\+\_\+\+Q\+U\+I\+C\+K\+\_\+\+P\+I\+T\+\_\+\+MS}} $\ast$ \mbox{\hyperlink{include_2linux_2timex_8h_a73bc7223eb70772e8447e5f2ce33fb00}{P\+I\+T\+\_\+\+T\+I\+C\+K\+\_\+\+R\+A\+TE}} / 1000 / 256)
+\item 
+\#define \mbox{\hyperlink{tsc_8c_a48715c96df4aef541d2a34ad9c7a9fe5}{A\+R\+T\+\_\+\+C\+P\+U\+I\+D\+\_\+\+L\+E\+AF}}~(0x15)
+\item 
+\#define \mbox{\hyperlink{tsc_8c_a720036193be2c9bb257fd94674c13778}{A\+R\+T\+\_\+\+M\+I\+N\+\_\+\+D\+E\+N\+O\+M\+I\+N\+A\+T\+OR}}~(1)
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{tsc_8c_a4547628dfa30fba905b2c4c57d5d3e5b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{tsc_8c_a3e72e36df0985556297966ae668daa7a}{cpu\+\_\+khz}})
+\item 
+\mbox{\hyperlink{tsc_8c_a3780ffac09ea7b3f75f5ad6207f6e798}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{tsc_8c_ad0e7dd2084e2b8b5613cc214804829a1}{tsc\+\_\+khz}})
+\item 
+static \mbox{\hyperlink{tsc_8c_a0d1a9cc8f936016ce73fcd4459ccfd79}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (\+\_\+\+\_\+use\+\_\+tsc)
+\item 
+static \mbox{\hyperlink{tsc_8c_ae39dd8378359d1dfd80cd5458886fb1c}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+A\+L\+I\+G\+N\+ED}} (struct \mbox{\hyperlink{structcyc2ns}{cyc2ns}}, \mbox{\hyperlink{structcyc2ns}{cyc2ns}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_af656ea7c386f1428286b2ac62dc82c50}{tsc\+\_\+early\+\_\+khz\+\_\+setup}} (char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+\mbox{\hyperlink{tsc_8c_aca8d5d84d1d7319240d89d464cd09de9}{early\+\_\+param}} (\char`\"{}tsc\+\_\+early\+\_\+khz\char`\"{}, tsc\+\_\+early\+\_\+khz\+\_\+setup)
+\item 
+\mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{tsc_8c_a519f60cf5dc8169842ad144dee5998f6}{cyc2ns\+\_\+read\+\_\+begin}} (struct \mbox{\hyperlink{structcyc2ns__data}{cyc2ns\+\_\+data}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+\mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{tsc_8c_a13dfa6770358d4328f00089586394f43}{cyc2ns\+\_\+read\+\_\+end}} (void)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} unsigned long long \mbox{\hyperlink{tsc_8c_a588473986927c6b43aa44f51f74c7e2e}{cycles\+\_\+2\+\_\+ns}} (unsigned long long cyc)
+\item 
+static void \mbox{\hyperlink{tsc_8c_a2aef551532284939bd5bf21e7d5c4be7}{\+\_\+\+\_\+set\+\_\+cyc2ns\+\_\+scale}} (unsigned long khz, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, unsigned long long tsc\+\_\+now)
+\item 
+static void \mbox{\hyperlink{tsc_8c_a6dfa3fc756ea0e960c5f9b8d71fedaed}{set\+\_\+cyc2ns\+\_\+scale}} (unsigned long khz, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, unsigned long long tsc\+\_\+now)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a68a1ffd70264def94d8ab0ac95be8cca}{cyc2ns\+\_\+init\+\_\+boot\+\_\+cpu}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a0f5132c66de4ef2ed59b0e430b809596}{cyc2ns\+\_\+init\+\_\+secondary\+\_\+cpus}} (void)
+\item 
+\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{tsc_8c_a05ba535aa2591a2cf2c97eb9f8aed6cb}{native\+\_\+sched\+\_\+clock}} (void)
+\item 
+\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{tsc_8c_a37cc89fc43ceabe10ac3faef3d115c00}{native\+\_\+sched\+\_\+clock\+\_\+from\+\_\+tsc}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} tsc)
+\item 
+unsigned long long \mbox{\hyperlink{tsc_8c_aabe9553f0e7e14e3a42e686fd7ae3eed}{sched\+\_\+clock}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_a1f0919514e13dbef34db16a4aed27de4}{check\+\_\+tsc\+\_\+unstable}} (void)
+\item 
+\mbox{\hyperlink{tsc_8c_adf7fcb642c099994de6a164f02314b6c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{tsc_8c_a1f0919514e13dbef34db16a4aed27de4}{check\+\_\+tsc\+\_\+unstable}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a0968125de639ce99b4bd0359035d9296}{notsc\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{tsc_8c_a349648434fb86497f4244f6e733f6a1b}{\+\_\+\+\_\+setup}} (\char`\"{}notsc\char`\"{}, notsc\+\_\+setup)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a622dd4e73970fa4bad6afe059f34ee04}{tsc\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{tsc_8c_a26cd005d1339e9561ce2af71deaa2978}{\+\_\+\+\_\+setup}} (\char`\"{}tsc=\char`\"{}, tsc\+\_\+setup)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{tsc_8c_ab02202a872a852ce81e41c9a6f40583a}{tsc\+\_\+read\+\_\+refs}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structhpet}{hpet}})
+\item 
+static unsigned long \mbox{\hyperlink{tsc_8c_aabd13fe672f7d51245f6e39fc6fa599f}{calc\+\_\+hpet\+\_\+ref}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} deltatsc, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} hpet1, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} hpet2)
+\item 
+static unsigned long \mbox{\hyperlink{tsc_8c_aa89a0ebdc4a8a0ae430e19b17f292880}{calc\+\_\+pmtimer\+\_\+ref}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} deltatsc, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} pm1, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} pm2)
+\item 
+static unsigned long \mbox{\hyperlink{tsc_8c_affed972776e48e55ee43958ec051ce7f}{pit\+\_\+calibrate\+\_\+tsc}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} latch, unsigned long ms, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} loopmin)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_a59f50f92f74548d6d3b3dc1cc5772b0f}{pit\+\_\+verify\+\_\+msb}} (unsigned char \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_afb0db54e6a7ec6e0d12323d6a439c2bd}{pit\+\_\+expect\+\_\+msb}} (unsigned char \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$tscp, unsigned long $\ast$deltap)
+\item 
+static unsigned long \mbox{\hyperlink{tsc_8c_a24e462e89b5dfca8f661145824e93931}{quick\+\_\+pit\+\_\+calibrate}} (void)
+\item 
+unsigned long \mbox{\hyperlink{tsc_8c_aafb37660621f23e12ab287c9fa912b87}{native\+\_\+calibrate\+\_\+tsc}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{tsc_8c_a59668fe5cc30e9a8aa1a31ea7bdde6e9}{cpu\+\_\+khz\+\_\+from\+\_\+cpuid}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{tsc_8c_a49f5f9daef9399cd5e246a4f80fb2c9e}{pit\+\_\+hpet\+\_\+ptimer\+\_\+calibrate\+\_\+cpu}} (void)
+\item 
+unsigned long \mbox{\hyperlink{tsc_8c_af0417cfb1b7174c9a1b5ee4c6681c1aa}{native\+\_\+calibrate\+\_\+cpu\+\_\+early}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{tsc_8c_a136e72196d74672c1129e04c18ba0c15}{native\+\_\+calibrate\+\_\+cpu}} (void)
+\item 
+void \mbox{\hyperlink{tsc_8c_a808122ecc72f0a63820c4d9b1410896f}{recalibrate\+\_\+cpu\+\_\+khz}} (void)
+\item 
+\mbox{\hyperlink{tsc_8c_a6ae695a1ef69ff2741756e0e7175ff7d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{tsc_8c_a808122ecc72f0a63820c4d9b1410896f}{recalibrate\+\_\+cpu\+\_\+khz}})
+\item 
+void \mbox{\hyperlink{tsc_8c_add870dcaf0b6618d0bee5b376bcce717}{tsc\+\_\+save\+\_\+sched\+\_\+clock\+\_\+state}} (void)
+\item 
+void \mbox{\hyperlink{tsc_8c_aa62a6fe0daace303b8208b17c23672d2}{tsc\+\_\+restore\+\_\+sched\+\_\+clock\+\_\+state}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_aa945cfd17ce2f3bb5169361b28a6b55f}{detect\+\_\+art}} (void)
+\item 
+static void \mbox{\hyperlink{tsc_8c_ac6d94d906f232a5e1035dc509e6cc58b}{tsc\+\_\+resume}} (struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$cs)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{tsc_8c_ae6cbba38589e17027ead1f33d1384a98}{read\+\_\+tsc}} (struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$cs)
+\item 
+static void \mbox{\hyperlink{tsc_8c_aa979689a6748677feba38ee1e57591c0}{tsc\+\_\+cs\+\_\+mark\+\_\+unstable}} (struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$cs)
+\item 
+static void \mbox{\hyperlink{tsc_8c_abf8cd8ccd7f518bbe984e92a611f0f9c}{tsc\+\_\+cs\+\_\+tick\+\_\+stable}} (struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$cs)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_abf8669bfc7eb6b17c48a633472391c46}{tsc\+\_\+cs\+\_\+enable}} (struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$cs)
+\item 
+void \mbox{\hyperlink{tsc_8c_aa6c245f24e6cadb83f2c284e430db98d}{mark\+\_\+tsc\+\_\+unstable}} (char $\ast$\mbox{\hyperlink{virtio__scsi_8h_a030a0b6ecb5ef07224008ffff976c268}{reason}})
+\item 
+\mbox{\hyperlink{tsc_8c_a748b99fae8b050c823d53e80abd16d42}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{tsc_8c_aa6c245f24e6cadb83f2c284e430db98d}{mark\+\_\+tsc\+\_\+unstable}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a60777ea656425bada0fee61d133c5570}{check\+\_\+system\+\_\+tsc\+\_\+reliable}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_a3c5391840e1bd64c3799cf8c1b40192b}{unsynchronized\+\_\+tsc}} (void)
+\item 
+struct \mbox{\hyperlink{structsystem__counterval__t}{system\+\_\+counterval\+\_\+t}} \mbox{\hyperlink{tsc_8c_a0e36582e8ef9feebb0f902d47b9e7194}{convert\+\_\+art\+\_\+to\+\_\+tsc}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} art)
+\item 
+\mbox{\hyperlink{tsc_8c_acf5cd07723c5d90ff507b8b0b89ea789}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{tsc_8c_a0e36582e8ef9feebb0f902d47b9e7194}{convert\+\_\+art\+\_\+to\+\_\+tsc}})
+\item 
+struct \mbox{\hyperlink{structsystem__counterval__t}{system\+\_\+counterval\+\_\+t}} \mbox{\hyperlink{tsc_8c_a30a385f608fc8429f983cc59bbdd5d35}{convert\+\_\+art\+\_\+ns\+\_\+to\+\_\+tsc}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} art\+\_\+ns)
+\item 
+\mbox{\hyperlink{tsc_8c_a4a3f122c194567033242a155cffdf455}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{tsc_8c_a30a385f608fc8429f983cc59bbdd5d35}{convert\+\_\+art\+\_\+ns\+\_\+to\+\_\+tsc}})
+\item 
+static void \mbox{\hyperlink{tsc_8c_ad8b9368674a685f943f25ee34eb57e12}{tsc\+\_\+refine\+\_\+calibration\+\_\+work}} (struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$work)
+\item 
+static \mbox{\hyperlink{tsc_8c_abfa341f1d3011c6b023994a54813df4c}{D\+E\+C\+L\+A\+R\+E\+\_\+\+D\+E\+L\+A\+Y\+E\+D\+\_\+\+W\+O\+RK}} (tsc\+\_\+irqwork, \mbox{\hyperlink{tsc_8c_ad8b9368674a685f943f25ee34eb57e12}{tsc\+\_\+refine\+\_\+calibration\+\_\+work}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a7d9816e4f4a684471c847bf93a418a9a}{init\+\_\+tsc\+\_\+clocksource}} (void)
+\item 
+\mbox{\hyperlink{tsc_8c_a8834cc862dca1d85230563db22975899}{device\+\_\+initcall}} (\mbox{\hyperlink{tsc_8c_a7d9816e4f4a684471c847bf93a418a9a}{init\+\_\+tsc\+\_\+clocksource}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a595d81d900776251c008c6ec2d68d2e3}{determine\+\_\+cpu\+\_\+tsc\+\_\+frequencies}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} early)
+\item 
+static unsigned long \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_ad78b4c7568e3c95b891ec30f7a582a3a}{get\+\_\+loops\+\_\+per\+\_\+jiffy}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a9d9a5a6ddd5458b80b106926de8f45f0}{tsc\+\_\+enable\+\_\+sched\+\_\+clock}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a4ffc226a89649dbf1562cecbce69ed10}{tsc\+\_\+early\+\_\+init}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tsc_8c_a47697e82f54a81d6b7eba2231c1488e9}{tsc\+\_\+init}} (void)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{tsc_8c_a3e72e36df0985556297966ae668daa7a}{cpu\+\_\+khz}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{tsc_8c_ad0e7dd2084e2b8b5613cc214804829a1}{tsc\+\_\+khz}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{tsc_8c_afc2d46489895b9a2d8d8e15e3237e9b7}{tsc\+\_\+unstable}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} \mbox{\hyperlink{tsc_8c_a88edf4aa7320d84777b2162173b269f1}{tsc\+\_\+early\+\_\+khz}}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_ad9b13a056486fd41cffd47dc4f31ba57}{tsc\+\_\+clocksource\+\_\+reliable}}
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{tsc_8c_a0fea6286870fc05ee1305ec241eea68b}{art\+\_\+to\+\_\+tsc\+\_\+numerator}}
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{tsc_8c_a59e71934cf20eb4df81de6cd34dbc1d3}{art\+\_\+to\+\_\+tsc\+\_\+denominator}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{tsc_8c_a3b3320fdbfe363515b15bcb684423814}{art\+\_\+to\+\_\+tsc\+\_\+offset}}
+\item 
+struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$ \mbox{\hyperlink{tsc_8c_a7c0d9227f288ca67e3b34025daf4c30f}{art\+\_\+related\+\_\+clocksource}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_a09e20254a098f63f07dab46da2f3288f}{no\+\_\+sched\+\_\+irq\+\_\+time}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{tsc_8c_af5f4e3361bf58a583d39d2e73c0afe33}{no\+\_\+tsc\+\_\+watchdog}}
+\item 
+static unsigned long long \mbox{\hyperlink{tsc_8c_a579395cd2714e2a24496ea46b567e7ed}{cyc2ns\+\_\+suspend}}
+\item 
+static struct \mbox{\hyperlink{structclocksource}{clocksource}} \mbox{\hyperlink{tsc_8c_a9beffc12aff0af33ece9fd5e4bbb407c}{clocksource\+\_\+tsc\+\_\+early}}
+\item 
+static struct \mbox{\hyperlink{structclocksource}{clocksource}} \mbox{\hyperlink{tsc_8c_a4234ee97ed0f09ba5950e770d631bb11}{clocksource\+\_\+tsc}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{tsc_8c_a48715c96df4aef541d2a34ad9c7a9fe5}\label{tsc_8c_a48715c96df4aef541d2a34ad9c7a9fe5}} 
+\index{tsc.c@{tsc.c}!ART\_CPUID\_LEAF@{ART\_CPUID\_LEAF}}
+\index{ART\_CPUID\_LEAF@{ART\_CPUID\_LEAF}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{ART\_CPUID\_LEAF}{ART\_CPUID\_LEAF}}
+{\footnotesize\ttfamily \#define A\+R\+T\+\_\+\+C\+P\+U\+I\+D\+\_\+\+L\+E\+AF~(0x15)}
+
+\mbox{\Hypertarget{tsc_8c_a720036193be2c9bb257fd94674c13778}\label{tsc_8c_a720036193be2c9bb257fd94674c13778}} 
+\index{tsc.c@{tsc.c}!ART\_MIN\_DENOMINATOR@{ART\_MIN\_DENOMINATOR}}
+\index{ART\_MIN\_DENOMINATOR@{ART\_MIN\_DENOMINATOR}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{ART\_MIN\_DENOMINATOR}{ART\_MIN\_DENOMINATOR}}
+{\footnotesize\ttfamily \#define A\+R\+T\+\_\+\+M\+I\+N\+\_\+\+D\+E\+N\+O\+M\+I\+N\+A\+T\+OR~(1)}
+
+\mbox{\Hypertarget{tsc_8c_a5d9304d6e706a0d94f4763ad6eda2cfd}\label{tsc_8c_a5d9304d6e706a0d94f4763ad6eda2cfd}} 
+\index{tsc.c@{tsc.c}!CAL2\_LATCH@{CAL2\_LATCH}}
+\index{CAL2\_LATCH@{CAL2\_LATCH}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{CAL2\_LATCH}{CAL2\_LATCH}}
+{\footnotesize\ttfamily \#define C\+A\+L2\+\_\+\+L\+A\+T\+CH~(\mbox{\hyperlink{include_2linux_2timex_8h_a73bc7223eb70772e8447e5f2ce33fb00}{P\+I\+T\+\_\+\+T\+I\+C\+K\+\_\+\+R\+A\+TE}} / (1000 / \mbox{\hyperlink{tsc_8c_aaca000b636131ea2d2279c0dc7f14055}{C\+A\+L2\+\_\+\+MS}}))}
+
+\mbox{\Hypertarget{tsc_8c_aaca000b636131ea2d2279c0dc7f14055}\label{tsc_8c_aaca000b636131ea2d2279c0dc7f14055}} 
+\index{tsc.c@{tsc.c}!CAL2\_MS@{CAL2\_MS}}
+\index{CAL2\_MS@{CAL2\_MS}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{CAL2\_MS}{CAL2\_MS}}
+{\footnotesize\ttfamily \#define C\+A\+L2\+\_\+\+MS~50}
+
+\mbox{\Hypertarget{tsc_8c_a22dde606acf32bf227554ad1d5352891}\label{tsc_8c_a22dde606acf32bf227554ad1d5352891}} 
+\index{tsc.c@{tsc.c}!CAL2\_PIT\_LOOPS@{CAL2\_PIT\_LOOPS}}
+\index{CAL2\_PIT\_LOOPS@{CAL2\_PIT\_LOOPS}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{CAL2\_PIT\_LOOPS}{CAL2\_PIT\_LOOPS}}
+{\footnotesize\ttfamily \#define C\+A\+L2\+\_\+\+P\+I\+T\+\_\+\+L\+O\+O\+PS~5000}
+
+\mbox{\Hypertarget{tsc_8c_add1c23fd83b7f661a4c787f2f5a8d886}\label{tsc_8c_add1c23fd83b7f661a4c787f2f5a8d886}} 
+\index{tsc.c@{tsc.c}!CAL\_LATCH@{CAL\_LATCH}}
+\index{CAL\_LATCH@{CAL\_LATCH}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{CAL\_LATCH}{CAL\_LATCH}}
+{\footnotesize\ttfamily \#define C\+A\+L\+\_\+\+L\+A\+T\+CH~(\mbox{\hyperlink{include_2linux_2timex_8h_a73bc7223eb70772e8447e5f2ce33fb00}{P\+I\+T\+\_\+\+T\+I\+C\+K\+\_\+\+R\+A\+TE}} / (1000 / \mbox{\hyperlink{tsc_8c_ada3c4040be18148110f0e0be17314be7}{C\+A\+L\+\_\+\+MS}}))}
+
+\mbox{\Hypertarget{tsc_8c_ada3c4040be18148110f0e0be17314be7}\label{tsc_8c_ada3c4040be18148110f0e0be17314be7}} 
+\index{tsc.c@{tsc.c}!CAL\_MS@{CAL\_MS}}
+\index{CAL\_MS@{CAL\_MS}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{CAL\_MS}{CAL\_MS}}
+{\footnotesize\ttfamily \#define C\+A\+L\+\_\+\+MS~10}
+
+\mbox{\Hypertarget{tsc_8c_a2a351f4c86eb38c1bf4ce0afc28ecbfc}\label{tsc_8c_a2a351f4c86eb38c1bf4ce0afc28ecbfc}} 
+\index{tsc.c@{tsc.c}!CAL\_PIT\_LOOPS@{CAL\_PIT\_LOOPS}}
+\index{CAL\_PIT\_LOOPS@{CAL\_PIT\_LOOPS}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{CAL\_PIT\_LOOPS}{CAL\_PIT\_LOOPS}}
+{\footnotesize\ttfamily \#define C\+A\+L\+\_\+\+P\+I\+T\+\_\+\+L\+O\+O\+PS~1000}
+
+\mbox{\Hypertarget{tsc_8c_ae1bd66fc9846c52601de355a20901b0e}\label{tsc_8c_ae1bd66fc9846c52601de355a20901b0e}} 
+\index{tsc.c@{tsc.c}!KHZ@{KHZ}}
+\index{KHZ@{KHZ}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{KHZ}{KHZ}}
+{\footnotesize\ttfamily \#define K\+HZ~1000}
+
+\mbox{\Hypertarget{tsc_8c_ade0cb2c29bf42b501f4d7403e14bf56c}\label{tsc_8c_ade0cb2c29bf42b501f4d7403e14bf56c}} 
+\index{tsc.c@{tsc.c}!MAX\_QUICK\_PIT\_ITERATIONS@{MAX\_QUICK\_PIT\_ITERATIONS}}
+\index{MAX\_QUICK\_PIT\_ITERATIONS@{MAX\_QUICK\_PIT\_ITERATIONS}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_QUICK\_PIT\_ITERATIONS}{MAX\_QUICK\_PIT\_ITERATIONS}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+Q\+U\+I\+C\+K\+\_\+\+P\+I\+T\+\_\+\+I\+T\+E\+R\+A\+T\+I\+O\+NS~(\mbox{\hyperlink{tsc_8c_ae48dba017347d63fbdf7304852cd132b}{M\+A\+X\+\_\+\+Q\+U\+I\+C\+K\+\_\+\+P\+I\+T\+\_\+\+MS}} $\ast$ \mbox{\hyperlink{include_2linux_2timex_8h_a73bc7223eb70772e8447e5f2ce33fb00}{P\+I\+T\+\_\+\+T\+I\+C\+K\+\_\+\+R\+A\+TE}} / 1000 / 256)}
+
+\mbox{\Hypertarget{tsc_8c_ae48dba017347d63fbdf7304852cd132b}\label{tsc_8c_ae48dba017347d63fbdf7304852cd132b}} 
+\index{tsc.c@{tsc.c}!MAX\_QUICK\_PIT\_MS@{MAX\_QUICK\_PIT\_MS}}
+\index{MAX\_QUICK\_PIT\_MS@{MAX\_QUICK\_PIT\_MS}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_QUICK\_PIT\_MS}{MAX\_QUICK\_PIT\_MS}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+Q\+U\+I\+C\+K\+\_\+\+P\+I\+T\+\_\+\+MS~50}
+
+\mbox{\Hypertarget{tsc_8c_aecf13b8dc783db2202ca5c34fe117fc3}\label{tsc_8c_aecf13b8dc783db2202ca5c34fe117fc3}} 
+\index{tsc.c@{tsc.c}!MAX\_RETRIES@{MAX\_RETRIES}}
+\index{MAX\_RETRIES@{MAX\_RETRIES}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_RETRIES}{MAX\_RETRIES}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+R\+E\+T\+R\+I\+ES~5}
+
+\mbox{\Hypertarget{tsc_8c_a1f8c165bf4196327bc3abff648276d92}\label{tsc_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{tsc.c@{tsc.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{tsc_8c_a16a68dec7183cf0be2b1e14251427435}\label{tsc_8c_a16a68dec7183cf0be2b1e14251427435}} 
+\index{tsc.c@{tsc.c}!TSC\_DEFAULT\_THRESHOLD@{TSC\_DEFAULT\_THRESHOLD}}
+\index{TSC\_DEFAULT\_THRESHOLD@{TSC\_DEFAULT\_THRESHOLD}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{TSC\_DEFAULT\_THRESHOLD}{TSC\_DEFAULT\_THRESHOLD}}
+{\footnotesize\ttfamily \#define T\+S\+C\+\_\+\+D\+E\+F\+A\+U\+L\+T\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD~0x20000}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{tsc_8c_a2aef551532284939bd5bf21e7d5c4be7}\label{tsc_8c_a2aef551532284939bd5bf21e7d5c4be7}} 
+\index{tsc.c@{tsc.c}!\_\_set\_cyc2ns\_scale@{\_\_set\_cyc2ns\_scale}}
+\index{\_\_set\_cyc2ns\_scale@{\_\_set\_cyc2ns\_scale}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_set\_cyc2ns\_scale()}{\_\_set\_cyc2ns\_scale()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+set\+\_\+cyc2ns\+\_\+scale (\begin{DoxyParamCaption}\item[{unsigned long}]{khz,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{unsigned long long}]{tsc\+\_\+now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{tsc_8c_a349648434fb86497f4244f6e733f6a1b}\label{tsc_8c_a349648434fb86497f4244f6e733f6a1b}} 
+\index{tsc.c@{tsc.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}notsc\char`\"{}}]{,  }\item[{\mbox{\hyperlink{tsc_8c_a0968125de639ce99b4bd0359035d9296}{notsc\+\_\+setup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_a26cd005d1339e9561ce2af71deaa2978}\label{tsc_8c_a26cd005d1339e9561ce2af71deaa2978}} 
+\index{tsc.c@{tsc.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_aabd13fe672f7d51245f6e39fc6fa599f}\label{tsc_8c_aabd13fe672f7d51245f6e39fc6fa599f}} 
+\index{tsc.c@{tsc.c}!calc\_hpet\_ref@{calc\_hpet\_ref}}
+\index{calc\_hpet\_ref@{calc\_hpet\_ref}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{calc\_hpet\_ref()}{calc\_hpet\_ref()}}
+{\footnotesize\ttfamily static unsigned long calc\+\_\+hpet\+\_\+ref (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{deltatsc,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{hpet1,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{hpet2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{tsc_8c_aa89a0ebdc4a8a0ae430e19b17f292880}\label{tsc_8c_aa89a0ebdc4a8a0ae430e19b17f292880}} 
+\index{tsc.c@{tsc.c}!calc\_pmtimer\_ref@{calc\_pmtimer\_ref}}
+\index{calc\_pmtimer\_ref@{calc\_pmtimer\_ref}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{calc\_pmtimer\_ref()}{calc\_pmtimer\_ref()}}
+{\footnotesize\ttfamily static unsigned long calc\+\_\+pmtimer\+\_\+ref (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{deltatsc,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{pm1,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{pm2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{tsc_8c_a60777ea656425bada0fee61d133c5570}\label{tsc_8c_a60777ea656425bada0fee61d133c5570}} 
+\index{tsc.c@{tsc.c}!check\_system\_tsc\_reliable@{check\_system\_tsc\_reliable}}
+\index{check\_system\_tsc\_reliable@{check\_system\_tsc\_reliable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{check\_system\_tsc\_reliable()}{check\_system\_tsc\_reliable()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} check\+\_\+system\+\_\+tsc\+\_\+reliable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{tsc_8c_a1f0919514e13dbef34db16a4aed27de4}\label{tsc_8c_a1f0919514e13dbef34db16a4aed27de4}} 
+\index{tsc.c@{tsc.c}!check\_tsc\_unstable@{check\_tsc\_unstable}}
+\index{check\_tsc\_unstable@{check\_tsc\_unstable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{check\_tsc\_unstable()}{check\_tsc\_unstable()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+tsc\+\_\+unstable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{tsc_8c_a30a385f608fc8429f983cc59bbdd5d35}\label{tsc_8c_a30a385f608fc8429f983cc59bbdd5d35}} 
+\index{tsc.c@{tsc.c}!convert\_art\_ns\_to\_tsc@{convert\_art\_ns\_to\_tsc}}
+\index{convert\_art\_ns\_to\_tsc@{convert\_art\_ns\_to\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{convert\_art\_ns\_to\_tsc()}{convert\_art\_ns\_to\_tsc()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsystem__counterval__t}{system\+\_\+counterval\+\_\+t}} convert\+\_\+art\+\_\+ns\+\_\+to\+\_\+tsc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{art\+\_\+ns }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{tsc_8c_a30a385f608fc8429f983cc59bbdd5d35}{convert\+\_\+art\+\_\+ns\+\_\+to\+\_\+tsc()}} -\/ Convert A\+RT in nanoseconds to T\+SC. @art\+\_\+ns\+: A\+RT (Always Running Timer) in unit of nanoseconds
+
+P\+TM requires all timestamps to be in units of nanoseconds. When user software requests a cross-\/timestamp, this function converts system timestamp to T\+SC.
+
+This is valid when C\+PU feature flag X86\+\_\+\+F\+E\+A\+T\+U\+R\+E\+\_\+\+T\+S\+C\+\_\+\+K\+N\+O\+W\+N\+\_\+\+F\+R\+EQ is set indicating the tsc\+\_\+khz is derived from C\+P\+U\+ID\mbox{[}15H\mbox{]}. Drivers should check that this flag is set before conversion to T\+SC is attempted.
+
+Return\+: struct \mbox{\hyperlink{structsystem__counterval__t}{system\+\_\+counterval\+\_\+t}} -\/ system counter value with the pointer to the corresponding clocksource @cycles\+: System counter value @cs\+: Clocksource corresponding to system counter value. Used by timekeeping code to verify comparability of two cycle values. \mbox{\Hypertarget{tsc_8c_a0e36582e8ef9feebb0f902d47b9e7194}\label{tsc_8c_a0e36582e8ef9feebb0f902d47b9e7194}} 
+\index{tsc.c@{tsc.c}!convert\_art\_to\_tsc@{convert\_art\_to\_tsc}}
+\index{convert\_art\_to\_tsc@{convert\_art\_to\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{convert\_art\_to\_tsc()}{convert\_art\_to\_tsc()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsystem__counterval__t}{system\+\_\+counterval\+\_\+t}} convert\+\_\+art\+\_\+to\+\_\+tsc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{art }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_a59668fe5cc30e9a8aa1a31ea7bdde6e9}\label{tsc_8c_a59668fe5cc30e9a8aa1a31ea7bdde6e9}} 
+\index{tsc.c@{tsc.c}!cpu\_khz\_from\_cpuid@{cpu\_khz\_from\_cpuid}}
+\index{cpu\_khz\_from\_cpuid@{cpu\_khz\_from\_cpuid}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cpu\_khz\_from\_cpuid()}{cpu\_khz\_from\_cpuid()}}
+{\footnotesize\ttfamily static unsigned long cpu\+\_\+khz\+\_\+from\+\_\+cpuid (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{tsc_8c_a68a1ffd70264def94d8ab0ac95be8cca}\label{tsc_8c_a68a1ffd70264def94d8ab0ac95be8cca}} 
+\index{tsc.c@{tsc.c}!cyc2ns\_init\_boot\_cpu@{cyc2ns\_init\_boot\_cpu}}
+\index{cyc2ns\_init\_boot\_cpu@{cyc2ns\_init\_boot\_cpu}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cyc2ns\_init\_boot\_cpu()}{cyc2ns\_init\_boot\_cpu()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} cyc2ns\+\_\+init\+\_\+boot\+\_\+cpu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{tsc_8c_a0f5132c66de4ef2ed59b0e430b809596}\label{tsc_8c_a0f5132c66de4ef2ed59b0e430b809596}} 
+\index{tsc.c@{tsc.c}!cyc2ns\_init\_secondary\_cpus@{cyc2ns\_init\_secondary\_cpus}}
+\index{cyc2ns\_init\_secondary\_cpus@{cyc2ns\_init\_secondary\_cpus}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cyc2ns\_init\_secondary\_cpus()}{cyc2ns\_init\_secondary\_cpus()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} cyc2ns\+\_\+init\+\_\+secondary\+\_\+cpus (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{tsc_8c_a519f60cf5dc8169842ad144dee5998f6}\label{tsc_8c_a519f60cf5dc8169842ad144dee5998f6}} 
+\index{tsc.c@{tsc.c}!cyc2ns\_read\_begin@{cyc2ns\_read\_begin}}
+\index{cyc2ns\_read\_begin@{cyc2ns\_read\_begin}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cyc2ns\_read\_begin()}{cyc2ns\_read\_begin()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void cyc2ns\+\_\+read\+\_\+begin (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcyc2ns__data}{cyc2ns\+\_\+data}} $\ast$}]{data }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{tsc_8c_a13dfa6770358d4328f00089586394f43}\label{tsc_8c_a13dfa6770358d4328f00089586394f43}} 
+\index{tsc.c@{tsc.c}!cyc2ns\_read\_end@{cyc2ns\_read\_end}}
+\index{cyc2ns\_read\_end@{cyc2ns\_read\_end}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cyc2ns\_read\_end()}{cyc2ns\_read\_end()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void cyc2ns\+\_\+read\+\_\+end (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{tsc_8c_a588473986927c6b43aa44f51f74c7e2e}\label{tsc_8c_a588473986927c6b43aa44f51f74c7e2e}} 
+\index{tsc.c@{tsc.c}!cycles\_2\_ns@{cycles\_2\_ns}}
+\index{cycles\_2\_ns@{cycles\_2\_ns}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cycles\_2\_ns()}{cycles\_2\_ns()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} unsigned long long cycles\+\_\+2\+\_\+ns (\begin{DoxyParamCaption}\item[{unsigned long long}]{cyc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{tsc_8c_abfa341f1d3011c6b023994a54813df4c}\label{tsc_8c_abfa341f1d3011c6b023994a54813df4c}} 
+\index{tsc.c@{tsc.c}!DECLARE\_DELAYED\_WORK@{DECLARE\_DELAYED\_WORK}}
+\index{DECLARE\_DELAYED\_WORK@{DECLARE\_DELAYED\_WORK}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_DELAYED\_WORK()}{DECLARE\_DELAYED\_WORK()}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+D\+E\+L\+A\+Y\+E\+D\+\_\+\+W\+O\+RK (\begin{DoxyParamCaption}\item[{tsc\+\_\+irqwork}]{,  }\item[{\mbox{\hyperlink{tsc_8c_ad8b9368674a685f943f25ee34eb57e12}{tsc\+\_\+refine\+\_\+calibration\+\_\+work}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_ae39dd8378359d1dfd80cd5458886fb1c}\label{tsc_8c_ae39dd8378359d1dfd80cd5458886fb1c}} 
+\index{tsc.c@{tsc.c}!DEFINE\_PER\_CPU\_ALIGNED@{DEFINE\_PER\_CPU\_ALIGNED}}
+\index{DEFINE\_PER\_CPU\_ALIGNED@{DEFINE\_PER\_CPU\_ALIGNED}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU\_ALIGNED()}{DEFINE\_PER\_CPU\_ALIGNED()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+A\+L\+I\+G\+N\+ED (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcyc2ns}{cyc2ns}}}]{,  }\item[{\mbox{\hyperlink{structcyc2ns}{cyc2ns}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_a0d1a9cc8f936016ce73fcd4459ccfd79}\label{tsc_8c_a0d1a9cc8f936016ce73fcd4459ccfd79}} 
+\index{tsc.c@{tsc.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{\+\_\+\+\_\+use\+\_\+tsc}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_aa945cfd17ce2f3bb5169361b28a6b55f}\label{tsc_8c_aa945cfd17ce2f3bb5169361b28a6b55f}} 
+\index{tsc.c@{tsc.c}!detect\_art@{detect\_art}}
+\index{detect\_art@{detect\_art}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{detect\_art()}{detect\_art()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} detect\+\_\+art (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{tsc_8c_a595d81d900776251c008c6ec2d68d2e3}\label{tsc_8c_a595d81d900776251c008c6ec2d68d2e3}} 
+\index{tsc.c@{tsc.c}!determine\_cpu\_tsc\_frequencies@{determine\_cpu\_tsc\_frequencies}}
+\index{determine\_cpu\_tsc\_frequencies@{determine\_cpu\_tsc\_frequencies}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{determine\_cpu\_tsc\_frequencies()}{determine\_cpu\_tsc\_frequencies()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} determine\+\_\+cpu\+\_\+tsc\+\_\+frequencies (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{early }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{tsc_8c_a8834cc862dca1d85230563db22975899}\label{tsc_8c_a8834cc862dca1d85230563db22975899}} 
+\index{tsc.c@{tsc.c}!device\_initcall@{device\_initcall}}
+\index{device\_initcall@{device\_initcall}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{device\_initcall()}{device\_initcall()}}
+{\footnotesize\ttfamily device\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_a7d9816e4f4a684471c847bf93a418a9a}{init\+\_\+tsc\+\_\+clocksource}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_aca8d5d84d1d7319240d89d464cd09de9}\label{tsc_8c_aca8d5d84d1d7319240d89d464cd09de9}} 
+\index{tsc.c@{tsc.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}tsc\+\_\+early\+\_\+khz\char`\"{}}]{,  }\item[{\mbox{\hyperlink{tsc_8c_af656ea7c386f1428286b2ac62dc82c50}{tsc\+\_\+early\+\_\+khz\+\_\+setup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_a4a3f122c194567033242a155cffdf455}\label{tsc_8c_a4a3f122c194567033242a155cffdf455}} 
+\index{tsc.c@{tsc.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_a30a385f608fc8429f983cc59bbdd5d35}{convert\+\_\+art\+\_\+ns\+\_\+to\+\_\+tsc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_acf5cd07723c5d90ff507b8b0b89ea789}\label{tsc_8c_acf5cd07723c5d90ff507b8b0b89ea789}} 
+\index{tsc.c@{tsc.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_a0e36582e8ef9feebb0f902d47b9e7194}{convert\+\_\+art\+\_\+to\+\_\+tsc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_a4547628dfa30fba905b2c4c57d5d3e5b}\label{tsc_8c_a4547628dfa30fba905b2c4c57d5d3e5b}} 
+\index{tsc.c@{tsc.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_a3e72e36df0985556297966ae668daa7a}{cpu\+\_\+khz}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_a6ae695a1ef69ff2741756e0e7175ff7d}\label{tsc_8c_a6ae695a1ef69ff2741756e0e7175ff7d}} 
+\index{tsc.c@{tsc.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_a808122ecc72f0a63820c4d9b1410896f}{recalibrate\+\_\+cpu\+\_\+khz}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_a3780ffac09ea7b3f75f5ad6207f6e798}\label{tsc_8c_a3780ffac09ea7b3f75f5ad6207f6e798}} 
+\index{tsc.c@{tsc.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_ad0e7dd2084e2b8b5613cc214804829a1}{tsc\+\_\+khz}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_adf7fcb642c099994de6a164f02314b6c}\label{tsc_8c_adf7fcb642c099994de6a164f02314b6c}} 
+\index{tsc.c@{tsc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_a1f0919514e13dbef34db16a4aed27de4}{check\+\_\+tsc\+\_\+unstable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_a748b99fae8b050c823d53e80abd16d42}\label{tsc_8c_a748b99fae8b050c823d53e80abd16d42}} 
+\index{tsc.c@{tsc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tsc_8c_aa6c245f24e6cadb83f2c284e430db98d}{mark\+\_\+tsc\+\_\+unstable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tsc_8c_ad78b4c7568e3c95b891ec30f7a582a3a}\label{tsc_8c_ad78b4c7568e3c95b891ec30f7a582a3a}} 
+\index{tsc.c@{tsc.c}!get\_loops\_per\_jiffy@{get\_loops\_per\_jiffy}}
+\index{get\_loops\_per\_jiffy@{get\_loops\_per\_jiffy}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{get\_loops\_per\_jiffy()}{get\_loops\_per\_jiffy()}}
+{\footnotesize\ttfamily static unsigned long \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} get\+\_\+loops\+\_\+per\+\_\+jiffy (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{tsc_8c_a7d9816e4f4a684471c847bf93a418a9a}\label{tsc_8c_a7d9816e4f4a684471c847bf93a418a9a}} 
+\index{tsc.c@{tsc.c}!init\_tsc\_clocksource@{init\_tsc\_clocksource}}
+\index{init\_tsc\_clocksource@{init\_tsc\_clocksource}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{init\_tsc\_clocksource()}{init\_tsc\_clocksource()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} init\+\_\+tsc\+\_\+clocksource (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{tsc_8c_aa6c245f24e6cadb83f2c284e430db98d}\label{tsc_8c_aa6c245f24e6cadb83f2c284e430db98d}} 
+\index{tsc.c@{tsc.c}!mark\_tsc\_unstable@{mark\_tsc\_unstable}}
+\index{mark\_tsc\_unstable@{mark\_tsc\_unstable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{mark\_tsc\_unstable()}{mark\_tsc\_unstable()}}
+{\footnotesize\ttfamily void mark\+\_\+tsc\+\_\+unstable (\begin{DoxyParamCaption}\item[{char $\ast$}]{reason }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{tsc_8c_a136e72196d74672c1129e04c18ba0c15}\label{tsc_8c_a136e72196d74672c1129e04c18ba0c15}} 
+\index{tsc.c@{tsc.c}!native\_calibrate\_cpu@{native\_calibrate\_cpu}}
+\index{native\_calibrate\_cpu@{native\_calibrate\_cpu}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{native\_calibrate\_cpu()}{native\_calibrate\_cpu()}}
+{\footnotesize\ttfamily static unsigned long native\+\_\+calibrate\+\_\+cpu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+native\+\_\+calibrate\+\_\+cpu -\/ calibrate the cpu Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{tsc_8c_af0417cfb1b7174c9a1b5ee4c6681c1aa}\label{tsc_8c_af0417cfb1b7174c9a1b5ee4c6681c1aa}} 
+\index{tsc.c@{tsc.c}!native\_calibrate\_cpu\_early@{native\_calibrate\_cpu\_early}}
+\index{native\_calibrate\_cpu\_early@{native\_calibrate\_cpu\_early}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{native\_calibrate\_cpu\_early()}{native\_calibrate\_cpu\_early()}}
+{\footnotesize\ttfamily unsigned long native\+\_\+calibrate\+\_\+cpu\+\_\+early (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+native\+\_\+calibrate\+\_\+cpu\+\_\+early -\/ can calibrate the cpu early in boot Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{tsc_8c_aafb37660621f23e12ab287c9fa912b87}\label{tsc_8c_aafb37660621f23e12ab287c9fa912b87}} 
+\index{tsc.c@{tsc.c}!native\_calibrate\_tsc@{native\_calibrate\_tsc}}
+\index{native\_calibrate\_tsc@{native\_calibrate\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{native\_calibrate\_tsc()}{native\_calibrate\_tsc()}}
+{\footnotesize\ttfamily unsigned long native\+\_\+calibrate\+\_\+tsc (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+native\+\_\+calibrate\+\_\+tsc Determine T\+SC frequency via C\+P\+U\+ID, else return 0. \mbox{\Hypertarget{tsc_8c_a05ba535aa2591a2cf2c97eb9f8aed6cb}\label{tsc_8c_a05ba535aa2591a2cf2c97eb9f8aed6cb}} 
+\index{tsc.c@{tsc.c}!native\_sched\_clock@{native\_sched\_clock}}
+\index{native\_sched\_clock@{native\_sched\_clock}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{native\_sched\_clock()}{native\_sched\_clock()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} native\+\_\+sched\+\_\+clock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{tsc_8c_a37cc89fc43ceabe10ac3faef3d115c00}\label{tsc_8c_a37cc89fc43ceabe10ac3faef3d115c00}} 
+\index{tsc.c@{tsc.c}!native\_sched\_clock\_from\_tsc@{native\_sched\_clock\_from\_tsc}}
+\index{native\_sched\_clock\_from\_tsc@{native\_sched\_clock\_from\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{native\_sched\_clock\_from\_tsc()}{native\_sched\_clock\_from\_tsc()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} native\+\_\+sched\+\_\+clock\+\_\+from\+\_\+tsc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{tsc }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{tsc_8c_a0968125de639ce99b4bd0359035d9296}\label{tsc_8c_a0968125de639ce99b4bd0359035d9296}} 
+\index{tsc.c@{tsc.c}!notsc\_setup@{notsc\_setup}}
+\index{notsc\_setup@{notsc\_setup}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{notsc\_setup()}{notsc\_setup()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} notsc\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{tsc_8c_affed972776e48e55ee43958ec051ce7f}\label{tsc_8c_affed972776e48e55ee43958ec051ce7f}} 
+\index{tsc.c@{tsc.c}!pit\_calibrate\_tsc@{pit\_calibrate\_tsc}}
+\index{pit\_calibrate\_tsc@{pit\_calibrate\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{pit\_calibrate\_tsc()}{pit\_calibrate\_tsc()}}
+{\footnotesize\ttfamily static unsigned long pit\+\_\+calibrate\+\_\+tsc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{latch,  }\item[{unsigned long}]{ms,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{loopmin }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{tsc_8c_afb0db54e6a7ec6e0d12323d6a439c2bd}\label{tsc_8c_afb0db54e6a7ec6e0d12323d6a439c2bd}} 
+\index{tsc.c@{tsc.c}!pit\_expect\_msb@{pit\_expect\_msb}}
+\index{pit\_expect\_msb@{pit\_expect\_msb}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{pit\_expect\_msb()}{pit\_expect\_msb()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pit\+\_\+expect\+\_\+msb (\begin{DoxyParamCaption}\item[{unsigned char}]{val,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{tscp,  }\item[{unsigned long $\ast$}]{deltap }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{tsc_8c_a49f5f9daef9399cd5e246a4f80fb2c9e}\label{tsc_8c_a49f5f9daef9399cd5e246a4f80fb2c9e}} 
+\index{tsc.c@{tsc.c}!pit\_hpet\_ptimer\_calibrate\_cpu@{pit\_hpet\_ptimer\_calibrate\_cpu}}
+\index{pit\_hpet\_ptimer\_calibrate\_cpu@{pit\_hpet\_ptimer\_calibrate\_cpu}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{pit\_hpet\_ptimer\_calibrate\_cpu()}{pit\_hpet\_ptimer\_calibrate\_cpu()}}
+{\footnotesize\ttfamily static unsigned long pit\+\_\+hpet\+\_\+ptimer\+\_\+calibrate\+\_\+cpu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{tsc_8c_a59f50f92f74548d6d3b3dc1cc5772b0f}\label{tsc_8c_a59f50f92f74548d6d3b3dc1cc5772b0f}} 
+\index{tsc.c@{tsc.c}!pit\_verify\_msb@{pit\_verify\_msb}}
+\index{pit\_verify\_msb@{pit\_verify\_msb}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{pit\_verify\_msb()}{pit\_verify\_msb()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pit\+\_\+verify\+\_\+msb (\begin{DoxyParamCaption}\item[{unsigned char}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{tsc_8c_a24e462e89b5dfca8f661145824e93931}\label{tsc_8c_a24e462e89b5dfca8f661145824e93931}} 
+\index{tsc.c@{tsc.c}!quick\_pit\_calibrate@{quick\_pit\_calibrate}}
+\index{quick\_pit\_calibrate@{quick\_pit\_calibrate}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{quick\_pit\_calibrate()}{quick\_pit\_calibrate()}}
+{\footnotesize\ttfamily static unsigned long quick\+\_\+pit\+\_\+calibrate (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{tsc_8c_ae6cbba38589e17027ead1f33d1384a98}\label{tsc_8c_ae6cbba38589e17027ead1f33d1384a98}} 
+\index{tsc.c@{tsc.c}!read\_tsc@{read\_tsc}}
+\index{read\_tsc@{read\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{read\_tsc()}{read\_tsc()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} read\+\_\+tsc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$}]{cs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{tsc_8c_a808122ecc72f0a63820c4d9b1410896f}\label{tsc_8c_a808122ecc72f0a63820c4d9b1410896f}} 
+\index{tsc.c@{tsc.c}!recalibrate\_cpu\_khz@{recalibrate\_cpu\_khz}}
+\index{recalibrate\_cpu\_khz@{recalibrate\_cpu\_khz}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{recalibrate\_cpu\_khz()}{recalibrate\_cpu\_khz()}}
+{\footnotesize\ttfamily void recalibrate\+\_\+cpu\+\_\+khz (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{tsc_8c_aabe9553f0e7e14e3a42e686fd7ae3eed}\label{tsc_8c_aabe9553f0e7e14e3a42e686fd7ae3eed}} 
+\index{tsc.c@{tsc.c}!sched\_clock@{sched\_clock}}
+\index{sched\_clock@{sched\_clock}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{sched\_clock()}{sched\_clock()}}
+{\footnotesize\ttfamily unsigned long long sched\+\_\+clock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{tsc_8c_a6dfa3fc756ea0e960c5f9b8d71fedaed}\label{tsc_8c_a6dfa3fc756ea0e960c5f9b8d71fedaed}} 
+\index{tsc.c@{tsc.c}!set\_cyc2ns\_scale@{set\_cyc2ns\_scale}}
+\index{set\_cyc2ns\_scale@{set\_cyc2ns\_scale}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{set\_cyc2ns\_scale()}{set\_cyc2ns\_scale()}}
+{\footnotesize\ttfamily static void set\+\_\+cyc2ns\+\_\+scale (\begin{DoxyParamCaption}\item[{unsigned long}]{khz,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{unsigned long long}]{tsc\+\_\+now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{tsc_8c_abf8669bfc7eb6b17c48a633472391c46}\label{tsc_8c_abf8669bfc7eb6b17c48a633472391c46}} 
+\index{tsc.c@{tsc.c}!tsc\_cs\_enable@{tsc\_cs\_enable}}
+\index{tsc\_cs\_enable@{tsc\_cs\_enable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_cs\_enable()}{tsc\_cs\_enable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} tsc\+\_\+cs\+\_\+enable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$}]{cs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{tsc_8c_aa979689a6748677feba38ee1e57591c0}\label{tsc_8c_aa979689a6748677feba38ee1e57591c0}} 
+\index{tsc.c@{tsc.c}!tsc\_cs\_mark\_unstable@{tsc\_cs\_mark\_unstable}}
+\index{tsc\_cs\_mark\_unstable@{tsc\_cs\_mark\_unstable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_cs\_mark\_unstable()}{tsc\_cs\_mark\_unstable()}}
+{\footnotesize\ttfamily static void tsc\+\_\+cs\+\_\+mark\+\_\+unstable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$}]{cs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{tsc_8c_abf8cd8ccd7f518bbe984e92a611f0f9c}\label{tsc_8c_abf8cd8ccd7f518bbe984e92a611f0f9c}} 
+\index{tsc.c@{tsc.c}!tsc\_cs\_tick\_stable@{tsc\_cs\_tick\_stable}}
+\index{tsc\_cs\_tick\_stable@{tsc\_cs\_tick\_stable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_cs\_tick\_stable()}{tsc\_cs\_tick\_stable()}}
+{\footnotesize\ttfamily static void tsc\+\_\+cs\+\_\+tick\+\_\+stable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$}]{cs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{tsc_8c_a4ffc226a89649dbf1562cecbce69ed10}\label{tsc_8c_a4ffc226a89649dbf1562cecbce69ed10}} 
+\index{tsc.c@{tsc.c}!tsc\_early\_init@{tsc\_early\_init}}
+\index{tsc\_early\_init@{tsc\_early\_init}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_early\_init()}{tsc\_early\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} tsc\+\_\+early\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{tsc_8c_af656ea7c386f1428286b2ac62dc82c50}\label{tsc_8c_af656ea7c386f1428286b2ac62dc82c50}} 
+\index{tsc.c@{tsc.c}!tsc\_early\_khz\_setup@{tsc\_early\_khz\_setup}}
+\index{tsc\_early\_khz\_setup@{tsc\_early\_khz\_setup}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_early\_khz\_setup()}{tsc\_early\_khz\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} tsc\+\_\+early\+\_\+khz\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{tsc_8c_a9d9a5a6ddd5458b80b106926de8f45f0}\label{tsc_8c_a9d9a5a6ddd5458b80b106926de8f45f0}} 
+\index{tsc.c@{tsc.c}!tsc\_enable\_sched\_clock@{tsc\_enable\_sched\_clock}}
+\index{tsc\_enable\_sched\_clock@{tsc\_enable\_sched\_clock}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_enable\_sched\_clock()}{tsc\_enable\_sched\_clock()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} tsc\+\_\+enable\+\_\+sched\+\_\+clock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{tsc_8c_a47697e82f54a81d6b7eba2231c1488e9}\label{tsc_8c_a47697e82f54a81d6b7eba2231c1488e9}} 
+\index{tsc.c@{tsc.c}!tsc\_init@{tsc\_init}}
+\index{tsc\_init@{tsc\_init}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_init()}{tsc\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} tsc\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{tsc_8c_ab02202a872a852ce81e41c9a6f40583a}\label{tsc_8c_ab02202a872a852ce81e41c9a6f40583a}} 
+\index{tsc.c@{tsc.c}!tsc\_read\_refs@{tsc\_read\_refs}}
+\index{tsc\_read\_refs@{tsc\_read\_refs}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_read\_refs()}{tsc\_read\_refs()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} tsc\+\_\+read\+\_\+refs (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{p,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{hpet }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{tsc_8c_ad8b9368674a685f943f25ee34eb57e12}\label{tsc_8c_ad8b9368674a685f943f25ee34eb57e12}} 
+\index{tsc.c@{tsc.c}!tsc\_refine\_calibration\_work@{tsc\_refine\_calibration\_work}}
+\index{tsc\_refine\_calibration\_work@{tsc\_refine\_calibration\_work}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_refine\_calibration\_work()}{tsc\_refine\_calibration\_work()}}
+{\footnotesize\ttfamily static void tsc\+\_\+refine\+\_\+calibration\+\_\+work (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$}]{work }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+tsc\+\_\+refine\+\_\+calibration\+\_\+work -\/ Further refine tsc freq calibration @work -\/ ignored.
+
+This functions uses delayed work over a period of a second to further refine the T\+SC freq value. Since this is timer based, instead of loop based, we don\textquotesingle{}t block the boot process while this longer calibration is done.
+
+If there are any calibration anomalies (too many S\+M\+Is, etc), or the refined calibration is off by 1\% of the fast early calibration, we throw out the new calibration and use the early calibration. Here is the call graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{tsc_8c_aa62a6fe0daace303b8208b17c23672d2}\label{tsc_8c_aa62a6fe0daace303b8208b17c23672d2}} 
+\index{tsc.c@{tsc.c}!tsc\_restore\_sched\_clock\_state@{tsc\_restore\_sched\_clock\_state}}
+\index{tsc\_restore\_sched\_clock\_state@{tsc\_restore\_sched\_clock\_state}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_restore\_sched\_clock\_state()}{tsc\_restore\_sched\_clock\_state()}}
+{\footnotesize\ttfamily void tsc\+\_\+restore\+\_\+sched\+\_\+clock\+\_\+state (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{tsc_8c_ac6d94d906f232a5e1035dc509e6cc58b}\label{tsc_8c_ac6d94d906f232a5e1035dc509e6cc58b}} 
+\index{tsc.c@{tsc.c}!tsc\_resume@{tsc\_resume}}
+\index{tsc\_resume@{tsc\_resume}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_resume()}{tsc\_resume()}}
+{\footnotesize\ttfamily static void tsc\+\_\+resume (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$}]{cs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{tsc_8c_add870dcaf0b6618d0bee5b376bcce717}\label{tsc_8c_add870dcaf0b6618d0bee5b376bcce717}} 
+\index{tsc.c@{tsc.c}!tsc\_save\_sched\_clock\_state@{tsc\_save\_sched\_clock\_state}}
+\index{tsc\_save\_sched\_clock\_state@{tsc\_save\_sched\_clock\_state}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_save\_sched\_clock\_state()}{tsc\_save\_sched\_clock\_state()}}
+{\footnotesize\ttfamily void tsc\+\_\+save\+\_\+sched\+\_\+clock\+\_\+state (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{tsc_8c_a622dd4e73970fa4bad6afe059f34ee04}\label{tsc_8c_a622dd4e73970fa4bad6afe059f34ee04}} 
+\index{tsc.c@{tsc.c}!tsc\_setup@{tsc\_setup}}
+\index{tsc\_setup@{tsc\_setup}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_setup()}{tsc\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} tsc\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{tsc_8c_a3c5391840e1bd64c3799cf8c1b40192b}\label{tsc_8c_a3c5391840e1bd64c3799cf8c1b40192b}} 
+\index{tsc.c@{tsc.c}!unsynchronized\_tsc@{unsynchronized\_tsc}}
+\index{unsynchronized\_tsc@{unsynchronized\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{unsynchronized\_tsc()}{unsynchronized\_tsc()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} unsynchronized\+\_\+tsc (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 63
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{tsc_8c_a7c0d9227f288ca67e3b34025daf4c30f}\label{tsc_8c_a7c0d9227f288ca67e3b34025daf4c30f}} 
+\index{tsc.c@{tsc.c}!art\_related\_clocksource@{art\_related\_clocksource}}
+\index{art\_related\_clocksource@{art\_related\_clocksource}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{art\_related\_clocksource}{art\_related\_clocksource}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structclocksource}{clocksource}}$\ast$ art\+\_\+related\+\_\+clocksource}
+
+\mbox{\Hypertarget{tsc_8c_a59e71934cf20eb4df81de6cd34dbc1d3}\label{tsc_8c_a59e71934cf20eb4df81de6cd34dbc1d3}} 
+\index{tsc.c@{tsc.c}!art\_to\_tsc\_denominator@{art\_to\_tsc\_denominator}}
+\index{art\_to\_tsc\_denominator@{art\_to\_tsc\_denominator}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{art\_to\_tsc\_denominator}{art\_to\_tsc\_denominator}}
+{\footnotesize\ttfamily \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} art\+\_\+to\+\_\+tsc\+\_\+denominator\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_a0fea6286870fc05ee1305ec241eea68b}\label{tsc_8c_a0fea6286870fc05ee1305ec241eea68b}} 
+\index{tsc.c@{tsc.c}!art\_to\_tsc\_numerator@{art\_to\_tsc\_numerator}}
+\index{art\_to\_tsc\_numerator@{art\_to\_tsc\_numerator}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{art\_to\_tsc\_numerator}{art\_to\_tsc\_numerator}}
+{\footnotesize\ttfamily \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} art\+\_\+to\+\_\+tsc\+\_\+numerator\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_a3b3320fdbfe363515b15bcb684423814}\label{tsc_8c_a3b3320fdbfe363515b15bcb684423814}} 
+\index{tsc.c@{tsc.c}!art\_to\_tsc\_offset@{art\_to\_tsc\_offset}}
+\index{art\_to\_tsc\_offset@{art\_to\_tsc\_offset}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{art\_to\_tsc\_offset}{art\_to\_tsc\_offset}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} art\+\_\+to\+\_\+tsc\+\_\+offset\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_a4234ee97ed0f09ba5950e770d631bb11}\label{tsc_8c_a4234ee97ed0f09ba5950e770d631bb11}} 
+\index{tsc.c@{tsc.c}!clocksource\_tsc@{clocksource\_tsc}}
+\index{clocksource\_tsc@{clocksource\_tsc}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{clocksource\_tsc}{clocksource\_tsc}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structclocksource}{clocksource}} clocksource\+\_\+tsc\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name           = \textcolor{stringliteral}{"tsc"},}
+\DoxyCodeLine{    .rating         = 300,}
+\DoxyCodeLine{    .read           = \mbox{\hyperlink{tsc_8c_ae6cbba38589e17027ead1f33d1384a98}{read\_tsc}},}
+\DoxyCodeLine{    .mask           = \mbox{\hyperlink{include_2linux_2clocksource_8h_a0215ef1fd778064e5c136ee00c2bdccf}{CLOCKSOURCE\_MASK}}(64),}
+\DoxyCodeLine{    .flags          = \mbox{\hyperlink{include_2linux_2clocksource_8h_a799a3f94ab071f91018691d5686cd326}{CLOCK\_SOURCE\_IS\_CONTINUOUS}} |}
+\DoxyCodeLine{                  \mbox{\hyperlink{include_2linux_2clocksource_8h_a901b4cc86933b4ac595a4bdb47861bd1}{CLOCK\_SOURCE\_VALID\_FOR\_HRES}} |}
+\DoxyCodeLine{                  \mbox{\hyperlink{include_2linux_2clocksource_8h_a131b616f727b255ca45c2e2dbacda24f}{CLOCK\_SOURCE\_MUST\_VERIFY}} |}
+\DoxyCodeLine{                  \mbox{\hyperlink{include_2linux_2clocksource_8h_a97cd972b39aab3c4c9b7dbd8a229d2f3}{CLOCK\_SOURCE\_VERIFY\_PERCPU}},}
+\DoxyCodeLine{    .vdso\_clock\_mode    = VDSO\_CLOCKMODE\_TSC,}
+\DoxyCodeLine{    .enable         = \mbox{\hyperlink{tsc_8c_abf8669bfc7eb6b17c48a633472391c46}{tsc\_cs\_enable}},}
+\DoxyCodeLine{    .resume         = \mbox{\hyperlink{tsc_8c_ac6d94d906f232a5e1035dc509e6cc58b}{tsc\_resume}},}
+\DoxyCodeLine{    .mark\_unstable      = \mbox{\hyperlink{tsc_8c_aa979689a6748677feba38ee1e57591c0}{tsc\_cs\_mark\_unstable}},}
+\DoxyCodeLine{    .tick\_stable        = \mbox{\hyperlink{tsc_8c_abf8cd8ccd7f518bbe984e92a611f0f9c}{tsc\_cs\_tick\_stable}},}
+\DoxyCodeLine{    .list           = \mbox{\hyperlink{list_8h_a4642d4b7df28478bb762fe43c85b5c63}{LIST\_HEAD\_INIT}}(\mbox{\hyperlink{tsc_8c_a4234ee97ed0f09ba5950e770d631bb11}{clocksource\_tsc}}.\mbox{\hyperlink{structclocksource_aa4e8d5cb97726867697f91f4e178066e}{list}}),}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{tsc_8c_a9beffc12aff0af33ece9fd5e4bbb407c}\label{tsc_8c_a9beffc12aff0af33ece9fd5e4bbb407c}} 
+\index{tsc.c@{tsc.c}!clocksource\_tsc\_early@{clocksource\_tsc\_early}}
+\index{clocksource\_tsc\_early@{clocksource\_tsc\_early}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{clocksource\_tsc\_early}{clocksource\_tsc\_early}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structclocksource}{clocksource}} clocksource\+\_\+tsc\+\_\+early\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name           = \textcolor{stringliteral}{"tsc-\/early"},}
+\DoxyCodeLine{    .rating         = 299,}
+\DoxyCodeLine{    .uncertainty\_margin = 32 * \mbox{\hyperlink{vdso_2time64_8h_ad16e9029e202d2dfb4cfae8f09131f8f}{NSEC\_PER\_MSEC}},}
+\DoxyCodeLine{    .read           = \mbox{\hyperlink{tsc_8c_ae6cbba38589e17027ead1f33d1384a98}{read\_tsc}},}
+\DoxyCodeLine{    .mask           = \mbox{\hyperlink{include_2linux_2clocksource_8h_a0215ef1fd778064e5c136ee00c2bdccf}{CLOCKSOURCE\_MASK}}(64),}
+\DoxyCodeLine{    .flags          = \mbox{\hyperlink{include_2linux_2clocksource_8h_a799a3f94ab071f91018691d5686cd326}{CLOCK\_SOURCE\_IS\_CONTINUOUS}} |}
+\DoxyCodeLine{                  \mbox{\hyperlink{include_2linux_2clocksource_8h_a131b616f727b255ca45c2e2dbacda24f}{CLOCK\_SOURCE\_MUST\_VERIFY}},}
+\DoxyCodeLine{    .vdso\_clock\_mode    = VDSO\_CLOCKMODE\_TSC,}
+\DoxyCodeLine{    .enable         = \mbox{\hyperlink{tsc_8c_abf8669bfc7eb6b17c48a633472391c46}{tsc\_cs\_enable}},}
+\DoxyCodeLine{    .resume         = \mbox{\hyperlink{tsc_8c_ac6d94d906f232a5e1035dc509e6cc58b}{tsc\_resume}},}
+\DoxyCodeLine{    .mark\_unstable      = \mbox{\hyperlink{tsc_8c_aa979689a6748677feba38ee1e57591c0}{tsc\_cs\_mark\_unstable}},}
+\DoxyCodeLine{    .tick\_stable        = \mbox{\hyperlink{tsc_8c_abf8cd8ccd7f518bbe984e92a611f0f9c}{tsc\_cs\_tick\_stable}},}
+\DoxyCodeLine{    .list           = \mbox{\hyperlink{list_8h_a4642d4b7df28478bb762fe43c85b5c63}{LIST\_HEAD\_INIT}}(\mbox{\hyperlink{tsc_8c_a9beffc12aff0af33ece9fd5e4bbb407c}{clocksource\_tsc\_early}}.\mbox{\hyperlink{structclocksource_aa4e8d5cb97726867697f91f4e178066e}{list}}),}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{tsc_8c_a3e72e36df0985556297966ae668daa7a}\label{tsc_8c_a3e72e36df0985556297966ae668daa7a}} 
+\index{tsc.c@{tsc.c}!cpu\_khz@{cpu\_khz}}
+\index{cpu\_khz@{cpu\_khz}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cpu\_khz}{cpu\_khz}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} cpu\+\_\+khz}
+
+\mbox{\Hypertarget{tsc_8c_a579395cd2714e2a24496ea46b567e7ed}\label{tsc_8c_a579395cd2714e2a24496ea46b567e7ed}} 
+\index{tsc.c@{tsc.c}!cyc2ns\_suspend@{cyc2ns\_suspend}}
+\index{cyc2ns\_suspend@{cyc2ns\_suspend}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{cyc2ns\_suspend}{cyc2ns\_suspend}}
+{\footnotesize\ttfamily unsigned long long cyc2ns\+\_\+suspend\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_a09e20254a098f63f07dab46da2f3288f}\label{tsc_8c_a09e20254a098f63f07dab46da2f3288f}} 
+\index{tsc.c@{tsc.c}!no\_sched\_irq\_time@{no\_sched\_irq\_time}}
+\index{no\_sched\_irq\_time@{no\_sched\_irq\_time}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{no\_sched\_irq\_time}{no\_sched\_irq\_time}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} no\+\_\+sched\+\_\+irq\+\_\+time\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_af5f4e3361bf58a583d39d2e73c0afe33}\label{tsc_8c_af5f4e3361bf58a583d39d2e73c0afe33}} 
+\index{tsc.c@{tsc.c}!no\_tsc\_watchdog@{no\_tsc\_watchdog}}
+\index{no\_tsc\_watchdog@{no\_tsc\_watchdog}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{no\_tsc\_watchdog}{no\_tsc\_watchdog}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} no\+\_\+tsc\+\_\+watchdog\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_ad9b13a056486fd41cffd47dc4f31ba57}\label{tsc_8c_ad9b13a056486fd41cffd47dc4f31ba57}} 
+\index{tsc.c@{tsc.c}!tsc\_clocksource\_reliable@{tsc\_clocksource\_reliable}}
+\index{tsc\_clocksource\_reliable@{tsc\_clocksource\_reliable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_clocksource\_reliable}{tsc\_clocksource\_reliable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} tsc\+\_\+clocksource\+\_\+reliable}
+
+\mbox{\Hypertarget{tsc_8c_a88edf4aa7320d84777b2162173b269f1}\label{tsc_8c_a88edf4aa7320d84777b2162173b269f1}} 
+\index{tsc.c@{tsc.c}!tsc\_early\_khz@{tsc\_early\_khz}}
+\index{tsc\_early\_khz@{tsc\_early\_khz}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_early\_khz}{tsc\_early\_khz}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} tsc\+\_\+early\+\_\+khz\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tsc_8c_ad0e7dd2084e2b8b5613cc214804829a1}\label{tsc_8c_ad0e7dd2084e2b8b5613cc214804829a1}} 
+\index{tsc.c@{tsc.c}!tsc\_khz@{tsc\_khz}}
+\index{tsc\_khz@{tsc\_khz}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_khz}{tsc\_khz}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} tsc\+\_\+khz}
+
+\mbox{\Hypertarget{tsc_8c_afc2d46489895b9a2d8d8e15e3237e9b7}\label{tsc_8c_afc2d46489895b9a2d8d8e15e3237e9b7}} 
+\index{tsc.c@{tsc.c}!tsc\_unstable@{tsc\_unstable}}
+\index{tsc\_unstable@{tsc\_unstable}!tsc.c@{tsc.c}}
+\doxysubsubsection{\texorpdfstring{tsc\_unstable}{tsc\_unstable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} tsc\+\_\+unstable\hspace{0.3cm}{\ttfamily [static]}}
+

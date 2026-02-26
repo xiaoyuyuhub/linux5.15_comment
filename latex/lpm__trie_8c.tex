@@ -1,0 +1,258 @@
+\hypertarget{lpm__trie_8c}{}\doxysection{kernel/bpf/lpm\+\_\+trie.c File Reference}
+\label{lpm__trie_8c}\index{kernel/bpf/lpm\_trie.c@{kernel/bpf/lpm\_trie.c}}
+{\ttfamily \#include $<$linux/bpf.\+h$>$}\newline
+{\ttfamily \#include $<$linux/btf.\+h$>$}\newline
+{\ttfamily \#include $<$linux/err.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$net/ipv6.\+h$>$}\newline
+{\ttfamily \#include $<$uapi/linux/btf.\+h$>$}\newline
+Include dependency graph for lpm\+\_\+trie.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structlpm__trie__node}{lpm\+\_\+trie\+\_\+node}}
+\item 
+struct \mbox{\hyperlink{structlpm__trie}{lpm\+\_\+trie}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_ab70e73b16db9c3c8c08444ce32c5fb4e}{L\+P\+M\+\_\+\+T\+R\+E\+E\+\_\+\+N\+O\+D\+E\+\_\+\+F\+L\+A\+G\+\_\+\+IM}}~\mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{B\+IT}}(0)
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_a6d3179fe0d51fe4e5c9db9803f045b75}{L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX}}~256
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_a64759b334820279e1df1d94dde4092dc}{L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN}}~1
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_acd7a5b17862c52069e09bf4f07d3cd3c}{L\+P\+M\+\_\+\+V\+A\+L\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX}}
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_ab1dc8998838196b6c7b8ccafef846cfe}{L\+P\+M\+\_\+\+V\+A\+L\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN}}~1
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_a6a1b7903f37c657a03d6fa5e1501cc14}{L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+ZE}}(X)~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structbpf__lpm__trie__key}{bpf\+\_\+lpm\+\_\+trie\+\_\+key}}) + (X))
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_a5d638405cf27de09c36ff04a2dca463a}{L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX}}~\mbox{\hyperlink{lpm__trie_8c_a6a1b7903f37c657a03d6fa5e1501cc14}{L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{lpm__trie_8c_a6d3179fe0d51fe4e5c9db9803f045b75}{L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX}})
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_a877bf4397b6abe0e107d0fed3c507070}{L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN}}~\mbox{\hyperlink{lpm__trie_8c_a6a1b7903f37c657a03d6fa5e1501cc14}{L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{lpm__trie_8c_a64759b334820279e1df1d94dde4092dc}{L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN}})
+\item 
+\#define \mbox{\hyperlink{lpm__trie_8c_a01aaa5705277480243f56126a570d6da}{L\+P\+M\+\_\+\+C\+R\+E\+A\+T\+E\+\_\+\+F\+L\+A\+G\+\_\+\+M\+A\+SK}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lpm__trie_8c_a0893ae13820cde1c96a7687dd90a1745}{extract\+\_\+bit}} (const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{lpm__trie_8c_ad223a6c8f167e3cb6158ae43841b1213}{longest\+\_\+prefix\+\_\+match}} (const struct \mbox{\hyperlink{structlpm__trie}{lpm\+\_\+trie}} $\ast$trie, const struct \mbox{\hyperlink{structlpm__trie__node}{lpm\+\_\+trie\+\_\+node}} $\ast$\mbox{\hyperlink{structnode}{node}}, const struct \mbox{\hyperlink{structbpf__lpm__trie__key}{bpf\+\_\+lpm\+\_\+trie\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+static void $\ast$ \mbox{\hyperlink{lpm__trie_8c_a6c852bf22df255590483bc2e1daf0703}{trie\+\_\+lookup\+\_\+elem}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\+\_\+key)
+\item 
+static struct \mbox{\hyperlink{structlpm__trie__node}{lpm\+\_\+trie\+\_\+node}} $\ast$ \mbox{\hyperlink{lpm__trie_8c_a17be3addc65ba6e467dd56f1e4610a0c}{lpm\+\_\+trie\+\_\+node\+\_\+alloc}} (const struct \mbox{\hyperlink{structlpm__trie}{lpm\+\_\+trie}} $\ast$trie, const void $\ast$\mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lpm__trie_8c_ad7e84b449ef01da54a7f748846eb4c29}{trie\+\_\+update\+\_\+elem}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\+\_\+key, void $\ast$\mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lpm__trie_8c_a79db664fdb7ddee273e39bc66caca9e5}{trie\+\_\+delete\+\_\+elem}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\+\_\+key)
+\item 
+static struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$ \mbox{\hyperlink{lpm__trie_8c_af257fe3be0c31e8d57f1716cb5d69335}{trie\+\_\+alloc}} (union \mbox{\hyperlink{unionbpf__attr}{bpf\+\_\+attr}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}})
+\item 
+static void \mbox{\hyperlink{lpm__trie_8c_ae5d26ea6681a962342fa6d268aedfd1c}{trie\+\_\+free}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lpm__trie_8c_a6fff0467b99a34ce5c67ba7f9f406482}{trie\+\_\+get\+\_\+next\+\_\+key}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\+\_\+key, void $\ast$\+\_\+next\+\_\+key)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lpm__trie_8c_a218d5b6971a99ce67c112ac4baaf9203}{trie\+\_\+check\+\_\+btf}} (const struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, const struct \mbox{\hyperlink{structbtf}{btf}} $\ast$\mbox{\hyperlink{structbtf}{btf}}, const struct \mbox{\hyperlink{structbtf__type}{btf\+\_\+type}} $\ast$key\+\_\+type, const struct \mbox{\hyperlink{structbtf__type}{btf\+\_\+type}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a284bbd728be67c380ef83a70efc815d6}{value\+\_\+type}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lpm__trie_8c_a9db56f04bcb4142534112a61b19384ff}{trie\+\_\+map\+\_\+btf\+\_\+id}}
+\item 
+const struct \mbox{\hyperlink{structbpf__map__ops}{bpf\+\_\+map\+\_\+ops}} \mbox{\hyperlink{lpm__trie_8c_a228b813a2ac609ca8570132e88d87572}{trie\+\_\+map\+\_\+ops}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{lpm__trie_8c_a01aaa5705277480243f56126a570d6da}\label{lpm__trie_8c_a01aaa5705277480243f56126a570d6da}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_CREATE\_FLAG\_MASK@{LPM\_CREATE\_FLAG\_MASK}}
+\index{LPM\_CREATE\_FLAG\_MASK@{LPM\_CREATE\_FLAG\_MASK}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_CREATE\_FLAG\_MASK}{LPM\_CREATE\_FLAG\_MASK}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+C\+R\+E\+A\+T\+E\+\_\+\+F\+L\+A\+G\+\_\+\+M\+A\+SK}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                 (\mbox{\hyperlink{uapi_2linux_2bpf_8h_afce6c77a80cdd1d483218ad70e7a534cad0f5772df0b1f3a617741b1263e7a508}{BPF\_F\_NO\_PREALLOC}} | \mbox{\hyperlink{uapi_2linux_2bpf_8h_afce6c77a80cdd1d483218ad70e7a534cacb8403c5af59302abf7241a8b1666b8b}{BPF\_F\_NUMA\_NODE}} | \(\backslash\)}
+\DoxyCodeLine{                 BPF\_F\_ACCESS\_MASK)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{lpm__trie_8c_a6d3179fe0d51fe4e5c9db9803f045b75}\label{lpm__trie_8c_a6d3179fe0d51fe4e5c9db9803f045b75}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_DATA\_SIZE\_MAX@{LPM\_DATA\_SIZE\_MAX}}
+\index{LPM\_DATA\_SIZE\_MAX@{LPM\_DATA\_SIZE\_MAX}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_DATA\_SIZE\_MAX}{LPM\_DATA\_SIZE\_MAX}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX~256}
+
+\mbox{\Hypertarget{lpm__trie_8c_a64759b334820279e1df1d94dde4092dc}\label{lpm__trie_8c_a64759b334820279e1df1d94dde4092dc}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_DATA\_SIZE\_MIN@{LPM\_DATA\_SIZE\_MIN}}
+\index{LPM\_DATA\_SIZE\_MIN@{LPM\_DATA\_SIZE\_MIN}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_DATA\_SIZE\_MIN}{LPM\_DATA\_SIZE\_MIN}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN~1}
+
+\mbox{\Hypertarget{lpm__trie_8c_a6a1b7903f37c657a03d6fa5e1501cc14}\label{lpm__trie_8c_a6a1b7903f37c657a03d6fa5e1501cc14}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_KEY\_SIZE@{LPM\_KEY\_SIZE}}
+\index{LPM\_KEY\_SIZE@{LPM\_KEY\_SIZE}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_KEY\_SIZE}{LPM\_KEY\_SIZE}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+ZE(\begin{DoxyParamCaption}\item[{}]{X }\end{DoxyParamCaption})~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structbpf__lpm__trie__key}{bpf\+\_\+lpm\+\_\+trie\+\_\+key}}) + (X))}
+
+\mbox{\Hypertarget{lpm__trie_8c_a5d638405cf27de09c36ff04a2dca463a}\label{lpm__trie_8c_a5d638405cf27de09c36ff04a2dca463a}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_KEY\_SIZE\_MAX@{LPM\_KEY\_SIZE\_MAX}}
+\index{LPM\_KEY\_SIZE\_MAX@{LPM\_KEY\_SIZE\_MAX}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_KEY\_SIZE\_MAX}{LPM\_KEY\_SIZE\_MAX}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX~\mbox{\hyperlink{lpm__trie_8c_a6a1b7903f37c657a03d6fa5e1501cc14}{L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{lpm__trie_8c_a6d3179fe0d51fe4e5c9db9803f045b75}{L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX}})}
+
+\mbox{\Hypertarget{lpm__trie_8c_a877bf4397b6abe0e107d0fed3c507070}\label{lpm__trie_8c_a877bf4397b6abe0e107d0fed3c507070}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_KEY\_SIZE\_MIN@{LPM\_KEY\_SIZE\_MIN}}
+\index{LPM\_KEY\_SIZE\_MIN@{LPM\_KEY\_SIZE\_MIN}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_KEY\_SIZE\_MIN}{LPM\_KEY\_SIZE\_MIN}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN~\mbox{\hyperlink{lpm__trie_8c_a6a1b7903f37c657a03d6fa5e1501cc14}{L\+P\+M\+\_\+\+K\+E\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{lpm__trie_8c_a64759b334820279e1df1d94dde4092dc}{L\+P\+M\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN}})}
+
+\mbox{\Hypertarget{lpm__trie_8c_ab70e73b16db9c3c8c08444ce32c5fb4e}\label{lpm__trie_8c_ab70e73b16db9c3c8c08444ce32c5fb4e}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_TREE\_NODE\_FLAG\_IM@{LPM\_TREE\_NODE\_FLAG\_IM}}
+\index{LPM\_TREE\_NODE\_FLAG\_IM@{LPM\_TREE\_NODE\_FLAG\_IM}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_TREE\_NODE\_FLAG\_IM}{LPM\_TREE\_NODE\_FLAG\_IM}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+T\+R\+E\+E\+\_\+\+N\+O\+D\+E\+\_\+\+F\+L\+A\+G\+\_\+\+IM~\mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{B\+IT}}(0)}
+
+\mbox{\Hypertarget{lpm__trie_8c_acd7a5b17862c52069e09bf4f07d3cd3c}\label{lpm__trie_8c_acd7a5b17862c52069e09bf4f07d3cd3c}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_VAL\_SIZE\_MAX@{LPM\_VAL\_SIZE\_MAX}}
+\index{LPM\_VAL\_SIZE\_MAX@{LPM\_VAL\_SIZE\_MAX}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_VAL\_SIZE\_MAX}{LPM\_VAL\_SIZE\_MAX}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+V\+A\+L\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+AX}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                 (\mbox{\hyperlink{include_2linux_2slab_8h_acb33aba72b61bb7975b94af42bf15a64}{KMALLOC\_MAX\_SIZE}} -\/ \mbox{\hyperlink{lpm__trie_8c_a6d3179fe0d51fe4e5c9db9803f045b75}{LPM\_DATA\_SIZE\_MAX}} -\/ \(\backslash\)}
+\DoxyCodeLine{                 sizeof(\textcolor{keyword}{struct} \mbox{\hyperlink{structlpm__trie__node}{lpm\_trie\_node}}))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{lpm__trie_8c_ab1dc8998838196b6c7b8ccafef846cfe}\label{lpm__trie_8c_ab1dc8998838196b6c7b8ccafef846cfe}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!LPM\_VAL\_SIZE\_MIN@{LPM\_VAL\_SIZE\_MIN}}
+\index{LPM\_VAL\_SIZE\_MIN@{LPM\_VAL\_SIZE\_MIN}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{LPM\_VAL\_SIZE\_MIN}{LPM\_VAL\_SIZE\_MIN}}
+{\footnotesize\ttfamily \#define L\+P\+M\+\_\+\+V\+A\+L\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+IN~1}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{lpm__trie_8c_a0893ae13820cde1c96a7687dd90a1745}\label{lpm__trie_8c_a0893ae13820cde1c96a7687dd90a1745}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!extract\_bit@{extract\_bit}}
+\index{extract\_bit@{extract\_bit}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{extract\_bit()}{extract\_bit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} extract\+\_\+bit (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{data,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{index }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{lpm__trie_8c_ad223a6c8f167e3cb6158ae43841b1213}\label{lpm__trie_8c_ad223a6c8f167e3cb6158ae43841b1213}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!longest\_prefix\_match@{longest\_prefix\_match}}
+\index{longest\_prefix\_match@{longest\_prefix\_match}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{longest\_prefix\_match()}{longest\_prefix\_match()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} longest\+\_\+prefix\+\_\+match (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structlpm__trie}{lpm\+\_\+trie}} $\ast$}]{trie,  }\item[{const struct \mbox{\hyperlink{structlpm__trie__node}{lpm\+\_\+trie\+\_\+node}} $\ast$}]{node,  }\item[{const struct \mbox{\hyperlink{structbpf__lpm__trie__key}{bpf\+\_\+lpm\+\_\+trie\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{lpm__trie_8c_ad223a6c8f167e3cb6158ae43841b1213}{longest\+\_\+prefix\+\_\+match()}} -\/ determine the longest prefix @trie\+: \mbox{\hyperlink{classThe}{The}} trie to get internal sizes from @node\+: \mbox{\hyperlink{classThe}{The}} node to operate on @key\+: \mbox{\hyperlink{classThe}{The}} key to compare to @node
+
+Determine the longest prefix of @node that matches the bits in @key. Here is the call graph for this function\+:
+% FIG 2
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{lpm__trie_8c_a17be3addc65ba6e467dd56f1e4610a0c}\label{lpm__trie_8c_a17be3addc65ba6e467dd56f1e4610a0c}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!lpm\_trie\_node\_alloc@{lpm\_trie\_node\_alloc}}
+\index{lpm\_trie\_node\_alloc@{lpm\_trie\_node\_alloc}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{lpm\_trie\_node\_alloc()}{lpm\_trie\_node\_alloc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structlpm__trie__node}{lpm\+\_\+trie\+\_\+node}}$\ast$ lpm\+\_\+trie\+\_\+node\+\_\+alloc (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structlpm__trie}{lpm\+\_\+trie}} $\ast$}]{trie,  }\item[{const void $\ast$}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{lpm__trie_8c_af257fe3be0c31e8d57f1716cb5d69335}\label{lpm__trie_8c_af257fe3be0c31e8d57f1716cb5d69335}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_alloc@{trie\_alloc}}
+\index{trie\_alloc@{trie\_alloc}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_alloc()}{trie\_alloc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}}$\ast$ trie\+\_\+alloc (\begin{DoxyParamCaption}\item[{union \mbox{\hyperlink{unionbpf__attr}{bpf\+\_\+attr}} $\ast$}]{attr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{lpm__trie_8c_a218d5b6971a99ce67c112ac4baaf9203}\label{lpm__trie_8c_a218d5b6971a99ce67c112ac4baaf9203}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_check\_btf@{trie\_check\_btf}}
+\index{trie\_check\_btf@{trie\_check\_btf}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_check\_btf()}{trie\_check\_btf()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trie\+\_\+check\+\_\+btf (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{const struct \mbox{\hyperlink{structbtf}{btf}} $\ast$}]{btf,  }\item[{const struct \mbox{\hyperlink{structbtf__type}{btf\+\_\+type}} $\ast$}]{key\+\_\+type,  }\item[{const struct \mbox{\hyperlink{structbtf__type}{btf\+\_\+type}} $\ast$}]{value\+\_\+type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lpm__trie_8c_a79db664fdb7ddee273e39bc66caca9e5}\label{lpm__trie_8c_a79db664fdb7ddee273e39bc66caca9e5}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_delete\_elem@{trie\_delete\_elem}}
+\index{trie\_delete\_elem@{trie\_delete\_elem}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_delete\_elem()}{trie\_delete\_elem()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trie\+\_\+delete\+\_\+elem (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{\+\_\+key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{lpm__trie_8c_ae5d26ea6681a962342fa6d268aedfd1c}\label{lpm__trie_8c_ae5d26ea6681a962342fa6d268aedfd1c}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_free@{trie\_free}}
+\index{trie\_free@{trie\_free}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_free()}{trie\_free()}}
+{\footnotesize\ttfamily static void trie\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{lpm__trie_8c_a6fff0467b99a34ce5c67ba7f9f406482}\label{lpm__trie_8c_a6fff0467b99a34ce5c67ba7f9f406482}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_get\_next\_key@{trie\_get\_next\_key}}
+\index{trie\_get\_next\_key@{trie\_get\_next\_key}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_get\_next\_key()}{trie\_get\_next\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trie\+\_\+get\+\_\+next\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{\+\_\+key,  }\item[{void $\ast$}]{\+\_\+next\+\_\+key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{lpm__trie_8c_a6c852bf22df255590483bc2e1daf0703}\label{lpm__trie_8c_a6c852bf22df255590483bc2e1daf0703}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_lookup\_elem@{trie\_lookup\_elem}}
+\index{trie\_lookup\_elem@{trie\_lookup\_elem}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_lookup\_elem()}{trie\_lookup\_elem()}}
+{\footnotesize\ttfamily static void$\ast$ trie\+\_\+lookup\+\_\+elem (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{\+\_\+key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{lpm__trie_8c_ad7e84b449ef01da54a7f748846eb4c29}\label{lpm__trie_8c_ad7e84b449ef01da54a7f748846eb4c29}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_update\_elem@{trie\_update\_elem}}
+\index{trie\_update\_elem@{trie\_update\_elem}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_update\_elem()}{trie\_update\_elem()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trie\+\_\+update\+\_\+elem (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{\+\_\+key,  }\item[{void $\ast$}]{value,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{lpm__trie_8c_a9db56f04bcb4142534112a61b19384ff}\label{lpm__trie_8c_a9db56f04bcb4142534112a61b19384ff}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_map\_btf\_id@{trie\_map\_btf\_id}}
+\index{trie\_map\_btf\_id@{trie\_map\_btf\_id}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_map\_btf\_id}{trie\_map\_btf\_id}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trie\+\_\+map\+\_\+btf\+\_\+id\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lpm__trie_8c_a228b813a2ac609ca8570132e88d87572}\label{lpm__trie_8c_a228b813a2ac609ca8570132e88d87572}} 
+\index{lpm\_trie.c@{lpm\_trie.c}!trie\_map\_ops@{trie\_map\_ops}}
+\index{trie\_map\_ops@{trie\_map\_ops}!lpm\_trie.c@{lpm\_trie.c}}
+\doxysubsubsection{\texorpdfstring{trie\_map\_ops}{trie\_map\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structbpf__map__ops}{bpf\+\_\+map\+\_\+ops}} trie\+\_\+map\+\_\+ops}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .map\_meta\_equal = \mbox{\hyperlink{map__in__map_8c_accd183e347d9122f8e60ed918e2afc43}{bpf\_map\_meta\_equal}},}
+\DoxyCodeLine{    .map\_alloc = \mbox{\hyperlink{lpm__trie_8c_af257fe3be0c31e8d57f1716cb5d69335}{trie\_alloc}},}
+\DoxyCodeLine{    .map\_free = \mbox{\hyperlink{lpm__trie_8c_ae5d26ea6681a962342fa6d268aedfd1c}{trie\_free}},}
+\DoxyCodeLine{    .map\_get\_next\_key = \mbox{\hyperlink{lpm__trie_8c_a6fff0467b99a34ce5c67ba7f9f406482}{trie\_get\_next\_key}},}
+\DoxyCodeLine{    .map\_lookup\_elem = \mbox{\hyperlink{lpm__trie_8c_a6c852bf22df255590483bc2e1daf0703}{trie\_lookup\_elem}},}
+\DoxyCodeLine{    .map\_update\_elem = \mbox{\hyperlink{lpm__trie_8c_ad7e84b449ef01da54a7f748846eb4c29}{trie\_update\_elem}},}
+\DoxyCodeLine{    .map\_delete\_elem = \mbox{\hyperlink{lpm__trie_8c_a79db664fdb7ddee273e39bc66caca9e5}{trie\_delete\_elem}},}
+\DoxyCodeLine{    .map\_lookup\_batch = \mbox{\hyperlink{kernel_2bpf_2syscall_8c_a0e668334aad4f029ff0e8b93859f3ba9}{generic\_map\_lookup\_batch}},}
+\DoxyCodeLine{    .map\_update\_batch = \mbox{\hyperlink{kernel_2bpf_2syscall_8c_a0085e4d48f08598e4440117308af2a04}{generic\_map\_update\_batch}},}
+\DoxyCodeLine{    .map\_delete\_batch = \mbox{\hyperlink{kernel_2bpf_2syscall_8c_a2a56b6d988390efa360c79ea59ecbce4}{generic\_map\_delete\_batch}},}
+\DoxyCodeLine{    .map\_check\_btf = \mbox{\hyperlink{lpm__trie_8c_a218d5b6971a99ce67c112ac4baaf9203}{trie\_check\_btf}},}
+\DoxyCodeLine{    .map\_btf\_name = \textcolor{stringliteral}{"lpm\_trie"},}
+\DoxyCodeLine{    .map\_btf\_id = \&\mbox{\hyperlink{lpm__trie_8c_a9db56f04bcb4142534112a61b19384ff}{trie\_map\_btf\_id}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

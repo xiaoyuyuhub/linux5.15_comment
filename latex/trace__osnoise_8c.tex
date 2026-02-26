@@ -1,0 +1,903 @@
+\hypertarget{trace__osnoise_8c}{}\doxysection{kernel/trace/trace\+\_\+osnoise.c File Reference}
+\label{trace__osnoise_8c}\index{kernel/trace/trace\_osnoise.c@{kernel/trace/trace\_osnoise.c}}
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/tracefs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpumask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/clock.\+h$>$}\newline
+{\ttfamily \#include $<$uapi/linux/sched/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}trace.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$trace/events/irq.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/sched.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/osnoise.\+h$>$}\newline
+Include dependency graph for trace\+\_\+osnoise.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structosn__nmi}{osn\+\_\+nmi}}
+\item 
+struct \mbox{\hyperlink{structosn__irq}{osn\+\_\+irq}}
+\item 
+struct \mbox{\hyperlink{structosn__softirq}{osn\+\_\+softirq}}
+\item 
+struct \mbox{\hyperlink{structosn__thread}{osn\+\_\+thread}}
+\item 
+struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}}
+\item 
+struct \mbox{\hyperlink{structosnoise__sample}{osnoise\+\_\+sample}}
+\item 
+struct \mbox{\hyperlink{structosnoise__data}{osnoise\+\_\+data}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_a40473b47b4871fa538a0fa131f94e774}{C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}}
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_a46c1fb0f4185dc45eda625530bc0fd73}{B\+A\+N\+N\+ER}}~\char`\"{}osnoise\+: \char`\"{}
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_adaa2e642736848bf999d0c723a40737b}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+P\+E\+R\+I\+OD}}~1000000			/$\ast$ 1\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_ad73462d8699584faa1a367cfd51f34b8}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+R\+U\+N\+T\+I\+ME}}~1000000			/$\ast$ 1\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_ab52c94f968de8c49a222c8dfee69db6d}{D\+E\+F\+A\+U\+L\+T\+\_\+\+T\+I\+M\+E\+R\+L\+A\+T\+\_\+\+P\+E\+R\+I\+OD}}~1000			/$\ast$ 1ms $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_a1ee4ee7f83375267eff9ecec345af7fc}{D\+E\+F\+A\+U\+L\+T\+\_\+\+T\+I\+M\+E\+R\+L\+A\+T\+\_\+\+P\+R\+IO}}~95			/$\ast$ \mbox{\hyperlink{parport__pc_8h_ac6e227d17858535b2a42689916eb6f21}{F\+I\+FO}} 95 $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_ad48b2918a1c504eec75d96f29e07be8f}{I\+R\+Q\+\_\+\+C\+O\+N\+T\+E\+XT}}~0
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_a75fdd038db87810b8297b0289230a80e}{T\+H\+R\+E\+A\+D\+\_\+\+C\+O\+N\+T\+E\+XT}}~1
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_a1ba5f6625ecf2819ce1c5fc106343950}{tlat\+\_\+var\+\_\+reset}}()~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_a79d3845db966d6c43b399322fb383077}{osnoise\+\_\+taint}}(\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_aeacce49fe465774439c44f5a684b16e4}{time\+\_\+get}}()~\mbox{\hyperlink{include_2linux_2trace__clock_8h_a77c1a0a8d484effff61cfb744e5303f8}{trace\+\_\+clock\+\_\+local}}()
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_a3f1ebf370e12c4ed9f2d57107a8db28a}{time\+\_\+to\+\_\+us}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~\mbox{\hyperlink{linux_2math64_8h_a85587a1f5a21c38ffab3532d2fa21d79}{div\+\_\+u64}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}, 1000)
+\item 
+\#define \mbox{\hyperlink{trace__osnoise_8c_ad43981a796aaf500eb45cb32a8d153a6}{time\+\_\+sub}}(a,  \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})~((a) -\/ (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}))
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{trace__osnoise_8c_a821852e8821e6ea16345525bb011c61b}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}}, per\+\_\+cpu\+\_\+osnoise\+\_\+var)
+\item 
+static struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$ \mbox{\hyperlink{trace__osnoise_8c_abe427ee4b4738de95a3557faf855ded4}{this\+\_\+cpu\+\_\+osn\+\_\+var}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_acc55e1a00c68fb1ee44c4ff196a0f545}{osn\+\_\+var\+\_\+reset}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a3e94ca292c5aef4759bf1beb8683c05f}{osn\+\_\+var\+\_\+reset\+\_\+all}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_ad316d041fb29c95c26c7c35cf5e1ff8e}{print\+\_\+osnoise\+\_\+headers}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a07e55b16f3fe56fac6841fb4d8813b47}{trace\+\_\+osnoise\+\_\+sample}} (struct \mbox{\hyperlink{structosnoise__sample}{osnoise\+\_\+sample}} $\ast$sample)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_ab3a0b28d032d347e4fcc3bb5c8e4da20}{cond\+\_\+move\+\_\+irq\+\_\+delta\+\_\+start}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uapi_2linux_2bpf_8h_ac9ebb6c89d7b76f54565a1c2435714e2}{duration}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_adfcda443fb5a368381049f5c7d19ad2a}{cond\+\_\+move\+\_\+softirq\+\_\+delta\+\_\+start}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uapi_2linux_2bpf_8h_ac9ebb6c89d7b76f54565a1c2435714e2}{duration}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a8b84cf87f959ee3063511ae65aa9f8da}{cond\+\_\+move\+\_\+thread\+\_\+delta\+\_\+start}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uapi_2linux_2bpf_8h_ac9ebb6c89d7b76f54565a1c2435714e2}{duration}})
+\item 
+static \mbox{\hyperlink{actypes_8h_a2fc89b3e9d12a5e30a335c7660459943}{s64}} \mbox{\hyperlink{trace__osnoise_8c_a8fb4ca18512047029a1fa486ce50d284}{get\+\_\+int\+\_\+safe\+\_\+duration}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$delta\+\_\+start)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{trace__osnoise_8c_ad3941550bf312776f4e8dc5256ac40a8}{set\+\_\+int\+\_\+safe\+\_\+time}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$\mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}})
+\item 
+void \mbox{\hyperlink{trace__osnoise_8c_a66229fa678f9b06b219fe1644a9426ad}{trace\+\_\+osnoise\+\_\+callback}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} enter)
+\item 
+void \mbox{\hyperlink{trace__osnoise_8c_a6f88cb305ef7c37b76f63ecbd8affb1f}{osnoise\+\_\+trace\+\_\+irq\+\_\+entry}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+void \mbox{\hyperlink{trace__osnoise_8c_a4f4a211e08d58ae88282cf4e395c2134}{osnoise\+\_\+trace\+\_\+irq\+\_\+exit}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}, const char $\ast$\mbox{\hyperlink{linux_2hid_8h_a6a2438be08bca98db53ee7abe96afc62}{desc}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a69344d010f26bccfc530fdbc130b9645}{trace\+\_\+irqentry\+\_\+callback}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, struct \mbox{\hyperlink{structirqaction}{irqaction}} $\ast$\mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_abdfd099bcb71f0efd3344dc2c3876238}{trace\+\_\+irqexit\+\_\+callback}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, struct \mbox{\hyperlink{structirqaction}{irqaction}} $\ast$\mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xz__dec__test_8c_aa53b984cbb8e149556f0e3091f6e4c89}{ret}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{trace__osnoise_8c_a76dede794f3da0271345c5e9845b9eed}{osnoise\+\_\+arch\+\_\+register}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{trace__osnoise_8c_a923d37530c83ea11cf0daa0f035607da}{osnoise\+\_\+arch\+\_\+unregister}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a4a457e39f72241990b2995d2246c80c8}{hook\+\_\+irq\+\_\+events}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_afdaf77e833546215214e62c70cc237f6}{unhook\+\_\+irq\+\_\+events}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a379bf1ff518f20530bcfe81632465d00}{trace\+\_\+softirq\+\_\+entry\+\_\+callback}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} vec\+\_\+nr)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_acefeefbf33bfb0c511cca89651bf8e9e}{trace\+\_\+softirq\+\_\+exit\+\_\+callback}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} vec\+\_\+nr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a43560e6af22b9c0bf52725e5694f581a}{hook\+\_\+softirq\+\_\+events}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_af664f0079e271383af0500fd9a36956e}{unhook\+\_\+softirq\+\_\+events}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a22087781b2519ba9045055f1acf4e826}{thread\+\_\+entry}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, struct task\+\_\+struct $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a526d0b972e3c9a883b2c7865a1c8bb9c}{thread\+\_\+exit}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, struct task\+\_\+struct $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a736f7b3f5d063b63d8f8b4fa3ec8662a}{trace\+\_\+sched\+\_\+switch\+\_\+callback}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} preempt, struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, struct task\+\_\+struct $\ast$n)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a7498fdbbf90137cb1846d90c629f5aeb}{hook\+\_\+thread\+\_\+events}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a25e6f582d19448201a0a7b00a31250a4}{unhook\+\_\+thread\+\_\+events}} (void)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a935770d1e8ca8af3759d69fa95b6154d}{save\+\_\+osn\+\_\+sample\+\_\+stats}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, struct \mbox{\hyperlink{structosnoise__sample}{osnoise\+\_\+sample}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a33d5fd14c4c3c6caf93b7a12b91e9da8}{diff\+\_\+osn\+\_\+sample\+\_\+stats}} (struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$osn\+\_\+var, struct \mbox{\hyperlink{structosnoise__sample}{osnoise\+\_\+sample}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{trace__osnoise_8c_a80a426b473cb600684f4239433e63f08}{osnoise\+\_\+stop\+\_\+tracing}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a062e9137d1d3e9a9a919bf27eebeb792}{run\+\_\+osnoise}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a3272fbd9e4c650a8684097bcb57791f9}{osnoise\+\_\+main}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a927e5e8476cea7e8fba851bcb7657901}{stop\+\_\+kthread}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a1494fd7c7d0887497e106c203aef8af3}{stop\+\_\+per\+\_\+cpu\+\_\+kthreads}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a2d49995128091524bd209284d682d98a}{start\+\_\+kthread}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a545f7250e6ac61e84304c31dc264e323}{start\+\_\+per\+\_\+cpu\+\_\+kthreads}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a027838f3edfd1717bdad0ffef37ad2bd}{osnoise\+\_\+init\+\_\+hotplug\+\_\+support}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{trace__osnoise_8c_a5b1fcd8459669dac04137c331c8c8508}{osnoise\+\_\+cpus\+\_\+read}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ubuf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}}, loff\+\_\+t $\ast$ppos)
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a33a552efa4114001d5d405d4c7dc9c69}{osnoise\+\_\+tracer\+\_\+start}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_a8ede07479aa3331f9cfb250954912d49}{osnoise\+\_\+tracer\+\_\+stop}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{trace__osnoise_8c_a5d75c82da6266b2f7adf7eef707ff100}{osnoise\+\_\+cpus\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ubuf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a9b18d1201f6ffe737c8afa79e66359b5}{init\+\_\+tracefs}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a3a5ed367a7d0a07cc300f464bb45d6a5}{osnoise\+\_\+hook\+\_\+events}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_aa9dcc4aef00204aae744bee39d16b4f6}{\+\_\+\+\_\+osnoise\+\_\+tracer\+\_\+start}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a6d7560f74709fbc531485bb5a000ae68}{osnoise\+\_\+tracer\+\_\+init}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void \mbox{\hyperlink{trace__osnoise_8c_abc857d8007bf80bec35c5003f914f68e}{osnoise\+\_\+tracer\+\_\+reset}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__osnoise_8c_a1f11e37323ba4a17e4437cc9b15d64dc}{init\+\_\+osnoise\+\_\+tracer}} (void)
+\item 
+\mbox{\hyperlink{trace__osnoise_8c_aa33f892f7ecba6ff107312a2e712bb90}{late\+\_\+initcall}} (\mbox{\hyperlink{trace__osnoise_8c_a1f11e37323ba4a17e4437cc9b15d64dc}{init\+\_\+osnoise\+\_\+tracer}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$ \mbox{\hyperlink{trace__osnoise_8c_a7ed98d4e6f9a810be5317c90a6699cef}{osnoise\+\_\+trace}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{trace__osnoise_8c_a1fae67579bff8a4c0daa1a25aa4112b2}{trace\+\_\+osnoise\+\_\+callback\+\_\+enabled}}
+\item 
+struct \mbox{\hyperlink{structmutex}{mutex}} \mbox{\hyperlink{trace__osnoise_8c_af669595eff4c30625a0f76c88bfe2b94}{interface\+\_\+lock}}
+\item 
+static struct \mbox{\hyperlink{structosnoise__data}{osnoise\+\_\+data}} \mbox{\hyperlink{trace__osnoise_8c_a12374abc898fa4e422aa40e10f09473d}{osnoise\+\_\+data}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{trace__osnoise_8c_a4af7835e14e0d04af97e496adb68eda7}{osnoise\+\_\+busy}}
+\item 
+static struct \mbox{\hyperlink{structcpumask}{cpumask}} \mbox{\hyperlink{trace__osnoise_8c_acfca3527ac9acb19fd9c6e6b30e244f8}{osnoise\+\_\+cpumask}}
+\item 
+static struct \mbox{\hyperlink{structcpumask}{cpumask}} \mbox{\hyperlink{trace__osnoise_8c_a42906161774060aac85158e1fa2e7dff}{save\+\_\+cpumask}}
+\item 
+static struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} \mbox{\hyperlink{trace__osnoise_8c_aed139c50aa9ece40c5ebced6c443303e}{osnoise\+\_\+runtime}}
+\item 
+static struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} \mbox{\hyperlink{trace__osnoise_8c_ab43f07e9bb2e0e33b6260d566da4572b}{osnoise\+\_\+period}}
+\item 
+static struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} \mbox{\hyperlink{trace__osnoise_8c_aebf4e27f7073a3049056c75270ee2476}{osnoise\+\_\+stop\+\_\+tracing\+\_\+in}}
+\item 
+static struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} \mbox{\hyperlink{trace__osnoise_8c_a543e8aa2c3e0ea9e9284fff192d12356}{osnoise\+\_\+stop\+\_\+tracing\+\_\+total}}
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{trace__osnoise_8c_a277cc6219bdc0802675aec1c0592dc04}{cpus\+\_\+fops}}
+\item 
+static struct \mbox{\hyperlink{structtracer}{tracer}} osnoise\+\_\+tracer \mbox{\hyperlink{trace__osnoise_8c_adde44c43e5aefa10e6f6928a28becce1}{\+\_\+\+\_\+read\+\_\+mostly}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{trace__osnoise_8c_a46c1fb0f4185dc45eda625530bc0fd73}\label{trace__osnoise_8c_a46c1fb0f4185dc45eda625530bc0fd73}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!BANNER@{BANNER}}
+\index{BANNER@{BANNER}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{BANNER}{BANNER}}
+{\footnotesize\ttfamily \#define B\+A\+N\+N\+ER~\char`\"{}osnoise\+: \char`\"{}}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a40473b47b4871fa538a0fa131f94e774}\label{trace__osnoise_8c_a40473b47b4871fa538a0fa131f94e774}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}}
+\index{CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{CREATE\_TRACE\_POINTS}{CREATE\_TRACE\_POINTS}}
+{\footnotesize\ttfamily \#define C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}
+
+\mbox{\Hypertarget{trace__osnoise_8c_adaa2e642736848bf999d0c723a40737b}\label{trace__osnoise_8c_adaa2e642736848bf999d0c723a40737b}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!DEFAULT\_SAMPLE\_PERIOD@{DEFAULT\_SAMPLE\_PERIOD}}
+\index{DEFAULT\_SAMPLE\_PERIOD@{DEFAULT\_SAMPLE\_PERIOD}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_SAMPLE\_PERIOD}{DEFAULT\_SAMPLE\_PERIOD}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+P\+E\+R\+I\+OD~1000000			/$\ast$ 1\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/}
+
+\mbox{\Hypertarget{trace__osnoise_8c_ad73462d8699584faa1a367cfd51f34b8}\label{trace__osnoise_8c_ad73462d8699584faa1a367cfd51f34b8}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!DEFAULT\_SAMPLE\_RUNTIME@{DEFAULT\_SAMPLE\_RUNTIME}}
+\index{DEFAULT\_SAMPLE\_RUNTIME@{DEFAULT\_SAMPLE\_RUNTIME}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_SAMPLE\_RUNTIME}{DEFAULT\_SAMPLE\_RUNTIME}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+R\+U\+N\+T\+I\+ME~1000000			/$\ast$ 1\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/}
+
+\mbox{\Hypertarget{trace__osnoise_8c_ab52c94f968de8c49a222c8dfee69db6d}\label{trace__osnoise_8c_ab52c94f968de8c49a222c8dfee69db6d}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!DEFAULT\_TIMERLAT\_PERIOD@{DEFAULT\_TIMERLAT\_PERIOD}}
+\index{DEFAULT\_TIMERLAT\_PERIOD@{DEFAULT\_TIMERLAT\_PERIOD}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_TIMERLAT\_PERIOD}{DEFAULT\_TIMERLAT\_PERIOD}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+T\+I\+M\+E\+R\+L\+A\+T\+\_\+\+P\+E\+R\+I\+OD~1000			/$\ast$ 1ms $\ast$/}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a1ee4ee7f83375267eff9ecec345af7fc}\label{trace__osnoise_8c_a1ee4ee7f83375267eff9ecec345af7fc}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!DEFAULT\_TIMERLAT\_PRIO@{DEFAULT\_TIMERLAT\_PRIO}}
+\index{DEFAULT\_TIMERLAT\_PRIO@{DEFAULT\_TIMERLAT\_PRIO}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_TIMERLAT\_PRIO}{DEFAULT\_TIMERLAT\_PRIO}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+T\+I\+M\+E\+R\+L\+A\+T\+\_\+\+P\+R\+IO~95			/$\ast$ \mbox{\hyperlink{parport__pc_8h_ac6e227d17858535b2a42689916eb6f21}{F\+I\+FO}} 95 $\ast$/}
+
+\mbox{\Hypertarget{trace__osnoise_8c_ad48b2918a1c504eec75d96f29e07be8f}\label{trace__osnoise_8c_ad48b2918a1c504eec75d96f29e07be8f}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!IRQ\_CONTEXT@{IRQ\_CONTEXT}}
+\index{IRQ\_CONTEXT@{IRQ\_CONTEXT}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{IRQ\_CONTEXT}{IRQ\_CONTEXT}}
+{\footnotesize\ttfamily \#define I\+R\+Q\+\_\+\+C\+O\+N\+T\+E\+XT~0}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a79d3845db966d6c43b399322fb383077}\label{trace__osnoise_8c_a79d3845db966d6c43b399322fb383077}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_taint@{osnoise\_taint}}
+\index{osnoise\_taint@{osnoise\_taint}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_taint}{osnoise\_taint}}
+{\footnotesize\ttfamily \#define osnoise\+\_\+taint(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (\{                          \(\backslash\)}
+\DoxyCodeLine{    struct \mbox{\hyperlink{structtrace__array}{trace\_array}} *\mbox{\hyperlink{suspend__32_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}} = \mbox{\hyperlink{trace__osnoise_8c_a7ed98d4e6f9a810be5317c90a6699cef}{osnoise\_trace}};                   \mbox{\hyperlink{kernel_2trace_2trace_8h_ad918aa5058d0e293fe20d3cd5afe212d}{\(\backslash\)}}}
+\DoxyCodeLine{\mbox{\hyperlink{kernel_2trace_2trace_8h_ad918aa5058d0e293fe20d3cd5afe212d}{                                        \(\backslash\)}}}
+\DoxyCodeLine{\mbox{\hyperlink{kernel_2trace_2trace_8h_ad918aa5058d0e293fe20d3cd5afe212d}{    trace\_array\_printk\_buf}}(\mbox{\hyperlink{suspend__32_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}-\/>array\_buffer.buffer, \mbox{\hyperlink{linux_2kernel_8h_af616ccdf3fe00099a9ee721efdf8d4d5}{\_THIS\_IP\_}}, \mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}});   \(\backslash\)}
+\DoxyCodeLine{    osnoise\_data.tainted = \textcolor{keyword}{true};                        \(\backslash\)}
+\DoxyCodeLine{\})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_a75fdd038db87810b8297b0289230a80e}\label{trace__osnoise_8c_a75fdd038db87810b8297b0289230a80e}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!THREAD\_CONTEXT@{THREAD\_CONTEXT}}
+\index{THREAD\_CONTEXT@{THREAD\_CONTEXT}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{THREAD\_CONTEXT}{THREAD\_CONTEXT}}
+{\footnotesize\ttfamily \#define T\+H\+R\+E\+A\+D\+\_\+\+C\+O\+N\+T\+E\+XT~1}
+
+\mbox{\Hypertarget{trace__osnoise_8c_aeacce49fe465774439c44f5a684b16e4}\label{trace__osnoise_8c_aeacce49fe465774439c44f5a684b16e4}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!time\_get@{time\_get}}
+\index{time\_get@{time\_get}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{time\_get}{time\_get}}
+{\footnotesize\ttfamily \#define time\+\_\+get(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~\mbox{\hyperlink{include_2linux_2trace__clock_8h_a77c1a0a8d484effff61cfb744e5303f8}{trace\+\_\+clock\+\_\+local}}()}
+
+\mbox{\Hypertarget{trace__osnoise_8c_ad43981a796aaf500eb45cb32a8d153a6}\label{trace__osnoise_8c_ad43981a796aaf500eb45cb32a8d153a6}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!time\_sub@{time\_sub}}
+\index{time\_sub@{time\_sub}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{time\_sub}{time\_sub}}
+{\footnotesize\ttfamily \#define time\+\_\+sub(\begin{DoxyParamCaption}\item[{}]{a,  }\item[{}]{\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}} }\end{DoxyParamCaption})~((a) -\/ (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}))}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a3f1ebf370e12c4ed9f2d57107a8db28a}\label{trace__osnoise_8c_a3f1ebf370e12c4ed9f2d57107a8db28a}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!time\_to\_us@{time\_to\_us}}
+\index{time\_to\_us@{time\_to\_us}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{time\_to\_us}{time\_to\_us}}
+{\footnotesize\ttfamily \#define time\+\_\+to\+\_\+us(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~\mbox{\hyperlink{linux_2math64_8h_a85587a1f5a21c38ffab3532d2fa21d79}{div\+\_\+u64}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}, 1000)}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a1ba5f6625ecf2819ce1c5fc106343950}\label{trace__osnoise_8c_a1ba5f6625ecf2819ce1c5fc106343950}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!tlat\_var\_reset@{tlat\_var\_reset}}
+\index{tlat\_var\_reset@{tlat\_var\_reset}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{tlat\_var\_reset}{tlat\_var\_reset}}
+{\footnotesize\ttfamily \#define tlat\+\_\+var\+\_\+reset(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{trace__osnoise_8c_aa9dcc4aef00204aae744bee39d16b4f6}\label{trace__osnoise_8c_aa9dcc4aef00204aae744bee39d16b4f6}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!\_\_osnoise\_tracer\_start@{\_\_osnoise\_tracer\_start}}
+\index{\_\_osnoise\_tracer\_start@{\_\_osnoise\_tracer\_start}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{\_\_osnoise\_tracer\_start()}{\_\_osnoise\_tracer\_start()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+osnoise\+\_\+tracer\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{trace__osnoise_8c_ab3a0b28d032d347e4fcc3bb5c8e4da20}\label{trace__osnoise_8c_ab3a0b28d032d347e4fcc3bb5c8e4da20}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!cond\_move\_irq\_delta\_start@{cond\_move\_irq\_delta\_start}}
+\index{cond\_move\_irq\_delta\_start@{cond\_move\_irq\_delta\_start}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{cond\_move\_irq\_delta\_start()}{cond\_move\_irq\_delta\_start()}}
+{\footnotesize\ttfamily static void cond\+\_\+move\+\_\+irq\+\_\+delta\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{duration }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{trace__osnoise_8c_adfcda443fb5a368381049f5c7d19ad2a}\label{trace__osnoise_8c_adfcda443fb5a368381049f5c7d19ad2a}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!cond\_move\_softirq\_delta\_start@{cond\_move\_softirq\_delta\_start}}
+\index{cond\_move\_softirq\_delta\_start@{cond\_move\_softirq\_delta\_start}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{cond\_move\_softirq\_delta\_start()}{cond\_move\_softirq\_delta\_start()}}
+{\footnotesize\ttfamily static void cond\+\_\+move\+\_\+softirq\+\_\+delta\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{duration }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{trace__osnoise_8c_a8b84cf87f959ee3063511ae65aa9f8da}\label{trace__osnoise_8c_a8b84cf87f959ee3063511ae65aa9f8da}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!cond\_move\_thread\_delta\_start@{cond\_move\_thread\_delta\_start}}
+\index{cond\_move\_thread\_delta\_start@{cond\_move\_thread\_delta\_start}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{cond\_move\_thread\_delta\_start()}{cond\_move\_thread\_delta\_start()}}
+{\footnotesize\ttfamily static void cond\+\_\+move\+\_\+thread\+\_\+delta\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{duration }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{trace__osnoise_8c_a821852e8821e6ea16345525bb011c61b}\label{trace__osnoise_8c_a821852e8821e6ea16345525bb011c61b}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}}}]{,  }\item[{per\+\_\+cpu\+\_\+osnoise\+\_\+var}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a33d5fd14c4c3c6caf93b7a12b91e9da8}\label{trace__osnoise_8c_a33d5fd14c4c3c6caf93b7a12b91e9da8}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!diff\_osn\_sample\_stats@{diff\_osn\_sample\_stats}}
+\index{diff\_osn\_sample\_stats@{diff\_osn\_sample\_stats}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{diff\_osn\_sample\_stats()}{diff\_osn\_sample\_stats()}}
+{\footnotesize\ttfamily static void diff\+\_\+osn\+\_\+sample\+\_\+stats (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{struct \mbox{\hyperlink{structosnoise__sample}{osnoise\+\_\+sample}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{trace__osnoise_8c_a8fb4ca18512047029a1fa486ce50d284}\label{trace__osnoise_8c_a8fb4ca18512047029a1fa486ce50d284}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!get\_int\_safe\_duration@{get\_int\_safe\_duration}}
+\index{get\_int\_safe\_duration@{get\_int\_safe\_duration}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{get\_int\_safe\_duration()}{get\_int\_safe\_duration()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_a2fc89b3e9d12a5e30a335c7660459943}{s64}} get\+\_\+int\+\_\+safe\+\_\+duration (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{delta\+\_\+start }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{trace__osnoise_8c_a4a457e39f72241990b2995d2246c80c8}\label{trace__osnoise_8c_a4a457e39f72241990b2995d2246c80c8}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!hook\_irq\_events@{hook\_irq\_events}}
+\index{hook\_irq\_events@{hook\_irq\_events}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{hook\_irq\_events()}{hook\_irq\_events()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hook\+\_\+irq\+\_\+events (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{trace__osnoise_8c_a43560e6af22b9c0bf52725e5694f581a}\label{trace__osnoise_8c_a43560e6af22b9c0bf52725e5694f581a}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!hook\_softirq\_events@{hook\_softirq\_events}}
+\index{hook\_softirq\_events@{hook\_softirq\_events}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{hook\_softirq\_events()}{hook\_softirq\_events()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hook\+\_\+softirq\+\_\+events (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{trace__osnoise_8c_a7498fdbbf90137cb1846d90c629f5aeb}\label{trace__osnoise_8c_a7498fdbbf90137cb1846d90c629f5aeb}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!hook\_thread\_events@{hook\_thread\_events}}
+\index{hook\_thread\_events@{hook\_thread\_events}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{hook\_thread\_events()}{hook\_thread\_events()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hook\+\_\+thread\+\_\+events (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{trace__osnoise_8c_a1f11e37323ba4a17e4437cc9b15d64dc}\label{trace__osnoise_8c_a1f11e37323ba4a17e4437cc9b15d64dc}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!init\_osnoise\_tracer@{init\_osnoise\_tracer}}
+\index{init\_osnoise\_tracer@{init\_osnoise\_tracer}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{init\_osnoise\_tracer()}{init\_osnoise\_tracer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+osnoise\+\_\+tracer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{trace__osnoise_8c_a9b18d1201f6ffe737c8afa79e66359b5}\label{trace__osnoise_8c_a9b18d1201f6ffe737c8afa79e66359b5}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!init\_tracefs@{init\_tracefs}}
+\index{init\_tracefs@{init\_tracefs}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{init\_tracefs()}{init\_tracefs()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+tracefs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{trace__osnoise_8c_aa33f892f7ecba6ff107312a2e712bb90}\label{trace__osnoise_8c_aa33f892f7ecba6ff107312a2e712bb90}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!late\_initcall@{late\_initcall}}
+\index{late\_initcall@{late\_initcall}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall()}{late\_initcall()}}
+{\footnotesize\ttfamily late\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{trace__osnoise_8c_a1f11e37323ba4a17e4437cc9b15d64dc}{init\+\_\+osnoise\+\_\+tracer}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{trace__osnoise_8c_acc55e1a00c68fb1ee44c4ff196a0f545}\label{trace__osnoise_8c_acc55e1a00c68fb1ee44c4ff196a0f545}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osn\_var\_reset@{osn\_var\_reset}}
+\index{osn\_var\_reset@{osn\_var\_reset}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osn\_var\_reset()}{osn\_var\_reset()}}
+{\footnotesize\ttfamily static void osn\+\_\+var\+\_\+reset (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{trace__osnoise_8c_a3e94ca292c5aef4759bf1beb8683c05f}\label{trace__osnoise_8c_a3e94ca292c5aef4759bf1beb8683c05f}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osn\_var\_reset\_all@{osn\_var\_reset\_all}}
+\index{osn\_var\_reset\_all@{osn\_var\_reset\_all}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osn\_var\_reset\_all()}{osn\_var\_reset\_all()}}
+{\footnotesize\ttfamily static void osn\+\_\+var\+\_\+reset\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{trace__osnoise_8c_a76dede794f3da0271345c5e9845b9eed}\label{trace__osnoise_8c_a76dede794f3da0271345c5e9845b9eed}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_arch\_register@{osnoise\_arch\_register}}
+\index{osnoise\_arch\_register@{osnoise\_arch\_register}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_arch\_register()}{osnoise\_arch\_register()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} osnoise\+\_\+arch\+\_\+register (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{trace__osnoise_8c_a923d37530c83ea11cf0daa0f035607da}\label{trace__osnoise_8c_a923d37530c83ea11cf0daa0f035607da}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_arch\_unregister@{osnoise\_arch\_unregister}}
+\index{osnoise\_arch\_unregister@{osnoise\_arch\_unregister}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_arch\_unregister()}{osnoise\_arch\_unregister()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} osnoise\+\_\+arch\+\_\+unregister (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{trace__osnoise_8c_a5b1fcd8459669dac04137c331c8c8508}\label{trace__osnoise_8c_a5b1fcd8459669dac04137c331c8c8508}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_cpus\_read@{osnoise\_cpus\_read}}
+\index{osnoise\_cpus\_read@{osnoise\_cpus\_read}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_cpus\_read()}{osnoise\_cpus\_read()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} osnoise\+\_\+cpus\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ubuf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{trace__osnoise_8c_a5d75c82da6266b2f7adf7eef707ff100}\label{trace__osnoise_8c_a5d75c82da6266b2f7adf7eef707ff100}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_cpus\_write@{osnoise\_cpus\_write}}
+\index{osnoise\_cpus\_write@{osnoise\_cpus\_write}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_cpus\_write()}{osnoise\_cpus\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} osnoise\+\_\+cpus\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ubuf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{trace__osnoise_8c_a3a5ed367a7d0a07cc300f464bb45d6a5}\label{trace__osnoise_8c_a3a5ed367a7d0a07cc300f464bb45d6a5}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_hook\_events@{osnoise\_hook\_events}}
+\index{osnoise\_hook\_events@{osnoise\_hook\_events}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_hook\_events()}{osnoise\_hook\_events()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} osnoise\+\_\+hook\+\_\+events (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{trace__osnoise_8c_a027838f3edfd1717bdad0ffef37ad2bd}\label{trace__osnoise_8c_a027838f3edfd1717bdad0ffef37ad2bd}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_init\_hotplug\_support@{osnoise\_init\_hotplug\_support}}
+\index{osnoise\_init\_hotplug\_support@{osnoise\_init\_hotplug\_support}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_init\_hotplug\_support()}{osnoise\_init\_hotplug\_support()}}
+{\footnotesize\ttfamily static void osnoise\+\_\+init\+\_\+hotplug\+\_\+support (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{trace__osnoise_8c_a3272fbd9e4c650a8684097bcb57791f9}\label{trace__osnoise_8c_a3272fbd9e4c650a8684097bcb57791f9}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_main@{osnoise\_main}}
+\index{osnoise\_main@{osnoise\_main}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_main()}{osnoise\_main()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} osnoise\+\_\+main (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{trace__osnoise_8c_a80a426b473cb600684f4239433e63f08}\label{trace__osnoise_8c_a80a426b473cb600684f4239433e63f08}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_stop\_tracing@{osnoise\_stop\_tracing}}
+\index{osnoise\_stop\_tracing@{osnoise\_stop\_tracing}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_stop\_tracing()}{osnoise\_stop\_tracing()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void osnoise\+\_\+stop\+\_\+tracing (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{trace__osnoise_8c_a6f88cb305ef7c37b76f63ecbd8affb1f}\label{trace__osnoise_8c_a6f88cb305ef7c37b76f63ecbd8affb1f}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_trace\_irq\_entry@{osnoise\_trace\_irq\_entry}}
+\index{osnoise\_trace\_irq\_entry@{osnoise\_trace\_irq\_entry}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_trace\_irq\_entry()}{osnoise\_trace\_irq\_entry()}}
+{\footnotesize\ttfamily void osnoise\+\_\+trace\+\_\+irq\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{id }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{trace__osnoise_8c_a4f4a211e08d58ae88282cf4e395c2134}\label{trace__osnoise_8c_a4f4a211e08d58ae88282cf4e395c2134}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_trace\_irq\_exit@{osnoise\_trace\_irq\_exit}}
+\index{osnoise\_trace\_irq\_exit@{osnoise\_trace\_irq\_exit}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_trace\_irq\_exit()}{osnoise\_trace\_irq\_exit()}}
+{\footnotesize\ttfamily void osnoise\+\_\+trace\+\_\+irq\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{id,  }\item[{const char $\ast$}]{desc }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{trace__osnoise_8c_a6d7560f74709fbc531485bb5a000ae68}\label{trace__osnoise_8c_a6d7560f74709fbc531485bb5a000ae68}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_tracer\_init@{osnoise\_tracer\_init}}
+\index{osnoise\_tracer\_init@{osnoise\_tracer\_init}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_tracer\_init()}{osnoise\_tracer\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} osnoise\+\_\+tracer\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{trace__osnoise_8c_abc857d8007bf80bec35c5003f914f68e}\label{trace__osnoise_8c_abc857d8007bf80bec35c5003f914f68e}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_tracer\_reset@{osnoise\_tracer\_reset}}
+\index{osnoise\_tracer\_reset@{osnoise\_tracer\_reset}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_tracer\_reset()}{osnoise\_tracer\_reset()}}
+{\footnotesize\ttfamily static void osnoise\+\_\+tracer\+\_\+reset (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{trace__osnoise_8c_a33a552efa4114001d5d405d4c7dc9c69}\label{trace__osnoise_8c_a33a552efa4114001d5d405d4c7dc9c69}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_tracer\_start@{osnoise\_tracer\_start}}
+\index{osnoise\_tracer\_start@{osnoise\_tracer\_start}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_tracer\_start()}{osnoise\_tracer\_start()}}
+{\footnotesize\ttfamily static void osnoise\+\_\+tracer\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{trace__osnoise_8c_a8ede07479aa3331f9cfb250954912d49}\label{trace__osnoise_8c_a8ede07479aa3331f9cfb250954912d49}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_tracer\_stop@{osnoise\_tracer\_stop}}
+\index{osnoise\_tracer\_stop@{osnoise\_tracer\_stop}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_tracer\_stop()}{osnoise\_tracer\_stop()}}
+{\footnotesize\ttfamily static void osnoise\+\_\+tracer\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{trace__osnoise_8c_ad316d041fb29c95c26c7c35cf5e1ff8e}\label{trace__osnoise_8c_ad316d041fb29c95c26c7c35cf5e1ff8e}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!print\_osnoise\_headers@{print\_osnoise\_headers}}
+\index{print\_osnoise\_headers@{print\_osnoise\_headers}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{print\_osnoise\_headers()}{print\_osnoise\_headers()}}
+{\footnotesize\ttfamily static void print\+\_\+osnoise\+\_\+headers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{trace__osnoise_8c_a062e9137d1d3e9a9a919bf27eebeb792}\label{trace__osnoise_8c_a062e9137d1d3e9a9a919bf27eebeb792}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!run\_osnoise@{run\_osnoise}}
+\index{run\_osnoise@{run\_osnoise}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{run\_osnoise()}{run\_osnoise()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} run\+\_\+osnoise (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{trace__osnoise_8c_a935770d1e8ca8af3759d69fa95b6154d}\label{trace__osnoise_8c_a935770d1e8ca8af3759d69fa95b6154d}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!save\_osn\_sample\_stats@{save\_osn\_sample\_stats}}
+\index{save\_osn\_sample\_stats@{save\_osn\_sample\_stats}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{save\_osn\_sample\_stats()}{save\_osn\_sample\_stats()}}
+{\footnotesize\ttfamily static void save\+\_\+osn\+\_\+sample\+\_\+stats (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{struct \mbox{\hyperlink{structosnoise__sample}{osnoise\+\_\+sample}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{trace__osnoise_8c_ad3941550bf312776f4e8dc5256ac40a8}\label{trace__osnoise_8c_ad3941550bf312776f4e8dc5256ac40a8}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!set\_int\_safe\_time@{set\_int\_safe\_time}}
+\index{set\_int\_safe\_time@{set\_int\_safe\_time}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{set\_int\_safe\_time()}{set\_int\_safe\_time()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} set\+\_\+int\+\_\+safe\+\_\+time (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{time }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{trace__osnoise_8c_a2d49995128091524bd209284d682d98a}\label{trace__osnoise_8c_a2d49995128091524bd209284d682d98a}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!start\_kthread@{start\_kthread}}
+\index{start\_kthread@{start\_kthread}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{start\_kthread()}{start\_kthread()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} start\+\_\+kthread (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{trace__osnoise_8c_a545f7250e6ac61e84304c31dc264e323}\label{trace__osnoise_8c_a545f7250e6ac61e84304c31dc264e323}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!start\_per\_cpu\_kthreads@{start\_per\_cpu\_kthreads}}
+\index{start\_per\_cpu\_kthreads@{start\_per\_cpu\_kthreads}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{start\_per\_cpu\_kthreads()}{start\_per\_cpu\_kthreads()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} start\+\_\+per\+\_\+cpu\+\_\+kthreads (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{trace__osnoise_8c_a927e5e8476cea7e8fba851bcb7657901}\label{trace__osnoise_8c_a927e5e8476cea7e8fba851bcb7657901}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!stop\_kthread@{stop\_kthread}}
+\index{stop\_kthread@{stop\_kthread}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{stop\_kthread()}{stop\_kthread()}}
+{\footnotesize\ttfamily static void stop\+\_\+kthread (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{trace__osnoise_8c_a1494fd7c7d0887497e106c203aef8af3}\label{trace__osnoise_8c_a1494fd7c7d0887497e106c203aef8af3}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!stop\_per\_cpu\_kthreads@{stop\_per\_cpu\_kthreads}}
+\index{stop\_per\_cpu\_kthreads@{stop\_per\_cpu\_kthreads}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{stop\_per\_cpu\_kthreads()}{stop\_per\_cpu\_kthreads()}}
+{\footnotesize\ttfamily static void stop\+\_\+per\+\_\+cpu\+\_\+kthreads (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{trace__osnoise_8c_abe427ee4b4738de95a3557faf855ded4}\label{trace__osnoise_8c_abe427ee4b4738de95a3557faf855ded4}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!this\_cpu\_osn\_var@{this\_cpu\_osn\_var}}
+\index{this\_cpu\_osn\_var@{this\_cpu\_osn\_var}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{this\_cpu\_osn\_var()}{this\_cpu\_osn\_var()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}}$\ast$ this\+\_\+cpu\+\_\+osn\+\_\+var (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{trace__osnoise_8c_a22087781b2519ba9045055f1acf4e826}\label{trace__osnoise_8c_a22087781b2519ba9045055f1acf4e826}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!thread\_entry@{thread\_entry}}
+\index{thread\_entry@{thread\_entry}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{thread\_entry()}{thread\_entry()}}
+{\footnotesize\ttfamily static void thread\+\_\+entry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{struct task\+\_\+struct $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{trace__osnoise_8c_a526d0b972e3c9a883b2c7865a1c8bb9c}\label{trace__osnoise_8c_a526d0b972e3c9a883b2c7865a1c8bb9c}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!thread\_exit@{thread\_exit}}
+\index{thread\_exit@{thread\_exit}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{thread\_exit()}{thread\_exit()}}
+{\footnotesize\ttfamily static void thread\+\_\+exit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__variables}{osnoise\+\_\+variables}} $\ast$}]{osn\+\_\+var,  }\item[{struct task\+\_\+struct $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{trace__osnoise_8c_a69344d010f26bccfc530fdbc130b9645}\label{trace__osnoise_8c_a69344d010f26bccfc530fdbc130b9645}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_irqentry\_callback@{trace\_irqentry\_callback}}
+\index{trace\_irqentry\_callback@{trace\_irqentry\_callback}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_irqentry\_callback()}{trace\_irqentry\_callback()}}
+{\footnotesize\ttfamily static void trace\+\_\+irqentry\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{struct \mbox{\hyperlink{structirqaction}{irqaction}} $\ast$}]{action }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{trace__osnoise_8c_abdfd099bcb71f0efd3344dc2c3876238}\label{trace__osnoise_8c_abdfd099bcb71f0efd3344dc2c3876238}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_irqexit\_callback@{trace\_irqexit\_callback}}
+\index{trace\_irqexit\_callback@{trace\_irqexit\_callback}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_irqexit\_callback()}{trace\_irqexit\_callback()}}
+{\footnotesize\ttfamily static void trace\+\_\+irqexit\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{struct \mbox{\hyperlink{structirqaction}{irqaction}} $\ast$}]{action,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ret }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{trace__osnoise_8c_a66229fa678f9b06b219fe1644a9426ad}\label{trace__osnoise_8c_a66229fa678f9b06b219fe1644a9426ad}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_osnoise\_callback@{trace\_osnoise\_callback}}
+\index{trace\_osnoise\_callback@{trace\_osnoise\_callback}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_osnoise\_callback()}{trace\_osnoise\_callback()}}
+{\footnotesize\ttfamily void trace\+\_\+osnoise\+\_\+callback (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{enter }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{trace__osnoise_8c_a07e55b16f3fe56fac6841fb4d8813b47}\label{trace__osnoise_8c_a07e55b16f3fe56fac6841fb4d8813b47}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_osnoise\_sample@{trace\_osnoise\_sample}}
+\index{trace\_osnoise\_sample@{trace\_osnoise\_sample}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_osnoise\_sample()}{trace\_osnoise\_sample()}}
+{\footnotesize\ttfamily static void trace\+\_\+osnoise\+\_\+sample (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structosnoise__sample}{osnoise\+\_\+sample}} $\ast$}]{sample }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{trace__osnoise_8c_a736f7b3f5d063b63d8f8b4fa3ec8662a}\label{trace__osnoise_8c_a736f7b3f5d063b63d8f8b4fa3ec8662a}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_sched\_switch\_callback@{trace\_sched\_switch\_callback}}
+\index{trace\_sched\_switch\_callback@{trace\_sched\_switch\_callback}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_sched\_switch\_callback()}{trace\_sched\_switch\_callback()}}
+{\footnotesize\ttfamily static void trace\+\_\+sched\+\_\+switch\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{preempt,  }\item[{struct task\+\_\+struct $\ast$}]{p,  }\item[{struct task\+\_\+struct $\ast$}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{trace__osnoise_8c_a379bf1ff518f20530bcfe81632465d00}\label{trace__osnoise_8c_a379bf1ff518f20530bcfe81632465d00}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_softirq\_entry\_callback@{trace\_softirq\_entry\_callback}}
+\index{trace\_softirq\_entry\_callback@{trace\_softirq\_entry\_callback}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_softirq\_entry\_callback()}{trace\_softirq\_entry\_callback()}}
+{\footnotesize\ttfamily static void trace\+\_\+softirq\+\_\+entry\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{vec\+\_\+nr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{trace__osnoise_8c_acefeefbf33bfb0c511cca89651bf8e9e}\label{trace__osnoise_8c_acefeefbf33bfb0c511cca89651bf8e9e}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_softirq\_exit\_callback@{trace\_softirq\_exit\_callback}}
+\index{trace\_softirq\_exit\_callback@{trace\_softirq\_exit\_callback}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_softirq\_exit\_callback()}{trace\_softirq\_exit\_callback()}}
+{\footnotesize\ttfamily static void trace\+\_\+softirq\+\_\+exit\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{vec\+\_\+nr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{trace__osnoise_8c_afdaf77e833546215214e62c70cc237f6}\label{trace__osnoise_8c_afdaf77e833546215214e62c70cc237f6}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!unhook\_irq\_events@{unhook\_irq\_events}}
+\index{unhook\_irq\_events@{unhook\_irq\_events}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{unhook\_irq\_events()}{unhook\_irq\_events()}}
+{\footnotesize\ttfamily static void unhook\+\_\+irq\+\_\+events (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{trace__osnoise_8c_af664f0079e271383af0500fd9a36956e}\label{trace__osnoise_8c_af664f0079e271383af0500fd9a36956e}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!unhook\_softirq\_events@{unhook\_softirq\_events}}
+\index{unhook\_softirq\_events@{unhook\_softirq\_events}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{unhook\_softirq\_events()}{unhook\_softirq\_events()}}
+{\footnotesize\ttfamily static void unhook\+\_\+softirq\+\_\+events (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{trace__osnoise_8c_a25e6f582d19448201a0a7b00a31250a4}\label{trace__osnoise_8c_a25e6f582d19448201a0a7b00a31250a4}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!unhook\_thread\_events@{unhook\_thread\_events}}
+\index{unhook\_thread\_events@{unhook\_thread\_events}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{unhook\_thread\_events()}{unhook\_thread\_events()}}
+{\footnotesize\ttfamily static void unhook\+\_\+thread\+\_\+events (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{trace__osnoise_8c_adde44c43e5aefa10e6f6928a28becce1}\label{trace__osnoise_8c_adde44c43e5aefa10e6f6928a28becce1}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtracer}{tracer}} osnoise\+\_\+tracer \+\_\+\+\_\+read\+\_\+mostly\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"osnoise"},}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{trace__osnoise_8c_a6d7560f74709fbc531485bb5a000ae68}{osnoise\_tracer\_init}},}
+\DoxyCodeLine{    .reset      = \mbox{\hyperlink{trace__osnoise_8c_abc857d8007bf80bec35c5003f914f68e}{osnoise\_tracer\_reset}},}
+\DoxyCodeLine{    .start      = \mbox{\hyperlink{trace__osnoise_8c_a33a552efa4114001d5d405d4c7dc9c69}{osnoise\_tracer\_start}},}
+\DoxyCodeLine{    .stop       = \mbox{\hyperlink{trace__osnoise_8c_a8ede07479aa3331f9cfb250954912d49}{osnoise\_tracer\_stop}},}
+\DoxyCodeLine{    .print\_header   = \mbox{\hyperlink{trace__osnoise_8c_ad316d041fb29c95c26c7c35cf5e1ff8e}{print\_osnoise\_headers}},}
+\DoxyCodeLine{    .allow\_instances = \textcolor{keyword}{true},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_a277cc6219bdc0802675aec1c0592dc04}\label{trace__osnoise_8c_a277cc6219bdc0802675aec1c0592dc04}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!cpus\_fops@{cpus\_fops}}
+\index{cpus\_fops@{cpus\_fops}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{cpus\_fops}{cpus\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} cpus\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .open       = \mbox{\hyperlink{kernel_2trace_2trace_8c_a69b6b127936028acf278a5c96c870022}{tracing\_open\_generic}},}
+\DoxyCodeLine{    .read       = \mbox{\hyperlink{trace__osnoise_8c_a5b1fcd8459669dac04137c331c8c8508}{osnoise\_cpus\_read}},}
+\DoxyCodeLine{    .write      = \mbox{\hyperlink{trace__osnoise_8c_a5d75c82da6266b2f7adf7eef707ff100}{osnoise\_cpus\_write}},}
+\DoxyCodeLine{    .llseek     = \mbox{\hyperlink{linux_2fs_8h_a742084c7905066c90d7a474e8d58123d}{generic\_file\_llseek}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_af669595eff4c30625a0f76c88bfe2b94}\label{trace__osnoise_8c_af669595eff4c30625a0f76c88bfe2b94}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!interface\_lock@{interface\_lock}}
+\index{interface\_lock@{interface\_lock}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{interface\_lock}{interface\_lock}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmutex}{mutex}} interface\+\_\+lock}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a4af7835e14e0d04af97e496adb68eda7}\label{trace__osnoise_8c_a4af7835e14e0d04af97e496adb68eda7}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_busy@{osnoise\_busy}}
+\index{osnoise\_busy@{osnoise\_busy}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_busy}{osnoise\_busy}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} osnoise\+\_\+busy\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__osnoise_8c_acfca3527ac9acb19fd9c6e6b30e244f8}\label{trace__osnoise_8c_acfca3527ac9acb19fd9c6e6b30e244f8}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_cpumask@{osnoise\_cpumask}}
+\index{osnoise\_cpumask@{osnoise\_cpumask}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_cpumask}{osnoise\_cpumask}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structcpumask}{cpumask}} osnoise\+\_\+cpumask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a12374abc898fa4e422aa40e10f09473d}\label{trace__osnoise_8c_a12374abc898fa4e422aa40e10f09473d}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_data@{osnoise\_data}}
+\index{osnoise\_data@{osnoise\_data}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_data}{osnoise\_data}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structosnoise__data}{osnoise\+\_\+data}} \mbox{\hyperlink{structosnoise__data}{osnoise\+\_\+data}}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .sample\_period          = \mbox{\hyperlink{trace__osnoise_8c_adaa2e642736848bf999d0c723a40737b}{DEFAULT\_SAMPLE\_PERIOD}},}
+\DoxyCodeLine{    .sample\_runtime         = \mbox{\hyperlink{trace__osnoise_8c_ad73462d8699584faa1a367cfd51f34b8}{DEFAULT\_SAMPLE\_RUNTIME}},}
+\DoxyCodeLine{    .stop\_tracing           = 0,}
+\DoxyCodeLine{    .stop\_tracing\_total     = 0,}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_ab43f07e9bb2e0e33b6260d566da4572b}\label{trace__osnoise_8c_ab43f07e9bb2e0e33b6260d566da4572b}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_period@{osnoise\_period}}
+\index{osnoise\_period@{osnoise\_period}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_period}{osnoise\_period}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} osnoise\+\_\+period\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .lock   = \&\mbox{\hyperlink{trace__osnoise_8c_af669595eff4c30625a0f76c88bfe2b94}{interface\_lock}},}
+\DoxyCodeLine{    .val    = \&\mbox{\hyperlink{structosnoise__data}{osnoise\_data}}.\mbox{\hyperlink{structosnoise__data_addaf1c9cca267d9cd2b893eca24de54b}{sample\_period}},}
+\DoxyCodeLine{    .max    = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .min    = \&\mbox{\hyperlink{structosnoise__data}{osnoise\_data}}.\mbox{\hyperlink{structosnoise__data_aef03a89a542195185c801f242448c3f6}{sample\_runtime}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_aed139c50aa9ece40c5ebced6c443303e}\label{trace__osnoise_8c_aed139c50aa9ece40c5ebced6c443303e}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_runtime@{osnoise\_runtime}}
+\index{osnoise\_runtime@{osnoise\_runtime}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_runtime}{osnoise\_runtime}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} osnoise\+\_\+runtime\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .lock   = \&\mbox{\hyperlink{trace__osnoise_8c_af669595eff4c30625a0f76c88bfe2b94}{interface\_lock}},}
+\DoxyCodeLine{    .val    = \&\mbox{\hyperlink{structosnoise__data}{osnoise\_data}}.\mbox{\hyperlink{structosnoise__data_aef03a89a542195185c801f242448c3f6}{sample\_runtime}},}
+\DoxyCodeLine{    .max    = \&\mbox{\hyperlink{structosnoise__data}{osnoise\_data}}.\mbox{\hyperlink{structosnoise__data_addaf1c9cca267d9cd2b893eca24de54b}{sample\_period}},}
+\DoxyCodeLine{    .min    = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_aebf4e27f7073a3049056c75270ee2476}\label{trace__osnoise_8c_aebf4e27f7073a3049056c75270ee2476}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_stop\_tracing\_in@{osnoise\_stop\_tracing\_in}}
+\index{osnoise\_stop\_tracing\_in@{osnoise\_stop\_tracing\_in}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_stop\_tracing\_in}{osnoise\_stop\_tracing\_in}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} osnoise\+\_\+stop\+\_\+tracing\+\_\+in\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .lock   = \&\mbox{\hyperlink{trace__osnoise_8c_af669595eff4c30625a0f76c88bfe2b94}{interface\_lock}},}
+\DoxyCodeLine{    .val    = \&\mbox{\hyperlink{structosnoise__data}{osnoise\_data}}.\mbox{\hyperlink{structosnoise__data_a4ac42a0dba845cecd273110683e8ed74}{stop\_tracing}},}
+\DoxyCodeLine{    .max    = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .min    = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_a543e8aa2c3e0ea9e9284fff192d12356}\label{trace__osnoise_8c_a543e8aa2c3e0ea9e9284fff192d12356}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_stop\_tracing\_total@{osnoise\_stop\_tracing\_total}}
+\index{osnoise\_stop\_tracing\_total@{osnoise\_stop\_tracing\_total}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_stop\_tracing\_total}{osnoise\_stop\_tracing\_total}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} osnoise\+\_\+stop\+\_\+tracing\+\_\+total\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .lock   = \&\mbox{\hyperlink{trace__osnoise_8c_af669595eff4c30625a0f76c88bfe2b94}{interface\_lock}},}
+\DoxyCodeLine{    .val    = \&\mbox{\hyperlink{structosnoise__data}{osnoise\_data}}.\mbox{\hyperlink{structosnoise__data_a8bb59c4d90b758eeae07e0db91f0ee05}{stop\_tracing\_total}},}
+\DoxyCodeLine{    .max    = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .min    = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__osnoise_8c_a7ed98d4e6f9a810be5317c90a6699cef}\label{trace__osnoise_8c_a7ed98d4e6f9a810be5317c90a6699cef}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!osnoise\_trace@{osnoise\_trace}}
+\index{osnoise\_trace@{osnoise\_trace}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{osnoise\_trace}{osnoise\_trace}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}}$\ast$ osnoise\+\_\+trace\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a42906161774060aac85158e1fa2e7dff}\label{trace__osnoise_8c_a42906161774060aac85158e1fa2e7dff}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!save\_cpumask@{save\_cpumask}}
+\index{save\_cpumask@{save\_cpumask}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{save\_cpumask}{save\_cpumask}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structcpumask}{cpumask}} save\+\_\+cpumask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__osnoise_8c_a1fae67579bff8a4c0daa1a25aa4112b2}\label{trace__osnoise_8c_a1fae67579bff8a4c0daa1a25aa4112b2}} 
+\index{trace\_osnoise.c@{trace\_osnoise.c}!trace\_osnoise\_callback\_enabled@{trace\_osnoise\_callback\_enabled}}
+\index{trace\_osnoise\_callback\_enabled@{trace\_osnoise\_callback\_enabled}!trace\_osnoise.c@{trace\_osnoise.c}}
+\doxysubsubsection{\texorpdfstring{trace\_osnoise\_callback\_enabled}{trace\_osnoise\_callback\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} trace\+\_\+osnoise\+\_\+callback\+\_\+enabled}
+

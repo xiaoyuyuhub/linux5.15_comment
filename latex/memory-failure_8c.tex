@@ -1,0 +1,940 @@
+\hypertarget{memory-failure_8c}{}\doxysection{mm/memory-\/failure.c File Reference}
+\label{memory-failure_8c}\index{mm/memory-\/failure.c@{mm/memory-\/failure.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/page-\/flags.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel-\/page-\/flags.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/signal.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ksm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rmap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagemap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/backing-\/dev.\+h$>$}\newline
+{\ttfamily \#include $<$linux/migrate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/suspend.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swapops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hugetlb.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memory\+\_\+hotplug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm\+\_\+inline.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memremap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kfifo.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ratelimit.\+h$>$}\newline
+{\ttfamily \#include $<$linux/page-\/isolation.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagewalk.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}internal.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}ras/ras\+\_\+event.\+h\char`\"{}}\newline
+Include dependency graph for memory-\/failure.c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structto__kill}{to\+\_\+kill}}
+\item 
+struct \mbox{\hyperlink{structhwp__walk}{hwp\+\_\+walk}}
+\item 
+struct \mbox{\hyperlink{structpage__state}{page\+\_\+state}}
+\item 
+struct \mbox{\hyperlink{structmemory__failure__entry}{memory\+\_\+failure\+\_\+entry}}
+\item 
+struct \mbox{\hyperlink{structmemory__failure__cpu}{memory\+\_\+failure\+\_\+cpu}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a53a9f8df9009b9a21414b698df16a5cc}{hwpoison\+\_\+hugetlb\+\_\+range}}~\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a722ddbeeb151829d23ea360427fa28d5}{P\+G\+\_\+dirty}})
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}{sc}}~((1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a7d9829023258318cb7797db855403940}{P\+G\+\_\+swapcache}}) $\vert$ (1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a78073ca5f74682d8e5c3718a85fcabbc}{P\+G\+\_\+swapbacked}}))
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_aba780773e4023c785f6d523f39714115}{unevict}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a0152f72ff3c7761d5de8c7d6461c9613}{P\+G\+\_\+unevictable}})
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a5cf294b738c59d60e720d7c028b0fbee}{mlock}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ P\+G\+\_\+mlocked)
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a25906d74ec903a18bb5bdcd37ec2651b}{lru}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a4e532007624ba0f68b0521e1eac99583}{P\+G\+\_\+lru}})
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a6d1197264c8235ebd5bda57ba423914e}{head}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a33337813788426e7c85f9b3a0dfadc2f}{P\+G\+\_\+head}})
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a7909f4bb56b809b313e007ea8fc9a56a}{slab}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a9fa76f518989ab45109184a3e5cc4fdd}{P\+G\+\_\+slab}})
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a6119e2b7a1d60ee775526a7386af84f2}{reserved}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a95024b57032740214ad3b94715ee670b}{P\+G\+\_\+reserved}})
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a59f6fd40949c1337db993691cc2e5ac7}{M\+E\+M\+O\+R\+Y\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+F\+I\+F\+O\+\_\+\+O\+R\+D\+ER}}~4
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a7b9e583706eaff237e2ee2050f248e7a}{M\+E\+M\+O\+R\+Y\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+F\+I\+F\+O\+\_\+\+S\+I\+ZE}}~(1 $<$$<$ \mbox{\hyperlink{memory-failure_8c_a59f6fd40949c1337db993691cc2e5ac7}{M\+E\+M\+O\+R\+Y\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+F\+I\+F\+O\+\_\+\+O\+R\+D\+ER}})
+\item 
+\#define \mbox{\hyperlink{memory-failure_8c_a2c30e99243d139a14b6ce24b6f1e6ffd}{unpoison\+\_\+pr\+\_\+info}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},  pfn,  \mbox{\hyperlink{des_8c_a3434f8b69a5e6429d0262a491129a174}{rs}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{memory-failure_8c_ab4ae4739c171eacfa30a8d8858953d25}{\+\_\+\+\_\+page\+\_\+handle\+\_\+poison}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{memory-failure_8c_aa89d3ab6527dc23366a07ea5f47d4c5e}{page\+\_\+handle\+\_\+poison}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hugepage\+\_\+or\+\_\+freepage, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} release)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_ab5ff6e2b76c164ae01b1b985d88083de}{hwpoison\+\_\+filter}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{memory-failure_8c_a9fca49d6808a11c226f207c58ca4904f}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memory-failure_8c_ab5ff6e2b76c164ae01b1b985d88083de}{hwpoison\+\_\+filter}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a77608ae38873adc607bba8d8a7d9515c}{kill\+\_\+proc}} (struct \mbox{\hyperlink{structto__kill}{to\+\_\+kill}} $\ast$tk, unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+void \mbox{\hyperlink{memory-failure_8c_aa92ede00a3f3c5fa8a4fd7c9c4eae5e2}{shake\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{memory-failure_8c_ad0b5b03810950c474bc6a9d0eda26fc3}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memory-failure_8c_aa92ede00a3f3c5fa8a4fd7c9c4eae5e2}{shake\+\_\+page}})
+\item 
+static unsigned long \mbox{\hyperlink{memory-failure_8c_a1c936f0d2f14f0431e51feb3b4f06f6a}{dev\+\_\+pagemap\+\_\+mapping\+\_\+shift}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}})
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_a4458d34a7a565c885b4ca2a31e0317bf}{add\+\_\+to\+\_\+kill}} (struct task\+\_\+struct $\ast$tsk, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$\mbox{\hyperlink{structto__kill}{to\+\_\+kill}})
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_ad8bc6960093841446b941265d0cab916}{kill\+\_\+procs}} (struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$\mbox{\hyperlink{structto__kill}{to\+\_\+kill}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} forcekill, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} fail, unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{memory-failure_8c_accee2e06537ccd0b81224d32e8c6ca7f}{find\+\_\+early\+\_\+kill\+\_\+thread}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{memory-failure_8c_a0ce9166b32ee1d2fe906bf283bddb6a7}{task\+\_\+early\+\_\+kill}} (struct task\+\_\+struct $\ast$tsk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} force\+\_\+early)
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_af2ddbf327a8c0aea70e247f87808d054}{collect\+\_\+procs\+\_\+anon}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$\mbox{\hyperlink{structto__kill}{to\+\_\+kill}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} force\+\_\+early)
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_afef38158fa705c788d9a2e3a7a4577bb}{collect\+\_\+procs\+\_\+file}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$\mbox{\hyperlink{structto__kill}{to\+\_\+kill}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} force\+\_\+early)
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_abbc04dd4f4fce70854fa51e9b03e6a0e}{collect\+\_\+procs}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$tokill, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} force\+\_\+early)
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_afb6a52575165029e4b659578da5e815b}{set\+\_\+to\+\_\+kill}} (struct \mbox{\hyperlink{structto__kill}{to\+\_\+kill}} $\ast$tk, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a40dfbb9fca3d3415ce513c5ed4775cad}{shift}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_ad6662c4ac1396d58379096c72366496f}{check\+\_\+hwpoisoned\+\_\+entry}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} pte, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a40dfbb9fca3d3415ce513c5ed4775cad}{shift}}, unsigned long poisoned\+\_\+pfn, struct \mbox{\hyperlink{structto__kill}{to\+\_\+kill}} $\ast$tk)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a4b75fca0a57fc02819f9b338ca11587a}{check\+\_\+hwpoisoned\+\_\+pmd\+\_\+entry}} (\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$pmdp, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, struct \mbox{\hyperlink{structhwp__walk}{hwp\+\_\+walk}} $\ast$hwp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a1b628d7318ca4ce4203f4d6f367447b7}{hwpoison\+\_\+pte\+\_\+range}} (\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$pmdp, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, struct mm\+\_\+walk $\ast$walk)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a62fc919c8161a69d03e04bf6133a65cb}{kill\+\_\+accessing\+\_\+process}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_ad78595823f3b758258ef6fa16d23d9ce}{delete\+\_\+from\+\_\+lru\+\_\+cache}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_acc2a520e087459355bacf2a00317b1c7}{truncate\+\_\+error\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn, struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_af402e739776a403eea674698f36630db}{me\+\_\+kernel}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a621c30f495f72c602379908d7858f6b3}{me\+\_\+unknown}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_adcaea0539c089822cd86007e7ede3e18}{me\+\_\+pagecache\+\_\+clean}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_af873f629eef6a993c18c3541ea727858}{me\+\_\+pagecache\+\_\+dirty}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a27d775d4f84dc732db1e19f860aebee3}{me\+\_\+swapcache\+\_\+dirty}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_acec0a84e070cd88cb2f1a27dc08c31ac}{me\+\_\+swapcache\+\_\+clean}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a93f15518e9a2b4d796fb97248a823af8}{me\+\_\+huge\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_a9fa6caa6289e6de1bd351b8cc57e2dda}{action\+\_\+result}} (unsigned long pfn, \mbox{\hyperlink{interfaceenum}{enum}} mf\+\_\+action\+\_\+page\+\_\+type \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, \mbox{\hyperlink{interfaceenum}{enum}} mf\+\_\+result \mbox{\hyperlink{structresult}{result}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a88ed9271d4f9bc0b1e3f2baac4759496}{page\+\_\+action}} (struct \mbox{\hyperlink{structpage__state}{page\+\_\+state}} $\ast$\mbox{\hyperlink{rados_8h_abf017bad326517c1877d65ad5389b2f2}{ps}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{memory-failure_8c_a9458652fa8425a7c6426b00ad4408662}{H\+W\+Poison\+Handlable}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_ab213a679d2b1a3474c2af03791bffd6b}{\+\_\+\+\_\+get\+\_\+hwpoison\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a73788f89fe79f81edcea9cc20cd10162}{get\+\_\+any\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_afb22bc3363cc5c004c7cf5154abaeb76}{get\+\_\+hwpoison\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{memory-failure_8c_af5909f20a47206fc759d09adc3b0e5b3}{hwpoison\+\_\+user\+\_\+mappings}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$hpage)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a5ecb6228ba70a5bb9e30d583cc66a1ee}{identify\+\_\+page\+\_\+state}} (unsigned long pfn, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, unsigned long page\+\_\+flags)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a9105d2117c1452f9836c92a85ff5210b}{try\+\_\+to\+\_\+split\+\_\+thp\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, const char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a9915066e9f2a33207497c93037fec06b}{memory\+\_\+failure\+\_\+hugetlb}} (unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_ab3b5e3e14c4dc67ddb055fc61d50ccf7}{memory\+\_\+failure\+\_\+dev\+\_\+pagemap}} (unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structdev__pagemap}{dev\+\_\+pagemap}} $\ast$pgmap)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a2601bce571ed122f848164f1d8a89304}{memory\+\_\+failure}} (unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{memory-failure_8c_aa7f6f2a9c5d863f4c32c8c9a896fae63}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memory-failure_8c_a2601bce571ed122f848164f1d8a89304}{memory\+\_\+failure}})
+\item 
+static \mbox{\hyperlink{memory-failure_8c_a92cbae1c7ff9ded35be82fd40c57f3a1}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structmemory__failure__cpu}{memory\+\_\+failure\+\_\+cpu}}, \mbox{\hyperlink{structmemory__failure__cpu}{memory\+\_\+failure\+\_\+cpu}})
+\item 
+void \mbox{\hyperlink{memory-failure_8c_a5636f3c65dd9e63cf5aea0772b9cd05e}{memory\+\_\+failure\+\_\+queue}} (unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{memory-failure_8c_a476d29f9dccfcee65e28e310660e0e21}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memory-failure_8c_a5636f3c65dd9e63cf5aea0772b9cd05e}{memory\+\_\+failure\+\_\+queue}})
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_ad22af86c6582765622fbe6a5aa33a95d}{memory\+\_\+failure\+\_\+work\+\_\+func}} (struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$work)
+\item 
+void \mbox{\hyperlink{memory-failure_8c_a395ebecc5cc5e3aee1a98c2b56354348}{memory\+\_\+failure\+\_\+queue\+\_\+kick}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{memory-failure_8c_a93c93545ab47e73ac0edfe742bb4ab81}{memory\+\_\+failure\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{memory-failure_8c_aa8d90b78ab86cbd0b7f6840d22e60bbc}{core\+\_\+initcall}} (\mbox{\hyperlink{memory-failure_8c_a93c93545ab47e73ac0edfe742bb4ab81}{memory\+\_\+failure\+\_\+init}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a955be6fd6ccc2793167864262e783d98}{unpoison\+\_\+memory}} (unsigned long pfn)
+\item 
+\mbox{\hyperlink{memory-failure_8c_a91137ff22a1bf7f0c08d03bfb96f84fa}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{memory-failure_8c_a955be6fd6ccc2793167864262e783d98}{unpoison\+\_\+memory}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{memory-failure_8c_aff504b4da6fc6f541cd6a816b5360d7a}{isolate\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$pagelist)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a8ffa1a7571498ff8dbdd9ba7c2d12a47}{\+\_\+\+\_\+soft\+\_\+offline\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a9eec6ed18497071c7831e661f3e4d10a}{soft\+\_\+offline\+\_\+in\+\_\+use\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_afa84a4cbcb63d35b6f3ca08511baf8a6}{soft\+\_\+offline\+\_\+free\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{memory-failure_8c_af71be1d97792341a62ab0df3c17ec1d0}{put\+\_\+ref\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memory-failure_8c_a4ad3379109f8025b7823b7e9740e4282}{soft\+\_\+offline\+\_\+page}} (unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sysctl\+\_\+memory\+\_\+failure\+\_\+early\+\_\+kill \mbox{\hyperlink{memory-failure_8c_a23cb93c2b6f62f6b8e8bd07c6547a9ff}{\+\_\+\+\_\+read\+\_\+mostly}} = 0
+\item 
+static struct \mbox{\hyperlink{structmm__walk__ops}{mm\+\_\+walk\+\_\+ops}} \mbox{\hyperlink{memory-failure_8c_a3f4c18254fd35bfa77906e316121e275}{hwp\+\_\+walk\+\_\+ops}}
+\item 
+static const char $\ast$ \mbox{\hyperlink{memory-failure_8c_ae0c86d16dffb8ee370fc61d9de06c70b}{action\+\_\+name}} \mbox{[}$\,$\mbox{]}
+\item 
+static const char $\ast$const \mbox{\hyperlink{memory-failure_8c_a576e0c5de32226a19baf99fa421bd866}{action\+\_\+page\+\_\+types}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structpage__state}{page\+\_\+state}} \mbox{\hyperlink{memory-failure_8c_a391608f788cf939d2e91d115cf3b415d}{error\+\_\+states}} \mbox{[}$\,$\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}\label{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!dirty@{dirty}}
+\index{dirty@{dirty}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{dirty}{dirty}}
+{\footnotesize\ttfamily \#define dirty~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a722ddbeeb151829d23ea360427fa28d5}{P\+G\+\_\+dirty}})}
+
+\mbox{\Hypertarget{memory-failure_8c_a6d1197264c8235ebd5bda57ba423914e}\label{memory-failure_8c_a6d1197264c8235ebd5bda57ba423914e}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!head@{head}}
+\index{head@{head}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{head}{head}}
+{\footnotesize\ttfamily \#define \mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a33337813788426e7c85f9b3a0dfadc2f}{P\+G\+\_\+head}})}
+
+\mbox{\Hypertarget{memory-failure_8c_a53a9f8df9009b9a21414b698df16a5cc}\label{memory-failure_8c_a53a9f8df9009b9a21414b698df16a5cc}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!hwpoison\_hugetlb\_range@{hwpoison\_hugetlb\_range}}
+\index{hwpoison\_hugetlb\_range@{hwpoison\_hugetlb\_range}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{hwpoison\_hugetlb\_range}{hwpoison\_hugetlb\_range}}
+{\footnotesize\ttfamily \#define hwpoison\+\_\+hugetlb\+\_\+range~\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}}
+
+\mbox{\Hypertarget{memory-failure_8c_a25906d74ec903a18bb5bdcd37ec2651b}\label{memory-failure_8c_a25906d74ec903a18bb5bdcd37ec2651b}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!lru@{lru}}
+\index{lru@{lru}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{lru}{lru}}
+{\footnotesize\ttfamily \#define lru~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a4e532007624ba0f68b0521e1eac99583}{P\+G\+\_\+lru}})}
+
+\mbox{\Hypertarget{memory-failure_8c_a59f6fd40949c1337db993691cc2e5ac7}\label{memory-failure_8c_a59f6fd40949c1337db993691cc2e5ac7}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!MEMORY\_FAILURE\_FIFO\_ORDER@{MEMORY\_FAILURE\_FIFO\_ORDER}}
+\index{MEMORY\_FAILURE\_FIFO\_ORDER@{MEMORY\_FAILURE\_FIFO\_ORDER}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{MEMORY\_FAILURE\_FIFO\_ORDER}{MEMORY\_FAILURE\_FIFO\_ORDER}}
+{\footnotesize\ttfamily \#define M\+E\+M\+O\+R\+Y\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+F\+I\+F\+O\+\_\+\+O\+R\+D\+ER~4}
+
+\mbox{\Hypertarget{memory-failure_8c_a7b9e583706eaff237e2ee2050f248e7a}\label{memory-failure_8c_a7b9e583706eaff237e2ee2050f248e7a}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!MEMORY\_FAILURE\_FIFO\_SIZE@{MEMORY\_FAILURE\_FIFO\_SIZE}}
+\index{MEMORY\_FAILURE\_FIFO\_SIZE@{MEMORY\_FAILURE\_FIFO\_SIZE}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{MEMORY\_FAILURE\_FIFO\_SIZE}{MEMORY\_FAILURE\_FIFO\_SIZE}}
+{\footnotesize\ttfamily \#define M\+E\+M\+O\+R\+Y\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+F\+I\+F\+O\+\_\+\+S\+I\+ZE~(1 $<$$<$ \mbox{\hyperlink{memory-failure_8c_a59f6fd40949c1337db993691cc2e5ac7}{M\+E\+M\+O\+R\+Y\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+F\+I\+F\+O\+\_\+\+O\+R\+D\+ER}})}
+
+\mbox{\Hypertarget{memory-failure_8c_a5cf294b738c59d60e720d7c028b0fbee}\label{memory-failure_8c_a5cf294b738c59d60e720d7c028b0fbee}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!mlock@{mlock}}
+\index{mlock@{mlock}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{mlock}{mlock}}
+{\footnotesize\ttfamily \#define mlock~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ P\+G\+\_\+mlocked)}
+
+\mbox{\Hypertarget{memory-failure_8c_a6119e2b7a1d60ee775526a7386af84f2}\label{memory-failure_8c_a6119e2b7a1d60ee775526a7386af84f2}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!reserved@{reserved}}
+\index{reserved@{reserved}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{reserved}{reserved}}
+{\footnotesize\ttfamily \mbox{\hyperlink{int-l64_8h_a4f988f49a84c0ed5eeaf5ff589f81e47}{\+\_\+\+\_\+u32}} reserved~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a95024b57032740214ad3b94715ee670b}{P\+G\+\_\+reserved}})}
+
+\mbox{\Hypertarget{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}\label{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!sc@{sc}}
+\index{sc@{sc}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{sc}{sc}}
+{\footnotesize\ttfamily \#define sc~((1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a7d9829023258318cb7797db855403940}{P\+G\+\_\+swapcache}}) $\vert$ (1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a78073ca5f74682d8e5c3718a85fcabbc}{P\+G\+\_\+swapbacked}}))}
+
+\mbox{\Hypertarget{memory-failure_8c_a7909f4bb56b809b313e007ea8fc9a56a}\label{memory-failure_8c_a7909f4bb56b809b313e007ea8fc9a56a}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!slab@{slab}}
+\index{slab@{slab}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{slab}{slab}}
+{\footnotesize\ttfamily \#define slab~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a9fa76f518989ab45109184a3e5cc4fdd}{P\+G\+\_\+slab}})}
+
+\mbox{\Hypertarget{memory-failure_8c_aba780773e4023c785f6d523f39714115}\label{memory-failure_8c_aba780773e4023c785f6d523f39714115}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!unevict@{unevict}}
+\index{unevict@{unevict}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{unevict}{unevict}}
+{\footnotesize\ttfamily \#define unevict~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{page-flags_8h_a21ae46619e7b334ba6c7ee8d923dc503a0152f72ff3c7761d5de8c7d6461c9613}{P\+G\+\_\+unevictable}})}
+
+\mbox{\Hypertarget{memory-failure_8c_a2c30e99243d139a14b6ce24b6f1e6ffd}\label{memory-failure_8c_a2c30e99243d139a14b6ce24b6f1e6ffd}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!unpoison\_pr\_info@{unpoison\_pr\_info}}
+\index{unpoison\_pr\_info@{unpoison\_pr\_info}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{unpoison\_pr\_info}{unpoison\_pr\_info}}
+{\footnotesize\ttfamily \#define unpoison\+\_\+pr\+\_\+info(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},  }\item[{}]{pfn,  }\item[{}]{\mbox{\hyperlink{des_8c_a3434f8b69a5e6429d0262a491129a174}{rs}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{(\{                          \(\backslash\)}
+\DoxyCodeLine{    if (\mbox{\hyperlink{ratelimit__types_8h_a3241011715e8a7f69d650ee127f17497}{\_\_ratelimit}}(\mbox{\hyperlink{des_8c_a3434f8b69a5e6429d0262a491129a174}{rs}}))               \(\backslash\)}
+\DoxyCodeLine{        pr\_info(\mbox{\hyperlink{drm__print_8h_a10aa585f6b6209b2e73ce1872f44bb2e}{fmt}}, pfn);           \(\backslash\)}
+\DoxyCodeLine{\})}
+
+\end{DoxyCode}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{memory-failure_8c_ab213a679d2b1a3474c2af03791bffd6b}\label{memory-failure_8c_ab213a679d2b1a3474c2af03791bffd6b}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!\_\_get\_hwpoison\_page@{\_\_get\_hwpoison\_page}}
+\index{\_\_get\_hwpoison\_page@{\_\_get\_hwpoison\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{\_\_get\_hwpoison\_page()}{\_\_get\_hwpoison\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+get\+\_\+hwpoison\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{memory-failure_8c_ab4ae4739c171eacfa30a8d8858953d25}\label{memory-failure_8c_ab4ae4739c171eacfa30a8d8858953d25}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!\_\_page\_handle\_poison@{\_\_page\_handle\_poison}}
+\index{\_\_page\_handle\_poison@{\_\_page\_handle\_poison}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{\_\_page\_handle\_poison()}{\_\_page\_handle\_poison()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+\+\_\+page\+\_\+handle\+\_\+poison (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{memory-failure_8c_a8ffa1a7571498ff8dbdd9ba7c2d12a47}\label{memory-failure_8c_a8ffa1a7571498ff8dbdd9ba7c2d12a47}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!\_\_soft\_offline\_page@{\_\_soft\_offline\_page}}
+\index{\_\_soft\_offline\_page@{\_\_soft\_offline\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{\_\_soft\_offline\_page()}{\_\_soft\_offline\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+soft\+\_\+offline\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{memory-failure_8c_a9fa6caa6289e6de1bd351b8cc57e2dda}\label{memory-failure_8c_a9fa6caa6289e6de1bd351b8cc57e2dda}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!action\_result@{action\_result}}
+\index{action\_result@{action\_result}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{action\_result()}{action\_result()}}
+{\footnotesize\ttfamily static void action\+\_\+result (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} mf\+\_\+action\+\_\+page\+\_\+type}]{type,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} mf\+\_\+result}]{result }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{memory-failure_8c_a4458d34a7a565c885b4ca2a31e0317bf}\label{memory-failure_8c_a4458d34a7a565c885b4ca2a31e0317bf}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!add\_to\_kill@{add\_to\_kill}}
+\index{add\_to\_kill@{add\_to\_kill}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{add\_to\_kill()}{add\_to\_kill()}}
+{\footnotesize\ttfamily static void add\+\_\+to\+\_\+kill (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{to\+\_\+kill }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{memory-failure_8c_ad6662c4ac1396d58379096c72366496f}\label{memory-failure_8c_ad6662c4ac1396d58379096c72366496f}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!check\_hwpoisoned\_entry@{check\_hwpoisoned\_entry}}
+\index{check\_hwpoisoned\_entry@{check\_hwpoisoned\_entry}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{check\_hwpoisoned\_entry()}{check\_hwpoisoned\_entry()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+hwpoisoned\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}}}]{pte,  }\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}}}]{shift,  }\item[{unsigned long}]{poisoned\+\_\+pfn,  }\item[{struct \mbox{\hyperlink{structto__kill}{to\+\_\+kill}} $\ast$}]{tk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{memory-failure_8c_a4b75fca0a57fc02819f9b338ca11587a}\label{memory-failure_8c_a4b75fca0a57fc02819f9b338ca11587a}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!check\_hwpoisoned\_pmd\_entry@{check\_hwpoisoned\_pmd\_entry}}
+\index{check\_hwpoisoned\_pmd\_entry@{check\_hwpoisoned\_pmd\_entry}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{check\_hwpoisoned\_pmd\_entry()}{check\_hwpoisoned\_pmd\_entry()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+hwpoisoned\+\_\+pmd\+\_\+entry (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$}]{pmdp,  }\item[{unsigned long}]{addr,  }\item[{struct \mbox{\hyperlink{structhwp__walk}{hwp\+\_\+walk}} $\ast$}]{hwp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{memory-failure_8c_abbc04dd4f4fce70854fa51e9b03e6a0e}\label{memory-failure_8c_abbc04dd4f4fce70854fa51e9b03e6a0e}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!collect\_procs@{collect\_procs}}
+\index{collect\_procs@{collect\_procs}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{collect\_procs()}{collect\_procs()}}
+{\footnotesize\ttfamily static void collect\+\_\+procs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{tokill,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{force\+\_\+early }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{memory-failure_8c_af2ddbf327a8c0aea70e247f87808d054}\label{memory-failure_8c_af2ddbf327a8c0aea70e247f87808d054}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!collect\_procs\_anon@{collect\_procs\_anon}}
+\index{collect\_procs\_anon@{collect\_procs\_anon}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{collect\_procs\_anon()}{collect\_procs\_anon()}}
+{\footnotesize\ttfamily static void collect\+\_\+procs\+\_\+anon (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{to\+\_\+kill,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{force\+\_\+early }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{memory-failure_8c_afef38158fa705c788d9a2e3a7a4577bb}\label{memory-failure_8c_afef38158fa705c788d9a2e3a7a4577bb}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!collect\_procs\_file@{collect\_procs\_file}}
+\index{collect\_procs\_file@{collect\_procs\_file}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{collect\_procs\_file()}{collect\_procs\_file()}}
+{\footnotesize\ttfamily static void collect\+\_\+procs\+\_\+file (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{to\+\_\+kill,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{force\+\_\+early }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{memory-failure_8c_aa8d90b78ab86cbd0b7f6840d22e60bbc}\label{memory-failure_8c_aa8d90b78ab86cbd0b7f6840d22e60bbc}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!core\_initcall@{core\_initcall}}
+\index{core\_initcall@{core\_initcall}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{core\_initcall()}{core\_initcall()}}
+{\footnotesize\ttfamily core\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memory-failure_8c_a93c93545ab47e73ac0edfe742bb4ab81}{memory\+\_\+failure\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memory-failure_8c_a92cbae1c7ff9ded35be82fd40c57f3a1}\label{memory-failure_8c_a92cbae1c7ff9ded35be82fd40c57f3a1}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__failure__cpu}{memory\+\_\+failure\+\_\+cpu}}}]{,  }\item[{\mbox{\hyperlink{structmemory__failure__cpu}{memory\+\_\+failure\+\_\+cpu}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{memory-failure_8c_ad78595823f3b758258ef6fa16d23d9ce}\label{memory-failure_8c_ad78595823f3b758258ef6fa16d23d9ce}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!delete\_from\_lru\_cache@{delete\_from\_lru\_cache}}
+\index{delete\_from\_lru\_cache@{delete\_from\_lru\_cache}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{delete\_from\_lru\_cache()}{delete\_from\_lru\_cache()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} delete\+\_\+from\+\_\+lru\+\_\+cache (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{memory-failure_8c_a1c936f0d2f14f0431e51feb3b4f06f6a}\label{memory-failure_8c_a1c936f0d2f14f0431e51feb3b4f06f6a}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!dev\_pagemap\_mapping\_shift@{dev\_pagemap\_mapping\_shift}}
+\index{dev\_pagemap\_mapping\_shift@{dev\_pagemap\_mapping\_shift}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{dev\_pagemap\_mapping\_shift()}{dev\_pagemap\_mapping\_shift()}}
+{\footnotesize\ttfamily static unsigned long dev\+\_\+pagemap\+\_\+mapping\+\_\+shift (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{memory-failure_8c_a91137ff22a1bf7f0c08d03bfb96f84fa}\label{memory-failure_8c_a91137ff22a1bf7f0c08d03bfb96f84fa}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memory-failure_8c_a955be6fd6ccc2793167864262e783d98}{unpoison\+\_\+memory}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memory-failure_8c_a9fca49d6808a11c226f207c58ca4904f}\label{memory-failure_8c_a9fca49d6808a11c226f207c58ca4904f}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memory-failure_8c_ab5ff6e2b76c164ae01b1b985d88083de}{hwpoison\+\_\+filter}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memory-failure_8c_aa7f6f2a9c5d863f4c32c8c9a896fae63}\label{memory-failure_8c_aa7f6f2a9c5d863f4c32c8c9a896fae63}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memory-failure_8c_a2601bce571ed122f848164f1d8a89304}{memory\+\_\+failure}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memory-failure_8c_a476d29f9dccfcee65e28e310660e0e21}\label{memory-failure_8c_a476d29f9dccfcee65e28e310660e0e21}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memory-failure_8c_a5636f3c65dd9e63cf5aea0772b9cd05e}{memory\+\_\+failure\+\_\+queue}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memory-failure_8c_ad0b5b03810950c474bc6a9d0eda26fc3}\label{memory-failure_8c_ad0b5b03810950c474bc6a9d0eda26fc3}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memory-failure_8c_aa92ede00a3f3c5fa8a4fd7c9c4eae5e2}{shake\+\_\+page}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memory-failure_8c_accee2e06537ccd0b81224d32e8c6ca7f}\label{memory-failure_8c_accee2e06537ccd0b81224d32e8c6ca7f}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!find\_early\_kill\_thread@{find\_early\_kill\_thread}}
+\index{find\_early\_kill\_thread@{find\_early\_kill\_thread}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{find\_early\_kill\_thread()}{find\_early\_kill\_thread()}}
+{\footnotesize\ttfamily static struct task\+\_\+struct$\ast$ find\+\_\+early\+\_\+kill\+\_\+thread (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{memory-failure_8c_a73788f89fe79f81edcea9cc20cd10162}\label{memory-failure_8c_a73788f89fe79f81edcea9cc20cd10162}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!get\_any\_page@{get\_any\_page}}
+\index{get\_any\_page@{get\_any\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{get\_any\_page()}{get\_any\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+any\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{memory-failure_8c_afb22bc3363cc5c004c7cf5154abaeb76}\label{memory-failure_8c_afb22bc3363cc5c004c7cf5154abaeb76}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!get\_hwpoison\_page@{get\_hwpoison\_page}}
+\index{get\_hwpoison\_page@{get\_hwpoison\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{get\_hwpoison\_page()}{get\_hwpoison\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+hwpoison\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{memory-failure_8c_afb22bc3363cc5c004c7cf5154abaeb76}{get\+\_\+hwpoison\+\_\+page()}} -\/ Get refcount for memory error handling {\ttfamily }\+: Raw error page (hit by memory error) @flags\+: Flags controlling behavior of error handling
+
+\mbox{\hyperlink{memory-failure_8c_afb22bc3363cc5c004c7cf5154abaeb76}{get\+\_\+hwpoison\+\_\+page()}} takes a page refcount of an error page to handle memory error on it, after checking that the error page is in a well-\/defined state (defined as a page-\/type we can successfully handle the memor error on it, such as L\+RU page and hugetlb page).
+
+Memory error handling could be triggered at any time on any type of page, so it\textquotesingle{}s prone to race with typical memory management lifecycle (like allocation and free). So to avoid such races, \mbox{\hyperlink{memory-failure_8c_afb22bc3363cc5c004c7cf5154abaeb76}{get\+\_\+hwpoison\+\_\+page()}} takes extra care for the error page\textquotesingle{}s state (as done in \mbox{\hyperlink{memory-failure_8c_ab213a679d2b1a3474c2af03791bffd6b}{\+\_\+\+\_\+get\+\_\+hwpoison\+\_\+page()}}), and has some retry logic in \mbox{\hyperlink{memory-failure_8c_a73788f89fe79f81edcea9cc20cd10162}{get\+\_\+any\+\_\+page()}}.
+
+Return\+: 0 on failure, 1 on success for in-\/use pages in a well-\/defined state, -\/E\+IO for pages on which we can not handle memory errors, -\/E\+B\+U\+SY when \mbox{\hyperlink{memory-failure_8c_afb22bc3363cc5c004c7cf5154abaeb76}{get\+\_\+hwpoison\+\_\+page()}} has raced with page lifecycle operations like allocation and free. Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{memory-failure_8c_ab5ff6e2b76c164ae01b1b985d88083de}\label{memory-failure_8c_ab5ff6e2b76c164ae01b1b985d88083de}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!hwpoison\_filter@{hwpoison\_filter}}
+\index{hwpoison\_filter@{hwpoison\_filter}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{hwpoison\_filter()}{hwpoison\_filter()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hwpoison\+\_\+filter (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{memory-failure_8c_a1b628d7318ca4ce4203f4d6f367447b7}\label{memory-failure_8c_a1b628d7318ca4ce4203f4d6f367447b7}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!hwpoison\_pte\_range@{hwpoison\_pte\_range}}
+\index{hwpoison\_pte\_range@{hwpoison\_pte\_range}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{hwpoison\_pte\_range()}{hwpoison\_pte\_range()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hwpoison\+\_\+pte\+\_\+range (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$}]{pmdp,  }\item[{unsigned long}]{addr,  }\item[{unsigned long}]{end,  }\item[{struct mm\+\_\+walk $\ast$}]{walk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{memory-failure_8c_af5909f20a47206fc759d09adc3b0e5b3}\label{memory-failure_8c_af5909f20a47206fc759d09adc3b0e5b3}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!hwpoison\_user\_mappings@{hwpoison\_user\_mappings}}
+\index{hwpoison\_user\_mappings@{hwpoison\_user\_mappings}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{hwpoison\_user\_mappings()}{hwpoison\_user\_mappings()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hwpoison\+\_\+user\+\_\+mappings (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{hpage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{memory-failure_8c_a9458652fa8425a7c6426b00ad4408662}\label{memory-failure_8c_a9458652fa8425a7c6426b00ad4408662}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!HWPoisonHandlable@{HWPoisonHandlable}}
+\index{HWPoisonHandlable@{HWPoisonHandlable}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{HWPoisonHandlable()}{HWPoisonHandlable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} H\+W\+Poison\+Handlable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{memory-failure_8c_a5ecb6228ba70a5bb9e30d583cc66a1ee}\label{memory-failure_8c_a5ecb6228ba70a5bb9e30d583cc66a1ee}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!identify\_page\_state@{identify\_page\_state}}
+\index{identify\_page\_state@{identify\_page\_state}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{identify\_page\_state()}{identify\_page\_state()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} identify\+\_\+page\+\_\+state (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{page\+\_\+flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{memory-failure_8c_aff504b4da6fc6f541cd6a816b5360d7a}\label{memory-failure_8c_aff504b4da6fc6f541cd6a816b5360d7a}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!isolate\_page@{isolate\_page}}
+\index{isolate\_page@{isolate\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{isolate\_page()}{isolate\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} isolate\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{pagelist }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{memory-failure_8c_a62fc919c8161a69d03e04bf6133a65cb}\label{memory-failure_8c_a62fc919c8161a69d03e04bf6133a65cb}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!kill\_accessing\_process@{kill\_accessing\_process}}
+\index{kill\_accessing\_process@{kill\_accessing\_process}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{kill\_accessing\_process()}{kill\_accessing\_process()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kill\+\_\+accessing\+\_\+process (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{p,  }\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{memory-failure_8c_a77608ae38873adc607bba8d8a7d9515c}\label{memory-failure_8c_a77608ae38873adc607bba8d8a7d9515c}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!kill\_proc@{kill\_proc}}
+\index{kill\_proc@{kill\_proc}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{kill\_proc()}{kill\_proc()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kill\+\_\+proc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structto__kill}{to\+\_\+kill}} $\ast$}]{tk,  }\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{memory-failure_8c_ad8bc6960093841446b941265d0cab916}\label{memory-failure_8c_ad8bc6960093841446b941265d0cab916}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!kill\_procs@{kill\_procs}}
+\index{kill\_procs@{kill\_procs}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{kill\_procs()}{kill\_procs()}}
+{\footnotesize\ttfamily static void kill\+\_\+procs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{to\+\_\+kill,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{forcekill,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{fail,  }\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{memory-failure_8c_a93f15518e9a2b4d796fb97248a823af8}\label{memory-failure_8c_a93f15518e9a2b4d796fb97248a823af8}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!me\_huge\_page@{me\_huge\_page}}
+\index{me\_huge\_page@{me\_huge\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{me\_huge\_page()}{me\_huge\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} me\+\_\+huge\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{memory-failure_8c_af402e739776a403eea674698f36630db}\label{memory-failure_8c_af402e739776a403eea674698f36630db}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!me\_kernel@{me\_kernel}}
+\index{me\_kernel@{me\_kernel}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{me\_kernel()}{me\_kernel()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} me\+\_\+kernel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{memory-failure_8c_adcaea0539c089822cd86007e7ede3e18}\label{memory-failure_8c_adcaea0539c089822cd86007e7ede3e18}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!me\_pagecache\_clean@{me\_pagecache\_clean}}
+\index{me\_pagecache\_clean@{me\_pagecache\_clean}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{me\_pagecache\_clean()}{me\_pagecache\_clean()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} me\+\_\+pagecache\+\_\+clean (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{memory-failure_8c_af873f629eef6a993c18c3541ea727858}\label{memory-failure_8c_af873f629eef6a993c18c3541ea727858}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!me\_pagecache\_dirty@{me\_pagecache\_dirty}}
+\index{me\_pagecache\_dirty@{me\_pagecache\_dirty}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{me\_pagecache\_dirty()}{me\_pagecache\_dirty()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} me\+\_\+pagecache\+\_\+dirty (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{memory-failure_8c_acec0a84e070cd88cb2f1a27dc08c31ac}\label{memory-failure_8c_acec0a84e070cd88cb2f1a27dc08c31ac}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!me\_swapcache\_clean@{me\_swapcache\_clean}}
+\index{me\_swapcache\_clean@{me\_swapcache\_clean}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{me\_swapcache\_clean()}{me\_swapcache\_clean()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} me\+\_\+swapcache\+\_\+clean (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{memory-failure_8c_a27d775d4f84dc732db1e19f860aebee3}\label{memory-failure_8c_a27d775d4f84dc732db1e19f860aebee3}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!me\_swapcache\_dirty@{me\_swapcache\_dirty}}
+\index{me\_swapcache\_dirty@{me\_swapcache\_dirty}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{me\_swapcache\_dirty()}{me\_swapcache\_dirty()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} me\+\_\+swapcache\+\_\+dirty (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{memory-failure_8c_a621c30f495f72c602379908d7858f6b3}\label{memory-failure_8c_a621c30f495f72c602379908d7858f6b3}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!me\_unknown@{me\_unknown}}
+\index{me\_unknown@{me\_unknown}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{me\_unknown()}{me\_unknown()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} me\+\_\+unknown (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{memory-failure_8c_a2601bce571ed122f848164f1d8a89304}\label{memory-failure_8c_a2601bce571ed122f848164f1d8a89304}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!memory\_failure@{memory\_failure}}
+\index{memory\_failure@{memory\_failure}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure()}{memory\_failure()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memory\+\_\+failure (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})}
+
+memory\+\_\+failure -\/ Handle memory failure of a page. @pfn\+: Page Number of the corrupted page @flags\+: fine tune action taken
+
+This function is called by the low level machine check code of an architecture when it detects hardware memory corruption of a page. It tries its best to recover, which includes dropping pages, killing processes etc.
+
+\mbox{\hyperlink{classThe}{The}} function is primarily of use for corruptions that happen outside the current execution context (e.\+g. when detected by a background scrubber)
+
+Must run in process context (e.\+g. a work queue) with interrupts enabled and no spinlocks hold. Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{memory-failure_8c_ab3b5e3e14c4dc67ddb055fc61d50ccf7}\label{memory-failure_8c_ab3b5e3e14c4dc67ddb055fc61d50ccf7}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!memory\_failure\_dev\_pagemap@{memory\_failure\_dev\_pagemap}}
+\index{memory\_failure\_dev\_pagemap@{memory\_failure\_dev\_pagemap}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure\_dev\_pagemap()}{memory\_failure\_dev\_pagemap()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memory\+\_\+failure\+\_\+dev\+\_\+pagemap (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{struct \mbox{\hyperlink{structdev__pagemap}{dev\+\_\+pagemap}} $\ast$}]{pgmap }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{memory-failure_8c_a9915066e9f2a33207497c93037fec06b}\label{memory-failure_8c_a9915066e9f2a33207497c93037fec06b}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!memory\_failure\_hugetlb@{memory\_failure\_hugetlb}}
+\index{memory\_failure\_hugetlb@{memory\_failure\_hugetlb}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure\_hugetlb()}{memory\_failure\_hugetlb()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memory\+\_\+failure\+\_\+hugetlb (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{memory-failure_8c_a93c93545ab47e73ac0edfe742bb4ab81}\label{memory-failure_8c_a93c93545ab47e73ac0edfe742bb4ab81}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!memory\_failure\_init@{memory\_failure\_init}}
+\index{memory\_failure\_init@{memory\_failure\_init}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure\_init()}{memory\_failure\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} memory\+\_\+failure\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{memory-failure_8c_a5636f3c65dd9e63cf5aea0772b9cd05e}\label{memory-failure_8c_a5636f3c65dd9e63cf5aea0772b9cd05e}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!memory\_failure\_queue@{memory\_failure\_queue}}
+\index{memory\_failure\_queue@{memory\_failure\_queue}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure\_queue()}{memory\_failure\_queue()}}
+{\footnotesize\ttfamily void memory\+\_\+failure\+\_\+queue (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})}
+
+memory\+\_\+failure\+\_\+queue -\/ Schedule handling memory failure of a page. @pfn\+: Page Number of the corrupted page @flags\+: Flags for memory failure handling
+
+This function is called by the low level hardware error handler when it detects hardware memory corruption of a page. It schedules the recovering of error page, including dropping pages, killing processes etc.
+
+\mbox{\hyperlink{classThe}{The}} function is primarily of use for corruptions that happen outside the current execution context (e.\+g. when detected by a background scrubber)
+
+Can run in I\+RQ context. Here is the call graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{memory-failure_8c_a395ebecc5cc5e3aee1a98c2b56354348}\label{memory-failure_8c_a395ebecc5cc5e3aee1a98c2b56354348}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!memory\_failure\_queue\_kick@{memory\_failure\_queue\_kick}}
+\index{memory\_failure\_queue\_kick@{memory\_failure\_queue\_kick}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure\_queue\_kick()}{memory\_failure\_queue\_kick()}}
+{\footnotesize\ttfamily void memory\+\_\+failure\+\_\+queue\+\_\+kick (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{memory-failure_8c_ad22af86c6582765622fbe6a5aa33a95d}\label{memory-failure_8c_ad22af86c6582765622fbe6a5aa33a95d}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!memory\_failure\_work\_func@{memory\_failure\_work\_func}}
+\index{memory\_failure\_work\_func@{memory\_failure\_work\_func}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure\_work\_func()}{memory\_failure\_work\_func()}}
+{\footnotesize\ttfamily static void memory\+\_\+failure\+\_\+work\+\_\+func (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$}]{work }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{memory-failure_8c_a88ed9271d4f9bc0b1e3f2baac4759496}\label{memory-failure_8c_a88ed9271d4f9bc0b1e3f2baac4759496}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!page\_action@{page\_action}}
+\index{page\_action@{page\_action}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{page\_action()}{page\_action()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+action (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage__state}{page\+\_\+state}} $\ast$}]{ps,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 64
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{memory-failure_8c_aa89d3ab6527dc23366a07ea5f47d4c5e}\label{memory-failure_8c_aa89d3ab6527dc23366a07ea5f47d4c5e}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!page\_handle\_poison@{page\_handle\_poison}}
+\index{page\_handle\_poison@{page\_handle\_poison}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{page\_handle\_poison()}{page\_handle\_poison()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} page\+\_\+handle\+\_\+poison (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{hugepage\+\_\+or\+\_\+freepage,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{release }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{memory-failure_8c_af71be1d97792341a62ab0df3c17ec1d0}\label{memory-failure_8c_af71be1d97792341a62ab0df3c17ec1d0}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!put\_ref\_page@{put\_ref\_page}}
+\index{put\_ref\_page@{put\_ref\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{put\_ref\_page()}{put\_ref\_page()}}
+{\footnotesize\ttfamily static void put\+\_\+ref\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{memory-failure_8c_afb6a52575165029e4b659578da5e815b}\label{memory-failure_8c_afb6a52575165029e4b659578da5e815b}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!set\_to\_kill@{set\_to\_kill}}
+\index{set\_to\_kill@{set\_to\_kill}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{set\_to\_kill()}{set\_to\_kill()}}
+{\footnotesize\ttfamily static void set\+\_\+to\+\_\+kill (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structto__kill}{to\+\_\+kill}} $\ast$}]{tk,  }\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}}}]{shift }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{memory-failure_8c_aa92ede00a3f3c5fa8a4fd7c9c4eae5e2}\label{memory-failure_8c_aa92ede00a3f3c5fa8a4fd7c9c4eae5e2}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!shake\_page@{shake\_page}}
+\index{shake\_page@{shake\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{shake\_page()}{shake\_page()}}
+{\footnotesize\ttfamily void shake\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{memory-failure_8c_afa84a4cbcb63d35b6f3ca08511baf8a6}\label{memory-failure_8c_afa84a4cbcb63d35b6f3ca08511baf8a6}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!soft\_offline\_free\_page@{soft\_offline\_free\_page}}
+\index{soft\_offline\_free\_page@{soft\_offline\_free\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{soft\_offline\_free\_page()}{soft\_offline\_free\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} soft\+\_\+offline\+\_\+free\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{memory-failure_8c_a9eec6ed18497071c7831e661f3e4d10a}\label{memory-failure_8c_a9eec6ed18497071c7831e661f3e4d10a}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!soft\_offline\_in\_use\_page@{soft\_offline\_in\_use\_page}}
+\index{soft\_offline\_in\_use\_page@{soft\_offline\_in\_use\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{soft\_offline\_in\_use\_page()}{soft\_offline\_in\_use\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} soft\+\_\+offline\+\_\+in\+\_\+use\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{memory-failure_8c_a4ad3379109f8025b7823b7e9740e4282}\label{memory-failure_8c_a4ad3379109f8025b7823b7e9740e4282}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!soft\_offline\_page@{soft\_offline\_page}}
+\index{soft\_offline\_page@{soft\_offline\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{soft\_offline\_page()}{soft\_offline\_page()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} soft\+\_\+offline\+\_\+page (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})}
+
+soft\+\_\+offline\+\_\+page -\/ Soft offline a page. @pfn\+: pfn to soft-\/offline @flags\+: flags. Same as \mbox{\hyperlink{memory-failure_8c_a2601bce571ed122f848164f1d8a89304}{memory\+\_\+failure()}}.
+
+Returns 0 on success, otherwise negated errno.
+
+Soft offline a page, by migration or invalidation, without killing anything. This is for the case when a page is not corrupted yet (so it\textquotesingle{}s still valid to access), but has had a number of corrected errors and is better taken out.
+
+\mbox{\hyperlink{classThe}{The}} actual policy on when to do that is maintained by user space.
+
+This should never impact any application or cause data loss, however it might take some time.
+
+This is not a 100\% solution for all memory, but tries to be \`{}`good enough'\textquotesingle{} for the majority of memory. Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{memory-failure_8c_a0ce9166b32ee1d2fe906bf283bddb6a7}\label{memory-failure_8c_a0ce9166b32ee1d2fe906bf283bddb6a7}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!task\_early\_kill@{task\_early\_kill}}
+\index{task\_early\_kill@{task\_early\_kill}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{task\_early\_kill()}{task\_early\_kill()}}
+{\footnotesize\ttfamily static struct task\+\_\+struct$\ast$ task\+\_\+early\+\_\+kill (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{force\+\_\+early }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{memory-failure_8c_acc2a520e087459355bacf2a00317b1c7}\label{memory-failure_8c_acc2a520e087459355bacf2a00317b1c7}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!truncate\_error\_page@{truncate\_error\_page}}
+\index{truncate\_error\_page@{truncate\_error\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{truncate\_error\_page()}{truncate\_error\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} truncate\+\_\+error\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{p,  }\item[{unsigned long}]{pfn,  }\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 80
+Here is the caller graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{memory-failure_8c_a9105d2117c1452f9836c92a85ff5210b}\label{memory-failure_8c_a9105d2117c1452f9836c92a85ff5210b}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!try\_to\_split\_thp\_page@{try\_to\_split\_thp\_page}}
+\index{try\_to\_split\_thp\_page@{try\_to\_split\_thp\_page}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{try\_to\_split\_thp\_page()}{try\_to\_split\_thp\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} try\+\_\+to\+\_\+split\+\_\+thp\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{const char $\ast$}]{msg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{memory-failure_8c_a955be6fd6ccc2793167864262e783d98}\label{memory-failure_8c_a955be6fd6ccc2793167864262e783d98}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!unpoison\_memory@{unpoison\_memory}}
+\index{unpoison\_memory@{unpoison\_memory}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{unpoison\_memory()}{unpoison\_memory()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} unpoison\+\_\+memory (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn }\end{DoxyParamCaption})}
+
+unpoison\+\_\+memory -\/ Unpoison a previously poisoned page @pfn\+: Page number of the to be unpoisoned page
+
+Software-\/unpoison a page that has been poisoned by \mbox{\hyperlink{memory-failure_8c_a2601bce571ed122f848164f1d8a89304}{memory\+\_\+failure()}} earlier.
+
+This is only done on the software-\/level, so it only works for linux injected failures, not real hardware failures
+
+Returns 0 for success, otherwise -\/errno. Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{memory-failure_8c_a23cb93c2b6f62f6b8e8bd07c6547a9ff}\label{memory-failure_8c_a23cb93c2b6f62f6b8e8bd07c6547a9ff}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} num\+\_\+poisoned\+\_\+pages \+\_\+\+\_\+read\+\_\+mostly = 0}
+
+\mbox{\Hypertarget{memory-failure_8c_ae0c86d16dffb8ee370fc61d9de06c70b}\label{memory-failure_8c_ae0c86d16dffb8ee370fc61d9de06c70b}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!action\_name@{action\_name}}
+\index{action\_name@{action\_name}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{action\_name}{action\_name}}
+{\footnotesize\ttfamily const char$\ast$ action\+\_\+name\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [MF\_IGNORED] = \textcolor{stringliteral}{"Ignored"},}
+\DoxyCodeLine{    [MF\_FAILED] = \textcolor{stringliteral}{"Failed"},}
+\DoxyCodeLine{    [MF\_DELAYED] = \textcolor{stringliteral}{"Delayed"},}
+\DoxyCodeLine{    [MF\_RECOVERED] = \textcolor{stringliteral}{"Recovered"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{memory-failure_8c_a576e0c5de32226a19baf99fa421bd866}\label{memory-failure_8c_a576e0c5de32226a19baf99fa421bd866}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!action\_page\_types@{action\_page\_types}}
+\index{action\_page\_types@{action\_page\_types}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{action\_page\_types}{action\_page\_types}}
+{\footnotesize\ttfamily const char$\ast$ const action\+\_\+page\+\_\+types\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [MF\_MSG\_KERNEL]         = \textcolor{stringliteral}{"reserved kernel page"},}
+\DoxyCodeLine{    [MF\_MSG\_KERNEL\_HIGH\_ORDER]  = \textcolor{stringliteral}{"high-\/order kernel page"},}
+\DoxyCodeLine{    [MF\_MSG\_SLAB]           = \textcolor{stringliteral}{"kernel slab page"},}
+\DoxyCodeLine{    [MF\_MSG\_DIFFERENT\_COMPOUND] = \textcolor{stringliteral}{"different compound page after locking"},}
+\DoxyCodeLine{    [MF\_MSG\_POISONED\_HUGE]      = \textcolor{stringliteral}{"huge page already hardware poisoned"},}
+\DoxyCodeLine{    [MF\_MSG\_HUGE]           = \textcolor{stringliteral}{"huge page"},}
+\DoxyCodeLine{    [MF\_MSG\_FREE\_HUGE]      = \textcolor{stringliteral}{"free huge page"},}
+\DoxyCodeLine{    [MF\_MSG\_NON\_PMD\_HUGE]       = \textcolor{stringliteral}{"non-\/pmd-\/sized huge page"},}
+\DoxyCodeLine{    [MF\_MSG\_UNMAP\_FAILED]       = \textcolor{stringliteral}{"unmapping failed page"},}
+\DoxyCodeLine{    [MF\_MSG\_DIRTY\_SWAPCACHE]    = \textcolor{stringliteral}{"dirty swapcache page"},}
+\DoxyCodeLine{    [MF\_MSG\_CLEAN\_SWAPCACHE]    = \textcolor{stringliteral}{"clean swapcache page"},}
+\DoxyCodeLine{    [MF\_MSG\_DIRTY\_MLOCKED\_LRU]  = \textcolor{stringliteral}{"dirty mlocked LRU page"},}
+\DoxyCodeLine{    [MF\_MSG\_CLEAN\_MLOCKED\_LRU]  = \textcolor{stringliteral}{"clean mlocked LRU page"},}
+\DoxyCodeLine{    [MF\_MSG\_DIRTY\_UNEVICTABLE\_LRU]  = \textcolor{stringliteral}{"dirty unevictable LRU page"},}
+\DoxyCodeLine{    [MF\_MSG\_CLEAN\_UNEVICTABLE\_LRU]  = \textcolor{stringliteral}{"clean unevictable LRU page"},}
+\DoxyCodeLine{    [MF\_MSG\_DIRTY\_LRU]      = \textcolor{stringliteral}{"dirty LRU page"},}
+\DoxyCodeLine{    [MF\_MSG\_CLEAN\_LRU]      = \textcolor{stringliteral}{"clean LRU page"},}
+\DoxyCodeLine{    [MF\_MSG\_TRUNCATED\_LRU]      = \textcolor{stringliteral}{"already truncated LRU page"},}
+\DoxyCodeLine{    [MF\_MSG\_BUDDY]          = \textcolor{stringliteral}{"free buddy page"},}
+\DoxyCodeLine{    [MF\_MSG\_BUDDY\_2ND]      = \textcolor{stringliteral}{"free buddy page (2nd try)"},}
+\DoxyCodeLine{    [MF\_MSG\_DAX]            = \textcolor{stringliteral}{"dax page"},}
+\DoxyCodeLine{    [MF\_MSG\_UNSPLIT\_THP]        = \textcolor{stringliteral}{"unsplit thp"},}
+\DoxyCodeLine{    [MF\_MSG\_UNKNOWN]        = \textcolor{stringliteral}{"unknown page"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{memory-failure_8c_a391608f788cf939d2e91d115cf3b415d}\label{memory-failure_8c_a391608f788cf939d2e91d115cf3b415d}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!error\_states@{error\_states}}
+\index{error\_states@{error\_states}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{error\_states}{error\_states}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structpage__state}{page\+\_\+state}} error\+\_\+states\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a6119e2b7a1d60ee775526a7386af84f2}{reserved}}, \mbox{\hyperlink{memory-failure_8c_a6119e2b7a1d60ee775526a7386af84f2}{reserved}},   MF\_MSG\_KERNEL,  \mbox{\hyperlink{memory-failure_8c_af402e739776a403eea674698f36630db}{me\_kernel}} \},}
+\DoxyCodeLine{    }
+\DoxyCodeLine{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a7909f4bb56b809b313e007ea8fc9a56a}{slab}},     \mbox{\hyperlink{memory-failure_8c_a7909f4bb56b809b313e007ea8fc9a56a}{slab}},       MF\_MSG\_SLAB,    \mbox{\hyperlink{memory-failure_8c_af402e739776a403eea674698f36630db}{me\_kernel}} \},}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a6d1197264c8235ebd5bda57ba423914e}{head}},     \mbox{\hyperlink{memory-failure_8c_a6d1197264c8235ebd5bda57ba423914e}{head}},       MF\_MSG\_HUGE,        \mbox{\hyperlink{memory-failure_8c_a93f15518e9a2b4d796fb97248a823af8}{me\_huge\_page}} \},}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}{sc}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},  \mbox{\hyperlink{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}{sc}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},    MF\_MSG\_DIRTY\_SWAPCACHE, \mbox{\hyperlink{memory-failure_8c_a27d775d4f84dc732db1e19f860aebee3}{me\_swapcache\_dirty}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}{sc}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},  \mbox{\hyperlink{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}{sc}},       MF\_MSG\_CLEAN\_SWAPCACHE, \mbox{\hyperlink{memory-failure_8c_acec0a84e070cd88cb2f1a27dc08c31ac}{me\_swapcache\_clean}} \},}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a5cf294b738c59d60e720d7c028b0fbee}{mlock}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},    \mbox{\hyperlink{memory-failure_8c_a5cf294b738c59d60e720d7c028b0fbee}{mlock}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},  MF\_MSG\_DIRTY\_MLOCKED\_LRU,   \mbox{\hyperlink{memory-failure_8c_af873f629eef6a993c18c3541ea727858}{me\_pagecache\_dirty}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a5cf294b738c59d60e720d7c028b0fbee}{mlock}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},    \mbox{\hyperlink{memory-failure_8c_a5cf294b738c59d60e720d7c028b0fbee}{mlock}},     MF\_MSG\_CLEAN\_MLOCKED\_LRU,   \mbox{\hyperlink{memory-failure_8c_adcaea0539c089822cd86007e7ede3e18}{me\_pagecache\_clean}} \},}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_aba780773e4023c785f6d523f39714115}{unevict}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}}, \mbox{\hyperlink{memory-failure_8c_aba780773e4023c785f6d523f39714115}{unevict}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}}, MF\_MSG\_DIRTY\_UNEVICTABLE\_LRU,   \mbox{\hyperlink{memory-failure_8c_af873f629eef6a993c18c3541ea727858}{me\_pagecache\_dirty}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_aba780773e4023c785f6d523f39714115}{unevict}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}}, \mbox{\hyperlink{memory-failure_8c_aba780773e4023c785f6d523f39714115}{unevict}},    MF\_MSG\_CLEAN\_UNEVICTABLE\_LRU,   \mbox{\hyperlink{memory-failure_8c_adcaea0539c089822cd86007e7ede3e18}{me\_pagecache\_clean}} \},}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a25906d74ec903a18bb5bdcd37ec2651b}{lru}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},    \mbox{\hyperlink{memory-failure_8c_a25906d74ec903a18bb5bdcd37ec2651b}{lru}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},  MF\_MSG\_DIRTY\_LRU,   \mbox{\hyperlink{memory-failure_8c_af873f629eef6a993c18c3541ea727858}{me\_pagecache\_dirty}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{memory-failure_8c_a25906d74ec903a18bb5bdcd37ec2651b}{lru}}|\mbox{\hyperlink{memory-failure_8c_aed77bbed337f46f2d45f496761c9fe23}{dirty}},    \mbox{\hyperlink{memory-failure_8c_a25906d74ec903a18bb5bdcd37ec2651b}{lru}},     MF\_MSG\_CLEAN\_LRU,   \mbox{\hyperlink{memory-failure_8c_adcaea0539c089822cd86007e7ede3e18}{me\_pagecache\_clean}} \},}
+\DoxyCodeLine{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \{ 0,        0,      MF\_MSG\_UNKNOWN, \mbox{\hyperlink{memory-failure_8c_a621c30f495f72c602379908d7858f6b3}{me\_unknown}} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{memory-failure_8c_a3f4c18254fd35bfa77906e316121e275}\label{memory-failure_8c_a3f4c18254fd35bfa77906e316121e275}} 
+\index{memory-\/failure.c@{memory-\/failure.c}!hwp\_walk\_ops@{hwp\_walk\_ops}}
+\index{hwp\_walk\_ops@{hwp\_walk\_ops}!memory-\/failure.c@{memory-\/failure.c}}
+\doxysubsubsection{\texorpdfstring{hwp\_walk\_ops}{hwp\_walk\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmm__walk__ops}{mm\+\_\+walk\+\_\+ops}} hwp\+\_\+walk\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .pmd\_entry = \mbox{\hyperlink{memory-failure_8c_a1b628d7318ca4ce4203f4d6f367447b7}{hwpoison\_pte\_range}},}
+\DoxyCodeLine{    .hugetlb\_entry = \mbox{\hyperlink{memory-failure_8c_a53a9f8df9009b9a21414b698df16a5cc}{hwpoison\_hugetlb\_range}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

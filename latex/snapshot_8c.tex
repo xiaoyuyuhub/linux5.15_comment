@@ -1,0 +1,1496 @@
+\hypertarget{snapshot_8c}{}\doxysection{kernel/power/snapshot.c File Reference}
+\label{snapshot_8c}\index{kernel/power/snapshot.c@{kernel/power/snapshot.c}}
+{\ttfamily \#include $<$linux/version.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/suspend.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/device.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memblock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscalls.\+h$>$}\newline
+{\ttfamily \#include $<$linux/console.\+h$>$}\newline
+{\ttfamily \#include $<$linux/highmem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/compiler.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ktime.\+h$>$}\newline
+{\ttfamily \#include $<$linux/set\+\_\+memory.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mmu\+\_\+context.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}power.\+h\char`\"{}}\newline
+Include dependency graph for snapshot.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structlinked__page}{linked\+\_\+page}}
+\item 
+struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}}
+\item 
+struct \mbox{\hyperlink{structrtree__node}{rtree\+\_\+node}}
+\item 
+struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}}
+\item 
+struct \mbox{\hyperlink{structbm__position}{bm\+\_\+position}}
+\item 
+struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}}
+\item 
+struct \mbox{\hyperlink{structmem__extent}{mem\+\_\+extent}}
+\item 
+struct \mbox{\hyperlink{structnosave__region}{nosave\+\_\+region}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}P\+M\+: hibernation\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_abe4cbf6e28a01d1586b31c8e08104c5c}{L\+I\+N\+K\+E\+D\+\_\+\+P\+A\+G\+E\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} -\/ \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(void $\ast$))
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_ad9a02d625fd0590873f1b3a581038fa3}{P\+G\+\_\+\+A\+NY}}~0
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_aaa07868eb4bb748d1ab217bad97d871a}{P\+G\+\_\+\+S\+A\+FE}}~1
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_a14feddf27847ece1a133acd3f52a2c6f}{P\+G\+\_\+\+U\+N\+S\+A\+F\+E\+\_\+\+C\+L\+E\+AR}}~1
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_a9986687e9850ae39c5736b0cd3479ae9}{P\+G\+\_\+\+U\+N\+S\+A\+F\+E\+\_\+\+K\+E\+EP}}~0
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_aef7c7a9e634262abd350b07d9e6869c7}{B\+M\+\_\+\+E\+N\+D\+\_\+\+O\+F\+\_\+\+M\+AP}}~($\sim$0\+UL)
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_ab0c7611d87e6f5b2ecae1ac5d7627537}{B\+M\+\_\+\+B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+B\+L\+O\+CK}}~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} $\ast$ \mbox{\hyperlink{linux_2bits_8h_a369ecd38b3ab077fc235f892354bb46f}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+B\+Y\+TE}})
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_af1e1cbb044486957f48d1ffb5d1c7514}{B\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+S\+H\+I\+FT}}~(\mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} + 3)
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_ab9037c952832fb11643d3f31adb7aa8a}{B\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+M\+A\+SK}}~((1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{snapshot_8c_af1e1cbb044486957f48d1ffb5d1c7514}{B\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+S\+H\+I\+FT}}) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_a9f3604c00d6bb6807878ee5235c9c7a0}{B\+M\+\_\+\+E\+N\+T\+R\+I\+E\+S\+\_\+\+P\+E\+R\+\_\+\+L\+E\+V\+EL}}~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} / \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(unsigned long))
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_aa1b94292ab8f6fa3e86543c213cbef0a}{B\+M\+\_\+\+R\+T\+R\+E\+E\+\_\+\+L\+E\+V\+E\+L\+\_\+\+S\+H\+I\+FT}}~(\mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} -\/ 3)
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_a4c86e16cd5b569b2ca1392df7f6804ab}{B\+M\+\_\+\+R\+T\+R\+E\+E\+\_\+\+L\+E\+V\+E\+L\+\_\+\+M\+A\+SK}}~((1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{snapshot_8c_aa1b94292ab8f6fa3e86543c213cbef0a}{B\+M\+\_\+\+R\+T\+R\+E\+E\+\_\+\+L\+E\+V\+E\+L\+\_\+\+S\+H\+I\+FT}}) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_ad9fef5b835b930896b24a37dfc09fd06}{page\+\_\+is\+\_\+saveable}}(\mbox{\hyperlink{structzone}{zone}},  pfn)~\mbox{\hyperlink{snapshot_8c_a62c949ee98d00ee2b08804b41b55e346}{saveable\+\_\+page}}(\mbox{\hyperlink{structzone}{zone}}, pfn)
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_ae80930d017b54c77fc9f68f7d80da18f}{G\+F\+P\+\_\+\+I\+M\+A\+GE}}~(\mbox{\hyperlink{pq_8h_a44b9e863fd60efc9018a5524b77532ee}{G\+F\+P\+\_\+\+K\+E\+R\+N\+EL}} $\vert$ \+\_\+\+\_\+\+G\+F\+P\+\_\+\+N\+O\+W\+A\+RN)
+\item 
+\#define \mbox{\hyperlink{snapshot_8c_a466c15f24eb581c8cf7e6fd4429b216e}{P\+B\+E\+S\+\_\+\+P\+E\+R\+\_\+\+L\+I\+N\+K\+E\+D\+\_\+\+P\+A\+GE}}~(\mbox{\hyperlink{snapshot_8c_abe4cbf6e28a01d1586b31c8e08104c5c}{L\+I\+N\+K\+E\+D\+\_\+\+P\+A\+G\+E\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+ZE}} / \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structpbe}{pbe}}))
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a574d54420dd4cf3f583315d0e10155aa}{hibernate\+\_\+restore\+\_\+protection\+\_\+begin}} (void)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a54f851569cb378c16c804c3becbf3e47}{hibernate\+\_\+restore\+\_\+protection\+\_\+end}} (void)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a9233b62b547169d93dd4924d3ff6ed29}{hibernate\+\_\+restore\+\_\+protect\+\_\+page}} (void $\ast$\mbox{\hyperlink{memstick_8h_aa4ce2ee98cace3c240725cf50ec4f0ec}{page\+\_\+address}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a81d316ffe8bf0daedcac14fba4d8610f}{hibernate\+\_\+restore\+\_\+unprotect\+\_\+page}} (void $\ast$\mbox{\hyperlink{memstick_8h_aa4ce2ee98cace3c240725cf50ec4f0ec}{page\+\_\+address}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a845f6c11237a07142ea718d15ba81de0}{hibernate\+\_\+map\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_ad9d62b780ba7aa4005fa7a03aab0878c}{hibernate\+\_\+unmap\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_aa41fcddae66e65d526ea3cedbba6821f}{swsusp\+\_\+page\+\_\+is\+\_\+free}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a9cd604588e2f75cce811e98a172b7000}{swsusp\+\_\+set\+\_\+page\+\_\+forbidden}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a65f26f5c589f819c16d56d48bf5714e2}{swsusp\+\_\+unset\+\_\+page\+\_\+forbidden}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{snapshot_8c_aaaa7e477059c68932b201dee28c3cc5f}{hibernate\+\_\+reserved\+\_\+size\+\_\+init}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{snapshot_8c_a2292905ac5b446694342cc7fc1f17290}{hibernate\+\_\+image\+\_\+size\+\_\+init}} (void)
+\item 
+static void $\ast$ \mbox{\hyperlink{snapshot_8c_a013fcea460c76133ecc258bbe6fa22b5}{get\+\_\+image\+\_\+page}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} safe\+\_\+needed)
+\item 
+static void $\ast$ \mbox{\hyperlink{snapshot_8c_aa78eed8b631db9473c5c5056b56b3256}{\+\_\+\+\_\+get\+\_\+safe\+\_\+page}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}})
+\item 
+unsigned long \mbox{\hyperlink{snapshot_8c_a6a167dd9f6f15223f9cbf7cf97ff3d84}{get\+\_\+safe\+\_\+page}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}})
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{snapshot_8c_a0c9da123ddcf41010fcda7739e78e0a6}{alloc\+\_\+image\+\_\+page}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_acddd8c4ec3d7bde122864f0e7970f21e}{recycle\+\_\+safe\+\_\+page}} (void $\ast$\mbox{\hyperlink{memstick_8h_aa4ce2ee98cace3c240725cf50ec4f0ec}{page\+\_\+address}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_afc279d01b4afdc8a0a0853efa05ef854}{free\+\_\+image\+\_\+page}} (void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear\+\_\+nosave\+\_\+free)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a4b1098658e82568e341ec3af808641f2}{free\+\_\+list\+\_\+of\+\_\+pages}} (struct \mbox{\hyperlink{structlinked__page}{linked\+\_\+page}} $\ast$list, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear\+\_\+page\+\_\+nosave)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a099a91d57aa843ce240028aa46fe47e3}{chain\+\_\+init}} (struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$ca, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} safe\+\_\+needed)
+\item 
+static void $\ast$ \mbox{\hyperlink{snapshot_8c_aecd0e95426bb6c298e158de6588b1802}{chain\+\_\+alloc}} (struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$ca, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static struct \mbox{\hyperlink{structrtree__node}{rtree\+\_\+node}} $\ast$ \mbox{\hyperlink{snapshot_8c_a55f1ee7110e2bb11d5449256f8cb8618}{alloc\+\_\+rtree\+\_\+node}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} safe\+\_\+needed, struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$ca, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$list)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a50e3346892e18010b3a3a3fee9e019b9}{add\+\_\+rtree\+\_\+block}} (struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} $\ast$\mbox{\hyperlink{structzone}{zone}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} safe\+\_\+needed, struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$ca)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_aadb3b2e23cd6f5892d817a16878f65e0}{free\+\_\+zone\+\_\+bm\+\_\+rtree}} (struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} $\ast$\mbox{\hyperlink{structzone}{zone}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear\+\_\+nosave\+\_\+free)
+\item 
+static struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} $\ast$ \mbox{\hyperlink{snapshot_8c_aa59aa8d3629f484c5c09a61a23e663a6}{create\+\_\+zone\+\_\+bm\+\_\+rtree}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} safe\+\_\+needed, struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$ca, unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a89d5facfe927a893595e8aed32b5de0e}{memory\+\_\+bm\+\_\+position\+\_\+reset}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a5a2ab113ccbdfc6d07abd87fd804fcf3}{memory\+\_\+bm\+\_\+free}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear\+\_\+nosave\+\_\+free)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a9b4d94df8e3a16c2df9d8266c3983d15}{free\+\_\+mem\+\_\+extents}} (struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$list)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a061c26b111548fa42a69cd4a8037874b}{create\+\_\+mem\+\_\+extents}} (struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$list, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a5b20b49d47f7ecc3d903a72a85924623}{memory\+\_\+bm\+\_\+create}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{linux_2fs_8h_a71c711f7adfa2b44f49855ac04482e18}{gfp\+\_\+mask}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} safe\+\_\+needed)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a56657be5466b8792f2d6d7ffb65a67ea}{memory\+\_\+bm\+\_\+find\+\_\+bit}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned long pfn, void $\ast$$\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$bit\+\_\+nr)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a73e0064c539b4340fb6fc3dd4f73e8ab}{memory\+\_\+bm\+\_\+set\+\_\+bit}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_ace9af3dce365e43af2fa663086a64071}{mem\+\_\+bm\+\_\+set\+\_\+bit\+\_\+check}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_ac89ac94510062d5805ff434732abc2cb}{memory\+\_\+bm\+\_\+clear\+\_\+bit}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned long pfn)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_aa9ce530a555163f5d7566206b83f7ffb}{memory\+\_\+bm\+\_\+clear\+\_\+current}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a026d4de692ba84e27571def4f442e908}{memory\+\_\+bm\+\_\+test\+\_\+bit}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{snapshot_8c_a7aa478cbf8bcce847b128b94b669c82a}{memory\+\_\+bm\+\_\+pfn\+\_\+present}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned long pfn)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{snapshot_8c_a73a9834c19b8d5aca4cbe25f1c262508}{rtree\+\_\+next\+\_\+node}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static unsigned long \mbox{\hyperlink{snapshot_8c_afd7fe78331e8d756b8e15acd74d9ee07}{memory\+\_\+bm\+\_\+next\+\_\+pfn}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static \mbox{\hyperlink{snapshot_8c_a5d99d89348e512f5da764887af7762ac}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (nosave\+\_\+regions)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_abb9bf9f0e282d1fc34989fc5cbd332d7}{recycle\+\_\+zone\+\_\+bm\+\_\+rtree}} (struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} $\ast$\mbox{\hyperlink{structzone}{zone}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_abe90d4cdbd4395ac66cd3eb6ea1c44d4}{memory\+\_\+bm\+\_\+recycle}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{snapshot_8c_a2f4914d0b472106d31c1c37a60c4f32a}{\+\_\+\+\_\+register\+\_\+nosave\+\_\+region}} (unsigned long start\+\_\+pfn, unsigned long end\+\_\+pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} use\+\_\+kmalloc)
+\item 
+void \mbox{\hyperlink{snapshot_8c_af323d38077123653f9174f7dbd219a1a}{swsusp\+\_\+set\+\_\+page\+\_\+free}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+void \mbox{\hyperlink{snapshot_8c_acaba0587ad7f460bd01d46a0182e0e13}{swsusp\+\_\+unset\+\_\+page\+\_\+free}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a6a7b0c69dd139840b769e1fc38699523}{swsusp\+\_\+page\+\_\+is\+\_\+forbidden}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a84e0492492966c8a44d13c1cb329493a}{mark\+\_\+nosave\+\_\+pages}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a18f11509c20a167e61529f9f8fd4fde3}{create\+\_\+basic\+\_\+memory\+\_\+bitmaps}} (void)
+\item 
+void \mbox{\hyperlink{snapshot_8c_a9827dc073d3dcfb60910ee9e77ddd769}{free\+\_\+basic\+\_\+memory\+\_\+bitmaps}} (void)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a272f35c5de050742376d1975e4ec67f0}{clear\+\_\+or\+\_\+poison\+\_\+free\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+void \mbox{\hyperlink{snapshot_8c_acadc25ae7a883f5fef3421631cb5f3e9}{clear\+\_\+or\+\_\+poison\+\_\+free\+\_\+pages}} (void)
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a88a0d64a502d21a991637a3c6db7192c}{snapshot\+\_\+additional\+\_\+pages}} (struct \mbox{\hyperlink{structzone}{zone}} $\ast$\mbox{\hyperlink{structzone}{zone}})
+\item 
+static void $\ast$ \mbox{\hyperlink{snapshot_8c_aae8c45efc8e955491d94b38e9030e1d8}{saveable\+\_\+highmem\+\_\+page}} (struct \mbox{\hyperlink{structzone}{zone}} $\ast$z, unsigned long \mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{snapshot_8c_a62c949ee98d00ee2b08804b41b55e346}{saveable\+\_\+page}} (struct \mbox{\hyperlink{structzone}{zone}} $\ast$\mbox{\hyperlink{structzone}{zone}}, unsigned long pfn)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a13a08b99842121458b825ff54675eb51}{count\+\_\+data\+\_\+pages}} (void)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a93a48d11034133ebb8a5eb97dbe8f621}{do\+\_\+copy\+\_\+page}} (long $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, long $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_afead0752f1fc53da741b4fdc40a0227e}{safe\+\_\+copy\+\_\+page}} (void $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$s\+\_\+page)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_aba8e715d8e6345f61cf38b39f3a5704a}{copy\+\_\+data\+\_\+page}} (unsigned long dst\+\_\+pfn, unsigned long src\+\_\+pfn)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a4f9d754a1fb805ec40eca4dae98512e4}{copy\+\_\+data\+\_\+pages}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$\mbox{\hyperlink{snapshot_8c_a66f40b0dcc48c93a4f9a1a05038d3fa4}{copy\+\_\+bm}}, struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$\mbox{\hyperlink{snapshot_8c_a26a194b3edf55f8c3592d0bdac69bb66}{orig\+\_\+bm}})
+\item 
+void \mbox{\hyperlink{snapshot_8c_a4450725986969f055946633a285c74bf}{swsusp\+\_\+free}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{snapshot_8c_ac384899fd9bd4fdc57bccd6d222ab88e}{preallocate\+\_\+image\+\_\+pages}} (unsigned long nr\+\_\+pages, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}})
+\item 
+static unsigned long \mbox{\hyperlink{snapshot_8c_ad527fe455744cfa0b1f093dc84bc0ee0}{preallocate\+\_\+image\+\_\+memory}} (unsigned long nr\+\_\+pages, unsigned long avail\+\_\+normal)
+\item 
+static unsigned long \mbox{\hyperlink{snapshot_8c_ab349b33ab9c2599a18b079dab8124621}{preallocate\+\_\+image\+\_\+highmem}} (unsigned long nr\+\_\+pages)
+\item 
+static unsigned long \mbox{\hyperlink{snapshot_8c_a3a8492c560ff612894a7270702f13cab}{preallocate\+\_\+highmem\+\_\+fraction}} (unsigned long nr\+\_\+pages, unsigned long highmem, unsigned long total)
+\item 
+static unsigned long \mbox{\hyperlink{snapshot_8c_aafe86d970a48a0efd80c75329faa4eea}{free\+\_\+unnecessary\+\_\+pages}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{snapshot_8c_a10b13827eb23f312c97bc8f264755270}{minimum\+\_\+image\+\_\+size}} (unsigned long saveable)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a79c8fbac521130f812521d2592df76a9}{hibernate\+\_\+preallocate\+\_\+memory}} (void)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a2babe0ce0473182fcff807ef177b2d88}{count\+\_\+pages\+\_\+for\+\_\+highmem}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+highmem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_aab5aeea0e1065281ea94b9bd72a6fecf}{enough\+\_\+free\+\_\+mem}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+pages, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+highmem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_aac1ef1f9fc086dca10e0f14718c8df1f}{get\+\_\+highmem\+\_\+buffer}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} safe\+\_\+needed)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a0d099fcec85ea3f732304815630a0353}{alloc\+\_\+highmem\+\_\+pages}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} n)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_aeb6d11bd7220462ffd80e42f3cd06973}{swsusp\+\_\+alloc}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$\mbox{\hyperlink{snapshot_8c_a66f40b0dcc48c93a4f9a1a05038d3fa4}{copy\+\_\+bm}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+pages, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+highmem)
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a7173e764f0b871167e9cadb27c67259b}{swsusp\+\_\+save}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_ace847686015534a3712a1125c8d01b40}{init\+\_\+header\+\_\+complete}} (struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static const char $\ast$ \mbox{\hyperlink{snapshot_8c_a9af034037a96f8aff6a1c97781851b03}{check\+\_\+image\+\_\+kernel}} (struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+unsigned long \mbox{\hyperlink{snapshot_8c_a84bf51eae5bcb91d2dbf66d56e4f48f6}{snapshot\+\_\+get\+\_\+image\+\_\+size}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a889c550f6f68285b0050197488ca9b00}{init\+\_\+header}} (struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a391c90ba0ffce82f20f04fe4dbf69adf}{pack\+\_\+pfns}} (unsigned long $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a8ca1fd96ec28c968a8562703b9ffcc23}{snapshot\+\_\+read\+\_\+next}} (struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a8ec8bdee489410525d7be8707c19a6eb}{duplicate\+\_\+memory\+\_\+bitmap}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}})
+\item 
+static void \mbox{\hyperlink{snapshot_8c_af20bb9b09a20b06707e0703a47271ffa}{mark\+\_\+unsafe\+\_\+pages}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a6b83db9d415330d845b162b5e010c27e}{check\+\_\+header}} (struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a9be23c51008dc751e8639bdf735fbec9}{load\+\_\+header}} (struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a7ed423babb09182e98df78cf3f5fcbaa}{unpack\+\_\+orig\+\_\+pfns}} (unsigned long $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_ad476b871e94e0b03de48573cb4b46e4c}{count\+\_\+highmem\+\_\+image\+\_\+pages}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_ad11163cad7b264bb69fd3ee4df51df38}{prepare\+\_\+highmem\+\_\+image}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$nr\+\_\+highmem\+\_\+p)
+\item 
+static void $\ast$ \mbox{\hyperlink{snapshot_8c_ac6e4885d9b48931760553f4502801e8f}{get\+\_\+highmem\+\_\+page\+\_\+buffer}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$ca)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a0c5fb2629b74d94d48f70aef79ea599d}{copy\+\_\+last\+\_\+highmem\+\_\+page}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_aa7b37a0e56c47901096fa29283f4bb0a}{last\+\_\+highmem\+\_\+page\+\_\+copied}} (void)
+\item 
+static void \mbox{\hyperlink{snapshot_8c_a8f86af3aabaa2997565d2a2ff4088795}{free\+\_\+highmem\+\_\+data}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a23516b73aa5ac7464b6544ccf72ab90a}{prepare\+\_\+image}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$new\+\_\+bm, struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm)
+\item 
+static void $\ast$ \mbox{\hyperlink{snapshot_8c_ac8d7850ecb84d6200fb76b78dd24879f}{get\+\_\+buffer}} (struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$bm, struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$ca)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_ad1a0c7e1a915138a60c64c6602ab197e}{snapshot\+\_\+write\+\_\+next}} (struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+void \mbox{\hyperlink{snapshot_8c_adf938cf6cb488b381d695e97f2496461}{snapshot\+\_\+write\+\_\+finalize}} (struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_ae5631ee8e3171fd3cc843d95a4effa5d}{snapshot\+\_\+image\+\_\+loaded}} (struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$\mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+unsigned long \mbox{\hyperlink{snapshot_8c_a4dd731a281fbed0f432b8f2119b61d38}{reserved\+\_\+size}}
+\item 
+unsigned long \mbox{\hyperlink{snapshot_8c_ada44ef70b7f9f71f564a8f5470c03bac}{image\+\_\+size}}
+\item 
+struct \mbox{\hyperlink{structpbe}{pbe}} $\ast$ \mbox{\hyperlink{snapshot_8c_aefcd59010301d186b395ce3c068f9609}{restore\+\_\+pblist}}
+\item 
+struct \mbox{\hyperlink{structlinked__page}{linked\+\_\+page}} \mbox{\hyperlink{snapshot_8c_a14aaef24b456c3040bf6d1842329741a}{\+\_\+\+\_\+packed}}
+\item 
+static struct \mbox{\hyperlink{structlinked__page}{linked\+\_\+page}} $\ast$ \mbox{\hyperlink{snapshot_8c_a6489dfdaabab7ad52165d902dbb8758f}{safe\+\_\+pages\+\_\+list}}
+\item 
+static void $\ast$ \mbox{\hyperlink{snapshot_8c_a368f7094dc38acca20612bbb392552f4}{buffer}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_ab8c57399dcabb88b4da4f6be3193fd4d}{allocated\+\_\+unsafe\+\_\+pages}}
+\item 
+static struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$ \mbox{\hyperlink{snapshot_8c_afcf4e2f0fcc94f031aa5785a0ea91099}{forbidden\+\_\+pages\+\_\+map}}
+\item 
+static struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$ \mbox{\hyperlink{snapshot_8c_a6c65c56ea4fad7370aac85dd875d7fe8}{free\+\_\+pages\+\_\+map}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_aecbd3953d6c6496eefc127ab8852d5cb}{nr\+\_\+copy\+\_\+pages}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_adaa01163cff3a4a1a98b61ace6101480}{nr\+\_\+meta\+\_\+pages}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_af341808697fc574b91d37d5d956a2d1c}{alloc\+\_\+normal}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{snapshot_8c_a423a7173ed5197edca5c7476fba8c119}{alloc\+\_\+highmem}}
+\item 
+static struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} \mbox{\hyperlink{snapshot_8c_a26a194b3edf55f8c3592d0bdac69bb66}{orig\+\_\+bm}}
+\item 
+static struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} \mbox{\hyperlink{snapshot_8c_a66f40b0dcc48c93a4f9a1a05038d3fa4}{copy\+\_\+bm}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{snapshot_8c_ab0c7611d87e6f5b2ecae1ac5d7627537}\label{snapshot_8c_ab0c7611d87e6f5b2ecae1ac5d7627537}} 
+\index{snapshot.c@{snapshot.c}!BM\_BITS\_PER\_BLOCK@{BM\_BITS\_PER\_BLOCK}}
+\index{BM\_BITS\_PER\_BLOCK@{BM\_BITS\_PER\_BLOCK}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{BM\_BITS\_PER\_BLOCK}{BM\_BITS\_PER\_BLOCK}}
+{\footnotesize\ttfamily \#define B\+M\+\_\+\+B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+B\+L\+O\+CK~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} $\ast$ \mbox{\hyperlink{linux_2bits_8h_a369ecd38b3ab077fc235f892354bb46f}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+B\+Y\+TE}})}
+
+\mbox{\Hypertarget{snapshot_8c_ab9037c952832fb11643d3f31adb7aa8a}\label{snapshot_8c_ab9037c952832fb11643d3f31adb7aa8a}} 
+\index{snapshot.c@{snapshot.c}!BM\_BLOCK\_MASK@{BM\_BLOCK\_MASK}}
+\index{BM\_BLOCK\_MASK@{BM\_BLOCK\_MASK}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{BM\_BLOCK\_MASK}{BM\_BLOCK\_MASK}}
+{\footnotesize\ttfamily \#define B\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+M\+A\+SK~((1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{snapshot_8c_af1e1cbb044486957f48d1ffb5d1c7514}{B\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+S\+H\+I\+FT}}) -\/ 1)}
+
+\mbox{\Hypertarget{snapshot_8c_af1e1cbb044486957f48d1ffb5d1c7514}\label{snapshot_8c_af1e1cbb044486957f48d1ffb5d1c7514}} 
+\index{snapshot.c@{snapshot.c}!BM\_BLOCK\_SHIFT@{BM\_BLOCK\_SHIFT}}
+\index{BM\_BLOCK\_SHIFT@{BM\_BLOCK\_SHIFT}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{BM\_BLOCK\_SHIFT}{BM\_BLOCK\_SHIFT}}
+{\footnotesize\ttfamily \#define B\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+S\+H\+I\+FT~(\mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} + 3)}
+
+\mbox{\Hypertarget{snapshot_8c_aef7c7a9e634262abd350b07d9e6869c7}\label{snapshot_8c_aef7c7a9e634262abd350b07d9e6869c7}} 
+\index{snapshot.c@{snapshot.c}!BM\_END\_OF\_MAP@{BM\_END\_OF\_MAP}}
+\index{BM\_END\_OF\_MAP@{BM\_END\_OF\_MAP}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{BM\_END\_OF\_MAP}{BM\_END\_OF\_MAP}}
+{\footnotesize\ttfamily \#define B\+M\+\_\+\+E\+N\+D\+\_\+\+O\+F\+\_\+\+M\+AP~($\sim$0\+UL)}
+
+Data types related to memory bitmaps.
+
+Memory bitmap is a structure consisting of many linked lists of objects. \mbox{\hyperlink{classThe}{The}} main list\textquotesingle{}s elements are of type struct zone\+\_\+bitmap and each of them corresponds to one zone. For each zone bitmap object there is a list of objects of type struct bm\+\_\+block that represent each blocks of bitmap in which information is stored.
+
+struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} \mbox{\hyperlink{protocolcontains-p}{contains}} a pointer to the main list of zone bitmap objects, a struct \mbox{\hyperlink{structbm__position}{bm\+\_\+position}} used for browsing the bitmap, and a pointer to the list of pages used for allocating all of the zone bitmap objects and bitmap block objects.
+
+N\+O\+TE\+: It has to be possible to lay out the bitmap in memory using only allocations of order 0. Additionally, the bitmap is designed to work with arbitrary number of zones (this is over the top for now, but let\textquotesingle{}s avoid making unnecessary assumptions ;-\/).
+
+struct zone\+\_\+bitmap \mbox{\hyperlink{protocolcontains-p}{contains}} a pointer to a list of bitmap block objects and a pointer to the bitmap block object that has been most recently used for setting bits. Additionally, it \mbox{\hyperlink{protocolcontains-p}{contains}} the P\+F\+Ns that correspond to the start and end of the represented zone.
+
+struct bm\+\_\+block \mbox{\hyperlink{protocolcontains-p}{contains}} a pointer to the memory page in which information is stored (in the form of a block of bitmap) It also \mbox{\hyperlink{protocolcontains-p}{contains}} the pfns that correspond to the start and end of the represented memory area.
+
+\mbox{\hyperlink{classThe}{The}} memory bitmap is organized as a radix tree to guarantee fast random access to the bits. There is one radix tree for each zone (as returned from create\+\_\+mem\+\_\+extents).
+
+One radix tree is represented by one struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}}. There are two linked lists for the nodes of the tree, one for the inner nodes and one for the leave nodes. \mbox{\hyperlink{classThe}{The}} linked leave nodes are used for fast linear access of the memory bitmap.
+
+\mbox{\hyperlink{classThe}{The}} struct \mbox{\hyperlink{structrtree__node}{rtree\+\_\+node}} represents one node of the radix tree. \mbox{\Hypertarget{snapshot_8c_a9f3604c00d6bb6807878ee5235c9c7a0}\label{snapshot_8c_a9f3604c00d6bb6807878ee5235c9c7a0}} 
+\index{snapshot.c@{snapshot.c}!BM\_ENTRIES\_PER\_LEVEL@{BM\_ENTRIES\_PER\_LEVEL}}
+\index{BM\_ENTRIES\_PER\_LEVEL@{BM\_ENTRIES\_PER\_LEVEL}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{BM\_ENTRIES\_PER\_LEVEL}{BM\_ENTRIES\_PER\_LEVEL}}
+{\footnotesize\ttfamily \#define B\+M\+\_\+\+E\+N\+T\+R\+I\+E\+S\+\_\+\+P\+E\+R\+\_\+\+L\+E\+V\+EL~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} / \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(unsigned long))}
+
+\mbox{\Hypertarget{snapshot_8c_a4c86e16cd5b569b2ca1392df7f6804ab}\label{snapshot_8c_a4c86e16cd5b569b2ca1392df7f6804ab}} 
+\index{snapshot.c@{snapshot.c}!BM\_RTREE\_LEVEL\_MASK@{BM\_RTREE\_LEVEL\_MASK}}
+\index{BM\_RTREE\_LEVEL\_MASK@{BM\_RTREE\_LEVEL\_MASK}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{BM\_RTREE\_LEVEL\_MASK}{BM\_RTREE\_LEVEL\_MASK}}
+{\footnotesize\ttfamily \#define B\+M\+\_\+\+R\+T\+R\+E\+E\+\_\+\+L\+E\+V\+E\+L\+\_\+\+M\+A\+SK~((1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{snapshot_8c_aa1b94292ab8f6fa3e86543c213cbef0a}{B\+M\+\_\+\+R\+T\+R\+E\+E\+\_\+\+L\+E\+V\+E\+L\+\_\+\+S\+H\+I\+FT}}) -\/ 1)}
+
+\mbox{\Hypertarget{snapshot_8c_aa1b94292ab8f6fa3e86543c213cbef0a}\label{snapshot_8c_aa1b94292ab8f6fa3e86543c213cbef0a}} 
+\index{snapshot.c@{snapshot.c}!BM\_RTREE\_LEVEL\_SHIFT@{BM\_RTREE\_LEVEL\_SHIFT}}
+\index{BM\_RTREE\_LEVEL\_SHIFT@{BM\_RTREE\_LEVEL\_SHIFT}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{BM\_RTREE\_LEVEL\_SHIFT}{BM\_RTREE\_LEVEL\_SHIFT}}
+{\footnotesize\ttfamily \#define B\+M\+\_\+\+R\+T\+R\+E\+E\+\_\+\+L\+E\+V\+E\+L\+\_\+\+S\+H\+I\+FT~(\mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} -\/ 3)}
+
+\mbox{\Hypertarget{snapshot_8c_ae80930d017b54c77fc9f68f7d80da18f}\label{snapshot_8c_ae80930d017b54c77fc9f68f7d80da18f}} 
+\index{snapshot.c@{snapshot.c}!GFP\_IMAGE@{GFP\_IMAGE}}
+\index{GFP\_IMAGE@{GFP\_IMAGE}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{GFP\_IMAGE}{GFP\_IMAGE}}
+{\footnotesize\ttfamily \#define G\+F\+P\+\_\+\+I\+M\+A\+GE~(\mbox{\hyperlink{pq_8h_a44b9e863fd60efc9018a5524b77532ee}{G\+F\+P\+\_\+\+K\+E\+R\+N\+EL}} $\vert$ \+\_\+\+\_\+\+G\+F\+P\+\_\+\+N\+O\+W\+A\+RN)}
+
+\mbox{\Hypertarget{snapshot_8c_abe4cbf6e28a01d1586b31c8e08104c5c}\label{snapshot_8c_abe4cbf6e28a01d1586b31c8e08104c5c}} 
+\index{snapshot.c@{snapshot.c}!LINKED\_PAGE\_DATA\_SIZE@{LINKED\_PAGE\_DATA\_SIZE}}
+\index{LINKED\_PAGE\_DATA\_SIZE@{LINKED\_PAGE\_DATA\_SIZE}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{LINKED\_PAGE\_DATA\_SIZE}{LINKED\_PAGE\_DATA\_SIZE}}
+{\footnotesize\ttfamily \#define L\+I\+N\+K\+E\+D\+\_\+\+P\+A\+G\+E\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} -\/ \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(void $\ast$))}
+
+\mbox{\Hypertarget{snapshot_8c_ad9fef5b835b930896b24a37dfc09fd06}\label{snapshot_8c_ad9fef5b835b930896b24a37dfc09fd06}} 
+\index{snapshot.c@{snapshot.c}!page\_is\_saveable@{page\_is\_saveable}}
+\index{page\_is\_saveable@{page\_is\_saveable}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{page\_is\_saveable}{page\_is\_saveable}}
+{\footnotesize\ttfamily \#define page\+\_\+is\+\_\+saveable(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{structzone}{zone}},  }\item[{}]{pfn }\end{DoxyParamCaption})~\mbox{\hyperlink{snapshot_8c_a62c949ee98d00ee2b08804b41b55e346}{saveable\+\_\+page}}(\mbox{\hyperlink{structzone}{zone}}, pfn)}
+
+\mbox{\Hypertarget{snapshot_8c_a466c15f24eb581c8cf7e6fd4429b216e}\label{snapshot_8c_a466c15f24eb581c8cf7e6fd4429b216e}} 
+\index{snapshot.c@{snapshot.c}!PBES\_PER\_LINKED\_PAGE@{PBES\_PER\_LINKED\_PAGE}}
+\index{PBES\_PER\_LINKED\_PAGE@{PBES\_PER\_LINKED\_PAGE}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{PBES\_PER\_LINKED\_PAGE}{PBES\_PER\_LINKED\_PAGE}}
+{\footnotesize\ttfamily \#define P\+B\+E\+S\+\_\+\+P\+E\+R\+\_\+\+L\+I\+N\+K\+E\+D\+\_\+\+P\+A\+GE~(\mbox{\hyperlink{snapshot_8c_abe4cbf6e28a01d1586b31c8e08104c5c}{L\+I\+N\+K\+E\+D\+\_\+\+P\+A\+G\+E\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+ZE}} / \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structpbe}{pbe}}))}
+
+\mbox{\Hypertarget{snapshot_8c_ad9a02d625fd0590873f1b3a581038fa3}\label{snapshot_8c_ad9a02d625fd0590873f1b3a581038fa3}} 
+\index{snapshot.c@{snapshot.c}!PG\_ANY@{PG\_ANY}}
+\index{PG\_ANY@{PG\_ANY}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{PG\_ANY}{PG\_ANY}}
+{\footnotesize\ttfamily \#define P\+G\+\_\+\+A\+NY~0}
+
+\mbox{\Hypertarget{snapshot_8c_aaa07868eb4bb748d1ab217bad97d871a}\label{snapshot_8c_aaa07868eb4bb748d1ab217bad97d871a}} 
+\index{snapshot.c@{snapshot.c}!PG\_SAFE@{PG\_SAFE}}
+\index{PG\_SAFE@{PG\_SAFE}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{PG\_SAFE}{PG\_SAFE}}
+{\footnotesize\ttfamily \#define P\+G\+\_\+\+S\+A\+FE~1}
+
+\mbox{\Hypertarget{snapshot_8c_a14feddf27847ece1a133acd3f52a2c6f}\label{snapshot_8c_a14feddf27847ece1a133acd3f52a2c6f}} 
+\index{snapshot.c@{snapshot.c}!PG\_UNSAFE\_CLEAR@{PG\_UNSAFE\_CLEAR}}
+\index{PG\_UNSAFE\_CLEAR@{PG\_UNSAFE\_CLEAR}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{PG\_UNSAFE\_CLEAR}{PG\_UNSAFE\_CLEAR}}
+{\footnotesize\ttfamily \#define P\+G\+\_\+\+U\+N\+S\+A\+F\+E\+\_\+\+C\+L\+E\+AR~1}
+
+\mbox{\Hypertarget{snapshot_8c_a9986687e9850ae39c5736b0cd3479ae9}\label{snapshot_8c_a9986687e9850ae39c5736b0cd3479ae9}} 
+\index{snapshot.c@{snapshot.c}!PG\_UNSAFE\_KEEP@{PG\_UNSAFE\_KEEP}}
+\index{PG\_UNSAFE\_KEEP@{PG\_UNSAFE\_KEEP}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{PG\_UNSAFE\_KEEP}{PG\_UNSAFE\_KEEP}}
+{\footnotesize\ttfamily \#define P\+G\+\_\+\+U\+N\+S\+A\+F\+E\+\_\+\+K\+E\+EP~0}
+
+\mbox{\Hypertarget{snapshot_8c_a1f8c165bf4196327bc3abff648276d92}\label{snapshot_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{snapshot.c@{snapshot.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}P\+M\+: hibernation\+: \char`\"{} fmt}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{snapshot_8c_aa78eed8b631db9473c5c5056b56b3256}\label{snapshot_8c_aa78eed8b631db9473c5c5056b56b3256}} 
+\index{snapshot.c@{snapshot.c}!\_\_get\_safe\_page@{\_\_get\_safe\_page}}
+\index{\_\_get\_safe\_page@{\_\_get\_safe\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{\_\_get\_safe\_page()}{\_\_get\_safe\_page()}}
+{\footnotesize\ttfamily static void$\ast$ \+\_\+\+\_\+get\+\_\+safe\+\_\+page (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{snapshot_8c_a2f4914d0b472106d31c1c37a60c4f32a}\label{snapshot_8c_a2f4914d0b472106d31c1c37a60c4f32a}} 
+\index{snapshot.c@{snapshot.c}!\_\_register\_nosave\_region@{\_\_register\_nosave\_region}}
+\index{\_\_register\_nosave\_region@{\_\_register\_nosave\_region}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{\_\_register\_nosave\_region()}{\_\_register\_nosave\_region()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \+\_\+\+\_\+register\+\_\+nosave\+\_\+region (\begin{DoxyParamCaption}\item[{unsigned long}]{start\+\_\+pfn,  }\item[{unsigned long}]{end\+\_\+pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{use\+\_\+kmalloc }\end{DoxyParamCaption})}
+
+register\+\_\+nosave\+\_\+region -\/ Register a region of unsaveable memory.
+
+Register a range of page frames the contents of which should not be saved during hibernation (to be used in the early initialization code). Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{snapshot_8c_a50e3346892e18010b3a3a3fee9e019b9}\label{snapshot_8c_a50e3346892e18010b3a3a3fee9e019b9}} 
+\index{snapshot.c@{snapshot.c}!add\_rtree\_block@{add\_rtree\_block}}
+\index{add\_rtree\_block@{add\_rtree\_block}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{add\_rtree\_block()}{add\_rtree\_block()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} add\+\_\+rtree\+\_\+block (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} $\ast$}]{zone,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{safe\+\_\+needed,  }\item[{struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$}]{ca }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+add\+\_\+rtree\+\_\+block -\/ Add a new leave node to the radix tree.
+
+\mbox{\hyperlink{classThe}{The}} leave nodes need to be allocated in order to keep the leaves linked list in order. This is guaranteed by the zone-\/$>$blocks counter. Here is the call graph for this function\+:
+% FIG 4
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{snapshot_8c_a0d099fcec85ea3f732304815630a0353}\label{snapshot_8c_a0d099fcec85ea3f732304815630a0353}} 
+\index{snapshot.c@{snapshot.c}!alloc\_highmem\_pages@{alloc\_highmem\_pages}}
+\index{alloc\_highmem\_pages@{alloc\_highmem\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_highmem\_pages()}{alloc\_highmem\_pages()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+highmem\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{snapshot_8c_a0c9da123ddcf41010fcda7739e78e0a6}\label{snapshot_8c_a0c9da123ddcf41010fcda7739e78e0a6}} 
+\index{snapshot.c@{snapshot.c}!alloc\_image\_page@{alloc\_image\_page}}
+\index{alloc\_image\_page@{alloc\_image\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_image\_page()}{alloc\_image\_page()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ alloc\+\_\+image\+\_\+page (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{snapshot_8c_a55f1ee7110e2bb11d5449256f8cb8618}\label{snapshot_8c_a55f1ee7110e2bb11d5449256f8cb8618}} 
+\index{snapshot.c@{snapshot.c}!alloc\_rtree\_node@{alloc\_rtree\_node}}
+\index{alloc\_rtree\_node@{alloc\_rtree\_node}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_rtree\_node()}{alloc\_rtree\_node()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structrtree__node}{rtree\+\_\+node}}$\ast$ alloc\+\_\+rtree\+\_\+node (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{safe\+\_\+needed,  }\item[{struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$}]{ca,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{list }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+alloc\+\_\+rtree\+\_\+node -\/ Allocate a new node and add it to the radix tree.
+
+This function is used to allocate inner nodes as well as the leave nodes of the radix tree. It also adds the node to the corresponding linked list passed in by the $\ast$list parameter. Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{snapshot_8c_aecd0e95426bb6c298e158de6588b1802}\label{snapshot_8c_aecd0e95426bb6c298e158de6588b1802}} 
+\index{snapshot.c@{snapshot.c}!chain\_alloc@{chain\_alloc}}
+\index{chain\_alloc@{chain\_alloc}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{chain\_alloc()}{chain\_alloc()}}
+{\footnotesize\ttfamily static void$\ast$ chain\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$}]{ca,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{snapshot_8c_a099a91d57aa843ce240028aa46fe47e3}\label{snapshot_8c_a099a91d57aa843ce240028aa46fe47e3}} 
+\index{snapshot.c@{snapshot.c}!chain\_init@{chain\_init}}
+\index{chain\_init@{chain\_init}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{chain\_init()}{chain\_init()}}
+{\footnotesize\ttfamily static void chain\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$}]{ca,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{safe\+\_\+needed }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{snapshot_8c_a6b83db9d415330d845b162b5e010c27e}\label{snapshot_8c_a6b83db9d415330d845b162b5e010c27e}} 
+\index{snapshot.c@{snapshot.c}!check\_header@{check\_header}}
+\index{check\_header@{check\_header}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{check\_header()}{check\_header()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+header (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{snapshot_8c_a9af034037a96f8aff6a1c97781851b03}\label{snapshot_8c_a9af034037a96f8aff6a1c97781851b03}} 
+\index{snapshot.c@{snapshot.c}!check\_image\_kernel@{check\_image\_kernel}}
+\index{check\_image\_kernel@{check\_image\_kernel}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{check\_image\_kernel()}{check\_image\_kernel()}}
+{\footnotesize\ttfamily static const char$\ast$ check\+\_\+image\+\_\+kernel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{snapshot_8c_a272f35c5de050742376d1975e4ec67f0}\label{snapshot_8c_a272f35c5de050742376d1975e4ec67f0}} 
+\index{snapshot.c@{snapshot.c}!clear\_or\_poison\_free\_page@{clear\_or\_poison\_free\_page}}
+\index{clear\_or\_poison\_free\_page@{clear\_or\_poison\_free\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{clear\_or\_poison\_free\_page()}{clear\_or\_poison\_free\_page()}}
+{\footnotesize\ttfamily static void clear\+\_\+or\+\_\+poison\+\_\+free\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{snapshot_8c_acadc25ae7a883f5fef3421631cb5f3e9}\label{snapshot_8c_acadc25ae7a883f5fef3421631cb5f3e9}} 
+\index{snapshot.c@{snapshot.c}!clear\_or\_poison\_free\_pages@{clear\_or\_poison\_free\_pages}}
+\index{clear\_or\_poison\_free\_pages@{clear\_or\_poison\_free\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{clear\_or\_poison\_free\_pages()}{clear\_or\_poison\_free\_pages()}}
+{\footnotesize\ttfamily void clear\+\_\+or\+\_\+poison\+\_\+free\+\_\+pages (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{snapshot_8c_aba8e715d8e6345f61cf38b39f3a5704a}\label{snapshot_8c_aba8e715d8e6345f61cf38b39f3a5704a}} 
+\index{snapshot.c@{snapshot.c}!copy\_data\_page@{copy\_data\_page}}
+\index{copy\_data\_page@{copy\_data\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{copy\_data\_page()}{copy\_data\_page()}}
+{\footnotesize\ttfamily static void copy\+\_\+data\+\_\+page (\begin{DoxyParamCaption}\item[{unsigned long}]{dst\+\_\+pfn,  }\item[{unsigned long}]{src\+\_\+pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{snapshot_8c_a4f9d754a1fb805ec40eca4dae98512e4}\label{snapshot_8c_a4f9d754a1fb805ec40eca4dae98512e4}} 
+\index{snapshot.c@{snapshot.c}!copy\_data\_pages@{copy\_data\_pages}}
+\index{copy\_data\_pages@{copy\_data\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{copy\_data\_pages()}{copy\_data\_pages()}}
+{\footnotesize\ttfamily static void copy\+\_\+data\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{copy\+\_\+bm,  }\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{orig\+\_\+bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{snapshot_8c_a0c5fb2629b74d94d48f70aef79ea599d}\label{snapshot_8c_a0c5fb2629b74d94d48f70aef79ea599d}} 
+\index{snapshot.c@{snapshot.c}!copy\_last\_highmem\_page@{copy\_last\_highmem\_page}}
+\index{copy\_last\_highmem\_page@{copy\_last\_highmem\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{copy\_last\_highmem\_page()}{copy\_last\_highmem\_page()}}
+{\footnotesize\ttfamily static void copy\+\_\+last\+\_\+highmem\+\_\+page (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{snapshot_8c_a13a08b99842121458b825ff54675eb51}\label{snapshot_8c_a13a08b99842121458b825ff54675eb51}} 
+\index{snapshot.c@{snapshot.c}!count\_data\_pages@{count\_data\_pages}}
+\index{count\_data\_pages@{count\_data\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{count\_data\_pages()}{count\_data\_pages()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} count\+\_\+data\+\_\+pages (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+count\+\_\+data\+\_\+pages -\/ Compute the total number of saveable non-\/highmem pages. Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{snapshot_8c_ad476b871e94e0b03de48573cb4b46e4c}\label{snapshot_8c_ad476b871e94e0b03de48573cb4b46e4c}} 
+\index{snapshot.c@{snapshot.c}!count\_highmem\_image\_pages@{count\_highmem\_image\_pages}}
+\index{count\_highmem\_image\_pages@{count\_highmem\_image\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{count\_highmem\_image\_pages()}{count\_highmem\_image\_pages()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} count\+\_\+highmem\+\_\+image\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{snapshot_8c_a2babe0ce0473182fcff807ef177b2d88}\label{snapshot_8c_a2babe0ce0473182fcff807ef177b2d88}} 
+\index{snapshot.c@{snapshot.c}!count\_pages\_for\_highmem@{count\_pages\_for\_highmem}}
+\index{count\_pages\_for\_highmem@{count\_pages\_for\_highmem}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{count\_pages\_for\_highmem()}{count\_pages\_for\_highmem()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} count\+\_\+pages\+\_\+for\+\_\+highmem (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+highmem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{snapshot_8c_a18f11509c20a167e61529f9f8fd4fde3}\label{snapshot_8c_a18f11509c20a167e61529f9f8fd4fde3}} 
+\index{snapshot.c@{snapshot.c}!create\_basic\_memory\_bitmaps@{create\_basic\_memory\_bitmaps}}
+\index{create\_basic\_memory\_bitmaps@{create\_basic\_memory\_bitmaps}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{create\_basic\_memory\_bitmaps()}{create\_basic\_memory\_bitmaps()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} create\+\_\+basic\+\_\+memory\+\_\+bitmaps (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+create\+\_\+basic\+\_\+memory\+\_\+bitmaps -\/ Create bitmaps to hold basic page information.
+
+Create bitmaps needed for marking page frames that should not be saved and free page frames. \mbox{\hyperlink{classThe}{The}} forbidden\+\_\+pages\+\_\+map and free\+\_\+pages\+\_\+map pointers are only modified if everything goes well, because we don\textquotesingle{}t want the bits to be touched before both bitmaps are set up. Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{snapshot_8c_a061c26b111548fa42a69cd4a8037874b}\label{snapshot_8c_a061c26b111548fa42a69cd4a8037874b}} 
+\index{snapshot.c@{snapshot.c}!create\_mem\_extents@{create\_mem\_extents}}
+\index{create\_mem\_extents@{create\_mem\_extents}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{create\_mem\_extents()}{create\_mem\_extents()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} create\+\_\+mem\+\_\+extents (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{list,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+create\+\_\+mem\+\_\+extents -\/ Create a list of memory extents. @list\+: List to put the extents into. @gfp\+\_\+mask\+: Mask to use for memory allocations.
+
+\mbox{\hyperlink{classThe}{The}} extents represent contiguous ranges of P\+F\+Ns. Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{snapshot_8c_aa59aa8d3629f484c5c09a61a23e663a6}\label{snapshot_8c_aa59aa8d3629f484c5c09a61a23e663a6}} 
+\index{snapshot.c@{snapshot.c}!create\_zone\_bm\_rtree@{create\_zone\_bm\_rtree}}
+\index{create\_zone\_bm\_rtree@{create\_zone\_bm\_rtree}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{create\_zone\_bm\_rtree()}{create\_zone\_bm\_rtree()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}}$\ast$ create\+\_\+zone\+\_\+bm\+\_\+rtree (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{safe\+\_\+needed,  }\item[{struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$}]{ca,  }\item[{unsigned long}]{start,  }\item[{unsigned long}]{end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+create\+\_\+zone\+\_\+bm\+\_\+rtree -\/ Create a radix tree for one zone.
+
+Allocated the \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} structure and initializes it. This function also allocated and builds the radix tree for the zone. Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{snapshot_8c_a93a48d11034133ebb8a5eb97dbe8f621}\label{snapshot_8c_a93a48d11034133ebb8a5eb97dbe8f621}} 
+\index{snapshot.c@{snapshot.c}!do\_copy\_page@{do\_copy\_page}}
+\index{do\_copy\_page@{do\_copy\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{do\_copy\_page()}{do\_copy\_page()}}
+{\footnotesize\ttfamily static void do\+\_\+copy\+\_\+page (\begin{DoxyParamCaption}\item[{long $\ast$}]{dst,  }\item[{long $\ast$}]{src }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{snapshot_8c_a8ec8bdee489410525d7be8707c19a6eb}\label{snapshot_8c_a8ec8bdee489410525d7be8707c19a6eb}} 
+\index{snapshot.c@{snapshot.c}!duplicate\_memory\_bitmap@{duplicate\_memory\_bitmap}}
+\index{duplicate\_memory\_bitmap@{duplicate\_memory\_bitmap}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{duplicate\_memory\_bitmap()}{duplicate\_memory\_bitmap()}}
+{\footnotesize\ttfamily static void duplicate\+\_\+memory\+\_\+bitmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{dst,  }\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{src }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{snapshot_8c_aab5aeea0e1065281ea94b9bd72a6fecf}\label{snapshot_8c_aab5aeea0e1065281ea94b9bd72a6fecf}} 
+\index{snapshot.c@{snapshot.c}!enough\_free\_mem@{enough\_free\_mem}}
+\index{enough\_free\_mem@{enough\_free\_mem}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{enough\_free\_mem()}{enough\_free\_mem()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} enough\+\_\+free\+\_\+mem (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+pages,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+highmem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+enough\+\_\+free\+\_\+mem -\/ Check if there is enough free memory for the image. Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{snapshot_8c_a9827dc073d3dcfb60910ee9e77ddd769}\label{snapshot_8c_a9827dc073d3dcfb60910ee9e77ddd769}} 
+\index{snapshot.c@{snapshot.c}!free\_basic\_memory\_bitmaps@{free\_basic\_memory\_bitmaps}}
+\index{free\_basic\_memory\_bitmaps@{free\_basic\_memory\_bitmaps}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_basic\_memory\_bitmaps()}{free\_basic\_memory\_bitmaps()}}
+{\footnotesize\ttfamily void free\+\_\+basic\+\_\+memory\+\_\+bitmaps (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+free\+\_\+basic\+\_\+memory\+\_\+bitmaps -\/ Free memory bitmaps holding basic information.
+
+Free memory bitmaps allocated by \mbox{\hyperlink{snapshot_8c_a18f11509c20a167e61529f9f8fd4fde3}{create\+\_\+basic\+\_\+memory\+\_\+bitmaps()}}. \mbox{\hyperlink{classThe}{The}} auxiliary pointers are necessary so that the bitmaps themselves are not referred to while they are being freed. Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{snapshot_8c_a8f86af3aabaa2997565d2a2ff4088795}\label{snapshot_8c_a8f86af3aabaa2997565d2a2ff4088795}} 
+\index{snapshot.c@{snapshot.c}!free\_highmem\_data@{free\_highmem\_data}}
+\index{free\_highmem\_data@{free\_highmem\_data}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_highmem\_data()}{free\_highmem\_data()}}
+{\footnotesize\ttfamily static void free\+\_\+highmem\+\_\+data (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{snapshot_8c_afc279d01b4afdc8a0a0853efa05ef854}\label{snapshot_8c_afc279d01b4afdc8a0a0853efa05ef854}} 
+\index{snapshot.c@{snapshot.c}!free\_image\_page@{free\_image\_page}}
+\index{free\_image\_page@{free\_image\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_image\_page()}{free\_image\_page()}}
+{\footnotesize\ttfamily static void free\+\_\+image\+\_\+page (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{clear\+\_\+nosave\+\_\+free }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+free\+\_\+image\+\_\+page -\/ Free a page allocated for hibernation image. @addr\+: Address of the page to free. @clear\+\_\+nosave\+\_\+free\+: If set, clear the Page\+Nosave\+Free bit for the page.
+
+\mbox{\hyperlink{classThe}{The}} page to free should have been allocated by \mbox{\hyperlink{snapshot_8c_a013fcea460c76133ecc258bbe6fa22b5}{get\+\_\+image\+\_\+page()}} (page flags set by it are affected). Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{snapshot_8c_a4b1098658e82568e341ec3af808641f2}\label{snapshot_8c_a4b1098658e82568e341ec3af808641f2}} 
+\index{snapshot.c@{snapshot.c}!free\_list\_of\_pages@{free\_list\_of\_pages}}
+\index{free\_list\_of\_pages@{free\_list\_of\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_list\_of\_pages()}{free\_list\_of\_pages()}}
+{\footnotesize\ttfamily static void free\+\_\+list\+\_\+of\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlinked__page}{linked\+\_\+page}} $\ast$}]{list,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{clear\+\_\+page\+\_\+nosave }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{snapshot_8c_a9b4d94df8e3a16c2df9d8266c3983d15}\label{snapshot_8c_a9b4d94df8e3a16c2df9d8266c3983d15}} 
+\index{snapshot.c@{snapshot.c}!free\_mem\_extents@{free\_mem\_extents}}
+\index{free\_mem\_extents@{free\_mem\_extents}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_mem\_extents()}{free\_mem\_extents()}}
+{\footnotesize\ttfamily static void free\+\_\+mem\+\_\+extents (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{list }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+free\+\_\+mem\+\_\+extents -\/ Free a list of memory extents. @list\+: List of extents to free. Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{snapshot_8c_aafe86d970a48a0efd80c75329faa4eea}\label{snapshot_8c_aafe86d970a48a0efd80c75329faa4eea}} 
+\index{snapshot.c@{snapshot.c}!free\_unnecessary\_pages@{free\_unnecessary\_pages}}
+\index{free\_unnecessary\_pages@{free\_unnecessary\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_unnecessary\_pages()}{free\_unnecessary\_pages()}}
+{\footnotesize\ttfamily static unsigned long free\+\_\+unnecessary\+\_\+pages (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+free\+\_\+unnecessary\+\_\+pages -\/ Release preallocated pages not needed for the image. Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{snapshot_8c_aadb3b2e23cd6f5892d817a16878f65e0}\label{snapshot_8c_aadb3b2e23cd6f5892d817a16878f65e0}} 
+\index{snapshot.c@{snapshot.c}!free\_zone\_bm\_rtree@{free\_zone\_bm\_rtree}}
+\index{free\_zone\_bm\_rtree@{free\_zone\_bm\_rtree}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_zone\_bm\_rtree()}{free\_zone\_bm\_rtree()}}
+{\footnotesize\ttfamily static void free\+\_\+zone\+\_\+bm\+\_\+rtree (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} $\ast$}]{zone,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{clear\+\_\+nosave\+\_\+free }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+free\+\_\+zone\+\_\+bm\+\_\+rtree -\/ Free the memory of the radix tree.
+
+Free all node pages of the radix tree. \mbox{\hyperlink{classThe}{The}} \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} structure itself is not freed here nor are the \mbox{\hyperlink{structrtree__node}{rtree\+\_\+node}} structs. Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{snapshot_8c_ac8d7850ecb84d6200fb76b78dd24879f}\label{snapshot_8c_ac8d7850ecb84d6200fb76b78dd24879f}} 
+\index{snapshot.c@{snapshot.c}!get\_buffer@{get\_buffer}}
+\index{get\_buffer@{get\_buffer}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{get\_buffer()}{get\_buffer()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+buffer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$}]{ca }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+get\+\_\+buffer -\/ Get the address to store the next image data page.
+
+Get the address that \mbox{\hyperlink{snapshot_8c_ad1a0c7e1a915138a60c64c6602ab197e}{snapshot\+\_\+write\+\_\+next()}} should return to its caller to write to. Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{snapshot_8c_aac1ef1f9fc086dca10e0f14718c8df1f}\label{snapshot_8c_aac1ef1f9fc086dca10e0f14718c8df1f}} 
+\index{snapshot.c@{snapshot.c}!get\_highmem\_buffer@{get\_highmem\_buffer}}
+\index{get\_highmem\_buffer@{get\_highmem\_buffer}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{get\_highmem\_buffer()}{get\_highmem\_buffer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+highmem\+\_\+buffer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{safe\+\_\+needed }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{snapshot_8c_ac6e4885d9b48931760553f4502801e8f}\label{snapshot_8c_ac6e4885d9b48931760553f4502801e8f}} 
+\index{snapshot.c@{snapshot.c}!get\_highmem\_page\_buffer@{get\_highmem\_page\_buffer}}
+\index{get\_highmem\_page\_buffer@{get\_highmem\_page\_buffer}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{get\_highmem\_page\_buffer()}{get\_highmem\_page\_buffer()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+highmem\+\_\+page\+\_\+buffer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structchain__allocator}{chain\+\_\+allocator}} $\ast$}]{ca }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{snapshot_8c_a013fcea460c76133ecc258bbe6fa22b5}\label{snapshot_8c_a013fcea460c76133ecc258bbe6fa22b5}} 
+\index{snapshot.c@{snapshot.c}!get\_image\_page@{get\_image\_page}}
+\index{get\_image\_page@{get\_image\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{get\_image\_page()}{get\_image\_page()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+image\+\_\+page (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{safe\+\_\+needed }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+get\+\_\+image\+\_\+page -\/ Allocate a page for a hibernation image. @gfp\+\_\+mask\+: G\+FP mask for the allocation. @safe\+\_\+needed\+: Get pages that were not used before hibernation (restore only)
+
+During image restoration, for storing the P\+BE list and the image data, we can only use memory pages that do not conflict with the pages used before hibernation. \mbox{\hyperlink{classThe}{The}} \char`\"{}unsafe\char`\"{} pages have Page\+Nosave\+Free set and we count them using allocated\+\_\+unsafe\+\_\+pages.
+
+Each allocated image page is marked as Page\+Nosave and Page\+Nosave\+Free so that \mbox{\hyperlink{snapshot_8c_a4450725986969f055946633a285c74bf}{swsusp\+\_\+free()}} can release it. Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{snapshot_8c_a6a167dd9f6f15223f9cbf7cf97ff3d84}\label{snapshot_8c_a6a167dd9f6f15223f9cbf7cf97ff3d84}} 
+\index{snapshot.c@{snapshot.c}!get\_safe\_page@{get\_safe\_page}}
+\index{get\_safe\_page@{get\_safe\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{get\_safe\_page()}{get\_safe\_page()}}
+{\footnotesize\ttfamily unsigned long get\+\_\+safe\+\_\+page (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{snapshot_8c_a2292905ac5b446694342cc7fc1f17290}\label{snapshot_8c_a2292905ac5b446694342cc7fc1f17290}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_image\_size\_init@{hibernate\_image\_size\_init}}
+\index{hibernate\_image\_size\_init@{hibernate\_image\_size\_init}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_image\_size\_init()}{hibernate\_image\_size\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hibernate\+\_\+image\+\_\+size\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{snapshot_8c_a845f6c11237a07142ea718d15ba81de0}\label{snapshot_8c_a845f6c11237a07142ea718d15ba81de0}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_map\_page@{hibernate\_map\_page}}
+\index{hibernate\_map\_page@{hibernate\_map\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_map\_page()}{hibernate\_map\_page()}}
+{\footnotesize\ttfamily static void hibernate\+\_\+map\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{snapshot_8c_a79c8fbac521130f812521d2592df76a9}\label{snapshot_8c_a79c8fbac521130f812521d2592df76a9}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_preallocate\_memory@{hibernate\_preallocate\_memory}}
+\index{hibernate\_preallocate\_memory@{hibernate\_preallocate\_memory}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_preallocate\_memory()}{hibernate\_preallocate\_memory()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernate\+\_\+preallocate\+\_\+memory (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+hibernate\+\_\+preallocate\+\_\+memory -\/ Preallocate memory for hibernation image.
+
+To create a hibernation image it is necessary to make a copy of every page frame in use. We also need a number of page frames to be free during hibernation for allocations made while saving the image and for device drivers, in case they need to allocate memory from their hibernation callbacks (these two numbers are given by P\+A\+G\+E\+S\+\_\+\+F\+O\+R\+\_\+\+IO (which is a rough estimate) and reserved\+\_\+size divided by P\+A\+G\+E\+\_\+\+S\+I\+ZE (which is tunable through /sys/power/reserved\+\_\+size, respectively). To make this happen, we compute the total number of available page frames and allocate at least
+
+(\mbox{[}page frames total\mbox{]} + P\+A\+G\+E\+S\+\_\+\+F\+O\+R\+\_\+\+IO + \mbox{[}metadata pages\mbox{]}) / 2
+\begin{DoxyItemize}
+\item 2 $\ast$ \mbox{\hyperlink{math_8h_ab70ffcffa591efaf0981a349740f389c}{D\+I\+V\+\_\+\+R\+O\+U\+N\+D\+\_\+\+U\+P(reserved\+\_\+size, P\+A\+G\+E\+\_\+\+S\+I\+Z\+E)}}
+\end{DoxyItemize}
+
+of them, which corresponds to the maximum size of a hibernation image.
+
+If image\+\_\+size is set below the number following from the above formula, the preallocation of memory is continued until the total number of saveable pages in the system is below the requested image size or the minimum acceptable image size returned by \mbox{\hyperlink{snapshot_8c_a10b13827eb23f312c97bc8f264755270}{minimum\+\_\+image\+\_\+size()}}, whichever is greater. Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{snapshot_8c_aaaa7e477059c68932b201dee28c3cc5f}\label{snapshot_8c_aaaa7e477059c68932b201dee28c3cc5f}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_reserved\_size\_init@{hibernate\_reserved\_size\_init}}
+\index{hibernate\_reserved\_size\_init@{hibernate\_reserved\_size\_init}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_reserved\_size\_init()}{hibernate\_reserved\_size\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hibernate\+\_\+reserved\+\_\+size\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{snapshot_8c_a9233b62b547169d93dd4924d3ff6ed29}\label{snapshot_8c_a9233b62b547169d93dd4924d3ff6ed29}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_restore\_protect\_page@{hibernate\_restore\_protect\_page}}
+\index{hibernate\_restore\_protect\_page@{hibernate\_restore\_protect\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_restore\_protect\_page()}{hibernate\_restore\_protect\_page()}}
+{\footnotesize\ttfamily static void hibernate\+\_\+restore\+\_\+protect\+\_\+page (\begin{DoxyParamCaption}\item[{void $\ast$}]{page\+\_\+address }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{snapshot_8c_a574d54420dd4cf3f583315d0e10155aa}\label{snapshot_8c_a574d54420dd4cf3f583315d0e10155aa}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_restore\_protection\_begin@{hibernate\_restore\_protection\_begin}}
+\index{hibernate\_restore\_protection\_begin@{hibernate\_restore\_protection\_begin}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_restore\_protection\_begin()}{hibernate\_restore\_protection\_begin()}}
+{\footnotesize\ttfamily static void hibernate\+\_\+restore\+\_\+protection\+\_\+begin (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{snapshot_8c_a54f851569cb378c16c804c3becbf3e47}\label{snapshot_8c_a54f851569cb378c16c804c3becbf3e47}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_restore\_protection\_end@{hibernate\_restore\_protection\_end}}
+\index{hibernate\_restore\_protection\_end@{hibernate\_restore\_protection\_end}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_restore\_protection\_end()}{hibernate\_restore\_protection\_end()}}
+{\footnotesize\ttfamily static void hibernate\+\_\+restore\+\_\+protection\+\_\+end (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{snapshot_8c_a81d316ffe8bf0daedcac14fba4d8610f}\label{snapshot_8c_a81d316ffe8bf0daedcac14fba4d8610f}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_restore\_unprotect\_page@{hibernate\_restore\_unprotect\_page}}
+\index{hibernate\_restore\_unprotect\_page@{hibernate\_restore\_unprotect\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_restore\_unprotect\_page()}{hibernate\_restore\_unprotect\_page()}}
+{\footnotesize\ttfamily static void hibernate\+\_\+restore\+\_\+unprotect\+\_\+page (\begin{DoxyParamCaption}\item[{void $\ast$}]{page\+\_\+address }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{snapshot_8c_ad9d62b780ba7aa4005fa7a03aab0878c}\label{snapshot_8c_ad9d62b780ba7aa4005fa7a03aab0878c}} 
+\index{snapshot.c@{snapshot.c}!hibernate\_unmap\_page@{hibernate\_unmap\_page}}
+\index{hibernate\_unmap\_page@{hibernate\_unmap\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_unmap\_page()}{hibernate\_unmap\_page()}}
+{\footnotesize\ttfamily static void hibernate\+\_\+unmap\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{snapshot_8c_a889c550f6f68285b0050197488ca9b00}\label{snapshot_8c_a889c550f6f68285b0050197488ca9b00}} 
+\index{snapshot.c@{snapshot.c}!init\_header@{init\_header}}
+\index{init\_header@{init\_header}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{init\_header()}{init\_header()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+header (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{snapshot_8c_ace847686015534a3712a1125c8d01b40}\label{snapshot_8c_ace847686015534a3712a1125c8d01b40}} 
+\index{snapshot.c@{snapshot.c}!init\_header\_complete@{init\_header\_complete}}
+\index{init\_header\_complete@{init\_header\_complete}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{init\_header\_complete()}{init\_header\_complete()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+header\+\_\+complete (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{snapshot_8c_aa7b37a0e56c47901096fa29283f4bb0a}\label{snapshot_8c_aa7b37a0e56c47901096fa29283f4bb0a}} 
+\index{snapshot.c@{snapshot.c}!last\_highmem\_page\_copied@{last\_highmem\_page\_copied}}
+\index{last\_highmem\_page\_copied@{last\_highmem\_page\_copied}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{last\_highmem\_page\_copied()}{last\_highmem\_page\_copied()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} last\+\_\+highmem\+\_\+page\+\_\+copied (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{snapshot_8c_a5d99d89348e512f5da764887af7762ac}\label{snapshot_8c_a5d99d89348e512f5da764887af7762ac}} 
+\index{snapshot.c@{snapshot.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{nosave\+\_\+regions}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_a9be23c51008dc751e8639bdf735fbec9}\label{snapshot_8c_a9be23c51008dc751e8639bdf735fbec9}} 
+\index{snapshot.c@{snapshot.c}!load\_header@{load\_header}}
+\index{load\_header@{load\_header}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{load\_header()}{load\_header()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} load\+\_\+header (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structswsusp__info}{swsusp\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+load header -\/ Check the image header and copy the data from it. Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{snapshot_8c_a84e0492492966c8a44d13c1cb329493a}\label{snapshot_8c_a84e0492492966c8a44d13c1cb329493a}} 
+\index{snapshot.c@{snapshot.c}!mark\_nosave\_pages@{mark\_nosave\_pages}}
+\index{mark\_nosave\_pages@{mark\_nosave\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{mark\_nosave\_pages()}{mark\_nosave\_pages()}}
+{\footnotesize\ttfamily static void mark\+\_\+nosave\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+mark\+\_\+nosave\+\_\+pages -\/ Mark pages that should not be saved. @bm\+: Memory bitmap.
+
+Set the bits in @bm that correspond to the page frames the contents of which should not be saved. Here is the call graph for this function\+:
+% FIG 83
+Here is the caller graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{snapshot_8c_af20bb9b09a20b06707e0703a47271ffa}\label{snapshot_8c_af20bb9b09a20b06707e0703a47271ffa}} 
+\index{snapshot.c@{snapshot.c}!mark\_unsafe\_pages@{mark\_unsafe\_pages}}
+\index{mark\_unsafe\_pages@{mark\_unsafe\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{mark\_unsafe\_pages()}{mark\_unsafe\_pages()}}
+{\footnotesize\ttfamily static void mark\+\_\+unsafe\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+mark\+\_\+unsafe\+\_\+pages -\/ Mark pages that were used before hibernation.
+
+Mark the pages that cannot be used for storing the image during restoration, because they conflict with the pages that had been used before hibernation. Here is the call graph for this function\+:
+% FIG 85
+Here is the caller graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{snapshot_8c_ace9af3dce365e43af2fa663086a64071}\label{snapshot_8c_ace9af3dce365e43af2fa663086a64071}} 
+\index{snapshot.c@{snapshot.c}!mem\_bm\_set\_bit\_check@{mem\_bm\_set\_bit\_check}}
+\index{mem\_bm\_set\_bit\_check@{mem\_bm\_set\_bit\_check}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{mem\_bm\_set\_bit\_check()}{mem\_bm\_set\_bit\_check()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mem\+\_\+bm\+\_\+set\+\_\+bit\+\_\+check (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 87
+Here is the caller graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{snapshot_8c_ac89ac94510062d5805ff434732abc2cb}\label{snapshot_8c_ac89ac94510062d5805ff434732abc2cb}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_clear\_bit@{memory\_bm\_clear\_bit}}
+\index{memory\_bm\_clear\_bit@{memory\_bm\_clear\_bit}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_clear\_bit()}{memory\_bm\_clear\_bit()}}
+{\footnotesize\ttfamily static void memory\+\_\+bm\+\_\+clear\+\_\+bit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 89
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{snapshot_8c_aa9ce530a555163f5d7566206b83f7ffb}\label{snapshot_8c_aa9ce530a555163f5d7566206b83f7ffb}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_clear\_current@{memory\_bm\_clear\_current}}
+\index{memory\_bm\_clear\_current@{memory\_bm\_clear\_current}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_clear\_current()}{memory\_bm\_clear\_current()}}
+{\footnotesize\ttfamily static void memory\+\_\+bm\+\_\+clear\+\_\+current (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 91
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{snapshot_8c_a5b20b49d47f7ecc3d903a72a85924623}\label{snapshot_8c_a5b20b49d47f7ecc3d903a72a85924623}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_create@{memory\_bm\_create}}
+\index{memory\_bm\_create@{memory\_bm\_create}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_create()}{memory\_bm\_create()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memory\+\_\+bm\+\_\+create (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp\+\_\+mask,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{safe\+\_\+needed }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+memory\+\_\+bm\+\_\+create -\/ Allocate memory for a memory bitmap. Here is the call graph for this function\+:
+% FIG 93
+Here is the caller graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{snapshot_8c_a56657be5466b8792f2d6d7ffb65a67ea}\label{snapshot_8c_a56657be5466b8792f2d6d7ffb65a67ea}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_find\_bit@{memory\_bm\_find\_bit}}
+\index{memory\_bm\_find\_bit@{memory\_bm\_find\_bit}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_find\_bit()}{memory\_bm\_find\_bit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memory\+\_\+bm\+\_\+find\+\_\+bit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned long}]{pfn,  }\item[{void $\ast$$\ast$}]{addr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{bit\+\_\+nr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+memory\+\_\+bm\+\_\+find\+\_\+bit -\/ Find the bit for a given P\+FN in a memory bitmap.
+
+Find the bit in memory bitmap @bm that corresponds to the given P\+FN. \mbox{\hyperlink{classThe}{The}} cur.\+zone, cur.\+block and cur.\+node\+\_\+pfn members of @bm are updated.
+
+Walk the radix tree to find the page containing the bit that represents @pfn and return the position of the bit in @addr and @bit\+\_\+nr. Here is the call graph for this function\+:
+% FIG 95
+Here is the caller graph for this function\+:
+% FIG 96
+\mbox{\Hypertarget{snapshot_8c_a5a2ab113ccbdfc6d07abd87fd804fcf3}\label{snapshot_8c_a5a2ab113ccbdfc6d07abd87fd804fcf3}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_free@{memory\_bm\_free}}
+\index{memory\_bm\_free@{memory\_bm\_free}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_free()}{memory\_bm\_free()}}
+{\footnotesize\ttfamily static void memory\+\_\+bm\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{clear\+\_\+nosave\+\_\+free }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+memory\+\_\+bm\+\_\+free -\/ Free memory occupied by the memory bitmap. @bm\+: Memory bitmap. Here is the call graph for this function\+:
+% FIG 97
+Here is the caller graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{snapshot_8c_afd7fe78331e8d756b8e15acd74d9ee07}\label{snapshot_8c_afd7fe78331e8d756b8e15acd74d9ee07}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_next\_pfn@{memory\_bm\_next\_pfn}}
+\index{memory\_bm\_next\_pfn@{memory\_bm\_next\_pfn}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_next\_pfn()}{memory\_bm\_next\_pfn()}}
+{\footnotesize\ttfamily static unsigned long memory\+\_\+bm\+\_\+next\+\_\+pfn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+memory\+\_\+bm\+\_\+rtree\+\_\+next\+\_\+pfn -\/ Find the next set bit in a memory bitmap. @bm\+: Memory bitmap.
+
+Starting from the last returned position this function searches for the next set bit in @bm and returns the P\+FN represented by it. If no more bits are set, B\+M\+\_\+\+E\+N\+D\+\_\+\+O\+F\+\_\+\+M\+AP is returned.
+
+It is required to run \mbox{\hyperlink{snapshot_8c_a89d5facfe927a893595e8aed32b5de0e}{memory\+\_\+bm\+\_\+position\+\_\+reset()}} before the first call to this function for the given memory bitmap. Here is the call graph for this function\+:
+% FIG 99
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{snapshot_8c_a7aa478cbf8bcce847b128b94b669c82a}\label{snapshot_8c_a7aa478cbf8bcce847b128b94b669c82a}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_pfn\_present@{memory\_bm\_pfn\_present}}
+\index{memory\_bm\_pfn\_present@{memory\_bm\_pfn\_present}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_pfn\_present()}{memory\_bm\_pfn\_present()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} memory\+\_\+bm\+\_\+pfn\+\_\+present (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 101
+Here is the caller graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{snapshot_8c_a89d5facfe927a893595e8aed32b5de0e}\label{snapshot_8c_a89d5facfe927a893595e8aed32b5de0e}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_position\_reset@{memory\_bm\_position\_reset}}
+\index{memory\_bm\_position\_reset@{memory\_bm\_position\_reset}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_position\_reset()}{memory\_bm\_position\_reset()}}
+{\footnotesize\ttfamily static void memory\+\_\+bm\+\_\+position\+\_\+reset (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{snapshot_8c_abe90d4cdbd4395ac66cd3eb6ea1c44d4}\label{snapshot_8c_abe90d4cdbd4395ac66cd3eb6ea1c44d4}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_recycle@{memory\_bm\_recycle}}
+\index{memory\_bm\_recycle@{memory\_bm\_recycle}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_recycle()}{memory\_bm\_recycle()}}
+{\footnotesize\ttfamily static void memory\+\_\+bm\+\_\+recycle (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 104
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{snapshot_8c_a73e0064c539b4340fb6fc3dd4f73e8ab}\label{snapshot_8c_a73e0064c539b4340fb6fc3dd4f73e8ab}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_set\_bit@{memory\_bm\_set\_bit}}
+\index{memory\_bm\_set\_bit@{memory\_bm\_set\_bit}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_set\_bit()}{memory\_bm\_set\_bit()}}
+{\footnotesize\ttfamily static void memory\+\_\+bm\+\_\+set\+\_\+bit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{snapshot_8c_a026d4de692ba84e27571def4f442e908}\label{snapshot_8c_a026d4de692ba84e27571def4f442e908}} 
+\index{snapshot.c@{snapshot.c}!memory\_bm\_test\_bit@{memory\_bm\_test\_bit}}
+\index{memory\_bm\_test\_bit@{memory\_bm\_test\_bit}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{memory\_bm\_test\_bit()}{memory\_bm\_test\_bit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memory\+\_\+bm\+\_\+test\+\_\+bit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{snapshot_8c_a10b13827eb23f312c97bc8f264755270}\label{snapshot_8c_a10b13827eb23f312c97bc8f264755270}} 
+\index{snapshot.c@{snapshot.c}!minimum\_image\_size@{minimum\_image\_size}}
+\index{minimum\_image\_size@{minimum\_image\_size}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{minimum\_image\_size()}{minimum\_image\_size()}}
+{\footnotesize\ttfamily static unsigned long minimum\+\_\+image\+\_\+size (\begin{DoxyParamCaption}\item[{unsigned long}]{saveable }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+minimum\+\_\+image\+\_\+size -\/ Estimate the minimum acceptable size of an image. @saveable\+: Number of saveable pages in the system.
+
+We want to avoid attempting to free too much memory too hard, so estimate the minimum acceptable size of a hibernation image to use as the lower limit for preallocating memory.
+
+We assume that the minimum image size should be proportional to
+
+\mbox{[}number of saveable pages\mbox{]} -\/ \mbox{[}number of pages that can be freed in theory\mbox{]}
+
+where the second term is the sum of (1) reclaimable slab pages, (2) active and (3) inactive anonymous pages, (4) active and (5) inactive file pages. Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{snapshot_8c_a391c90ba0ffce82f20f04fe4dbf69adf}\label{snapshot_8c_a391c90ba0ffce82f20f04fe4dbf69adf}} 
+\index{snapshot.c@{snapshot.c}!pack\_pfns@{pack\_pfns}}
+\index{pack\_pfns@{pack\_pfns}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{pack\_pfns()}{pack\_pfns()}}
+{\footnotesize\ttfamily static void pack\+\_\+pfns (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{buf,  }\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+pack\+\_\+pfns -\/ Prepare P\+F\+Ns for saving. @bm\+: Memory bitmap. @buf\+: Memory buffer to store the P\+F\+Ns in.
+
+P\+F\+Ns corresponding to set bits in @bm are stored in the area of memory pointed to by @buf (1 page at a time). Here is the call graph for this function\+:
+% FIG 112
+Here is the caller graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{snapshot_8c_a3a8492c560ff612894a7270702f13cab}\label{snapshot_8c_a3a8492c560ff612894a7270702f13cab}} 
+\index{snapshot.c@{snapshot.c}!preallocate\_highmem\_fraction@{preallocate\_highmem\_fraction}}
+\index{preallocate\_highmem\_fraction@{preallocate\_highmem\_fraction}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{preallocate\_highmem\_fraction()}{preallocate\_highmem\_fraction()}}
+{\footnotesize\ttfamily static unsigned long preallocate\+\_\+highmem\+\_\+fraction (\begin{DoxyParamCaption}\item[{unsigned long}]{nr\+\_\+pages,  }\item[{unsigned long}]{highmem,  }\item[{unsigned long}]{total }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 114
+\mbox{\Hypertarget{snapshot_8c_ab349b33ab9c2599a18b079dab8124621}\label{snapshot_8c_ab349b33ab9c2599a18b079dab8124621}} 
+\index{snapshot.c@{snapshot.c}!preallocate\_image\_highmem@{preallocate\_image\_highmem}}
+\index{preallocate\_image\_highmem@{preallocate\_image\_highmem}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{preallocate\_image\_highmem()}{preallocate\_image\_highmem()}}
+{\footnotesize\ttfamily static unsigned long preallocate\+\_\+image\+\_\+highmem (\begin{DoxyParamCaption}\item[{unsigned long}]{nr\+\_\+pages }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{snapshot_8c_ad527fe455744cfa0b1f093dc84bc0ee0}\label{snapshot_8c_ad527fe455744cfa0b1f093dc84bc0ee0}} 
+\index{snapshot.c@{snapshot.c}!preallocate\_image\_memory@{preallocate\_image\_memory}}
+\index{preallocate\_image\_memory@{preallocate\_image\_memory}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{preallocate\_image\_memory()}{preallocate\_image\_memory()}}
+{\footnotesize\ttfamily static unsigned long preallocate\+\_\+image\+\_\+memory (\begin{DoxyParamCaption}\item[{unsigned long}]{nr\+\_\+pages,  }\item[{unsigned long}]{avail\+\_\+normal }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 116
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{snapshot_8c_ac384899fd9bd4fdc57bccd6d222ab88e}\label{snapshot_8c_ac384899fd9bd4fdc57bccd6d222ab88e}} 
+\index{snapshot.c@{snapshot.c}!preallocate\_image\_pages@{preallocate\_image\_pages}}
+\index{preallocate\_image\_pages@{preallocate\_image\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{preallocate\_image\_pages()}{preallocate\_image\_pages()}}
+{\footnotesize\ttfamily static unsigned long preallocate\+\_\+image\+\_\+pages (\begin{DoxyParamCaption}\item[{unsigned long}]{nr\+\_\+pages,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{mask }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+preallocate\+\_\+image\+\_\+pages -\/ Allocate a number of pages for hibernation image. @nr\+\_\+pages\+: Number of page frames to allocate. @mask\+: G\+FP flags to use for the allocation.
+
+Return value\+: Number of page frames actually allocated Here is the call graph for this function\+:
+% FIG 118
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{snapshot_8c_ad11163cad7b264bb69fd3ee4df51df38}\label{snapshot_8c_ad11163cad7b264bb69fd3ee4df51df38}} 
+\index{snapshot.c@{snapshot.c}!prepare\_highmem\_image@{prepare\_highmem\_image}}
+\index{prepare\_highmem\_image@{prepare\_highmem\_image}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{prepare\_highmem\_image()}{prepare\_highmem\_image()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prepare\+\_\+highmem\+\_\+image (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{nr\+\_\+highmem\+\_\+p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 120
+\mbox{\Hypertarget{snapshot_8c_a23516b73aa5ac7464b6544ccf72ab90a}\label{snapshot_8c_a23516b73aa5ac7464b6544ccf72ab90a}} 
+\index{snapshot.c@{snapshot.c}!prepare\_image@{prepare\_image}}
+\index{prepare\_image@{prepare\_image}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{prepare\_image()}{prepare\_image()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prepare\+\_\+image (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{new\+\_\+bm,  }\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+prepare\+\_\+image -\/ Make room for loading hibernation image. @new\+\_\+bm\+: Uninitialized memory bitmap structure. @bm\+: Memory bitmap with unsafe pages marked.
+
+Use @bm to mark the pages that will be overwritten in the process of restoring the system memory state from the suspend image (\char`\"{}unsafe\char`\"{} pages) and allocate memory for the image.
+
+\mbox{\hyperlink{classThe}{The}} idea is to allocate a new memory bitmap first and then allocate as many pages as needed for image data, but without specifying what those pages will be used for just yet. Instead, we mark them all as allocated and create a lists of \char`\"{}safe\char`\"{} pages to be used later. On systems with high memory a list of \char`\"{}safe\char`\"{} highmem pages is created too. Here is the call graph for this function\+:
+% FIG 121
+Here is the caller graph for this function\+:
+% FIG 122
+\mbox{\Hypertarget{snapshot_8c_acddd8c4ec3d7bde122864f0e7970f21e}\label{snapshot_8c_acddd8c4ec3d7bde122864f0e7970f21e}} 
+\index{snapshot.c@{snapshot.c}!recycle\_safe\_page@{recycle\_safe\_page}}
+\index{recycle\_safe\_page@{recycle\_safe\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{recycle\_safe\_page()}{recycle\_safe\_page()}}
+{\footnotesize\ttfamily static void recycle\+\_\+safe\+\_\+page (\begin{DoxyParamCaption}\item[{void $\ast$}]{page\+\_\+address }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{snapshot_8c_abb9bf9f0e282d1fc34989fc5cbd332d7}\label{snapshot_8c_abb9bf9f0e282d1fc34989fc5cbd332d7}} 
+\index{snapshot.c@{snapshot.c}!recycle\_zone\_bm\_rtree@{recycle\_zone\_bm\_rtree}}
+\index{recycle\_zone\_bm\_rtree@{recycle\_zone\_bm\_rtree}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{recycle\_zone\_bm\_rtree()}{recycle\_zone\_bm\_rtree()}}
+{\footnotesize\ttfamily static void recycle\+\_\+zone\+\_\+bm\+\_\+rtree (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmem__zone__bm__rtree}{mem\+\_\+zone\+\_\+bm\+\_\+rtree}} $\ast$}]{zone }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 124
+Here is the caller graph for this function\+:
+% FIG 125
+\mbox{\Hypertarget{snapshot_8c_a73a9834c19b8d5aca4cbe25f1c262508}\label{snapshot_8c_a73a9834c19b8d5aca4cbe25f1c262508}} 
+\index{snapshot.c@{snapshot.c}!rtree\_next\_node@{rtree\_next\_node}}
+\index{rtree\_next\_node@{rtree\_next\_node}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{rtree\_next\_node()}{rtree\_next\_node()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} rtree\+\_\+next\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 126
+Here is the caller graph for this function\+:
+% FIG 127
+\mbox{\Hypertarget{snapshot_8c_afead0752f1fc53da741b4fdc40a0227e}\label{snapshot_8c_afead0752f1fc53da741b4fdc40a0227e}} 
+\index{snapshot.c@{snapshot.c}!safe\_copy\_page@{safe\_copy\_page}}
+\index{safe\_copy\_page@{safe\_copy\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{safe\_copy\_page()}{safe\_copy\_page()}}
+{\footnotesize\ttfamily static void safe\+\_\+copy\+\_\+page (\begin{DoxyParamCaption}\item[{void $\ast$}]{dst,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{s\+\_\+page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+safe\+\_\+copy\+\_\+page -\/ Copy a page in a safe way.
+
+Check if the page we are going to copy is marked as present in the kernel page tables. This always is the case if C\+O\+N\+F\+I\+G\+\_\+\+D\+E\+B\+U\+G\+\_\+\+P\+A\+G\+E\+A\+L\+L\+OC or C\+O\+N\+F\+I\+G\+\_\+\+A\+R\+C\+H\+\_\+\+H\+A\+S\+\_\+\+S\+E\+T\+\_\+\+D\+I\+R\+E\+C\+T\+\_\+\+M\+AP is not set. In that case \mbox{\hyperlink{arch_2x86_2include_2asm_2set__memory_8h_a190a12bb38c4a12097696b7442f87d92}{kernel\+\_\+page\+\_\+present()}} always returns \textquotesingle{}true\textquotesingle{}. Here is the call graph for this function\+:
+% FIG 128
+Here is the caller graph for this function\+:
+% FIG 129
+\mbox{\Hypertarget{snapshot_8c_aae8c45efc8e955491d94b38e9030e1d8}\label{snapshot_8c_aae8c45efc8e955491d94b38e9030e1d8}} 
+\index{snapshot.c@{snapshot.c}!saveable\_highmem\_page@{saveable\_highmem\_page}}
+\index{saveable\_highmem\_page@{saveable\_highmem\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{saveable\_highmem\_page()}{saveable\_highmem\_page()}}
+{\footnotesize\ttfamily static void$\ast$ saveable\+\_\+highmem\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzone}{zone}} $\ast$}]{z,  }\item[{unsigned long}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_a62c949ee98d00ee2b08804b41b55e346}\label{snapshot_8c_a62c949ee98d00ee2b08804b41b55e346}} 
+\index{snapshot.c@{snapshot.c}!saveable\_page@{saveable\_page}}
+\index{saveable\_page@{saveable\_page}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{saveable\_page()}{saveable\_page()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ saveable\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzone}{zone}} $\ast$}]{zone,  }\item[{unsigned long}]{pfn }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+saveable\+\_\+page -\/ Check if the given page is saveable.
+
+Determine whether a non-\/highmem page should be included in a hibernation image.
+
+We should save the page if it isn\textquotesingle{}t Nosave, and is not in the range of pages statically defined as \textquotesingle{}unsaveable\textquotesingle{}, and it isn\textquotesingle{}t part of a free chunk of pages. Here is the call graph for this function\+:
+% FIG 130
+Here is the caller graph for this function\+:
+% FIG 131
+\mbox{\Hypertarget{snapshot_8c_a88a0d64a502d21a991637a3c6db7192c}\label{snapshot_8c_a88a0d64a502d21a991637a3c6db7192c}} 
+\index{snapshot.c@{snapshot.c}!snapshot\_additional\_pages@{snapshot\_additional\_pages}}
+\index{snapshot\_additional\_pages@{snapshot\_additional\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{snapshot\_additional\_pages()}{snapshot\_additional\_pages()}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} snapshot\+\_\+additional\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzone}{zone}} $\ast$}]{zone }\end{DoxyParamCaption})}
+
+snapshot\+\_\+additional\+\_\+pages -\/ Estimate the number of extra pages needed. @zone\+: Memory zone to carry out the computation for.
+
+Estimate the number of additional pages needed for setting up a hibernation image data structures for @zone (usually, the returned value is greater than the exact number). Here is the caller graph for this function\+:
+% FIG 132
+\mbox{\Hypertarget{snapshot_8c_a84bf51eae5bcb91d2dbf66d56e4f48f6}\label{snapshot_8c_a84bf51eae5bcb91d2dbf66d56e4f48f6}} 
+\index{snapshot.c@{snapshot.c}!snapshot\_get\_image\_size@{snapshot\_get\_image\_size}}
+\index{snapshot\_get\_image\_size@{snapshot\_get\_image\_size}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{snapshot\_get\_image\_size()}{snapshot\_get\_image\_size()}}
+{\footnotesize\ttfamily unsigned long snapshot\+\_\+get\+\_\+image\+\_\+size (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 133
+\mbox{\Hypertarget{snapshot_8c_ae5631ee8e3171fd3cc843d95a4effa5d}\label{snapshot_8c_ae5631ee8e3171fd3cc843d95a4effa5d}} 
+\index{snapshot.c@{snapshot.c}!snapshot\_image\_loaded@{snapshot\_image\_loaded}}
+\index{snapshot\_image\_loaded@{snapshot\_image\_loaded}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{snapshot\_image\_loaded()}{snapshot\_image\_loaded()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} snapshot\+\_\+image\+\_\+loaded (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 134
+Here is the caller graph for this function\+:
+% FIG 135
+\mbox{\Hypertarget{snapshot_8c_a8ca1fd96ec28c968a8562703b9ffcc23}\label{snapshot_8c_a8ca1fd96ec28c968a8562703b9ffcc23}} 
+\index{snapshot.c@{snapshot.c}!snapshot\_read\_next@{snapshot\_read\_next}}
+\index{snapshot\_read\_next@{snapshot\_read\_next}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{snapshot\_read\_next()}{snapshot\_read\_next()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} snapshot\+\_\+read\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})}
+
+snapshot\+\_\+read\+\_\+next -\/ Get the address to read the next image page from. @handle\+: Snapshot handle to be used for the reading.
+
+On the first call, @handle should point to a zeroed \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} structure. \mbox{\hyperlink{classThe}{The}} structure gets populated then and a pointer to it should be passed to this function every next time.
+
+On success, the function returns a positive number. Then, the caller is allowed to read up to the returned number of bytes from the memory location computed by the \mbox{\hyperlink{kernel_2power_2power_8h_a8df3f17c3ae20625b3498383362491f6}{data\+\_\+of()}} macro.
+
+\mbox{\hyperlink{classThe}{The}} function returns 0 to indicate the end of the data stream condition, and negative numbers are returned on errors. If that happens, the structure pointed to by @handle is not updated and should not be used any more. Here is the call graph for this function\+:
+% FIG 136
+Here is the caller graph for this function\+:
+% FIG 137
+\mbox{\Hypertarget{snapshot_8c_adf938cf6cb488b381d695e97f2496461}\label{snapshot_8c_adf938cf6cb488b381d695e97f2496461}} 
+\index{snapshot.c@{snapshot.c}!snapshot\_write\_finalize@{snapshot\_write\_finalize}}
+\index{snapshot\_write\_finalize@{snapshot\_write\_finalize}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{snapshot\_write\_finalize()}{snapshot\_write\_finalize()}}
+{\footnotesize\ttfamily void snapshot\+\_\+write\+\_\+finalize (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})}
+
+snapshot\+\_\+write\+\_\+finalize -\/ Complete the loading of a hibernation image.
+
+Must be called after the last call to \mbox{\hyperlink{snapshot_8c_ad1a0c7e1a915138a60c64c6602ab197e}{snapshot\+\_\+write\+\_\+next()}} in case the last page in the image happens to be a highmem page and its contents should be stored in highmem. Additionally, it recycles bitmap memory that\textquotesingle{}s not necessary any more. Here is the call graph for this function\+:
+% FIG 138
+Here is the caller graph for this function\+:
+% FIG 139
+\mbox{\Hypertarget{snapshot_8c_ad1a0c7e1a915138a60c64c6602ab197e}\label{snapshot_8c_ad1a0c7e1a915138a60c64c6602ab197e}} 
+\index{snapshot.c@{snapshot.c}!snapshot\_write\_next@{snapshot\_write\_next}}
+\index{snapshot\_write\_next@{snapshot\_write\_next}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{snapshot\_write\_next()}{snapshot\_write\_next()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} snapshot\+\_\+write\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} $\ast$}]{handle }\end{DoxyParamCaption})}
+
+snapshot\+\_\+write\+\_\+next -\/ Get the address to store the next image page. @handle\+: Snapshot handle structure to guide the writing.
+
+On the first call, @handle should point to a zeroed \mbox{\hyperlink{structsnapshot__handle}{snapshot\+\_\+handle}} structure. \mbox{\hyperlink{classThe}{The}} structure gets populated then and a pointer to it should be passed to this function every next time.
+
+On success, the function returns a positive number. Then, the caller is allowed to write up to the returned number of bytes to the memory location computed by the \mbox{\hyperlink{kernel_2power_2power_8h_a8df3f17c3ae20625b3498383362491f6}{data\+\_\+of()}} macro.
+
+\mbox{\hyperlink{classThe}{The}} function returns 0 to indicate the \char`\"{}end of file\char`\"{} condition. Negative numbers are returned on errors, in which cases the structure pointed to by @handle is not updated and should not be used any more. Here is the call graph for this function\+:
+% FIG 140
+Here is the caller graph for this function\+:
+% FIG 141
+\mbox{\Hypertarget{snapshot_8c_aeb6d11bd7220462ffd80e42f3cd06973}\label{snapshot_8c_aeb6d11bd7220462ffd80e42f3cd06973}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_alloc@{swsusp\_alloc}}
+\index{swsusp\_alloc@{swsusp\_alloc}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_alloc()}{swsusp\_alloc()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{copy\+\_\+bm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+pages,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+highmem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+swsusp\+\_\+alloc -\/ Allocate memory for hibernation image.
+
+We first try to allocate as many highmem pages as there are saveable highmem pages in the system. If that fails, we allocate non-\/highmem pages for the copies of the remaining highmem ones.
+
+In this approach it is likely that the copies of highmem pages will also be located in the high memory, because of the way in which \mbox{\hyperlink{snapshot_8c_a4f9d754a1fb805ec40eca4dae98512e4}{copy\+\_\+data\+\_\+pages()}} works. Here is the call graph for this function\+:
+% FIG 142
+Here is the caller graph for this function\+:
+% FIG 143
+\mbox{\Hypertarget{snapshot_8c_a4450725986969f055946633a285c74bf}\label{snapshot_8c_a4450725986969f055946633a285c74bf}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_free@{swsusp\_free}}
+\index{swsusp\_free@{swsusp\_free}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_free()}{swsusp\_free()}}
+{\footnotesize\ttfamily void swsusp\+\_\+free (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+swsusp\+\_\+free -\/ Free pages allocated for hibernation image.
+
+Image pages are allocated before snapshot creation, so they need to be released after resume. Here is the call graph for this function\+:
+% FIG 144
+Here is the caller graph for this function\+:
+% FIG 145
+\mbox{\Hypertarget{snapshot_8c_a6a7b0c69dd139840b769e1fc38699523}\label{snapshot_8c_a6a7b0c69dd139840b769e1fc38699523}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_page\_is\_forbidden@{swsusp\_page\_is\_forbidden}}
+\index{swsusp\_page\_is\_forbidden@{swsusp\_page\_is\_forbidden}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_page\_is\_forbidden()}{swsusp\_page\_is\_forbidden()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+page\+\_\+is\+\_\+forbidden (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 146
+Here is the caller graph for this function\+:
+% FIG 147
+\mbox{\Hypertarget{snapshot_8c_aa41fcddae66e65d526ea3cedbba6821f}\label{snapshot_8c_aa41fcddae66e65d526ea3cedbba6821f}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_page\_is\_free@{swsusp\_page\_is\_free}}
+\index{swsusp\_page\_is\_free@{swsusp\_page\_is\_free}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_page\_is\_free()}{swsusp\_page\_is\_free()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+page\+\_\+is\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 148
+Here is the caller graph for this function\+:
+% FIG 149
+\mbox{\Hypertarget{snapshot_8c_a7173e764f0b871167e9cadb27c67259b}\label{snapshot_8c_a7173e764f0b871167e9cadb27c67259b}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_save@{swsusp\_save}}
+\index{swsusp\_save@{swsusp\_save}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_save()}{swsusp\_save()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} swsusp\+\_\+save (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 150
+\mbox{\Hypertarget{snapshot_8c_a9cd604588e2f75cce811e98a172b7000}\label{snapshot_8c_a9cd604588e2f75cce811e98a172b7000}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_set\_page\_forbidden@{swsusp\_set\_page\_forbidden}}
+\index{swsusp\_set\_page\_forbidden@{swsusp\_set\_page\_forbidden}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_set\_page\_forbidden()}{swsusp\_set\_page\_forbidden()}}
+{\footnotesize\ttfamily static void swsusp\+\_\+set\+\_\+page\+\_\+forbidden (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 151
+Here is the caller graph for this function\+:
+% FIG 152
+\mbox{\Hypertarget{snapshot_8c_af323d38077123653f9174f7dbd219a1a}\label{snapshot_8c_af323d38077123653f9174f7dbd219a1a}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_set\_page\_free@{swsusp\_set\_page\_free}}
+\index{swsusp\_set\_page\_free@{swsusp\_set\_page\_free}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_set\_page\_free()}{swsusp\_set\_page\_free()}}
+{\footnotesize\ttfamily void swsusp\+\_\+set\+\_\+page\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 153
+Here is the caller graph for this function\+:
+% FIG 154
+\mbox{\Hypertarget{snapshot_8c_a65f26f5c589f819c16d56d48bf5714e2}\label{snapshot_8c_a65f26f5c589f819c16d56d48bf5714e2}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_unset\_page\_forbidden@{swsusp\_unset\_page\_forbidden}}
+\index{swsusp\_unset\_page\_forbidden@{swsusp\_unset\_page\_forbidden}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_unset\_page\_forbidden()}{swsusp\_unset\_page\_forbidden()}}
+{\footnotesize\ttfamily static void swsusp\+\_\+unset\+\_\+page\+\_\+forbidden (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 155
+Here is the caller graph for this function\+:
+% FIG 156
+\mbox{\Hypertarget{snapshot_8c_acaba0587ad7f460bd01d46a0182e0e13}\label{snapshot_8c_acaba0587ad7f460bd01d46a0182e0e13}} 
+\index{snapshot.c@{snapshot.c}!swsusp\_unset\_page\_free@{swsusp\_unset\_page\_free}}
+\index{swsusp\_unset\_page\_free@{swsusp\_unset\_page\_free}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_unset\_page\_free()}{swsusp\_unset\_page\_free()}}
+{\footnotesize\ttfamily void swsusp\+\_\+unset\+\_\+page\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 157
+Here is the caller graph for this function\+:
+% FIG 158
+\mbox{\Hypertarget{snapshot_8c_a7ed423babb09182e98df78cf3f5fcbaa}\label{snapshot_8c_a7ed423babb09182e98df78cf3f5fcbaa}} 
+\index{snapshot.c@{snapshot.c}!unpack\_orig\_pfns@{unpack\_orig\_pfns}}
+\index{unpack\_orig\_pfns@{unpack\_orig\_pfns}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{unpack\_orig\_pfns()}{unpack\_orig\_pfns()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} unpack\+\_\+orig\+\_\+pfns (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{buf,  }\item[{struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} $\ast$}]{bm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+unpack\+\_\+orig\+\_\+pfns -\/ Set bits corresponding to given P\+F\+Ns in a memory bitmap. @bm\+: Memory bitmap. @buf\+: Area of memory containing the P\+F\+Ns.
+
+For each element of the array pointed to by @buf (1 page at a time), set the corresponding bit in @bm. Here is the call graph for this function\+:
+% FIG 159
+Here is the caller graph for this function\+:
+% FIG 160
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{snapshot_8c_a14aaef24b456c3040bf6d1842329741a}\label{snapshot_8c_a14aaef24b456c3040bf6d1842329741a}} 
+\index{snapshot.c@{snapshot.c}!\_\_packed@{\_\_packed}}
+\index{\_\_packed@{\_\_packed}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{\_\_packed}{\_\_packed}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlinked__page}{linked\+\_\+page}} \mbox{\hyperlink{struct____packed}{\+\_\+\+\_\+packed}}}
+
+\mbox{\Hypertarget{snapshot_8c_a423a7173ed5197edca5c7476fba8c119}\label{snapshot_8c_a423a7173ed5197edca5c7476fba8c119}} 
+\index{snapshot.c@{snapshot.c}!alloc\_highmem@{alloc\_highmem}}
+\index{alloc\_highmem@{alloc\_highmem}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_highmem}{alloc\_highmem}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+highmem\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_af341808697fc574b91d37d5d956a2d1c}\label{snapshot_8c_af341808697fc574b91d37d5d956a2d1c}} 
+\index{snapshot.c@{snapshot.c}!alloc\_normal@{alloc\_normal}}
+\index{alloc\_normal@{alloc\_normal}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_normal}{alloc\_normal}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+normal\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_ab8c57399dcabb88b4da4f6be3193fd4d}\label{snapshot_8c_ab8c57399dcabb88b4da4f6be3193fd4d}} 
+\index{snapshot.c@{snapshot.c}!allocated\_unsafe\_pages@{allocated\_unsafe\_pages}}
+\index{allocated\_unsafe\_pages@{allocated\_unsafe\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{allocated\_unsafe\_pages}{allocated\_unsafe\_pages}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} allocated\+\_\+unsafe\+\_\+pages\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_a368f7094dc38acca20612bbb392552f4}\label{snapshot_8c_a368f7094dc38acca20612bbb392552f4}} 
+\index{snapshot.c@{snapshot.c}!buffer@{buffer}}
+\index{buffer@{buffer}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{buffer}{buffer}}
+{\footnotesize\ttfamily void$\ast$ buffer\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_a66f40b0dcc48c93a4f9a1a05038d3fa4}\label{snapshot_8c_a66f40b0dcc48c93a4f9a1a05038d3fa4}} 
+\index{snapshot.c@{snapshot.c}!copy\_bm@{copy\_bm}}
+\index{copy\_bm@{copy\_bm}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{copy\_bm}{copy\_bm}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} copy\+\_\+bm\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_afcf4e2f0fcc94f031aa5785a0ea91099}\label{snapshot_8c_afcf4e2f0fcc94f031aa5785a0ea91099}} 
+\index{snapshot.c@{snapshot.c}!forbidden\_pages\_map@{forbidden\_pages\_map}}
+\index{forbidden\_pages\_map@{forbidden\_pages\_map}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{forbidden\_pages\_map}{forbidden\_pages\_map}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}}$\ast$ forbidden\+\_\+pages\+\_\+map\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_a6c65c56ea4fad7370aac85dd875d7fe8}\label{snapshot_8c_a6c65c56ea4fad7370aac85dd875d7fe8}} 
+\index{snapshot.c@{snapshot.c}!free\_pages\_map@{free\_pages\_map}}
+\index{free\_pages\_map@{free\_pages\_map}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{free\_pages\_map}{free\_pages\_map}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}}$\ast$ free\+\_\+pages\+\_\+map\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_ada44ef70b7f9f71f564a8f5470c03bac}\label{snapshot_8c_ada44ef70b7f9f71f564a8f5470c03bac}} 
+\index{snapshot.c@{snapshot.c}!image\_size@{image\_size}}
+\index{image\_size@{image\_size}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{image\_size}{image\_size}}
+{\footnotesize\ttfamily unsigned long image\+\_\+size}
+
+\mbox{\Hypertarget{snapshot_8c_aecbd3953d6c6496eefc127ab8852d5cb}\label{snapshot_8c_aecbd3953d6c6496eefc127ab8852d5cb}} 
+\index{snapshot.c@{snapshot.c}!nr\_copy\_pages@{nr\_copy\_pages}}
+\index{nr\_copy\_pages@{nr\_copy\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{nr\_copy\_pages}{nr\_copy\_pages}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+copy\+\_\+pages\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_adaa01163cff3a4a1a98b61ace6101480}\label{snapshot_8c_adaa01163cff3a4a1a98b61ace6101480}} 
+\index{snapshot.c@{snapshot.c}!nr\_meta\_pages@{nr\_meta\_pages}}
+\index{nr\_meta\_pages@{nr\_meta\_pages}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{nr\_meta\_pages}{nr\_meta\_pages}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+meta\+\_\+pages\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_a26a194b3edf55f8c3592d0bdac69bb66}\label{snapshot_8c_a26a194b3edf55f8c3592d0bdac69bb66}} 
+\index{snapshot.c@{snapshot.c}!orig\_bm@{orig\_bm}}
+\index{orig\_bm@{orig\_bm}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{orig\_bm}{orig\_bm}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmemory__bitmap}{memory\+\_\+bitmap}} orig\+\_\+bm\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{snapshot_8c_a4dd731a281fbed0f432b8f2119b61d38}\label{snapshot_8c_a4dd731a281fbed0f432b8f2119b61d38}} 
+\index{snapshot.c@{snapshot.c}!reserved\_size@{reserved\_size}}
+\index{reserved\_size@{reserved\_size}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{reserved\_size}{reserved\_size}}
+{\footnotesize\ttfamily unsigned long reserved\+\_\+size}
+
+\mbox{\Hypertarget{snapshot_8c_aefcd59010301d186b395ce3c068f9609}\label{snapshot_8c_aefcd59010301d186b395ce3c068f9609}} 
+\index{snapshot.c@{snapshot.c}!restore\_pblist@{restore\_pblist}}
+\index{restore\_pblist@{restore\_pblist}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{restore\_pblist}{restore\_pblist}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structpbe}{pbe}}$\ast$ restore\+\_\+pblist}
+
+\mbox{\Hypertarget{snapshot_8c_a6489dfdaabab7ad52165d902dbb8758f}\label{snapshot_8c_a6489dfdaabab7ad52165d902dbb8758f}} 
+\index{snapshot.c@{snapshot.c}!safe\_pages\_list@{safe\_pages\_list}}
+\index{safe\_pages\_list@{safe\_pages\_list}!snapshot.c@{snapshot.c}}
+\doxysubsubsection{\texorpdfstring{safe\_pages\_list}{safe\_pages\_list}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlinked__page}{linked\+\_\+page}}$\ast$ safe\+\_\+pages\+\_\+list\hspace{0.3cm}{\ttfamily [static]}}
+

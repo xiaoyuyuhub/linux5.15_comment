@@ -1,0 +1,962 @@
+\hypertarget{refscale_8c}{}\doxysection{kernel/rcu/refscale.c File Reference}
+\label{refscale_8c}\index{kernel/rcu/refscale.c@{kernel/rcu/refscale.c}}
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/completion.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/err.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/moduleparam.\+h$>$}\newline
+{\ttfamily \#include $<$linux/notifier.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate\+\_\+trace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/reboot.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stat.\+h$>$}\newline
+{\ttfamily \#include $<$linux/srcu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/torture.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}rcu.\+h\char`\"{}}\newline
+Include dependency graph for refscale.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structreader__task}{reader\+\_\+task}}
+\item 
+struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{refscale_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{refscale_8c_ab1e14bd903aa2ff3c830aaa32ad0c4fa}{S\+C\+A\+L\+E\+\_\+\+F\+L\+AG}}~\char`\"{}-\/ref-\/scale\+: \char`\"{}
+\item 
+\#define \mbox{\hyperlink{refscale_8c_a8b405ee7a3d3cd960cf5c29a1cd1556c}{S\+C\+A\+L\+E\+O\+UT}}(\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  x...)~\mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \#\# \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})
+\item 
+\#define \mbox{\hyperlink{refscale_8c_a17a30cac7f42c66c8e34ffbe739c8376}{V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+UT}}(\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  x...)~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \#\# \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{refscale_8c_a5c41a914f821fd6b253039d8c4c67cf5}{V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+B\+A\+T\+CH}}(\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  x...)
+\item 
+\#define \mbox{\hyperlink{refscale_8c_a3aefa1265eea49e38889aa2856b48092}{V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+E\+R\+R\+S\+T\+R\+I\+NG}}(\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  x...)~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{}!!! \char`\"{} \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \#\# \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{refscale_8c_a9d64834ce1ddb6660b85f58d874431c7}{R\+E\+F\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}~1
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{refscale_8c_ad94b36675e7eb067ea3ce6ff9e244a44}{M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE}} (\char`\"{}G\+PL\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_abac65003cc47712aea6a40b694a12260}{M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR}} (\char`\"{}Joel Fernandes (Google) $<$joel@joelfernandes.\+org$>$\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_acafc13727f790a27a2528cdc01c2aded}{module\+\_\+param}} (\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, charp, 0444)
+\item 
+\mbox{\hyperlink{refscale_8c_a93320e5181e2c41a9457562c5a3f26cc}{M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+M\+\_\+\+D\+E\+SC}} (\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \char`\"{}Type of \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} (\mbox{\hyperlink{workqueue_8c_aa9677537ffa4e40f3c4f3e9fb3b4c76d}{rcu}}, srcu, \mbox{\hyperlink{dst_8h_ad824a3b34257ceb67385e9d84af3db52}{refcnt}}, rwsem, rwlock.\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_a9d1eeb31e493fce1dbfc2949f7bbce5b}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}, 0, \char`\"{}Enable \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_a30e35ef6e7120b52d4c941bfa3fba5b2}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, verbose\+\_\+batched, 0, \char`\"{}Batch \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_ae2b916da811351c819c3e718b7bb5a54}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{clocksource-wdtest_8c_a66c34f2885537f8d4ddbfc609a892f2e}{holdoff}}, \mbox{\hyperlink{kconfig_8h_a43b9d76488f716ceeab1dd36fb631587}{I\+S\+\_\+\+B\+U\+I\+L\+T\+IN}}(C\+O\+N\+F\+I\+G\+\_\+\+R\+C\+U\+\_\+\+R\+E\+F\+\_\+\+S\+C\+A\+L\+E\+\_\+\+T\+E\+ST) ? 10 \+:0, \char`\"{}Holdoff \mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}} \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}} (\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_a911dfdea783e291ae418156ad2fd50d5}{torture\+\_\+param}} (long, loops, 10000, \char`\"{}Number of loops per experiment.\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_a926e5131e1a82ee1e0777d47ba4638c7}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, nreaders, -\/1, \char`\"{}Number of readers, -\/1 \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} 75\% of C\+P\+Us.\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_a2f2b43365e7d57a77f09f67a0a77110c}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, nruns, 30, \char`\"{}Number of experiments to run.\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_a84eedd8425a10d9298e5a833ac58e437}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, readdelay, 0, \char`\"{}Read-\/side \mbox{\hyperlink{preemptirq__delay__test_8c_ab04e4956157b6df8791c0d45b81049d8}{delay}} \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}} nanoseconds.\char`\"{})
+\item 
+\mbox{\hyperlink{refscale_8c_ad6ec9be7ddee81af227d00363c870978}{torture\+\_\+param}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, shutdown, \mbox{\hyperlink{refscale_8c_a9d64834ce1ddb6660b85f58d874431c7}{R\+E\+F\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}, \char`\"{}Shutdown \mbox{\hyperlink{sysfs_8h_aa879b49b930abef1610d29e2605632fa}{at}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}} of scalability tests.\char`\"{})
+\item 
+static void \mbox{\hyperlink{refscale_8c_a8265eccde12c241c83f4d362669bd217}{un\+\_\+delay}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a55592e33c468186edb2290c3708d07b7}{ref\+\_\+rcu\+\_\+read\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a4f8dfee7c9aaa5b0b38ce963541381eb}{ref\+\_\+rcu\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\+\_\+sync\+\_\+scale\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{refscale_8c_a026eac7eed4a5704ba9af2ee641593db}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+S\+R\+CU}} (srcu\+\_\+refctl\+\_\+scale)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a123f7d3d93710806da5fbfc29d325a01}{srcu\+\_\+ref\+\_\+scale\+\_\+read\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a50d15c6e1e48dc0c82a5df371c5692f2}{srcu\+\_\+ref\+\_\+scale\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a3bbb1af0629fe7020aa7cc18b39707e9}{rcu\+\_\+tasks\+\_\+ref\+\_\+scale\+\_\+read\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_ae9508fc1870e0e181cd5381f1d6426ce}{rcu\+\_\+tasks\+\_\+ref\+\_\+scale\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_ad453ecc2b68592ff1537d39285d8d49e}{rcu\+\_\+trace\+\_\+ref\+\_\+scale\+\_\+read\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_aad821ddb3eb0e6dbef64f5cb3eaa5da2}{rcu\+\_\+trace\+\_\+ref\+\_\+scale\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a5eb3f0bcf28410a3d276d1ee2fd430e0}{ref\+\_\+refcnt\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_ab31303f3ed170e04a5b817bf38400029}{ref\+\_\+refcnt\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a958997a0c9d2873fac53e2698c177a6b}{ref\+\_\+rwlock\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{refscale_8c_afc6e8d44b6d28d0abeaad49aa084484b}{ref\+\_\+rwlock\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a0e1c7ce00ca5d8f0033c736a1abf8f3b}{ref\+\_\+rwlock\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a75207f354b13e1d9c92f368eeeabe806}{ref\+\_\+rwsem\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{refscale_8c_aef70815faba9b5ecc4ce0ebb74f1b5ec}{ref\+\_\+rwsem\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a95ef6da087414b419fe253ccfa28685b}{ref\+\_\+rwsem\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static \mbox{\hyperlink{refscale_8c_a2abdafb1eee632d8e09ffd170ebf4021}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (\mbox{\hyperlink{test__lockup_8c_a0642d55ca37e3f62f549b597d342e791}{test\+\_\+lock}})
+\item 
+static void \mbox{\hyperlink{refscale_8c_a02b09470f4d4e5da435a1ee1e70e9523}{ref\+\_\+lock\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a3aa33c6997b0ff40d2fe71943330aceb}{ref\+\_\+lock\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a276484d8922b6a951c588d17c712dccb}{ref\+\_\+lock\+\_\+irq\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a0b084b88bb93075bc0ecd4af41094685}{ref\+\_\+lock\+\_\+irq\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static \mbox{\hyperlink{refscale_8c_a829faa0e11354e9cdf35fc2822d6a3c0}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned long, test\+\_\+acqrel)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a09505fda47fcd2470532da52d16b01e8}{ref\+\_\+acqrel\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a60ea14d042c313ed1de39e63518119d3}{ref\+\_\+acqrel\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a97a45b1aed1168f5851ab22c88b629e7}{ref\+\_\+clock\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a55d00760716825165d76f5b28bd8c062}{ref\+\_\+clock\+\_\+delay\+\_\+section}} (const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nloops, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} udl, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ndl)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a23ca1e82d543ad8c450af6a4689dfe51}{rcu\+\_\+scale\+\_\+one\+\_\+reader}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{refscale_8c_a23155997435ec95b98633fbccebc4e0c}{ref\+\_\+scale\+\_\+reader}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{refscale_8c_aaf7e6cc715feca792c7af8093c064d87}{reset\+\_\+readers}} (void)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{refscale_8c_a0088238cf276a328b3285e06b99240d2}{process\+\_\+durations}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} n)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{refscale_8c_ab666adf09bcfee196e236b92430a1db7}{main\+\_\+func}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{refscale_8c_a331d18cfd88fb3367affa21433ad68fa}{ref\+\_\+scale\+\_\+print\+\_\+module\+\_\+parms}} (struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} $\ast$\mbox{\hyperlink{refscale_8c_ac4b73a96ea718c917683e3b816d5b158}{cur\+\_\+ops}}, const char $\ast$\mbox{\hyperlink{virtio__scsi_8h_a5ad1555df5690c26801949601db361e0}{tag}})
+\item 
+static void \mbox{\hyperlink{refscale_8c_ad8a74d6f845a6963efafd7064f2088e2}{ref\+\_\+scale\+\_\+cleanup}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{refscale_8c_a67d9fdeeb5d78776b96025f6728842b5}{ref\+\_\+scale\+\_\+shutdown}} (void $\ast$arg)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{refscale_8c_aeab4b1ca5503e620988319648ea2ea96}{ref\+\_\+scale\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{refscale_8c_a84ec1540c3d367620425ec409b1731fc}{module\+\_\+init}} (\mbox{\hyperlink{refscale_8c_aeab4b1ca5503e620988319648ea2ea96}{ref\+\_\+scale\+\_\+init}})
+\item 
+\mbox{\hyperlink{refscale_8c_a0162e81bd9828a1a323294c14142917a}{module\+\_\+exit}} (\mbox{\hyperlink{refscale_8c_ad8a74d6f845a6963efafd7064f2088e2}{ref\+\_\+scale\+\_\+cleanup}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{refscale_8c_ae810a428c09d7e8378b7ec0a137c11b2}{verbose\+\_\+batch\+\_\+ctr}}
+\item 
+static char $\ast$ \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}} = \char`\"{}rcu\char`\"{}
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{refscale_8c_aef825574089ccaa6fbe18f99617dea75}{shutdown\+\_\+task}}
+\item 
+static \mbox{\hyperlink{linux_2wait_8h_abb3abe8a10e13f6e9e3037520ccb4e42}{wait\+\_\+queue\+\_\+head\+\_\+t}} \mbox{\hyperlink{refscale_8c_a0fbaf10772e35cd22ce897a76bc9b291}{shutdown\+\_\+wq}}
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{refscale_8c_ae2b87975dc2567b87874a9931d3f9a5f}{main\+\_\+task}}
+\item 
+static \mbox{\hyperlink{linux_2wait_8h_abb3abe8a10e13f6e9e3037520ccb4e42}{wait\+\_\+queue\+\_\+head\+\_\+t}} \mbox{\hyperlink{refscale_8c_ac92a1fd00c4a7bab4404b36886faca5d}{main\+\_\+wq}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{refscale_8c_a4236ed20c377515c16249fd6860c4d0e}{shutdown\+\_\+start}}
+\item 
+static struct \mbox{\hyperlink{structreader__task}{reader\+\_\+task}} $\ast$ \mbox{\hyperlink{refscale_8c_a0e31654f03641253cb07ff94f9af7e5a}{reader\+\_\+tasks}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{refscale_8c_a25cd41ead7567e78334b344ce3303fef}{nreaders\+\_\+exp}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{refscale_8c_a60c1356510cfc64bf916ba768e222cad}{n\+\_\+init}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{refscale_8c_a45fafda99eb795afd56cb09cd12c3a05}{n\+\_\+started}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{refscale_8c_a74597afc1a91cd9460205ba0ff799f03}{n\+\_\+warmedup}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{refscale_8c_ac8699ee473b915b3ed9c70773bce786e}{n\+\_\+cooleddown}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{refscale_8c_aa6a2c985962616d0592b84f9dfcb507b}{exp\+\_\+idx}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} $\ast$ \mbox{\hyperlink{refscale_8c_ac4b73a96ea718c917683e3b816d5b158}{cur\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_a6ea7462c582e3ab903bf4b117d99e09b}{rcu\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structsrcu__struct}{srcu\+\_\+struct}} $\ast$ \mbox{\hyperlink{refscale_8c_a396eed611d0c9f47cd480b8bdd8c8c69}{srcu\+\_\+ctlp}} = \&srcu\+\_\+refctl\+\_\+scale
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_a9654e90e7ff3cfa08ead50d898376882}{srcu\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_a34f64eeac30e0f7ae293877bcfab2412}{rcu\+\_\+tasks\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_afa1fd6a8433557892f8ddfb1a4d3ccb5}{rcu\+\_\+trace\+\_\+ops}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{refscale_8c_a8dc990bfef7892dd7c9885700f554974}{refcnt}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_af44729909d75af885d3326c72b308cde}{refcnt\+\_\+ops}}
+\item 
+static \mbox{\hyperlink{structrwlock__t}{rwlock\+\_\+t}} \mbox{\hyperlink{refscale_8c_a53ff06d8c894fdb4b0601a5fc78a8e86}{test\+\_\+rwlock}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_a196b1f8b07c17e756864780c0d10c810}{rwlock\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} \mbox{\hyperlink{refscale_8c_a2a8359980b508a39388c16b80016872c}{test\+\_\+rwsem}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_a50316e4d3159395ee1a529a7dda8c09c}{rwsem\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_ac00ac8772fc76de19a40a1e25dfc8ecd}{lock\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_a243003354ee76e0bbffd7d1f71a53999}{lock\+\_\+irq\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_a624efa6e213740720c9ac776e3198242}{acqrel\+\_\+ops}}
+\item 
+static volatile \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{refscale_8c_a63162c5ba55ff5474654be92fb8f1bc7}{stopopts}}
+\item 
+static struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{refscale_8c_ae11da6b2a9d4ba83e0460262540855df}{clock\+\_\+ops}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{refscale_8c_a1f8c165bf4196327bc3abff648276d92}\label{refscale_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{refscale.c@{refscale.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{refscale_8c_a9d64834ce1ddb6660b85f58d874431c7}\label{refscale_8c_a9d64834ce1ddb6660b85f58d874431c7}} 
+\index{refscale.c@{refscale.c}!REFSCALE\_SHUTDOWN@{REFSCALE\_SHUTDOWN}}
+\index{REFSCALE\_SHUTDOWN@{REFSCALE\_SHUTDOWN}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{REFSCALE\_SHUTDOWN}{REFSCALE\_SHUTDOWN}}
+{\footnotesize\ttfamily \#define R\+E\+F\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN~1}
+
+\mbox{\Hypertarget{refscale_8c_ab1e14bd903aa2ff3c830aaa32ad0c4fa}\label{refscale_8c_ab1e14bd903aa2ff3c830aaa32ad0c4fa}} 
+\index{refscale.c@{refscale.c}!SCALE\_FLAG@{SCALE\_FLAG}}
+\index{SCALE\_FLAG@{SCALE\_FLAG}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{SCALE\_FLAG}{SCALE\_FLAG}}
+{\footnotesize\ttfamily \#define S\+C\+A\+L\+E\+\_\+\+F\+L\+AG~\char`\"{}-\/ref-\/scale\+: \char`\"{}}
+
+\mbox{\Hypertarget{refscale_8c_a8b405ee7a3d3cd960cf5c29a1cd1556c}\label{refscale_8c_a8b405ee7a3d3cd960cf5c29a1cd1556c}} 
+\index{refscale.c@{refscale.c}!SCALEOUT@{SCALEOUT}}
+\index{SCALEOUT@{SCALEOUT}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{SCALEOUT}{SCALEOUT}}
+{\footnotesize\ttfamily \#define S\+C\+A\+L\+E\+O\+UT(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  }\item[{}]{x... }\end{DoxyParamCaption})~\mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \#\# \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})}
+
+\mbox{\Hypertarget{refscale_8c_a17a30cac7f42c66c8e34ffbe739c8376}\label{refscale_8c_a17a30cac7f42c66c8e34ffbe739c8376}} 
+\index{refscale.c@{refscale.c}!VERBOSE\_SCALEOUT@{VERBOSE\_SCALEOUT}}
+\index{VERBOSE\_SCALEOUT@{VERBOSE\_SCALEOUT}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{VERBOSE\_SCALEOUT}{VERBOSE\_SCALEOUT}}
+{\footnotesize\ttfamily \#define V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+UT(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  }\item[{}]{x... }\end{DoxyParamCaption})~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \#\# \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{refscale_8c_a5c41a914f821fd6b253039d8c4c67cf5}\label{refscale_8c_a5c41a914f821fd6b253039d8c4c67cf5}} 
+\index{refscale.c@{refscale.c}!VERBOSE\_SCALEOUT\_BATCH@{VERBOSE\_SCALEOUT\_BATCH}}
+\index{VERBOSE\_SCALEOUT\_BATCH@{VERBOSE\_SCALEOUT\_BATCH}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{VERBOSE\_SCALEOUT\_BATCH}{VERBOSE\_SCALEOUT\_BATCH}}
+{\footnotesize\ttfamily \#define V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+B\+A\+T\+CH(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  }\item[{}]{x... }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keywordflow}{do} \{                                            \(\backslash\)}
+\DoxyCodeLine{    if (\mbox{\hyperlink{insn__decoder__test_8c_a0b2caeb4b6f130be43e5a2f0267dd453}{verbose}} \&\&                                   \(\backslash\)}
+\DoxyCodeLine{        (verbose\_batched <= 0 ||                            \(\backslash\)}
+\DoxyCodeLine{         !(\mbox{\hyperlink{atomic-instrumented_8h_ad153be97254ada5223661d9d1bc84746}{atomic\_inc\_return}}(\&\mbox{\hyperlink{refscale_8c_ae810a428c09d7e8378b7ec0a137c11b2}{verbose\_batch\_ctr}}) \% verbose\_batched))) \{       \(\backslash\)}
+\DoxyCodeLine{        schedule\_timeout\_uninterruptible(1);                    \(\backslash\)}
+\DoxyCodeLine{        pr\_alert(\textcolor{stringliteral}{"\%s"} \mbox{\hyperlink{refscale_8c_ab1e14bd903aa2ff3c830aaa32ad0c4fa}{SCALE\_FLAG}} \mbox{\hyperlink{desc__defs_8h_aba2c7620c39e495adc275cd20de01b05}{s}}, \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\_type}}, \#\# \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}});                \(\backslash\)}
+\DoxyCodeLine{    \}                                       \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_a3aefa1265eea49e38889aa2856b48092}\label{refscale_8c_a3aefa1265eea49e38889aa2856b48092}} 
+\index{refscale.c@{refscale.c}!VERBOSE\_SCALEOUT\_ERRSTRING@{VERBOSE\_SCALEOUT\_ERRSTRING}}
+\index{VERBOSE\_SCALEOUT\_ERRSTRING@{VERBOSE\_SCALEOUT\_ERRSTRING}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{VERBOSE\_SCALEOUT\_ERRSTRING}{VERBOSE\_SCALEOUT\_ERRSTRING}}
+{\footnotesize\ttfamily \#define V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+E\+R\+R\+S\+T\+R\+I\+NG(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}},  }\item[{}]{x... }\end{DoxyParamCaption})~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{}!!! \char`\"{} \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \#\# \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{refscale_8c_a829faa0e11354e9cdf35fc2822d6a3c0}\label{refscale_8c_a829faa0e11354e9cdf35fc2822d6a3c0}} 
+\index{refscale.c@{refscale.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned long}]{,  }\item[{test\+\_\+acqrel}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a2abdafb1eee632d8e09ffd170ebf4021}\label{refscale_8c_a2abdafb1eee632d8e09ffd170ebf4021}} 
+\index{refscale.c@{refscale.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{test__lockup_8c_a0642d55ca37e3f62f549b597d342e791}{test\+\_\+lock}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a026eac7eed4a5704ba9af2ee641593db}\label{refscale_8c_a026eac7eed4a5704ba9af2ee641593db}} 
+\index{refscale.c@{refscale.c}!DEFINE\_STATIC\_SRCU@{DEFINE\_STATIC\_SRCU}}
+\index{DEFINE\_STATIC\_SRCU@{DEFINE\_STATIC\_SRCU}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_SRCU()}{DEFINE\_STATIC\_SRCU()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+S\+R\+CU (\begin{DoxyParamCaption}\item[{srcu\+\_\+refctl\+\_\+scale}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_ab666adf09bcfee196e236b92430a1db7}\label{refscale_8c_ab666adf09bcfee196e236b92430a1db7}} 
+\index{refscale.c@{refscale.c}!main\_func@{main\_func}}
+\index{main\_func@{main\_func}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{main\_func()}{main\_func()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} main\+\_\+func (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{refscale_8c_abac65003cc47712aea6a40b694a12260}\label{refscale_8c_abac65003cc47712aea6a40b694a12260}} 
+\index{refscale.c@{refscale.c}!MODULE\_AUTHOR@{MODULE\_AUTHOR}}
+\index{MODULE\_AUTHOR@{MODULE\_AUTHOR}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_AUTHOR()}{MODULE\_AUTHOR()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR (\begin{DoxyParamCaption}\item[{\char`\"{}Joel Fernandes (Google) $<$joel@joelfernandes.\+org$>$\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a0162e81bd9828a1a323294c14142917a}\label{refscale_8c_a0162e81bd9828a1a323294c14142917a}} 
+\index{refscale.c@{refscale.c}!module\_exit@{module\_exit}}
+\index{module\_exit@{module\_exit}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{module\_exit()}{module\_exit()}}
+{\footnotesize\ttfamily module\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{refscale_8c_ad8a74d6f845a6963efafd7064f2088e2}{ref\+\_\+scale\+\_\+cleanup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a84ec1540c3d367620425ec409b1731fc}\label{refscale_8c_a84ec1540c3d367620425ec409b1731fc}} 
+\index{refscale.c@{refscale.c}!module\_init@{module\_init}}
+\index{module\_init@{module\_init}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{module\_init()}{module\_init()}}
+{\footnotesize\ttfamily module\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{refscale_8c_aeab4b1ca5503e620988319648ea2ea96}{ref\+\_\+scale\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_ad94b36675e7eb067ea3ce6ff9e244a44}\label{refscale_8c_ad94b36675e7eb067ea3ce6ff9e244a44}} 
+\index{refscale.c@{refscale.c}!MODULE\_LICENSE@{MODULE\_LICENSE}}
+\index{MODULE\_LICENSE@{MODULE\_LICENSE}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_LICENSE()}{MODULE\_LICENSE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE (\begin{DoxyParamCaption}\item[{\char`\"{}G\+PL\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_acafc13727f790a27a2528cdc01c2aded}\label{refscale_8c_acafc13727f790a27a2528cdc01c2aded}} 
+\index{refscale.c@{refscale.c}!module\_param@{module\_param}}
+\index{module\_param@{module\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{module\_param()}{module\_param()}}
+{\footnotesize\ttfamily module\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}}]{,  }\item[{charp}]{,  }\item[{0444}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a93320e5181e2c41a9457562c5a3f26cc}\label{refscale_8c_a93320e5181e2c41a9457562c5a3f26cc}} 
+\index{refscale.c@{refscale.c}!MODULE\_PARM\_DESC@{MODULE\_PARM\_DESC}}
+\index{MODULE\_PARM\_DESC@{MODULE\_PARM\_DESC}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_PARM\_DESC()}{MODULE\_PARM\_DESC()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+M\+\_\+\+D\+E\+SC (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a0088238cf276a328b3285e06b99240d2}\label{refscale_8c_a0088238cf276a328b3285e06b99240d2}} 
+\index{refscale.c@{refscale.c}!process\_durations@{process\_durations}}
+\index{process\_durations@{process\_durations}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{process\_durations()}{process\_durations()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} process\+\_\+durations (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{refscale_8c_a23ca1e82d543ad8c450af6a4689dfe51}\label{refscale_8c_a23ca1e82d543ad8c450af6a4689dfe51}} 
+\index{refscale.c@{refscale.c}!rcu\_scale\_one\_reader@{rcu\_scale\_one\_reader}}
+\index{rcu\_scale\_one\_reader@{rcu\_scale\_one\_reader}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_one\_reader()}{rcu\_scale\_one\_reader()}}
+{\footnotesize\ttfamily static void rcu\+\_\+scale\+\_\+one\+\_\+reader (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}\label{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}} 
+\index{refscale.c@{refscale.c}!rcu\_sync\_scale\_init@{rcu\_sync\_scale\_init}}
+\index{rcu\_sync\_scale\_init@{rcu\_sync\_scale\_init}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_sync\_scale\_init()}{rcu\_sync\_scale\_init()}}
+{\footnotesize\ttfamily static void rcu\+\_\+sync\+\_\+scale\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_ae9508fc1870e0e181cd5381f1d6426ce}\label{refscale_8c_ae9508fc1870e0e181cd5381f1d6426ce}} 
+\index{refscale.c@{refscale.c}!rcu\_tasks\_ref\_scale\_delay\_section@{rcu\_tasks\_ref\_scale\_delay\_section}}
+\index{rcu\_tasks\_ref\_scale\_delay\_section@{rcu\_tasks\_ref\_scale\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_tasks\_ref\_scale\_delay\_section()}{rcu\_tasks\_ref\_scale\_delay\_section()}}
+{\footnotesize\ttfamily static void rcu\+\_\+tasks\+\_\+ref\+\_\+scale\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{refscale_8c_a3bbb1af0629fe7020aa7cc18b39707e9}\label{refscale_8c_a3bbb1af0629fe7020aa7cc18b39707e9}} 
+\index{refscale.c@{refscale.c}!rcu\_tasks\_ref\_scale\_read\_section@{rcu\_tasks\_ref\_scale\_read\_section}}
+\index{rcu\_tasks\_ref\_scale\_read\_section@{rcu\_tasks\_ref\_scale\_read\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_tasks\_ref\_scale\_read\_section()}{rcu\_tasks\_ref\_scale\_read\_section()}}
+{\footnotesize\ttfamily static void rcu\+\_\+tasks\+\_\+ref\+\_\+scale\+\_\+read\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_aad821ddb3eb0e6dbef64f5cb3eaa5da2}\label{refscale_8c_aad821ddb3eb0e6dbef64f5cb3eaa5da2}} 
+\index{refscale.c@{refscale.c}!rcu\_trace\_ref\_scale\_delay\_section@{rcu\_trace\_ref\_scale\_delay\_section}}
+\index{rcu\_trace\_ref\_scale\_delay\_section@{rcu\_trace\_ref\_scale\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_trace\_ref\_scale\_delay\_section()}{rcu\_trace\_ref\_scale\_delay\_section()}}
+{\footnotesize\ttfamily static void rcu\+\_\+trace\+\_\+ref\+\_\+scale\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{refscale_8c_ad453ecc2b68592ff1537d39285d8d49e}\label{refscale_8c_ad453ecc2b68592ff1537d39285d8d49e}} 
+\index{refscale.c@{refscale.c}!rcu\_trace\_ref\_scale\_read\_section@{rcu\_trace\_ref\_scale\_read\_section}}
+\index{rcu\_trace\_ref\_scale\_read\_section@{rcu\_trace\_ref\_scale\_read\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_trace\_ref\_scale\_read\_section()}{rcu\_trace\_ref\_scale\_read\_section()}}
+{\footnotesize\ttfamily static void rcu\+\_\+trace\+\_\+ref\+\_\+scale\+\_\+read\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{refscale_8c_a60ea14d042c313ed1de39e63518119d3}\label{refscale_8c_a60ea14d042c313ed1de39e63518119d3}} 
+\index{refscale.c@{refscale.c}!ref\_acqrel\_delay\_section@{ref\_acqrel\_delay\_section}}
+\index{ref\_acqrel\_delay\_section@{ref\_acqrel\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_acqrel\_delay\_section()}{ref\_acqrel\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+acqrel\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{refscale_8c_a09505fda47fcd2470532da52d16b01e8}\label{refscale_8c_a09505fda47fcd2470532da52d16b01e8}} 
+\index{refscale.c@{refscale.c}!ref\_acqrel\_section@{ref\_acqrel\_section}}
+\index{ref\_acqrel\_section@{ref\_acqrel\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_acqrel\_section()}{ref\_acqrel\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+acqrel\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a55d00760716825165d76f5b28bd8c062}\label{refscale_8c_a55d00760716825165d76f5b28bd8c062}} 
+\index{refscale.c@{refscale.c}!ref\_clock\_delay\_section@{ref\_clock\_delay\_section}}
+\index{ref\_clock\_delay\_section@{ref\_clock\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_clock\_delay\_section()}{ref\_clock\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+clock\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{refscale_8c_a97a45b1aed1168f5851ab22c88b629e7}\label{refscale_8c_a97a45b1aed1168f5851ab22c88b629e7}} 
+\index{refscale.c@{refscale.c}!ref\_clock\_section@{ref\_clock\_section}}
+\index{ref\_clock\_section@{ref\_clock\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_clock\_section()}{ref\_clock\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+clock\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{refscale_8c_a3aa33c6997b0ff40d2fe71943330aceb}\label{refscale_8c_a3aa33c6997b0ff40d2fe71943330aceb}} 
+\index{refscale.c@{refscale.c}!ref\_lock\_delay\_section@{ref\_lock\_delay\_section}}
+\index{ref\_lock\_delay\_section@{ref\_lock\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_lock\_delay\_section()}{ref\_lock\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+lock\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{refscale_8c_a0b084b88bb93075bc0ecd4af41094685}\label{refscale_8c_a0b084b88bb93075bc0ecd4af41094685}} 
+\index{refscale.c@{refscale.c}!ref\_lock\_irq\_delay\_section@{ref\_lock\_irq\_delay\_section}}
+\index{ref\_lock\_irq\_delay\_section@{ref\_lock\_irq\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_lock\_irq\_delay\_section()}{ref\_lock\_irq\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+lock\+\_\+irq\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{refscale_8c_a276484d8922b6a951c588d17c712dccb}\label{refscale_8c_a276484d8922b6a951c588d17c712dccb}} 
+\index{refscale.c@{refscale.c}!ref\_lock\_irq\_section@{ref\_lock\_irq\_section}}
+\index{ref\_lock\_irq\_section@{ref\_lock\_irq\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_lock\_irq\_section()}{ref\_lock\_irq\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+lock\+\_\+irq\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{refscale_8c_a02b09470f4d4e5da435a1ee1e70e9523}\label{refscale_8c_a02b09470f4d4e5da435a1ee1e70e9523}} 
+\index{refscale.c@{refscale.c}!ref\_lock\_section@{ref\_lock\_section}}
+\index{ref\_lock\_section@{ref\_lock\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_lock\_section()}{ref\_lock\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+lock\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{refscale_8c_a4f8dfee7c9aaa5b0b38ce963541381eb}\label{refscale_8c_a4f8dfee7c9aaa5b0b38ce963541381eb}} 
+\index{refscale.c@{refscale.c}!ref\_rcu\_delay\_section@{ref\_rcu\_delay\_section}}
+\index{ref\_rcu\_delay\_section@{ref\_rcu\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rcu\_delay\_section()}{ref\_rcu\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+rcu\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{refscale_8c_a55592e33c468186edb2290c3708d07b7}\label{refscale_8c_a55592e33c468186edb2290c3708d07b7}} 
+\index{refscale.c@{refscale.c}!ref\_rcu\_read\_section@{ref\_rcu\_read\_section}}
+\index{ref\_rcu\_read\_section@{ref\_rcu\_read\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rcu\_read\_section()}{ref\_rcu\_read\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+rcu\+\_\+read\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{refscale_8c_ab31303f3ed170e04a5b817bf38400029}\label{refscale_8c_ab31303f3ed170e04a5b817bf38400029}} 
+\index{refscale.c@{refscale.c}!ref\_refcnt\_delay\_section@{ref\_refcnt\_delay\_section}}
+\index{ref\_refcnt\_delay\_section@{ref\_refcnt\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_refcnt\_delay\_section()}{ref\_refcnt\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+refcnt\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{refscale_8c_a5eb3f0bcf28410a3d276d1ee2fd430e0}\label{refscale_8c_a5eb3f0bcf28410a3d276d1ee2fd430e0}} 
+\index{refscale.c@{refscale.c}!ref\_refcnt\_section@{ref\_refcnt\_section}}
+\index{ref\_refcnt\_section@{ref\_refcnt\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_refcnt\_section()}{ref\_refcnt\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+refcnt\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{refscale_8c_a0e1c7ce00ca5d8f0033c736a1abf8f3b}\label{refscale_8c_a0e1c7ce00ca5d8f0033c736a1abf8f3b}} 
+\index{refscale.c@{refscale.c}!ref\_rwlock\_delay\_section@{ref\_rwlock\_delay\_section}}
+\index{ref\_rwlock\_delay\_section@{ref\_rwlock\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rwlock\_delay\_section()}{ref\_rwlock\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+rwlock\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{refscale_8c_a958997a0c9d2873fac53e2698c177a6b}\label{refscale_8c_a958997a0c9d2873fac53e2698c177a6b}} 
+\index{refscale.c@{refscale.c}!ref\_rwlock\_init@{ref\_rwlock\_init}}
+\index{ref\_rwlock\_init@{ref\_rwlock\_init}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rwlock\_init()}{ref\_rwlock\_init()}}
+{\footnotesize\ttfamily static void ref\+\_\+rwlock\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_afc6e8d44b6d28d0abeaad49aa084484b}\label{refscale_8c_afc6e8d44b6d28d0abeaad49aa084484b}} 
+\index{refscale.c@{refscale.c}!ref\_rwlock\_section@{ref\_rwlock\_section}}
+\index{ref\_rwlock\_section@{ref\_rwlock\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rwlock\_section()}{ref\_rwlock\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+rwlock\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a95ef6da087414b419fe253ccfa28685b}\label{refscale_8c_a95ef6da087414b419fe253ccfa28685b}} 
+\index{refscale.c@{refscale.c}!ref\_rwsem\_delay\_section@{ref\_rwsem\_delay\_section}}
+\index{ref\_rwsem\_delay\_section@{ref\_rwsem\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rwsem\_delay\_section()}{ref\_rwsem\_delay\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+rwsem\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{refscale_8c_a75207f354b13e1d9c92f368eeeabe806}\label{refscale_8c_a75207f354b13e1d9c92f368eeeabe806}} 
+\index{refscale.c@{refscale.c}!ref\_rwsem\_init@{ref\_rwsem\_init}}
+\index{ref\_rwsem\_init@{ref\_rwsem\_init}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rwsem\_init()}{ref\_rwsem\_init()}}
+{\footnotesize\ttfamily static void ref\+\_\+rwsem\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_aef70815faba9b5ecc4ce0ebb74f1b5ec}\label{refscale_8c_aef70815faba9b5ecc4ce0ebb74f1b5ec}} 
+\index{refscale.c@{refscale.c}!ref\_rwsem\_section@{ref\_rwsem\_section}}
+\index{ref\_rwsem\_section@{ref\_rwsem\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_rwsem\_section()}{ref\_rwsem\_section()}}
+{\footnotesize\ttfamily static void ref\+\_\+rwsem\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{refscale_8c_ad8a74d6f845a6963efafd7064f2088e2}\label{refscale_8c_ad8a74d6f845a6963efafd7064f2088e2}} 
+\index{refscale.c@{refscale.c}!ref\_scale\_cleanup@{ref\_scale\_cleanup}}
+\index{ref\_scale\_cleanup@{ref\_scale\_cleanup}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_scale\_cleanup()}{ref\_scale\_cleanup()}}
+{\footnotesize\ttfamily static void ref\+\_\+scale\+\_\+cleanup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{refscale_8c_aeab4b1ca5503e620988319648ea2ea96}\label{refscale_8c_aeab4b1ca5503e620988319648ea2ea96}} 
+\index{refscale.c@{refscale.c}!ref\_scale\_init@{ref\_scale\_init}}
+\index{ref\_scale\_init@{ref\_scale\_init}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_scale\_init()}{ref\_scale\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ref\+\_\+scale\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{refscale_8c_a331d18cfd88fb3367affa21433ad68fa}\label{refscale_8c_a331d18cfd88fb3367affa21433ad68fa}} 
+\index{refscale.c@{refscale.c}!ref\_scale\_print\_module\_parms@{ref\_scale\_print\_module\_parms}}
+\index{ref\_scale\_print\_module\_parms@{ref\_scale\_print\_module\_parms}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_scale\_print\_module\_parms()}{ref\_scale\_print\_module\_parms()}}
+{\footnotesize\ttfamily static void ref\+\_\+scale\+\_\+print\+\_\+module\+\_\+parms (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} $\ast$}]{cur\+\_\+ops,  }\item[{const char $\ast$}]{tag }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{refscale_8c_a23155997435ec95b98633fbccebc4e0c}\label{refscale_8c_a23155997435ec95b98633fbccebc4e0c}} 
+\index{refscale.c@{refscale.c}!ref\_scale\_reader@{ref\_scale\_reader}}
+\index{ref\_scale\_reader@{ref\_scale\_reader}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_scale\_reader()}{ref\_scale\_reader()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ref\+\_\+scale\+\_\+reader (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{refscale_8c_a67d9fdeeb5d78776b96025f6728842b5}\label{refscale_8c_a67d9fdeeb5d78776b96025f6728842b5}} 
+\index{refscale.c@{refscale.c}!ref\_scale\_shutdown@{ref\_scale\_shutdown}}
+\index{ref\_scale\_shutdown@{ref\_scale\_shutdown}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{ref\_scale\_shutdown()}{ref\_scale\_shutdown()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ref\+\_\+scale\+\_\+shutdown (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{refscale_8c_aaf7e6cc715feca792c7af8093c064d87}\label{refscale_8c_aaf7e6cc715feca792c7af8093c064d87}} 
+\index{refscale.c@{refscale.c}!reset\_readers@{reset\_readers}}
+\index{reset\_readers@{reset\_readers}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{reset\_readers()}{reset\_readers()}}
+{\footnotesize\ttfamily static void reset\+\_\+readers (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{refscale_8c_a50d15c6e1e48dc0c82a5df371c5692f2}\label{refscale_8c_a50d15c6e1e48dc0c82a5df371c5692f2}} 
+\index{refscale.c@{refscale.c}!srcu\_ref\_scale\_delay\_section@{srcu\_ref\_scale\_delay\_section}}
+\index{srcu\_ref\_scale\_delay\_section@{srcu\_ref\_scale\_delay\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_ref\_scale\_delay\_section()}{srcu\_ref\_scale\_delay\_section()}}
+{\footnotesize\ttfamily static void srcu\+\_\+ref\+\_\+scale\+\_\+delay\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{refscale_8c_a123f7d3d93710806da5fbfc29d325a01}\label{refscale_8c_a123f7d3d93710806da5fbfc29d325a01}} 
+\index{refscale.c@{refscale.c}!srcu\_ref\_scale\_read\_section@{srcu\_ref\_scale\_read\_section}}
+\index{srcu\_ref\_scale\_read\_section@{srcu\_ref\_scale\_read\_section}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_ref\_scale\_read\_section()}{srcu\_ref\_scale\_read\_section()}}
+{\footnotesize\ttfamily static void srcu\+\_\+ref\+\_\+scale\+\_\+read\+\_\+section (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nloops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{refscale_8c_ad6ec9be7ddee81af227d00363c870978}\label{refscale_8c_ad6ec9be7ddee81af227d00363c870978}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [1/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{shutdown}]{,  }\item[{\mbox{\hyperlink{refscale_8c_a9d64834ce1ddb6660b85f58d874431c7}{R\+E\+F\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}}]{,  }\item[{\char`\"{}Shutdown \mbox{\hyperlink{sysfs_8h_aa879b49b930abef1610d29e2605632fa}{at}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}} of scalability tests.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_ae2b916da811351c819c3e718b7bb5a54}\label{refscale_8c_ae2b916da811351c819c3e718b7bb5a54}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [2/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{clocksource-wdtest_8c_a66c34f2885537f8d4ddbfc609a892f2e}{holdoff}}}]{,  }\item[{\mbox{\hyperlink{kconfig_8h_a43b9d76488f716ceeab1dd36fb631587}{I\+S\+\_\+\+B\+U\+I\+L\+T\+IN}}(C\+O\+N\+F\+I\+G\+\_\+\+R\+C\+U\+\_\+\+R\+E\+F\+\_\+\+S\+C\+A\+L\+E\+\_\+\+T\+E\+ST) ? 10 \+:0}]{,  }\item[{\char`\"{}Holdoff \mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}} \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}} (\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a926e5131e1a82ee1e0777d47ba4638c7}\label{refscale_8c_a926e5131e1a82ee1e0777d47ba4638c7}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [3/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{nreaders}]{,  }\item[{-\/}]{1,  }\item[{\char`\"{}Number of}]{readers,  }\item[{-\/1 \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} 75\% of C\+P\+Us.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a2f2b43365e7d57a77f09f67a0a77110c}\label{refscale_8c_a2f2b43365e7d57a77f09f67a0a77110c}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [4/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{nruns}]{,  }\item[{30}]{,  }\item[{\char`\"{}Number of experiments to run.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a84eedd8425a10d9298e5a833ac58e437}\label{refscale_8c_a84eedd8425a10d9298e5a833ac58e437}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [5/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{readdelay}]{,  }\item[{0}]{,  }\item[{\char`\"{}Read-\/side \mbox{\hyperlink{preemptirq__delay__test_8c_ab04e4956157b6df8791c0d45b81049d8}{delay}} \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}} nanoseconds.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a9d1eeb31e493fce1dbfc2949f7bbce5b}\label{refscale_8c_a9d1eeb31e493fce1dbfc2949f7bbce5b}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [6/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}}]{,  }\item[{0}]{,  }\item[{\char`\"{}Enable \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a30e35ef6e7120b52d4c941bfa3fba5b2}\label{refscale_8c_a30e35ef6e7120b52d4c941bfa3fba5b2}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [7/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{verbose\+\_\+batched}]{,  }\item[{0}]{,  }\item[{\char`\"{}Batch \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a911dfdea783e291ae418156ad2fd50d5}\label{refscale_8c_a911dfdea783e291ae418156ad2fd50d5}} 
+\index{refscale.c@{refscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [8/8]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{long}]{,  }\item[{loops}]{,  }\item[{10000}]{,  }\item[{\char`\"{}Number of loops per experiment.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{refscale_8c_a8265eccde12c241c83f4d362669bd217}\label{refscale_8c_a8265eccde12c241c83f4d362669bd217}} 
+\index{refscale.c@{refscale.c}!un\_delay@{un\_delay}}
+\index{un\_delay@{un\_delay}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{un\_delay()}{un\_delay()}}
+{\footnotesize\ttfamily static void un\+\_\+delay (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{udl,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ndl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 34
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{refscale_8c_a624efa6e213740720c9ac776e3198242}\label{refscale_8c_a624efa6e213740720c9ac776e3198242}} 
+\index{refscale.c@{refscale.c}!acqrel\_ops@{acqrel\_ops}}
+\index{acqrel\_ops@{acqrel\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{acqrel\_ops}{acqrel\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} acqrel\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a09505fda47fcd2470532da52d16b01e8}{ref\_acqrel\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a60ea14d042c313ed1de39e63518119d3}{ref\_acqrel\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"acqrel"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_ae11da6b2a9d4ba83e0460262540855df}\label{refscale_8c_ae11da6b2a9d4ba83e0460262540855df}} 
+\index{refscale.c@{refscale.c}!clock\_ops@{clock\_ops}}
+\index{clock\_ops@{clock\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{clock\_ops}{clock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} clock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a97a45b1aed1168f5851ab22c88b629e7}{ref\_clock\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a55d00760716825165d76f5b28bd8c062}{ref\_clock\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"clock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_ac4b73a96ea718c917683e3b816d5b158}\label{refscale_8c_ac4b73a96ea718c917683e3b816d5b158}} 
+\index{refscale.c@{refscale.c}!cur\_ops@{cur\_ops}}
+\index{cur\_ops@{cur\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{cur\_ops}{cur\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}}$\ast$ cur\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_aa6a2c985962616d0592b84f9dfcb507b}\label{refscale_8c_aa6a2c985962616d0592b84f9dfcb507b}} 
+\index{refscale.c@{refscale.c}!exp\_idx@{exp\_idx}}
+\index{exp\_idx@{exp\_idx}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{exp\_idx}{exp\_idx}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} exp\+\_\+idx\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a243003354ee76e0bbffd7d1f71a53999}\label{refscale_8c_a243003354ee76e0bbffd7d1f71a53999}} 
+\index{refscale.c@{refscale.c}!lock\_irq\_ops@{lock\_irq\_ops}}
+\index{lock\_irq\_ops@{lock\_irq\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{lock\_irq\_ops}{lock\_irq\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} lock\+\_\+irq\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a276484d8922b6a951c588d17c712dccb}{ref\_lock\_irq\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a0b084b88bb93075bc0ecd4af41094685}{ref\_lock\_irq\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"lock-\/irq"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_ac00ac8772fc76de19a40a1e25dfc8ecd}\label{refscale_8c_ac00ac8772fc76de19a40a1e25dfc8ecd}} 
+\index{refscale.c@{refscale.c}!lock\_ops@{lock\_ops}}
+\index{lock\_ops@{lock\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{lock\_ops}{lock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} lock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a02b09470f4d4e5da435a1ee1e70e9523}{ref\_lock\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a3aa33c6997b0ff40d2fe71943330aceb}{ref\_lock\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"lock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_ae2b87975dc2567b87874a9931d3f9a5f}\label{refscale_8c_ae2b87975dc2567b87874a9931d3f9a5f}} 
+\index{refscale.c@{refscale.c}!main\_task@{main\_task}}
+\index{main\_task@{main\_task}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{main\_task}{main\_task}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$ main\+\_\+task\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_ac92a1fd00c4a7bab4404b36886faca5d}\label{refscale_8c_ac92a1fd00c4a7bab4404b36886faca5d}} 
+\index{refscale.c@{refscale.c}!main\_wq@{main\_wq}}
+\index{main\_wq@{main\_wq}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{main\_wq}{main\_wq}}
+{\footnotesize\ttfamily \mbox{\hyperlink{linux_2wait_8h_abb3abe8a10e13f6e9e3037520ccb4e42}{wait\+\_\+queue\+\_\+head\+\_\+t}} main\+\_\+wq\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_ac8699ee473b915b3ed9c70773bce786e}\label{refscale_8c_ac8699ee473b915b3ed9c70773bce786e}} 
+\index{refscale.c@{refscale.c}!n\_cooleddown@{n\_cooleddown}}
+\index{n\_cooleddown@{n\_cooleddown}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_cooleddown}{n\_cooleddown}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+cooleddown\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a60c1356510cfc64bf916ba768e222cad}\label{refscale_8c_a60c1356510cfc64bf916ba768e222cad}} 
+\index{refscale.c@{refscale.c}!n\_init@{n\_init}}
+\index{n\_init@{n\_init}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_init}{n\_init}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+init\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a45fafda99eb795afd56cb09cd12c3a05}\label{refscale_8c_a45fafda99eb795afd56cb09cd12c3a05}} 
+\index{refscale.c@{refscale.c}!n\_started@{n\_started}}
+\index{n\_started@{n\_started}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_started}{n\_started}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+started\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a74597afc1a91cd9460205ba0ff799f03}\label{refscale_8c_a74597afc1a91cd9460205ba0ff799f03}} 
+\index{refscale.c@{refscale.c}!n\_warmedup@{n\_warmedup}}
+\index{n\_warmedup@{n\_warmedup}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_warmedup}{n\_warmedup}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+warmedup\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a25cd41ead7567e78334b344ce3303fef}\label{refscale_8c_a25cd41ead7567e78334b344ce3303fef}} 
+\index{refscale.c@{refscale.c}!nreaders\_exp@{nreaders\_exp}}
+\index{nreaders\_exp@{nreaders\_exp}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{nreaders\_exp}{nreaders\_exp}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} nreaders\+\_\+exp\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a6ea7462c582e3ab903bf4b117d99e09b}\label{refscale_8c_a6ea7462c582e3ab903bf4b117d99e09b}} 
+\index{refscale.c@{refscale.c}!rcu\_ops@{rcu\_ops}}
+\index{rcu\_ops@{rcu\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_ops}{rcu\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} rcu\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a55592e33c468186edb2290c3708d07b7}{ref\_rcu\_read\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a4f8dfee7c9aaa5b0b38ce963541381eb}{ref\_rcu\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rcu"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_a34f64eeac30e0f7ae293877bcfab2412}\label{refscale_8c_a34f64eeac30e0f7ae293877bcfab2412}} 
+\index{refscale.c@{refscale.c}!rcu\_tasks\_ops@{rcu\_tasks\_ops}}
+\index{rcu\_tasks\_ops@{rcu\_tasks\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_tasks\_ops}{rcu\_tasks\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} rcu\+\_\+tasks\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a3bbb1af0629fe7020aa7cc18b39707e9}{rcu\_tasks\_ref\_scale\_read\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_ae9508fc1870e0e181cd5381f1d6426ce}{rcu\_tasks\_ref\_scale\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rcu-\/tasks"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_afa1fd6a8433557892f8ddfb1a4d3ccb5}\label{refscale_8c_afa1fd6a8433557892f8ddfb1a4d3ccb5}} 
+\index{refscale.c@{refscale.c}!rcu\_trace\_ops@{rcu\_trace\_ops}}
+\index{rcu\_trace\_ops@{rcu\_trace\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_trace\_ops}{rcu\_trace\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} rcu\+\_\+trace\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_ad453ecc2b68592ff1537d39285d8d49e}{rcu\_trace\_ref\_scale\_read\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_aad821ddb3eb0e6dbef64f5cb3eaa5da2}{rcu\_trace\_ref\_scale\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rcu-\/trace"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_a0e31654f03641253cb07ff94f9af7e5a}\label{refscale_8c_a0e31654f03641253cb07ff94f9af7e5a}} 
+\index{refscale.c@{refscale.c}!reader\_tasks@{reader\_tasks}}
+\index{reader\_tasks@{reader\_tasks}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{reader\_tasks}{reader\_tasks}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structreader__task}{reader\+\_\+task}}$\ast$ reader\+\_\+tasks\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a8dc990bfef7892dd7c9885700f554974}\label{refscale_8c_a8dc990bfef7892dd7c9885700f554974}} 
+\index{refscale.c@{refscale.c}!refcnt@{refcnt}}
+\index{refcnt@{refcnt}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{refcnt}{refcnt}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} refcnt\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_af44729909d75af885d3326c72b308cde}\label{refscale_8c_af44729909d75af885d3326c72b308cde}} 
+\index{refscale.c@{refscale.c}!refcnt\_ops@{refcnt\_ops}}
+\index{refcnt\_ops@{refcnt\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{refcnt\_ops}{refcnt\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} refcnt\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a5eb3f0bcf28410a3d276d1ee2fd430e0}{ref\_refcnt\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_ab31303f3ed170e04a5b817bf38400029}{ref\_refcnt\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"refcnt"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_a196b1f8b07c17e756864780c0d10c810}\label{refscale_8c_a196b1f8b07c17e756864780c0d10c810}} 
+\index{refscale.c@{refscale.c}!rwlock\_ops@{rwlock\_ops}}
+\index{rwlock\_ops@{rwlock\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rwlock\_ops}{rwlock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} rwlock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{refscale_8c_a958997a0c9d2873fac53e2698c177a6b}{ref\_rwlock\_init}},}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_afc6e8d44b6d28d0abeaad49aa084484b}{ref\_rwlock\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a0e1c7ce00ca5d8f0033c736a1abf8f3b}{ref\_rwlock\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rwlock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_a50316e4d3159395ee1a529a7dda8c09c}\label{refscale_8c_a50316e4d3159395ee1a529a7dda8c09c}} 
+\index{refscale.c@{refscale.c}!rwsem\_ops@{rwsem\_ops}}
+\index{rwsem\_ops@{rwsem\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_ops}{rwsem\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} rwsem\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{refscale_8c_a75207f354b13e1d9c92f368eeeabe806}{ref\_rwsem\_init}},}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_aef70815faba9b5ecc4ce0ebb74f1b5ec}{ref\_rwsem\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a95ef6da087414b419fe253ccfa28685b}{ref\_rwsem\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rwsem"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}\label{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}} 
+\index{refscale.c@{refscale.c}!scale\_type@{scale\_type}}
+\index{scale\_type@{scale\_type}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{scale\_type}{scale\_type}}
+{\footnotesize\ttfamily char$\ast$ scale\+\_\+type = \char`\"{}rcu\char`\"{}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a4236ed20c377515c16249fd6860c4d0e}\label{refscale_8c_a4236ed20c377515c16249fd6860c4d0e}} 
+\index{refscale.c@{refscale.c}!shutdown\_start@{shutdown\_start}}
+\index{shutdown\_start@{shutdown\_start}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{shutdown\_start}{shutdown\_start}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} shutdown\+\_\+start\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_aef825574089ccaa6fbe18f99617dea75}\label{refscale_8c_aef825574089ccaa6fbe18f99617dea75}} 
+\index{refscale.c@{refscale.c}!shutdown\_task@{shutdown\_task}}
+\index{shutdown\_task@{shutdown\_task}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{shutdown\_task}{shutdown\_task}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$ shutdown\+\_\+task\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a0fbaf10772e35cd22ce897a76bc9b291}\label{refscale_8c_a0fbaf10772e35cd22ce897a76bc9b291}} 
+\index{refscale.c@{refscale.c}!shutdown\_wq@{shutdown\_wq}}
+\index{shutdown\_wq@{shutdown\_wq}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{shutdown\_wq}{shutdown\_wq}}
+{\footnotesize\ttfamily \mbox{\hyperlink{linux_2wait_8h_abb3abe8a10e13f6e9e3037520ccb4e42}{wait\+\_\+queue\+\_\+head\+\_\+t}} shutdown\+\_\+wq\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a396eed611d0c9f47cd480b8bdd8c8c69}\label{refscale_8c_a396eed611d0c9f47cd480b8bdd8c8c69}} 
+\index{refscale.c@{refscale.c}!srcu\_ctlp@{srcu\_ctlp}}
+\index{srcu\_ctlp@{srcu\_ctlp}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_ctlp}{srcu\_ctlp}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsrcu__struct}{srcu\+\_\+struct}}$\ast$ srcu\+\_\+ctlp = \&srcu\+\_\+refctl\+\_\+scale\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a9654e90e7ff3cfa08ead50d898376882}\label{refscale_8c_a9654e90e7ff3cfa08ead50d898376882}} 
+\index{refscale.c@{refscale.c}!srcu\_ops@{srcu\_ops}}
+\index{srcu\_ops@{srcu\_ops}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_ops}{srcu\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structref__scale__ops}{ref\+\_\+scale\+\_\+ops}} srcu\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{refscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readsection    = \mbox{\hyperlink{refscale_8c_a123f7d3d93710806da5fbfc29d325a01}{srcu\_ref\_scale\_read\_section}},}
+\DoxyCodeLine{    .delaysection   = \mbox{\hyperlink{refscale_8c_a50d15c6e1e48dc0c82a5df371c5692f2}{srcu\_ref\_scale\_delay\_section}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"srcu"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{refscale_8c_a63162c5ba55ff5474654be92fb8f1bc7}\label{refscale_8c_a63162c5ba55ff5474654be92fb8f1bc7}} 
+\index{refscale.c@{refscale.c}!stopopts@{stopopts}}
+\index{stopopts@{stopopts}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{stopopts}{stopopts}}
+{\footnotesize\ttfamily volatile \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} stopopts\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a53ff06d8c894fdb4b0601a5fc78a8e86}\label{refscale_8c_a53ff06d8c894fdb4b0601a5fc78a8e86}} 
+\index{refscale.c@{refscale.c}!test\_rwlock@{test\_rwlock}}
+\index{test\_rwlock@{test\_rwlock}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{test\_rwlock}{test\_rwlock}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structrwlock__t}{rwlock\+\_\+t}} test\+\_\+rwlock\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_a2a8359980b508a39388c16b80016872c}\label{refscale_8c_a2a8359980b508a39388c16b80016872c}} 
+\index{refscale.c@{refscale.c}!test\_rwsem@{test\_rwsem}}
+\index{test\_rwsem@{test\_rwsem}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{test\_rwsem}{test\_rwsem}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} test\+\_\+rwsem\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{refscale_8c_ae810a428c09d7e8378b7ec0a137c11b2}\label{refscale_8c_ae810a428c09d7e8378b7ec0a137c11b2}} 
+\index{refscale.c@{refscale.c}!verbose\_batch\_ctr@{verbose\_batch\_ctr}}
+\index{verbose\_batch\_ctr@{verbose\_batch\_ctr}!refscale.c@{refscale.c}}
+\doxysubsubsection{\texorpdfstring{verbose\_batch\_ctr}{verbose\_batch\_ctr}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} verbose\+\_\+batch\+\_\+ctr\hspace{0.3cm}{\ttfamily [static]}}
+

@@ -1,0 +1,919 @@
+\hypertarget{kernel_2trace_2ftrace_8c}{}\doxysection{kernel/trace/ftrace.c File Reference}
+\label{kernel_2trace_2ftrace_8c}\index{kernel/trace/ftrace.c@{kernel/trace/ftrace.c}}
+{\ttfamily \#include $<$linux/stop\+\_\+machine.\+h$>$}\newline
+{\ttfamily \#include $<$linux/clocksource.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kallsyms.\+h$>$}\newline
+{\ttfamily \#include $<$linux/security.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/tracefs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hardirq.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bsearch.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ftrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sysctl.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ctype.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sort.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hash.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kprobes.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/sched.\+h$>$}\newline
+{\ttfamily \#include $<$asm/sections.\+h$>$}\newline
+{\ttfamily \#include $<$asm/setup.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}ftrace\+\_\+internal.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}trace\+\_\+output.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}trace\+\_\+stat.\+h\char`\"{}}\newline
+Include dependency graph for ftrace.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a3da5a82e3cf95bc9c1b527a6789b37e9}{F\+T\+R\+A\+C\+E\+\_\+\+W\+A\+R\+N\+\_\+\+ON}}(cond)
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a4a2e4c560a56b0fca3dff9ded2877b36}{F\+T\+R\+A\+C\+E\+\_\+\+W\+A\+R\+N\+\_\+\+O\+N\+\_\+\+O\+N\+CE}}(cond)
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a06704a85be8d6c4a62b0fdb0abe98489}{F\+T\+R\+A\+C\+E\+\_\+\+H\+A\+S\+H\+\_\+\+D\+E\+F\+A\+U\+L\+T\+\_\+\+B\+I\+TS}}~10
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ad91b9e580f6d547f9af26463602dffb6}{F\+T\+R\+A\+C\+E\+\_\+\+H\+A\+S\+H\+\_\+\+M\+A\+X\+\_\+\+B\+I\+TS}}~12
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_afcd0b24ec28ecadceab999f7d93a27a6}{I\+N\+I\+T\+\_\+\+O\+P\+S\+\_\+\+H\+A\+SH}}(opsname)
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aac3feb4e207f7499f71e2e2ff4aa88d3}{ftrace\+\_\+ops\+\_\+list\+\_\+func}}~((ftrace\+\_\+func\+\_\+t)\mbox{\hyperlink{kernel_2trace_2ftrace_8c_af590d87249c1c96e0564e607b077683b}{ftrace\+\_\+ops\+\_\+no\+\_\+ops}})
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a589f2fa5d85d7d98801282ee8107ac39}{ftrace\+\_\+startup\+\_\+sysctl}}()~do \{ \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a135736fe7003a1d628e6ed0e282e2699}{ftrace\+\_\+shutdown\+\_\+sysctl}}()~do \{ \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ad763b6d1d0c91c49cfcdd50539c402bf}{F\+T\+R\+A\+C\+E\+\_\+\+N\+O\+\_\+\+P\+I\+DS}}~(void $\ast$)(\mbox{\hyperlink{threads_8h_a18110bbb1ffe9ab5f79a2d4a3bedcf13}{P\+I\+D\+\_\+\+M\+A\+X\+\_\+\+L\+I\+M\+IT}} + 1)
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \{ \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dca0f28182d2bb891ae677dc763e8738c9f}{F\+T\+R\+A\+C\+E\+\_\+\+M\+O\+D\+I\+F\+Y\+\_\+\+E\+N\+A\+B\+L\+E\+\_\+\+FL}} = (1 $<$$<$ 0), 
+\mbox{\hyperlink{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dca11ade019e58e0f2a966760ddaf46ff5d}{F\+T\+R\+A\+C\+E\+\_\+\+M\+O\+D\+I\+F\+Y\+\_\+\+M\+A\+Y\+\_\+\+S\+L\+E\+E\+P\+\_\+\+FL}} = (1 $<$$<$ 1)
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_abb66fe16d276b25cf28fb3656432ee56}{ftrace\+\_\+pids\+\_\+enabled}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a1985cd35cd0bd541a1a1386260723764}{ftrace\+\_\+update\+\_\+trampoline}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+\mbox{\hyperlink{kernel_2trace_2ftrace_8c_a454b5f946bd16b33fd966e997234177f}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (ftrace\+\_\+lock)
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_af590d87249c1c96e0564e607b077683b}{ftrace\+\_\+ops\+\_\+no\+\_\+ops}} (unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}}, unsigned long parent\+\_\+ip)
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a4babadae8f877f3410a7f4d7e7e3f1bf}{ftrace\+\_\+ops\+\_\+init}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a63a5c6b64344dd9c44c388b12e7da862}{ftrace\+\_\+pid\+\_\+func}} (unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}}, unsigned long parent\+\_\+ip, struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}}, struct ftrace\+\_\+regs $\ast$fregs)
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_afbb9d9826ff0012f63f3ee6610d2fac4}{ftrace\+\_\+sync\+\_\+ipi}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static ftrace\+\_\+func\+\_\+t \mbox{\hyperlink{kernel_2trace_2ftrace_8c_acae71f8dca4615f59a91ac1bcd225056}{ftrace\+\_\+ops\+\_\+get\+\_\+list\+\_\+func}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ac637a0aba14bc42742a85ce247a50bed}{update\+\_\+ftrace\+\_\+function}} (void)
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a3402ce174c8548de1e1216913900954c}{add\+\_\+ftrace\+\_\+ops}} (struct ftrace\+\_\+ops \mbox{\hyperlink{compiler__types_8h_a2b3b0c016258969e4b39c66b6eec2129}{\+\_\+\+\_\+rcu}} $\ast$$\ast$list, struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a64af4ae4962fb05ede401af0526bf076}{remove\+\_\+ftrace\+\_\+ops}} (struct ftrace\+\_\+ops \mbox{\hyperlink{compiler__types_8h_a2b3b0c016258969e4b39c66b6eec2129}{\+\_\+\+\_\+rcu}} $\ast$$\ast$list, struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aa830487a01a65200f452197d928c48d9}{\+\_\+\+\_\+register\+\_\+ftrace\+\_\+function}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a37a3c59b0b9f981a1acf5b6a154c1b99}{\+\_\+\+\_\+unregister\+\_\+ftrace\+\_\+function}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a226123ea8706a108ea504c6a19359848}{ftrace\+\_\+update\+\_\+pid\+\_\+func}} (void)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aaa5a5efea5ed8bb259e9918ae36dd7c3}{ftrace\+\_\+profile\+\_\+tracefs}} (struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$d\+\_\+tracer)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ae622b7a58123ac00ef4e768331bfadba}{ftrace\+\_\+nodyn\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ae6681367ec07de55610e690ac531e6dd}{core\+\_\+initcall}} (\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ae622b7a58123ac00ef4e768331bfadba}{ftrace\+\_\+nodyn\+\_\+init}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_af96f800ce1b1739349d51b2b270eb037}{ftrace\+\_\+init\+\_\+dyn\+\_\+tracefs}} (struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$d\+\_\+tracer)
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a0423bc7b7357a9f5a5595a51f7f7c47d}{ftrace\+\_\+startup\+\_\+enable}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{nfnetlink__log_8h_a6c96c6ddef5573c6dc457c9a451f8090}{command}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_abada389544c38bb534f3826ac5e2341b}{ftrace\+\_\+startup\+\_\+all}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{nfnetlink__log_8h_a6c96c6ddef5573c6dc457c9a451f8090}{command}})
+\item 
+\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aa67448b1d36d1038c0bf1bf02d7d4b8a}{ftrace\+\_\+init\+\_\+global\+\_\+array\+\_\+ops}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a6446c098a8caf59f546c3efafd55d62c}{ftrace\+\_\+init\+\_\+array\+\_\+ops}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}, ftrace\+\_\+func\+\_\+t \mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})
+\item 
+void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ace3219a06fc6dc999d200bdb923a9ff4}{ftrace\+\_\+reset\+\_\+array\+\_\+ops}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static nokprobe\+\_\+inline void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a565a4cce3f1a5bf01263f1f4e6ab6293}{\+\_\+\+\_\+ftrace\+\_\+ops\+\_\+list\+\_\+func}} (unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}}, unsigned long parent\+\_\+ip, struct ftrace\+\_\+ops $\ast$ignored, struct ftrace\+\_\+regs $\ast$fregs)
+\item 
+\mbox{\hyperlink{kernel_2trace_2ftrace_8c_a48d7ae2cd3e2a05210645925dd3d1759}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2trace_2ftrace_8c_af590d87249c1c96e0564e607b077683b}{ftrace\+\_\+ops\+\_\+no\+\_\+ops}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ad74dc4caa65bcc643e7227f20ad26b4f}{ftrace\+\_\+ops\+\_\+assist\+\_\+func}} (unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}}, unsigned long parent\+\_\+ip, struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}}, struct ftrace\+\_\+regs $\ast$fregs)
+\item 
+\mbox{\hyperlink{kernel_2trace_2ftrace_8c_a219e007f4a4850fc41898f9ad135e0e1}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ad74dc4caa65bcc643e7227f20ad26b4f}{ftrace\+\_\+ops\+\_\+assist\+\_\+func}})
+\item 
+ftrace\+\_\+func\+\_\+t \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ac66ec2f4751695d984615e412e2c1d32}{ftrace\+\_\+ops\+\_\+get\+\_\+func}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a53f5357aa6578f67b7c002b5c1e9b37e}{ftrace\+\_\+filter\+\_\+pid\+\_\+sched\+\_\+switch\+\_\+probe}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} preempt, struct task\+\_\+struct $\ast$\mbox{\hyperlink{mm_2interval__tree_8c_a79511b35a6c382701f3d62fa2a4aa741}{prev}}, struct task\+\_\+struct $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_acd504cf2aebd8560af9eaa584f669e53}{ftrace\+\_\+pid\+\_\+follow\+\_\+sched\+\_\+process\+\_\+fork}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, struct task\+\_\+struct $\ast$self, struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a92b630f44576da1641beb04c261bcfbb}{ftrace\+\_\+pid\+\_\+follow\+\_\+sched\+\_\+process\+\_\+exit}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a5678a0abeea211a2ddb1f2240764d3cc}{ftrace\+\_\+pid\+\_\+follow\+\_\+fork}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{iscsi__if_8h_a2a5924f0ccbeda286ad424c62e651d11}{enable}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a16efe10b49c952c3d16980209be2843d}{clear\+\_\+ftrace\+\_\+pids}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_af6e314f083f8529c1e0c519e95cc06b8}{ftrace\+\_\+clear\+\_\+pids}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aae5f518924f8cda0b40c41651e64a019}{ftrace\+\_\+pid\+\_\+reset}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static void $\ast$ \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a3d8412247a98d3e93c7352a63a7529cd}{fpid\+\_\+start}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(R\+CU)
+\item 
+static void $\ast$ \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aad31146b273ed3901d9f8314698a0865}{fpid\+\_\+next}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$v, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a3e9750e67c81511d5b1786b9a8eb3c1f}{fpid\+\_\+stop}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(R\+CU)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a361a301553407a91b113e90aea2d9b0c}{fpid\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$v)
+\item 
+static void $\ast$ \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a29cebd4008e01d7086aa25dd510e9c90}{fnpid\+\_\+start}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(R\+CU)
+\item 
+static void $\ast$ \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aeb4226d1aa1082da906c30ed8fd8c9a8}{fnpid\+\_\+next}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$v, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a25925ac0fc767406c3a1e63d1d838931}{pid\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a6ee78376b5ade9167c82ce71dfef009d}{ftrace\+\_\+pid\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a0139231b26e8a8fda89f1e32905af933}{ftrace\+\_\+no\+\_\+pid\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+static void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a9c6465bc475081b04322165af8041899}{ignore\+\_\+task\+\_\+cpu}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_af6fb6b7de26ee6b208e0b96852975a00}{pid\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ubuf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}}, loff\+\_\+t $\ast$ppos, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a6afaea0257668ba339ee2c641f34c313}{ftrace\+\_\+pid\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ubuf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a63ad7065ce6eec20e6c8cd753dd1346a}{ftrace\+\_\+no\+\_\+pid\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ubuf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aecd41fa54eff3b12f0a10200cdd9fe74}{ftrace\+\_\+pid\+\_\+release}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a96aa5edd6f7a4bf23acb2bb77a7f5c34}{ftrace\+\_\+init\+\_\+tracefs}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}, struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$d\+\_\+tracer)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ad79dc603d085adfd33ba361fe8bcb376}{ftrace\+\_\+init\+\_\+tracefs\+\_\+toplevel}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}, struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$d\+\_\+tracer)
+\item 
+void \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a0c0d6083c259dfec5b2e90d7fe1a2ede}{ftrace\+\_\+kill}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a63d353c4ac3243f0fb196a79975c9245}{ftrace\+\_\+is\+\_\+dead}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ac157b77223d3e3e05843224085442b2a}{register\+\_\+ftrace\+\_\+function}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+\mbox{\hyperlink{kernel_2trace_2ftrace_8c_a1b0668b09d3a150c129500775fa394cc}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ac157b77223d3e3e05843224085442b2a}{register\+\_\+ftrace\+\_\+function}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ace13cc563cc2f751efb3a9c6e106b2a7}{unregister\+\_\+ftrace\+\_\+function}} (struct ftrace\+\_\+ops $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+\mbox{\hyperlink{kernel_2trace_2ftrace_8c_a2fe2c9c10f3b8e16f1784c4d7af67a8b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ace13cc563cc2f751efb3a9c6e106b2a7}{unregister\+\_\+ftrace\+\_\+function}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a23a0cb40f8ca7321f0cc2c8ec850743c}{is\+\_\+permanent\+\_\+ops\+\_\+registered}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a996990d9129c40bfca942bc0cdeeb0e2}{ftrace\+\_\+enable\+\_\+sysctl}} (struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$\mbox{\hyperlink{pcbios_8c_a2d51b19a27a1d26f3beb5bbf7fa90d73}{table}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write, void $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$lenp, loff\+\_\+t $\ast$ppos)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+struct ftrace\+\_\+ops ftrace\+\_\+list\+\_\+end \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a02d7e474317809589516518c94f70433}{\+\_\+\+\_\+read\+\_\+mostly}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_af0c98d8cd4e1dc940b291d6cf9645e89}{last\+\_\+ftrace\+\_\+enabled}}
+\item 
+static struct ftrace\+\_\+ops $\ast$ \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a113cb812be8cfd5cdd6140a7a20c4189}{set\+\_\+function\+\_\+trace\+\_\+op}}
+\item 
+struct ftrace\+\_\+ops \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a4e986fcd18bd174f42ca82485756ec8f}{global\+\_\+ops}}
+\item 
+static const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a92c473b0c84b0ffa9a62fbebf8779906}{ftrace\+\_\+pid\+\_\+sops}}
+\item 
+static const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_acbe7bc7ba6f4cd0d3765a7651821c7d1}{ftrace\+\_\+no\+\_\+pid\+\_\+sops}}
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ab95cfce4da09f6fad1711064ba40c391}{ftrace\+\_\+pid\+\_\+fops}}
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aaa76e4034ab8930a770960c745857a09}{ftrace\+\_\+no\+\_\+pid\+\_\+fops}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a06704a85be8d6c4a62b0fdb0abe98489}\label{kernel_2trace_2ftrace_8c_a06704a85be8d6c4a62b0fdb0abe98489}} 
+\index{ftrace.c@{ftrace.c}!FTRACE\_HASH\_DEFAULT\_BITS@{FTRACE\_HASH\_DEFAULT\_BITS}}
+\index{FTRACE\_HASH\_DEFAULT\_BITS@{FTRACE\_HASH\_DEFAULT\_BITS}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{FTRACE\_HASH\_DEFAULT\_BITS}{FTRACE\_HASH\_DEFAULT\_BITS}}
+{\footnotesize\ttfamily \#define F\+T\+R\+A\+C\+E\+\_\+\+H\+A\+S\+H\+\_\+\+D\+E\+F\+A\+U\+L\+T\+\_\+\+B\+I\+TS~10}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ad91b9e580f6d547f9af26463602dffb6}\label{kernel_2trace_2ftrace_8c_ad91b9e580f6d547f9af26463602dffb6}} 
+\index{ftrace.c@{ftrace.c}!FTRACE\_HASH\_MAX\_BITS@{FTRACE\_HASH\_MAX\_BITS}}
+\index{FTRACE\_HASH\_MAX\_BITS@{FTRACE\_HASH\_MAX\_BITS}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{FTRACE\_HASH\_MAX\_BITS}{FTRACE\_HASH\_MAX\_BITS}}
+{\footnotesize\ttfamily \#define F\+T\+R\+A\+C\+E\+\_\+\+H\+A\+S\+H\+\_\+\+M\+A\+X\+\_\+\+B\+I\+TS~12}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ad763b6d1d0c91c49cfcdd50539c402bf}\label{kernel_2trace_2ftrace_8c_ad763b6d1d0c91c49cfcdd50539c402bf}} 
+\index{ftrace.c@{ftrace.c}!FTRACE\_NO\_PIDS@{FTRACE\_NO\_PIDS}}
+\index{FTRACE\_NO\_PIDS@{FTRACE\_NO\_PIDS}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{FTRACE\_NO\_PIDS}{FTRACE\_NO\_PIDS}}
+{\footnotesize\ttfamily \#define F\+T\+R\+A\+C\+E\+\_\+\+N\+O\+\_\+\+P\+I\+DS~(void $\ast$)(\mbox{\hyperlink{threads_8h_a18110bbb1ffe9ab5f79a2d4a3bedcf13}{P\+I\+D\+\_\+\+M\+A\+X\+\_\+\+L\+I\+M\+IT}} + 1)}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aac3feb4e207f7499f71e2e2ff4aa88d3}\label{kernel_2trace_2ftrace_8c_aac3feb4e207f7499f71e2e2ff4aa88d3}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_ops\_list\_func@{ftrace\_ops\_list\_func}}
+\index{ftrace\_ops\_list\_func@{ftrace\_ops\_list\_func}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_ops\_list\_func}{ftrace\_ops\_list\_func}}
+{\footnotesize\ttfamily \#define ftrace\+\_\+ops\+\_\+list\+\_\+func~((ftrace\+\_\+func\+\_\+t)\mbox{\hyperlink{kernel_2trace_2ftrace_8c_af590d87249c1c96e0564e607b077683b}{ftrace\+\_\+ops\+\_\+no\+\_\+ops}})}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a135736fe7003a1d628e6ed0e282e2699}\label{kernel_2trace_2ftrace_8c_a135736fe7003a1d628e6ed0e282e2699}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_shutdown\_sysctl@{ftrace\_shutdown\_sysctl}}
+\index{ftrace\_shutdown\_sysctl@{ftrace\_shutdown\_sysctl}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_shutdown\_sysctl}{ftrace\_shutdown\_sysctl}}
+{\footnotesize\ttfamily \#define ftrace\+\_\+shutdown\+\_\+sysctl(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~do \{ \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a589f2fa5d85d7d98801282ee8107ac39}\label{kernel_2trace_2ftrace_8c_a589f2fa5d85d7d98801282ee8107ac39}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_startup\_sysctl@{ftrace\_startup\_sysctl}}
+\index{ftrace\_startup\_sysctl@{ftrace\_startup\_sysctl}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_startup\_sysctl}{ftrace\_startup\_sysctl}}
+{\footnotesize\ttfamily \#define ftrace\+\_\+startup\+\_\+sysctl(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~do \{ \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a3da5a82e3cf95bc9c1b527a6789b37e9}\label{kernel_2trace_2ftrace_8c_a3da5a82e3cf95bc9c1b527a6789b37e9}} 
+\index{ftrace.c@{ftrace.c}!FTRACE\_WARN\_ON@{FTRACE\_WARN\_ON}}
+\index{FTRACE\_WARN\_ON@{FTRACE\_WARN\_ON}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{FTRACE\_WARN\_ON}{FTRACE\_WARN\_ON}}
+{\footnotesize\ttfamily \#define F\+T\+R\+A\+C\+E\+\_\+\+W\+A\+R\+N\+\_\+\+ON(\begin{DoxyParamCaption}\item[{}]{cond }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (\{                  \(\backslash\)}
+\DoxyCodeLine{        int \_\_\_r = cond;        \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{include_2asm-generic_2bug_8h_aa9d8bf2881c7da16ab967a3d35da2efe}{WARN\_ON}}(\_\_\_r))       \(\backslash\)}
+\DoxyCodeLine{            ftrace\_kill();      \(\backslash\)}
+\DoxyCodeLine{        \_\_\_r;               \(\backslash\)}
+\DoxyCodeLine{    \})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a4a2e4c560a56b0fca3dff9ded2877b36}\label{kernel_2trace_2ftrace_8c_a4a2e4c560a56b0fca3dff9ded2877b36}} 
+\index{ftrace.c@{ftrace.c}!FTRACE\_WARN\_ON\_ONCE@{FTRACE\_WARN\_ON\_ONCE}}
+\index{FTRACE\_WARN\_ON\_ONCE@{FTRACE\_WARN\_ON\_ONCE}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{FTRACE\_WARN\_ON\_ONCE}{FTRACE\_WARN\_ON\_ONCE}}
+{\footnotesize\ttfamily \#define F\+T\+R\+A\+C\+E\+\_\+\+W\+A\+R\+N\+\_\+\+O\+N\+\_\+\+O\+N\+CE(\begin{DoxyParamCaption}\item[{}]{cond }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (\{                  \(\backslash\)}
+\DoxyCodeLine{        int \_\_\_r = cond;        \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{include_2asm-generic_2bug_8h_a5855c3712155d34528654f906d35f36f}{WARN\_ON\_ONCE}}(\_\_\_r))     \(\backslash\)}
+\DoxyCodeLine{            ftrace\_kill();      \(\backslash\)}
+\DoxyCodeLine{        \_\_\_r;               \(\backslash\)}
+\DoxyCodeLine{    \})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_afcd0b24ec28ecadceab999f7d93a27a6}\label{kernel_2trace_2ftrace_8c_afcd0b24ec28ecadceab999f7d93a27a6}} 
+\index{ftrace.c@{ftrace.c}!INIT\_OPS\_HASH@{INIT\_OPS\_HASH}}
+\index{INIT\_OPS\_HASH@{INIT\_OPS\_HASH}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{INIT\_OPS\_HASH}{INIT\_OPS\_HASH}}
+{\footnotesize\ttfamily \#define I\+N\+I\+T\+\_\+\+O\+P\+S\+\_\+\+H\+A\+SH(\begin{DoxyParamCaption}\item[{}]{opsname }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dc}\label{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dc}} 
+\doxysubsubsection{\texorpdfstring{anonymous enum}{anonymous enum}}
+{\footnotesize\ttfamily anonymous \mbox{\hyperlink{interfaceenum}{enum}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{FTRACE\_MODIFY\_ENABLE\_FL@{FTRACE\_MODIFY\_ENABLE\_FL}!ftrace.c@{ftrace.c}}\index{ftrace.c@{ftrace.c}!FTRACE\_MODIFY\_ENABLE\_FL@{FTRACE\_MODIFY\_ENABLE\_FL}}}\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dca0f28182d2bb891ae677dc763e8738c9f}\label{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dca0f28182d2bb891ae677dc763e8738c9f}} 
+F\+T\+R\+A\+C\+E\+\_\+\+M\+O\+D\+I\+F\+Y\+\_\+\+E\+N\+A\+B\+L\+E\+\_\+\+FL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{FTRACE\_MODIFY\_MAY\_SLEEP\_FL@{FTRACE\_MODIFY\_MAY\_SLEEP\_FL}!ftrace.c@{ftrace.c}}\index{ftrace.c@{ftrace.c}!FTRACE\_MODIFY\_MAY\_SLEEP\_FL@{FTRACE\_MODIFY\_MAY\_SLEEP\_FL}}}\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dca11ade019e58e0f2a966760ddaf46ff5d}\label{kernel_2trace_2ftrace_8c_a713868ded7dde1bbf80f480ff485d8dca11ade019e58e0f2a966760ddaf46ff5d}} 
+F\+T\+R\+A\+C\+E\+\_\+\+M\+O\+D\+I\+F\+Y\+\_\+\+M\+A\+Y\+\_\+\+S\+L\+E\+E\+P\+\_\+\+FL&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a565a4cce3f1a5bf01263f1f4e6ab6293}\label{kernel_2trace_2ftrace_8c_a565a4cce3f1a5bf01263f1f4e6ab6293}} 
+\index{ftrace.c@{ftrace.c}!\_\_ftrace\_ops\_list\_func@{\_\_ftrace\_ops\_list\_func}}
+\index{\_\_ftrace\_ops\_list\_func@{\_\_ftrace\_ops\_list\_func}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ftrace\_ops\_list\_func()}{\_\_ftrace\_ops\_list\_func()}}
+{\footnotesize\ttfamily static nokprobe\+\_\+inline void \+\_\+\+\_\+ftrace\+\_\+ops\+\_\+list\+\_\+func (\begin{DoxyParamCaption}\item[{unsigned long}]{ip,  }\item[{unsigned long}]{parent\+\_\+ip,  }\item[{struct ftrace\+\_\+ops $\ast$}]{ignored,  }\item[{struct ftrace\+\_\+regs $\ast$}]{fregs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aa830487a01a65200f452197d928c48d9}\label{kernel_2trace_2ftrace_8c_aa830487a01a65200f452197d928c48d9}} 
+\index{ftrace.c@{ftrace.c}!\_\_register\_ftrace\_function@{\_\_register\_ftrace\_function}}
+\index{\_\_register\_ftrace\_function@{\_\_register\_ftrace\_function}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{\_\_register\_ftrace\_function()}{\_\_register\_ftrace\_function()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+register\+\_\+ftrace\+\_\+function (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a37a3c59b0b9f981a1acf5b6a154c1b99}\label{kernel_2trace_2ftrace_8c_a37a3c59b0b9f981a1acf5b6a154c1b99}} 
+\index{ftrace.c@{ftrace.c}!\_\_unregister\_ftrace\_function@{\_\_unregister\_ftrace\_function}}
+\index{\_\_unregister\_ftrace\_function@{\_\_unregister\_ftrace\_function}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{\_\_unregister\_ftrace\_function()}{\_\_unregister\_ftrace\_function()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+unregister\+\_\+ftrace\+\_\+function (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a3402ce174c8548de1e1216913900954c}\label{kernel_2trace_2ftrace_8c_a3402ce174c8548de1e1216913900954c}} 
+\index{ftrace.c@{ftrace.c}!add\_ftrace\_ops@{add\_ftrace\_ops}}
+\index{add\_ftrace\_ops@{add\_ftrace\_ops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{add\_ftrace\_ops()}{add\_ftrace\_ops()}}
+{\footnotesize\ttfamily static void add\+\_\+ftrace\+\_\+ops (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops \mbox{\hyperlink{compiler__types_8h_a2b3b0c016258969e4b39c66b6eec2129}{\+\_\+\+\_\+rcu}} $\ast$$\ast$}]{list,  }\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a16efe10b49c952c3d16980209be2843d}\label{kernel_2trace_2ftrace_8c_a16efe10b49c952c3d16980209be2843d}} 
+\index{ftrace.c@{ftrace.c}!clear\_ftrace\_pids@{clear\_ftrace\_pids}}
+\index{clear\_ftrace\_pids@{clear\_ftrace\_pids}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{clear\_ftrace\_pids()}{clear\_ftrace\_pids()}}
+{\footnotesize\ttfamily static void clear\+\_\+ftrace\+\_\+pids (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ae6681367ec07de55610e690ac531e6dd}\label{kernel_2trace_2ftrace_8c_ae6681367ec07de55610e690ac531e6dd}} 
+\index{ftrace.c@{ftrace.c}!core\_initcall@{core\_initcall}}
+\index{core\_initcall@{core\_initcall}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{core\_initcall()}{core\_initcall()}}
+{\footnotesize\ttfamily core\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ae622b7a58123ac00ef4e768331bfadba}{ftrace\+\_\+nodyn\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a454b5f946bd16b33fd966e997234177f}\label{kernel_2trace_2ftrace_8c_a454b5f946bd16b33fd966e997234177f}} 
+\index{ftrace.c@{ftrace.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{ftrace\+\_\+lock}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a1b0668b09d3a150c129500775fa394cc}\label{kernel_2trace_2ftrace_8c_a1b0668b09d3a150c129500775fa394cc}} 
+\index{ftrace.c@{ftrace.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ac157b77223d3e3e05843224085442b2a}{register\+\_\+ftrace\+\_\+function}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a2fe2c9c10f3b8e16f1784c4d7af67a8b}\label{kernel_2trace_2ftrace_8c_a2fe2c9c10f3b8e16f1784c4d7af67a8b}} 
+\index{ftrace.c@{ftrace.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ace13cc563cc2f751efb3a9c6e106b2a7}{unregister\+\_\+ftrace\+\_\+function}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aeb4226d1aa1082da906c30ed8fd8c9a8}\label{kernel_2trace_2ftrace_8c_aeb4226d1aa1082da906c30ed8fd8c9a8}} 
+\index{ftrace.c@{ftrace.c}!fnpid\_next@{fnpid\_next}}
+\index{fnpid\_next@{fnpid\_next}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{fnpid\_next()}{fnpid\_next()}}
+{\footnotesize\ttfamily static void$\ast$ fnpid\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{v,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a29cebd4008e01d7086aa25dd510e9c90}\label{kernel_2trace_2ftrace_8c_a29cebd4008e01d7086aa25dd510e9c90}} 
+\index{ftrace.c@{ftrace.c}!fnpid\_start@{fnpid\_start}}
+\index{fnpid\_start@{fnpid\_start}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{fnpid\_start()}{fnpid\_start()}}
+{\footnotesize\ttfamily static void$\ast$ fnpid\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aad31146b273ed3901d9f8314698a0865}\label{kernel_2trace_2ftrace_8c_aad31146b273ed3901d9f8314698a0865}} 
+\index{ftrace.c@{ftrace.c}!fpid\_next@{fpid\_next}}
+\index{fpid\_next@{fpid\_next}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{fpid\_next()}{fpid\_next()}}
+{\footnotesize\ttfamily static void$\ast$ fpid\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{v,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a361a301553407a91b113e90aea2d9b0c}\label{kernel_2trace_2ftrace_8c_a361a301553407a91b113e90aea2d9b0c}} 
+\index{ftrace.c@{ftrace.c}!fpid\_show@{fpid\_show}}
+\index{fpid\_show@{fpid\_show}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{fpid\_show()}{fpid\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fpid\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a3d8412247a98d3e93c7352a63a7529cd}\label{kernel_2trace_2ftrace_8c_a3d8412247a98d3e93c7352a63a7529cd}} 
+\index{ftrace.c@{ftrace.c}!fpid\_start@{fpid\_start}}
+\index{fpid\_start@{fpid\_start}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{fpid\_start()}{fpid\_start()}}
+{\footnotesize\ttfamily static void$\ast$ fpid\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a3e9750e67c81511d5b1786b9a8eb3c1f}\label{kernel_2trace_2ftrace_8c_a3e9750e67c81511d5b1786b9a8eb3c1f}} 
+\index{ftrace.c@{ftrace.c}!fpid\_stop@{fpid\_stop}}
+\index{fpid\_stop@{fpid\_stop}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{fpid\_stop()}{fpid\_stop()}}
+{\footnotesize\ttfamily static void fpid\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_af6e314f083f8529c1e0c519e95cc06b8}\label{kernel_2trace_2ftrace_8c_af6e314f083f8529c1e0c519e95cc06b8}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_clear\_pids@{ftrace\_clear\_pids}}
+\index{ftrace\_clear\_pids@{ftrace\_clear\_pids}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_clear\_pids()}{ftrace\_clear\_pids()}}
+{\footnotesize\ttfamily void ftrace\+\_\+clear\+\_\+pids (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a996990d9129c40bfca942bc0cdeeb0e2}\label{kernel_2trace_2ftrace_8c_a996990d9129c40bfca942bc0cdeeb0e2}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_enable\_sysctl@{ftrace\_enable\_sysctl}}
+\index{ftrace\_enable\_sysctl@{ftrace\_enable\_sysctl}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_enable\_sysctl()}{ftrace\_enable\_sysctl()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ftrace\+\_\+enable\+\_\+sysctl (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$}]{table,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{write,  }\item[{void $\ast$}]{buffer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$}]{lenp,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a53f5357aa6578f67b7c002b5c1e9b37e}\label{kernel_2trace_2ftrace_8c_a53f5357aa6578f67b7c002b5c1e9b37e}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_filter\_pid\_sched\_switch\_probe@{ftrace\_filter\_pid\_sched\_switch\_probe}}
+\index{ftrace\_filter\_pid\_sched\_switch\_probe@{ftrace\_filter\_pid\_sched\_switch\_probe}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_filter\_pid\_sched\_switch\_probe()}{ftrace\_filter\_pid\_sched\_switch\_probe()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+filter\+\_\+pid\+\_\+sched\+\_\+switch\+\_\+probe (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{preempt,  }\item[{struct task\+\_\+struct $\ast$}]{prev,  }\item[{struct task\+\_\+struct $\ast$}]{next }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a6446c098a8caf59f546c3efafd55d62c}\label{kernel_2trace_2ftrace_8c_a6446c098a8caf59f546c3efafd55d62c}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_init\_array\_ops@{ftrace\_init\_array\_ops}}
+\index{ftrace\_init\_array\_ops@{ftrace\_init\_array\_ops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_init\_array\_ops()}{ftrace\_init\_array\_ops()}}
+{\footnotesize\ttfamily void ftrace\+\_\+init\+\_\+array\+\_\+ops (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr,  }\item[{ftrace\+\_\+func\+\_\+t}]{func }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_af96f800ce1b1739349d51b2b270eb037}\label{kernel_2trace_2ftrace_8c_af96f800ce1b1739349d51b2b270eb037}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_init\_dyn\_tracefs@{ftrace\_init\_dyn\_tracefs}}
+\index{ftrace\_init\_dyn\_tracefs@{ftrace\_init\_dyn\_tracefs}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_init\_dyn\_tracefs()}{ftrace\_init\_dyn\_tracefs()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ftrace\+\_\+init\+\_\+dyn\+\_\+tracefs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$}]{d\+\_\+tracer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aa67448b1d36d1038c0bf1bf02d7d4b8a}\label{kernel_2trace_2ftrace_8c_aa67448b1d36d1038c0bf1bf02d7d4b8a}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_init\_global\_array\_ops@{ftrace\_init\_global\_array\_ops}}
+\index{ftrace\_init\_global\_array\_ops@{ftrace\_init\_global\_array\_ops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_init\_global\_array\_ops()}{ftrace\_init\_global\_array\_ops()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void ftrace\+\_\+init\+\_\+global\+\_\+array\+\_\+ops (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a96aa5edd6f7a4bf23acb2bb77a7f5c34}\label{kernel_2trace_2ftrace_8c_a96aa5edd6f7a4bf23acb2bb77a7f5c34}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_init\_tracefs@{ftrace\_init\_tracefs}}
+\index{ftrace\_init\_tracefs@{ftrace\_init\_tracefs}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_init\_tracefs()}{ftrace\_init\_tracefs()}}
+{\footnotesize\ttfamily void ftrace\+\_\+init\+\_\+tracefs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr,  }\item[{struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$}]{d\+\_\+tracer }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ad79dc603d085adfd33ba361fe8bcb376}\label{kernel_2trace_2ftrace_8c_ad79dc603d085adfd33ba361fe8bcb376}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_init\_tracefs\_toplevel@{ftrace\_init\_tracefs\_toplevel}}
+\index{ftrace\_init\_tracefs\_toplevel@{ftrace\_init\_tracefs\_toplevel}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_init\_tracefs\_toplevel()}{ftrace\_init\_tracefs\_toplevel()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ftrace\+\_\+init\+\_\+tracefs\+\_\+toplevel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr,  }\item[{struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$}]{d\+\_\+tracer }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a63d353c4ac3243f0fb196a79975c9245}\label{kernel_2trace_2ftrace_8c_a63d353c4ac3243f0fb196a79975c9245}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_is\_dead@{ftrace\_is\_dead}}
+\index{ftrace\_is\_dead@{ftrace\_is\_dead}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_is\_dead()}{ftrace\_is\_dead()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ftrace\+\_\+is\+\_\+dead (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+ftrace\+\_\+is\+\_\+dead -\/ Test if ftrace is dead or not.
+
+Returns 1 if ftrace is \char`\"{}dead\char`\"{}, zero otherwise. Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a0c0d6083c259dfec5b2e90d7fe1a2ede}\label{kernel_2trace_2ftrace_8c_a0c0d6083c259dfec5b2e90d7fe1a2ede}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_kill@{ftrace\_kill}}
+\index{ftrace\_kill@{ftrace\_kill}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_kill()}{ftrace\_kill()}}
+{\footnotesize\ttfamily void ftrace\+\_\+kill (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+ftrace\+\_\+kill -\/ kill ftrace
+
+This function should be used by panic code. It stops ftrace but in a not so nice way. If you need to simply kill ftrace from a non-\/atomic section, use ftrace\+\_\+kill. \mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a0139231b26e8a8fda89f1e32905af933}\label{kernel_2trace_2ftrace_8c_a0139231b26e8a8fda89f1e32905af933}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_no\_pid\_open@{ftrace\_no\_pid\_open}}
+\index{ftrace\_no\_pid\_open@{ftrace\_no\_pid\_open}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_no\_pid\_open()}{ftrace\_no\_pid\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ftrace\+\_\+no\+\_\+pid\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a63ad7065ce6eec20e6c8cd753dd1346a}\label{kernel_2trace_2ftrace_8c_a63ad7065ce6eec20e6c8cd753dd1346a}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_no\_pid\_write@{ftrace\_no\_pid\_write}}
+\index{ftrace\_no\_pid\_write@{ftrace\_no\_pid\_write}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_no\_pid\_write()}{ftrace\_no\_pid\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} ftrace\+\_\+no\+\_\+pid\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ubuf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{cnt,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ae622b7a58123ac00ef4e768331bfadba}\label{kernel_2trace_2ftrace_8c_ae622b7a58123ac00ef4e768331bfadba}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_nodyn\_init@{ftrace\_nodyn\_init}}
+\index{ftrace\_nodyn\_init@{ftrace\_nodyn\_init}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_nodyn\_init()}{ftrace\_nodyn\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ftrace\+\_\+nodyn\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ad74dc4caa65bcc643e7227f20ad26b4f}\label{kernel_2trace_2ftrace_8c_ad74dc4caa65bcc643e7227f20ad26b4f}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_ops\_assist\_func@{ftrace\_ops\_assist\_func}}
+\index{ftrace\_ops\_assist\_func@{ftrace\_ops\_assist\_func}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_ops\_assist\_func()}{ftrace\_ops\_assist\_func()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+ops\+\_\+assist\+\_\+func (\begin{DoxyParamCaption}\item[{unsigned long}]{ip,  }\item[{unsigned long}]{parent\+\_\+ip,  }\item[{struct ftrace\+\_\+ops $\ast$}]{op,  }\item[{struct ftrace\+\_\+regs $\ast$}]{fregs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ac66ec2f4751695d984615e412e2c1d32}\label{kernel_2trace_2ftrace_8c_ac66ec2f4751695d984615e412e2c1d32}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_ops\_get\_func@{ftrace\_ops\_get\_func}}
+\index{ftrace\_ops\_get\_func@{ftrace\_ops\_get\_func}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_ops\_get\_func()}{ftrace\_ops\_get\_func()}}
+{\footnotesize\ttfamily ftrace\+\_\+func\+\_\+t ftrace\+\_\+ops\+\_\+get\+\_\+func (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})}
+
+ftrace\+\_\+ops\+\_\+get\+\_\+func -\/ get the function a trampoline should call @ops\+: the ops to get the function for
+
+Normally the mcount trampoline will call the ops-\/$>$func, but there are times that it should not. For example, if the ops does not have its own recursion protection, then it should call the \mbox{\hyperlink{kernel_2trace_2ftrace_8c_ad74dc4caa65bcc643e7227f20ad26b4f}{ftrace\+\_\+ops\+\_\+assist\+\_\+func()}} instead.
+
+Returns the function that the trampoline should call for @ops. Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_acae71f8dca4615f59a91ac1bcd225056}\label{kernel_2trace_2ftrace_8c_acae71f8dca4615f59a91ac1bcd225056}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_ops\_get\_list\_func@{ftrace\_ops\_get\_list\_func}}
+\index{ftrace\_ops\_get\_list\_func@{ftrace\_ops\_get\_list\_func}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_ops\_get\_list\_func()}{ftrace\_ops\_get\_list\_func()}}
+{\footnotesize\ttfamily static ftrace\+\_\+func\+\_\+t ftrace\+\_\+ops\+\_\+get\+\_\+list\+\_\+func (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a4babadae8f877f3410a7f4d7e7e3f1bf}\label{kernel_2trace_2ftrace_8c_a4babadae8f877f3410a7f4d7e7e3f1bf}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_ops\_init@{ftrace\_ops\_init}}
+\index{ftrace\_ops\_init@{ftrace\_ops\_init}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_ops\_init()}{ftrace\_ops\_init()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+ops\+\_\+init (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_af590d87249c1c96e0564e607b077683b}\label{kernel_2trace_2ftrace_8c_af590d87249c1c96e0564e607b077683b}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_ops\_no\_ops@{ftrace\_ops\_no\_ops}}
+\index{ftrace\_ops\_no\_ops@{ftrace\_ops\_no\_ops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_ops\_no\_ops()}{ftrace\_ops\_no\_ops()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+ops\+\_\+no\+\_\+ops (\begin{DoxyParamCaption}\item[{unsigned long}]{ip,  }\item[{unsigned long}]{parent\+\_\+ip }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a5678a0abeea211a2ddb1f2240764d3cc}\label{kernel_2trace_2ftrace_8c_a5678a0abeea211a2ddb1f2240764d3cc}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_follow\_fork@{ftrace\_pid\_follow\_fork}}
+\index{ftrace\_pid\_follow\_fork@{ftrace\_pid\_follow\_fork}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_follow\_fork()}{ftrace\_pid\_follow\_fork()}}
+{\footnotesize\ttfamily void ftrace\+\_\+pid\+\_\+follow\+\_\+fork (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{enable }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a92b630f44576da1641beb04c261bcfbb}\label{kernel_2trace_2ftrace_8c_a92b630f44576da1641beb04c261bcfbb}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_follow\_sched\_process\_exit@{ftrace\_pid\_follow\_sched\_process\_exit}}
+\index{ftrace\_pid\_follow\_sched\_process\_exit@{ftrace\_pid\_follow\_sched\_process\_exit}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_follow\_sched\_process\_exit()}{ftrace\_pid\_follow\_sched\_process\_exit()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+pid\+\_\+follow\+\_\+sched\+\_\+process\+\_\+exit (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_acd504cf2aebd8560af9eaa584f669e53}\label{kernel_2trace_2ftrace_8c_acd504cf2aebd8560af9eaa584f669e53}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_follow\_sched\_process\_fork@{ftrace\_pid\_follow\_sched\_process\_fork}}
+\index{ftrace\_pid\_follow\_sched\_process\_fork@{ftrace\_pid\_follow\_sched\_process\_fork}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_follow\_sched\_process\_fork()}{ftrace\_pid\_follow\_sched\_process\_fork()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+pid\+\_\+follow\+\_\+sched\+\_\+process\+\_\+fork (\begin{DoxyParamCaption}\item[{void $\ast$}]{data,  }\item[{struct task\+\_\+struct $\ast$}]{self,  }\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a63a5c6b64344dd9c44c388b12e7da862}\label{kernel_2trace_2ftrace_8c_a63a5c6b64344dd9c44c388b12e7da862}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_func@{ftrace\_pid\_func}}
+\index{ftrace\_pid\_func@{ftrace\_pid\_func}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_func()}{ftrace\_pid\_func()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+pid\+\_\+func (\begin{DoxyParamCaption}\item[{unsigned long}]{ip,  }\item[{unsigned long}]{parent\+\_\+ip,  }\item[{struct ftrace\+\_\+ops $\ast$}]{op,  }\item[{struct ftrace\+\_\+regs $\ast$}]{fregs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a6ee78376b5ade9167c82ce71dfef009d}\label{kernel_2trace_2ftrace_8c_a6ee78376b5ade9167c82ce71dfef009d}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_open@{ftrace\_pid\_open}}
+\index{ftrace\_pid\_open@{ftrace\_pid\_open}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_open()}{ftrace\_pid\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ftrace\+\_\+pid\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aecd41fa54eff3b12f0a10200cdd9fe74}\label{kernel_2trace_2ftrace_8c_aecd41fa54eff3b12f0a10200cdd9fe74}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_release@{ftrace\_pid\_release}}
+\index{ftrace\_pid\_release@{ftrace\_pid\_release}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_release()}{ftrace\_pid\_release()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ftrace\+\_\+pid\+\_\+release (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aae5f518924f8cda0b40c41651e64a019}\label{kernel_2trace_2ftrace_8c_aae5f518924f8cda0b40c41651e64a019}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_reset@{ftrace\_pid\_reset}}
+\index{ftrace\_pid\_reset@{ftrace\_pid\_reset}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_reset()}{ftrace\_pid\_reset()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+pid\+\_\+reset (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a6afaea0257668ba339ee2c641f34c313}\label{kernel_2trace_2ftrace_8c_a6afaea0257668ba339ee2c641f34c313}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_write@{ftrace\_pid\_write}}
+\index{ftrace\_pid\_write@{ftrace\_pid\_write}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_write()}{ftrace\_pid\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} ftrace\+\_\+pid\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ubuf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{cnt,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_abb66fe16d276b25cf28fb3656432ee56}\label{kernel_2trace_2ftrace_8c_abb66fe16d276b25cf28fb3656432ee56}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pids\_enabled@{ftrace\_pids\_enabled}}
+\index{ftrace\_pids\_enabled@{ftrace\_pids\_enabled}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pids\_enabled()}{ftrace\_pids\_enabled()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} ftrace\+\_\+pids\+\_\+enabled (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aaa5a5efea5ed8bb259e9918ae36dd7c3}\label{kernel_2trace_2ftrace_8c_aaa5a5efea5ed8bb259e9918ae36dd7c3}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_profile\_tracefs@{ftrace\_profile\_tracefs}}
+\index{ftrace\_profile\_tracefs@{ftrace\_profile\_tracefs}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_profile\_tracefs()}{ftrace\_profile\_tracefs()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void ftrace\+\_\+profile\+\_\+tracefs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$}]{d\+\_\+tracer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ace3219a06fc6dc999d200bdb923a9ff4}\label{kernel_2trace_2ftrace_8c_ace3219a06fc6dc999d200bdb923a9ff4}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_reset\_array\_ops@{ftrace\_reset\_array\_ops}}
+\index{ftrace\_reset\_array\_ops@{ftrace\_reset\_array\_ops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_reset\_array\_ops()}{ftrace\_reset\_array\_ops()}}
+{\footnotesize\ttfamily void ftrace\+\_\+reset\+\_\+array\+\_\+ops (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_abada389544c38bb534f3826ac5e2341b}\label{kernel_2trace_2ftrace_8c_abada389544c38bb534f3826ac5e2341b}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_startup\_all@{ftrace\_startup\_all}}
+\index{ftrace\_startup\_all@{ftrace\_startup\_all}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_startup\_all()}{ftrace\_startup\_all()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+startup\+\_\+all (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{command }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a0423bc7b7357a9f5a5595a51f7f7c47d}\label{kernel_2trace_2ftrace_8c_a0423bc7b7357a9f5a5595a51f7f7c47d}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_startup\_enable@{ftrace\_startup\_enable}}
+\index{ftrace\_startup\_enable@{ftrace\_startup\_enable}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_startup\_enable()}{ftrace\_startup\_enable()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+startup\+\_\+enable (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{command }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_afbb9d9826ff0012f63f3ee6610d2fac4}\label{kernel_2trace_2ftrace_8c_afbb9d9826ff0012f63f3ee6610d2fac4}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_sync\_ipi@{ftrace\_sync\_ipi}}
+\index{ftrace\_sync\_ipi@{ftrace\_sync\_ipi}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_sync\_ipi()}{ftrace\_sync\_ipi()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+sync\+\_\+ipi (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a226123ea8706a108ea504c6a19359848}\label{kernel_2trace_2ftrace_8c_a226123ea8706a108ea504c6a19359848}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_update\_pid\_func@{ftrace\_update\_pid\_func}}
+\index{ftrace\_update\_pid\_func@{ftrace\_update\_pid\_func}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_update\_pid\_func()}{ftrace\_update\_pid\_func()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+update\+\_\+pid\+\_\+func (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a1985cd35cd0bd541a1a1386260723764}\label{kernel_2trace_2ftrace_8c_a1985cd35cd0bd541a1a1386260723764}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_update\_trampoline@{ftrace\_update\_trampoline}}
+\index{ftrace\_update\_trampoline@{ftrace\_update\_trampoline}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_update\_trampoline()}{ftrace\_update\_trampoline()}}
+{\footnotesize\ttfamily static void ftrace\+\_\+update\+\_\+trampoline (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a9c6465bc475081b04322165af8041899}\label{kernel_2trace_2ftrace_8c_a9c6465bc475081b04322165af8041899}} 
+\index{ftrace.c@{ftrace.c}!ignore\_task\_cpu@{ignore\_task\_cpu}}
+\index{ignore\_task\_cpu@{ignore\_task\_cpu}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ignore\_task\_cpu()}{ignore\_task\_cpu()}}
+{\footnotesize\ttfamily static void ignore\+\_\+task\+\_\+cpu (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a23a0cb40f8ca7321f0cc2c8ec850743c}\label{kernel_2trace_2ftrace_8c_a23a0cb40f8ca7321f0cc2c8ec850743c}} 
+\index{ftrace.c@{ftrace.c}!is\_permanent\_ops\_registered@{is\_permanent\_ops\_registered}}
+\index{is\_permanent\_ops\_registered@{is\_permanent\_ops\_registered}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{is\_permanent\_ops\_registered()}{is\_permanent\_ops\_registered()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+permanent\+\_\+ops\+\_\+registered (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a219e007f4a4850fc41898f9ad135e0e1}\label{kernel_2trace_2ftrace_8c_a219e007f4a4850fc41898f9ad135e0e1}} 
+\index{ftrace.c@{ftrace.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2trace_2ftrace_8c_ad74dc4caa65bcc643e7227f20ad26b4f}{ftrace\+\_\+ops\+\_\+assist\+\_\+func}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a48d7ae2cd3e2a05210645925dd3d1759}\label{kernel_2trace_2ftrace_8c_a48d7ae2cd3e2a05210645925dd3d1759}} 
+\index{ftrace.c@{ftrace.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2trace_2ftrace_8c_af590d87249c1c96e0564e607b077683b}{ftrace\+\_\+ops\+\_\+no\+\_\+ops}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a25925ac0fc767406c3a1e63d1d838931}\label{kernel_2trace_2ftrace_8c_a25925ac0fc767406c3a1e63d1d838931}} 
+\index{ftrace.c@{ftrace.c}!pid\_open@{pid\_open}}
+\index{pid\_open@{pid\_open}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{pid\_open()}{pid\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pid\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_af6fb6b7de26ee6b208e0b96852975a00}\label{kernel_2trace_2ftrace_8c_af6fb6b7de26ee6b208e0b96852975a00}} 
+\index{ftrace.c@{ftrace.c}!pid\_write@{pid\_write}}
+\index{pid\_write@{pid\_write}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{pid\_write()}{pid\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} pid\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ubuf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{cnt,  }\item[{loff\+\_\+t $\ast$}]{ppos,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ac157b77223d3e3e05843224085442b2a}\label{kernel_2trace_2ftrace_8c_ac157b77223d3e3e05843224085442b2a}} 
+\index{ftrace.c@{ftrace.c}!register\_ftrace\_function@{register\_ftrace\_function}}
+\index{register\_ftrace\_function@{register\_ftrace\_function}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{register\_ftrace\_function()}{register\_ftrace\_function()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} register\+\_\+ftrace\+\_\+function (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})}
+
+register\+\_\+ftrace\+\_\+function -\/ register a function for profiling @ops -\/ ops structure that holds the function for profiling.
+
+Register a function to be called by all functions in the kernel.
+
+Note\+: @ops-\/$>$func and all the functions it calls must be labeled with \char`\"{}notrace\char`\"{}, otherwise it will go into a recursive loop. Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a64af4ae4962fb05ede401af0526bf076}\label{kernel_2trace_2ftrace_8c_a64af4ae4962fb05ede401af0526bf076}} 
+\index{ftrace.c@{ftrace.c}!remove\_ftrace\_ops@{remove\_ftrace\_ops}}
+\index{remove\_ftrace\_ops@{remove\_ftrace\_ops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{remove\_ftrace\_ops()}{remove\_ftrace\_ops()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} remove\+\_\+ftrace\+\_\+ops (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops \mbox{\hyperlink{compiler__types_8h_a2b3b0c016258969e4b39c66b6eec2129}{\+\_\+\+\_\+rcu}} $\ast$$\ast$}]{list,  }\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ace13cc563cc2f751efb3a9c6e106b2a7}\label{kernel_2trace_2ftrace_8c_ace13cc563cc2f751efb3a9c6e106b2a7}} 
+\index{ftrace.c@{ftrace.c}!unregister\_ftrace\_function@{unregister\_ftrace\_function}}
+\index{unregister\_ftrace\_function@{unregister\_ftrace\_function}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{unregister\_ftrace\_function()}{unregister\_ftrace\_function()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} unregister\+\_\+ftrace\+\_\+function (\begin{DoxyParamCaption}\item[{struct ftrace\+\_\+ops $\ast$}]{ops }\end{DoxyParamCaption})}
+
+unregister\+\_\+ftrace\+\_\+function -\/ unregister a function for profiling. @ops -\/ ops structure that holds the function to unregister
+
+Unregister a function that was added to be called by ftrace profiling. Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ac637a0aba14bc42742a85ce247a50bed}\label{kernel_2trace_2ftrace_8c_ac637a0aba14bc42742a85ce247a50bed}} 
+\index{ftrace.c@{ftrace.c}!update\_ftrace\_function@{update\_ftrace\_function}}
+\index{update\_ftrace\_function@{update\_ftrace\_function}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{update\_ftrace\_function()}{update\_ftrace\_function()}}
+{\footnotesize\ttfamily static void update\+\_\+ftrace\+\_\+function (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a02d7e474317809589516518c94f70433}\label{kernel_2trace_2ftrace_8c_a02d7e474317809589516518c94f70433}} 
+\index{ftrace.c@{ftrace.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily ftrace\+\_\+func\+\_\+t ftrace\+\_\+trace\+\_\+function \+\_\+\+\_\+read\+\_\+mostly}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .func       = ftrace\_stub,}
+\DoxyCodeLine{    .flags      = FTRACE\_OPS\_FL\_STUB,}
+\DoxyCodeLine{}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_aaa76e4034ab8930a770960c745857a09}\label{kernel_2trace_2ftrace_8c_aaa76e4034ab8930a770960c745857a09}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_no\_pid\_fops@{ftrace\_no\_pid\_fops}}
+\index{ftrace\_no\_pid\_fops@{ftrace\_no\_pid\_fops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_no\_pid\_fops}{ftrace\_no\_pid\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} ftrace\+\_\+no\+\_\+pid\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .open       = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a0139231b26e8a8fda89f1e32905af933}{ftrace\_no\_pid\_open}},}
+\DoxyCodeLine{    .write      = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a63ad7065ce6eec20e6c8cd753dd1346a}{ftrace\_no\_pid\_write}},}
+\DoxyCodeLine{    .read       = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .llseek     = \mbox{\hyperlink{kernel_2trace_2trace_8c_ab5523e63d536895c6b9d7c449055fa5a}{tracing\_lseek}},}
+\DoxyCodeLine{    .release    = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aecd41fa54eff3b12f0a10200cdd9fe74}{ftrace\_pid\_release}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_acbe7bc7ba6f4cd0d3765a7651821c7d1}\label{kernel_2trace_2ftrace_8c_acbe7bc7ba6f4cd0d3765a7651821c7d1}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_no\_pid\_sops@{ftrace\_no\_pid\_sops}}
+\index{ftrace\_no\_pid\_sops@{ftrace\_no\_pid\_sops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_no\_pid\_sops}{ftrace\_no\_pid\_sops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} ftrace\+\_\+no\+\_\+pid\+\_\+sops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .start = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a29cebd4008e01d7086aa25dd510e9c90}{fnpid\_start}},}
+\DoxyCodeLine{    .next = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aeb4226d1aa1082da906c30ed8fd8c9a8}{fnpid\_next}},}
+\DoxyCodeLine{    .stop = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a3e9750e67c81511d5b1786b9a8eb3c1f}{fpid\_stop}},}
+\DoxyCodeLine{    .show = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a361a301553407a91b113e90aea2d9b0c}{fpid\_show}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_ab95cfce4da09f6fad1711064ba40c391}\label{kernel_2trace_2ftrace_8c_ab95cfce4da09f6fad1711064ba40c391}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_fops@{ftrace\_pid\_fops}}
+\index{ftrace\_pid\_fops@{ftrace\_pid\_fops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_fops}{ftrace\_pid\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} ftrace\+\_\+pid\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .open       = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a6ee78376b5ade9167c82ce71dfef009d}{ftrace\_pid\_open}},}
+\DoxyCodeLine{    .write      = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a6afaea0257668ba339ee2c641f34c313}{ftrace\_pid\_write}},}
+\DoxyCodeLine{    .read       = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .llseek     = \mbox{\hyperlink{kernel_2trace_2trace_8c_ab5523e63d536895c6b9d7c449055fa5a}{tracing\_lseek}},}
+\DoxyCodeLine{    .release    = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aecd41fa54eff3b12f0a10200cdd9fe74}{ftrace\_pid\_release}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a92c473b0c84b0ffa9a62fbebf8779906}\label{kernel_2trace_2ftrace_8c_a92c473b0c84b0ffa9a62fbebf8779906}} 
+\index{ftrace.c@{ftrace.c}!ftrace\_pid\_sops@{ftrace\_pid\_sops}}
+\index{ftrace\_pid\_sops@{ftrace\_pid\_sops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{ftrace\_pid\_sops}{ftrace\_pid\_sops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} ftrace\+\_\+pid\+\_\+sops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .start = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a3d8412247a98d3e93c7352a63a7529cd}{fpid\_start}},}
+\DoxyCodeLine{    .next = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_aad31146b273ed3901d9f8314698a0865}{fpid\_next}},}
+\DoxyCodeLine{    .stop = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a3e9750e67c81511d5b1786b9a8eb3c1f}{fpid\_stop}},}
+\DoxyCodeLine{    .show = \mbox{\hyperlink{kernel_2trace_2ftrace_8c_a361a301553407a91b113e90aea2d9b0c}{fpid\_show}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a4e986fcd18bd174f42ca82485756ec8f}\label{kernel_2trace_2ftrace_8c_a4e986fcd18bd174f42ca82485756ec8f}} 
+\index{ftrace.c@{ftrace.c}!global\_ops@{global\_ops}}
+\index{global\_ops@{global\_ops}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{global\_ops}{global\_ops}}
+{\footnotesize\ttfamily struct ftrace\+\_\+ops global\+\_\+ops}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .func           = ftrace\_stub,}
+\DoxyCodeLine{    .flags          = FTRACE\_OPS\_FL\_INITIALIZED |}
+\DoxyCodeLine{                  FTRACE\_OPS\_FL\_PID,}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_af0c98d8cd4e1dc940b291d6cf9645e89}\label{kernel_2trace_2ftrace_8c_af0c98d8cd4e1dc940b291d6cf9645e89}} 
+\index{ftrace.c@{ftrace.c}!last\_ftrace\_enabled@{last\_ftrace\_enabled}}
+\index{last\_ftrace\_enabled@{last\_ftrace\_enabled}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{last\_ftrace\_enabled}{last\_ftrace\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} last\+\_\+ftrace\+\_\+enabled\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2trace_2ftrace_8c_a113cb812be8cfd5cdd6140a7a20c4189}\label{kernel_2trace_2ftrace_8c_a113cb812be8cfd5cdd6140a7a20c4189}} 
+\index{ftrace.c@{ftrace.c}!set\_function\_trace\_op@{set\_function\_trace\_op}}
+\index{set\_function\_trace\_op@{set\_function\_trace\_op}!ftrace.c@{ftrace.c}}
+\doxysubsubsection{\texorpdfstring{set\_function\_trace\_op}{set\_function\_trace\_op}}
+{\footnotesize\ttfamily struct ftrace\+\_\+ops$\ast$ set\+\_\+function\+\_\+trace\+\_\+op\hspace{0.3cm}{\ttfamily [static]}}
+

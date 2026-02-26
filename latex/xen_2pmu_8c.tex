@@ -1,0 +1,501 @@
+\hypertarget{xen_2pmu_8c}{}\doxysection{arch/x86/xen/pmu.c File Reference}
+\label{xen_2pmu_8c}\index{arch/x86/xen/pmu.c@{arch/x86/xen/pmu.c}}
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$asm/xen/hypercall.\+h$>$}\newline
+{\ttfamily \#include $<$xen/xen.\+h$>$}\newline
+{\ttfamily \#include $<$xen/page.\+h$>$}\newline
+{\ttfamily \#include $<$xen/interface/xen.\+h$>$}\newline
+{\ttfamily \#include $<$xen/interface/vcpu.\+h$>$}\newline
+{\ttfamily \#include $<$xen/interface/xenpmu.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}xen-\/ops.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}pmu.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}../events/perf\+\_\+event.\+h\char`\"{}}\newline
+Include dependency graph for pmu.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structxenpmu}{xenpmu}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a44960be4997050576d11f498f5aa3b06}{X\+E\+N\+P\+M\+U\+\_\+\+I\+R\+Q\+\_\+\+P\+R\+O\+C\+E\+S\+S\+I\+NG}}~1
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a37ff61c55f65ff64eeed7329a83a3fb8}{get\+\_\+xenpmu\+\_\+data}}()~(\mbox{\hyperlink{percpu-defs_8h_a1cd55f287dff5c4a79fc11dd38d47c12}{this\+\_\+cpu\+\_\+ptr}}(\&xenpmu\+\_\+shared)-\/$>$xenpmu\+\_\+data)
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_ab615cebfae8f7e63496a5900856e3957}{get\+\_\+xenpmu\+\_\+flags}}()~(\mbox{\hyperlink{percpu-defs_8h_a1cd55f287dff5c4a79fc11dd38d47c12}{this\+\_\+cpu\+\_\+ptr}}(\&xenpmu\+\_\+shared)-\/$>$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_abb2aace534fac0145952428e6789cb64}{field\+\_\+offset}}(ctxt,  \mbox{\hyperlink{uapi_2linux_2videodev2_8h_abab5b76dbc9447b1b19e006f22df0b00}{field}})
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a5be02952a83f336e0121fd02800d2b56}{F15\+H\+\_\+\+N\+U\+M\+\_\+\+C\+O\+U\+N\+T\+E\+RS}}~6
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_ac6fa8f1542e55a1d3b9e52ec29b64e59}{F10\+H\+\_\+\+N\+U\+M\+\_\+\+C\+O\+U\+N\+T\+E\+RS}}~4
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_ab7a9c99b1627c6903fd7dce7e7800d61}{M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+C\+O\+U\+N\+T\+ER}}~0
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a02d68b85d60cdb72089e0fab5f29730a}{M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+C\+T\+RL}}~1
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a9341313d0a28183561a9150653bf2b80}{M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+G\+L\+O\+B\+AL}}~2
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_afc70288df2872061017ba96e21ed6d2b}{M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+R\+C\+H\+\_\+\+C\+O\+U\+N\+T\+ER}}~3
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a32725fd7e8d9620e7ab6e1d95493beed}{M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+R\+C\+H\+\_\+\+C\+T\+RL}}~4
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_aac331bf060e8ea11dcb5f0ab0273a177}{P\+M\+U\+\_\+\+G\+E\+N\+E\+R\+A\+L\+\_\+\+N\+R\+\_\+\+S\+H\+I\+FT}}~8
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a2f9ae751184c13324e448d3f237de2e4}{P\+M\+U\+\_\+\+G\+E\+N\+E\+R\+A\+L\+\_\+\+N\+R\+\_\+\+B\+I\+TS}}~8
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a13466cd0f38da8f5be8dde9c416a4f81}{P\+M\+U\+\_\+\+G\+E\+N\+E\+R\+A\+L\+\_\+\+N\+R\+\_\+\+M\+A\+SK}}
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a50603b7c123fc2c75a88070f20929f0e}{P\+M\+U\+\_\+\+F\+I\+X\+E\+D\+\_\+\+N\+R\+\_\+\+S\+H\+I\+FT}}~0
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_ac31c88b39a09759ece7d0541e904a3df}{P\+M\+U\+\_\+\+F\+I\+X\+E\+D\+\_\+\+N\+R\+\_\+\+B\+I\+TS}}~5
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_ad6823544a528ef48ec548e7ab2c9f205}{P\+M\+U\+\_\+\+F\+I\+X\+E\+D\+\_\+\+N\+R\+\_\+\+M\+A\+SK}}
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a3c7829600840b63fb9ea44d63764f5c0}{M\+S\+R\+\_\+\+P\+M\+C\+\_\+\+A\+L\+I\+A\+S\+\_\+\+M\+A\+SK}}~($\sim$(\mbox{\hyperlink{msr-index_8h_a70a0d110996ef491416c0940d2b445cf}{M\+S\+R\+\_\+\+I\+A32\+\_\+\+P\+E\+R\+F\+C\+T\+R0}} $^\wedge$ \mbox{\hyperlink{msr-index_8h_ad054799742ccbb1480db8d67c2cb8257}{M\+S\+R\+\_\+\+I\+A32\+\_\+\+P\+M\+C0}}))
+\item 
+\#define \mbox{\hyperlink{xen_2pmu_8c_a754cd5ac10044870756491dda7ffa1c7}{I\+N\+T\+E\+L\+\_\+\+P\+M\+C\+\_\+\+T\+Y\+P\+E\+\_\+\+S\+H\+I\+FT}}~30
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{xen_2pmu_8c_a57a0aeeca810e77a2395fd6efe9b23e0}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structxenpmu}{xenpmu}}, xenpmu\+\_\+shared)
+\item 
+static void \mbox{\hyperlink{xen_2pmu_8c_ac5ca53755b446a43db09e1d91986c391}{xen\+\_\+pmu\+\_\+arch\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} \mbox{\hyperlink{xen_2pmu_8c_a27d4916c6e9a084acf4b7f7624af7ca8}{get\+\_\+fam15h\+\_\+addr}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{xen_2pmu_8c_a9c0010483ecec7ad9e612f59f5735c1d}{is\+\_\+amd\+\_\+pmu\+\_\+msr}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structmsr}{msr}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_acd45e0db83f11347ce9e27215c9e805a}{is\+\_\+intel\+\_\+pmu\+\_\+msr}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} msr\+\_\+index, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{xen_2pmu_8c_add1275bd86f1782e504df604cb046e9a}{xen\+\_\+intel\+\_\+pmu\+\_\+emulate}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structmsr}{msr}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+read)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{xen_2pmu_8c_a03a6e149fd62ce925a799d5eb02c63f2}{xen\+\_\+amd\+\_\+pmu\+\_\+emulate}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structmsr}{msr}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+read)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{xen_2pmu_8c_af858cc2efac1ca0ed2ba57b129c9cb15}{pmu\+\_\+msr\+\_\+read}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structmsr}{msr}}, uint64\+\_\+t $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{xenbus_8h_a52237f40c8c127fe10cf107da001ddb3}{err}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{xen_2pmu_8c_acb5deaf5b1992b771f2e571917dd5bd8}{pmu\+\_\+msr\+\_\+write}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structmsr}{msr}}, \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} \mbox{\hyperlink{mtrr_2centaur_8c_a64e9a758e6dcce0cfb91479c8f2af27b}{low}}, \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} \mbox{\hyperlink{mtrr_2centaur_8c_ab3daacef0d09908846c505fb603fc331}{high}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{xenbus_8h_a52237f40c8c127fe10cf107da001ddb3}{err}})
+\item 
+static unsigned long long \mbox{\hyperlink{xen_2pmu_8c_abed27d5954c2a143d55be07c75af59b4}{xen\+\_\+amd\+\_\+read\+\_\+pmc}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} counter)
+\item 
+static unsigned long long \mbox{\hyperlink{xen_2pmu_8c_abfecde3de34846b05db27e69ed7f6f2e}{xen\+\_\+intel\+\_\+read\+\_\+pmc}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} counter)
+\item 
+unsigned long long \mbox{\hyperlink{xen_2pmu_8c_a2b1b43e68cee9fe14803144c788332e8}{xen\+\_\+read\+\_\+pmc}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} counter)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_aea9ca88db37ebcff92450b6b68903d46}{pmu\+\_\+apic\+\_\+update}} (\mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_a36de168969704064e2bccb8030bc934e}{xen\+\_\+is\+\_\+in\+\_\+guest}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_a9fe6e899b952d8e6e6a6df1fa918f771}{xen\+\_\+is\+\_\+user\+\_\+mode}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{xen_2pmu_8c_a8e79d8970d4150acfa9521c083f7a56d}{xen\+\_\+get\+\_\+guest\+\_\+ip}} (void)
+\item 
+static void \mbox{\hyperlink{xen_2pmu_8c_a261ded9925dff992117643ee8b623600}{xen\+\_\+convert\+\_\+regs}} (const struct \mbox{\hyperlink{structxen__pmu__regs}{xen\+\_\+pmu\+\_\+regs}} $\ast$xen\+\_\+regs, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, uint64\+\_\+t pmu\+\_\+flags)
+\item 
+\mbox{\hyperlink{irqreturn_8h_a08c59433c471f5408cf4e210141871fd}{irqreturn\+\_\+t}} \mbox{\hyperlink{xen_2pmu_8c_a480bf4655074b48cf0a9c642ac0e2b1c}{xen\+\_\+pmu\+\_\+irq\+\_\+handler}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, void $\ast$dev\+\_\+id)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{xen_2pmu_8c_ad19cd16cb0e626c533ba89d4f7cb06e8}{is\+\_\+xen\+\_\+pmu}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+void \mbox{\hyperlink{xen_2pmu_8c_a60e8e768d618e5f491d143aefebd7c0a}{xen\+\_\+pmu\+\_\+init}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+void \mbox{\hyperlink{xen_2pmu_8c_a2a5ca54b615b8edb53f8690e35b5d790}{xen\+\_\+pmu\+\_\+finish}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} \mbox{\hyperlink{xen_2pmu_8c_a607cfc60d578f60d5ad330b54a81ec3d}{amd\+\_\+counters\+\_\+base}}
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} \mbox{\hyperlink{xen_2pmu_8c_a15ba232fc531ad32ad4c64c8e8c58e8d}{amd\+\_\+ctrls\+\_\+base}}
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_ad7a9901dd88ee7fa8f12c7314737fb94}{amd\+\_\+msr\+\_\+step}}
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_a7226c17e88779b56ab39702f57f62052}{k7\+\_\+counters\+\_\+mirrored}}
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_a65d1c2b9338b6d8c41d70cfe194d4634}{amd\+\_\+num\+\_\+counters}}
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_a280ddd2257aae77cc80879ff63c27f50}{intel\+\_\+num\+\_\+arch\+\_\+counters}}
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xen_2pmu_8c_a1278c46a0eccf721c07734546fada951}{intel\+\_\+num\+\_\+fixed\+\_\+counters}}
+\item 
+static struct \mbox{\hyperlink{structperf__guest__info__callbacks}{perf\+\_\+guest\+\_\+info\+\_\+callbacks}} \mbox{\hyperlink{xen_2pmu_8c_a1e3fb182dcb1b377e5a495916a876310}{xen\+\_\+guest\+\_\+cbs}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{xen_2pmu_8c_ac6fa8f1542e55a1d3b9e52ec29b64e59}\label{xen_2pmu_8c_ac6fa8f1542e55a1d3b9e52ec29b64e59}} 
+\index{pmu.c@{pmu.c}!F10H\_NUM\_COUNTERS@{F10H\_NUM\_COUNTERS}}
+\index{F10H\_NUM\_COUNTERS@{F10H\_NUM\_COUNTERS}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{F10H\_NUM\_COUNTERS}{F10H\_NUM\_COUNTERS}}
+{\footnotesize\ttfamily \#define F10\+H\+\_\+\+N\+U\+M\+\_\+\+C\+O\+U\+N\+T\+E\+RS~4}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a5be02952a83f336e0121fd02800d2b56}\label{xen_2pmu_8c_a5be02952a83f336e0121fd02800d2b56}} 
+\index{pmu.c@{pmu.c}!F15H\_NUM\_COUNTERS@{F15H\_NUM\_COUNTERS}}
+\index{F15H\_NUM\_COUNTERS@{F15H\_NUM\_COUNTERS}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{F15H\_NUM\_COUNTERS}{F15H\_NUM\_COUNTERS}}
+{\footnotesize\ttfamily \#define F15\+H\+\_\+\+N\+U\+M\+\_\+\+C\+O\+U\+N\+T\+E\+RS~6}
+
+\mbox{\Hypertarget{xen_2pmu_8c_abb2aace534fac0145952428e6789cb64}\label{xen_2pmu_8c_abb2aace534fac0145952428e6789cb64}} 
+\index{pmu.c@{pmu.c}!field\_offset@{field\_offset}}
+\index{field\_offset@{field\_offset}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{field\_offset}{field\_offset}}
+{\footnotesize\ttfamily \#define field\+\_\+offset(\begin{DoxyParamCaption}\item[{}]{ctxt,  }\item[{}]{\mbox{\hyperlink{uapi_2linux_2videodev2_8h_abab5b76dbc9447b1b19e006f22df0b00}{field}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                        ((\textcolor{keywordtype}{void} *)((\mbox{\hyperlink{include_2linux_2types_8h_a83242de74310b4aec3fc506bc3644211}{uintptr\_t}})ctxt + \(\backslash\)}
+\DoxyCodeLine{                        (\mbox{\hyperlink{include_2linux_2types_8h_a83242de74310b4aec3fc506bc3644211}{uintptr\_t}})ctxt-\/>field))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{xen_2pmu_8c_a37ff61c55f65ff64eeed7329a83a3fb8}\label{xen_2pmu_8c_a37ff61c55f65ff64eeed7329a83a3fb8}} 
+\index{pmu.c@{pmu.c}!get\_xenpmu\_data@{get\_xenpmu\_data}}
+\index{get\_xenpmu\_data@{get\_xenpmu\_data}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{get\_xenpmu\_data}{get\_xenpmu\_data}}
+{\footnotesize\ttfamily \#define get\+\_\+xenpmu\+\_\+data(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~(\mbox{\hyperlink{percpu-defs_8h_a1cd55f287dff5c4a79fc11dd38d47c12}{this\+\_\+cpu\+\_\+ptr}}(\&xenpmu\+\_\+shared)-\/$>$xenpmu\+\_\+data)}
+
+\mbox{\Hypertarget{xen_2pmu_8c_ab615cebfae8f7e63496a5900856e3957}\label{xen_2pmu_8c_ab615cebfae8f7e63496a5900856e3957}} 
+\index{pmu.c@{pmu.c}!get\_xenpmu\_flags@{get\_xenpmu\_flags}}
+\index{get\_xenpmu\_flags@{get\_xenpmu\_flags}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{get\_xenpmu\_flags}{get\_xenpmu\_flags}}
+{\footnotesize\ttfamily \#define get\+\_\+xenpmu\+\_\+flags(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~(\mbox{\hyperlink{percpu-defs_8h_a1cd55f287dff5c4a79fc11dd38d47c12}{this\+\_\+cpu\+\_\+ptr}}(\&xenpmu\+\_\+shared)-\/$>$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a754cd5ac10044870756491dda7ffa1c7}\label{xen_2pmu_8c_a754cd5ac10044870756491dda7ffa1c7}} 
+\index{pmu.c@{pmu.c}!INTEL\_PMC\_TYPE\_SHIFT@{INTEL\_PMC\_TYPE\_SHIFT}}
+\index{INTEL\_PMC\_TYPE\_SHIFT@{INTEL\_PMC\_TYPE\_SHIFT}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{INTEL\_PMC\_TYPE\_SHIFT}{INTEL\_PMC\_TYPE\_SHIFT}}
+{\footnotesize\ttfamily \#define I\+N\+T\+E\+L\+\_\+\+P\+M\+C\+\_\+\+T\+Y\+P\+E\+\_\+\+S\+H\+I\+FT~30}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a3c7829600840b63fb9ea44d63764f5c0}\label{xen_2pmu_8c_a3c7829600840b63fb9ea44d63764f5c0}} 
+\index{pmu.c@{pmu.c}!MSR\_PMC\_ALIAS\_MASK@{MSR\_PMC\_ALIAS\_MASK}}
+\index{MSR\_PMC\_ALIAS\_MASK@{MSR\_PMC\_ALIAS\_MASK}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_PMC\_ALIAS\_MASK}{MSR\_PMC\_ALIAS\_MASK}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+P\+M\+C\+\_\+\+A\+L\+I\+A\+S\+\_\+\+M\+A\+SK~($\sim$(\mbox{\hyperlink{msr-index_8h_a70a0d110996ef491416c0940d2b445cf}{M\+S\+R\+\_\+\+I\+A32\+\_\+\+P\+E\+R\+F\+C\+T\+R0}} $^\wedge$ \mbox{\hyperlink{msr-index_8h_ad054799742ccbb1480db8d67c2cb8257}{M\+S\+R\+\_\+\+I\+A32\+\_\+\+P\+M\+C0}}))}
+
+\mbox{\Hypertarget{xen_2pmu_8c_afc70288df2872061017ba96e21ed6d2b}\label{xen_2pmu_8c_afc70288df2872061017ba96e21ed6d2b}} 
+\index{pmu.c@{pmu.c}!MSR\_TYPE\_ARCH\_COUNTER@{MSR\_TYPE\_ARCH\_COUNTER}}
+\index{MSR\_TYPE\_ARCH\_COUNTER@{MSR\_TYPE\_ARCH\_COUNTER}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_TYPE\_ARCH\_COUNTER}{MSR\_TYPE\_ARCH\_COUNTER}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+R\+C\+H\+\_\+\+C\+O\+U\+N\+T\+ER~3}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a32725fd7e8d9620e7ab6e1d95493beed}\label{xen_2pmu_8c_a32725fd7e8d9620e7ab6e1d95493beed}} 
+\index{pmu.c@{pmu.c}!MSR\_TYPE\_ARCH\_CTRL@{MSR\_TYPE\_ARCH\_CTRL}}
+\index{MSR\_TYPE\_ARCH\_CTRL@{MSR\_TYPE\_ARCH\_CTRL}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_TYPE\_ARCH\_CTRL}{MSR\_TYPE\_ARCH\_CTRL}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+A\+R\+C\+H\+\_\+\+C\+T\+RL~4}
+
+\mbox{\Hypertarget{xen_2pmu_8c_ab7a9c99b1627c6903fd7dce7e7800d61}\label{xen_2pmu_8c_ab7a9c99b1627c6903fd7dce7e7800d61}} 
+\index{pmu.c@{pmu.c}!MSR\_TYPE\_COUNTER@{MSR\_TYPE\_COUNTER}}
+\index{MSR\_TYPE\_COUNTER@{MSR\_TYPE\_COUNTER}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_TYPE\_COUNTER}{MSR\_TYPE\_COUNTER}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+C\+O\+U\+N\+T\+ER~0}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a02d68b85d60cdb72089e0fab5f29730a}\label{xen_2pmu_8c_a02d68b85d60cdb72089e0fab5f29730a}} 
+\index{pmu.c@{pmu.c}!MSR\_TYPE\_CTRL@{MSR\_TYPE\_CTRL}}
+\index{MSR\_TYPE\_CTRL@{MSR\_TYPE\_CTRL}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_TYPE\_CTRL}{MSR\_TYPE\_CTRL}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+C\+T\+RL~1}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a9341313d0a28183561a9150653bf2b80}\label{xen_2pmu_8c_a9341313d0a28183561a9150653bf2b80}} 
+\index{pmu.c@{pmu.c}!MSR\_TYPE\_GLOBAL@{MSR\_TYPE\_GLOBAL}}
+\index{MSR\_TYPE\_GLOBAL@{MSR\_TYPE\_GLOBAL}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_TYPE\_GLOBAL}{MSR\_TYPE\_GLOBAL}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+T\+Y\+P\+E\+\_\+\+G\+L\+O\+B\+AL~2}
+
+\mbox{\Hypertarget{xen_2pmu_8c_ac31c88b39a09759ece7d0541e904a3df}\label{xen_2pmu_8c_ac31c88b39a09759ece7d0541e904a3df}} 
+\index{pmu.c@{pmu.c}!PMU\_FIXED\_NR\_BITS@{PMU\_FIXED\_NR\_BITS}}
+\index{PMU\_FIXED\_NR\_BITS@{PMU\_FIXED\_NR\_BITS}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FIXED\_NR\_BITS}{PMU\_FIXED\_NR\_BITS}}
+{\footnotesize\ttfamily \#define P\+M\+U\+\_\+\+F\+I\+X\+E\+D\+\_\+\+N\+R\+\_\+\+B\+I\+TS~5}
+
+\mbox{\Hypertarget{xen_2pmu_8c_ad6823544a528ef48ec548e7ab2c9f205}\label{xen_2pmu_8c_ad6823544a528ef48ec548e7ab2c9f205}} 
+\index{pmu.c@{pmu.c}!PMU\_FIXED\_NR\_MASK@{PMU\_FIXED\_NR\_MASK}}
+\index{PMU\_FIXED\_NR\_MASK@{PMU\_FIXED\_NR\_MASK}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FIXED\_NR\_MASK}{PMU\_FIXED\_NR\_MASK}}
+{\footnotesize\ttfamily \#define P\+M\+U\+\_\+\+F\+I\+X\+E\+D\+\_\+\+N\+R\+\_\+\+M\+A\+SK}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                     (((1 << \mbox{\hyperlink{xen_2pmu_8c_ac31c88b39a09759ece7d0541e904a3df}{PMU\_FIXED\_NR\_BITS}}) -\/ 1) \(\backslash\)}
+\DoxyCodeLine{                     << \mbox{\hyperlink{xen_2pmu_8c_a50603b7c123fc2c75a88070f20929f0e}{PMU\_FIXED\_NR\_SHIFT}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{xen_2pmu_8c_a50603b7c123fc2c75a88070f20929f0e}\label{xen_2pmu_8c_a50603b7c123fc2c75a88070f20929f0e}} 
+\index{pmu.c@{pmu.c}!PMU\_FIXED\_NR\_SHIFT@{PMU\_FIXED\_NR\_SHIFT}}
+\index{PMU\_FIXED\_NR\_SHIFT@{PMU\_FIXED\_NR\_SHIFT}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FIXED\_NR\_SHIFT}{PMU\_FIXED\_NR\_SHIFT}}
+{\footnotesize\ttfamily \#define P\+M\+U\+\_\+\+F\+I\+X\+E\+D\+\_\+\+N\+R\+\_\+\+S\+H\+I\+FT~0}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a2f9ae751184c13324e448d3f237de2e4}\label{xen_2pmu_8c_a2f9ae751184c13324e448d3f237de2e4}} 
+\index{pmu.c@{pmu.c}!PMU\_GENERAL\_NR\_BITS@{PMU\_GENERAL\_NR\_BITS}}
+\index{PMU\_GENERAL\_NR\_BITS@{PMU\_GENERAL\_NR\_BITS}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_GENERAL\_NR\_BITS}{PMU\_GENERAL\_NR\_BITS}}
+{\footnotesize\ttfamily \#define P\+M\+U\+\_\+\+G\+E\+N\+E\+R\+A\+L\+\_\+\+N\+R\+\_\+\+B\+I\+TS~8}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a13466cd0f38da8f5be8dde9c416a4f81}\label{xen_2pmu_8c_a13466cd0f38da8f5be8dde9c416a4f81}} 
+\index{pmu.c@{pmu.c}!PMU\_GENERAL\_NR\_MASK@{PMU\_GENERAL\_NR\_MASK}}
+\index{PMU\_GENERAL\_NR\_MASK@{PMU\_GENERAL\_NR\_MASK}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_GENERAL\_NR\_MASK}{PMU\_GENERAL\_NR\_MASK}}
+{\footnotesize\ttfamily \#define P\+M\+U\+\_\+\+G\+E\+N\+E\+R\+A\+L\+\_\+\+N\+R\+\_\+\+M\+A\+SK}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                     (((1 << \mbox{\hyperlink{xen_2pmu_8c_a2f9ae751184c13324e448d3f237de2e4}{PMU\_GENERAL\_NR\_BITS}}) -\/ 1) \(\backslash\)}
+\DoxyCodeLine{                     << \mbox{\hyperlink{xen_2pmu_8c_aac331bf060e8ea11dcb5f0ab0273a177}{PMU\_GENERAL\_NR\_SHIFT}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{xen_2pmu_8c_aac331bf060e8ea11dcb5f0ab0273a177}\label{xen_2pmu_8c_aac331bf060e8ea11dcb5f0ab0273a177}} 
+\index{pmu.c@{pmu.c}!PMU\_GENERAL\_NR\_SHIFT@{PMU\_GENERAL\_NR\_SHIFT}}
+\index{PMU\_GENERAL\_NR\_SHIFT@{PMU\_GENERAL\_NR\_SHIFT}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_GENERAL\_NR\_SHIFT}{PMU\_GENERAL\_NR\_SHIFT}}
+{\footnotesize\ttfamily \#define P\+M\+U\+\_\+\+G\+E\+N\+E\+R\+A\+L\+\_\+\+N\+R\+\_\+\+S\+H\+I\+FT~8}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a44960be4997050576d11f498f5aa3b06}\label{xen_2pmu_8c_a44960be4997050576d11f498f5aa3b06}} 
+\index{pmu.c@{pmu.c}!XENPMU\_IRQ\_PROCESSING@{XENPMU\_IRQ\_PROCESSING}}
+\index{XENPMU\_IRQ\_PROCESSING@{XENPMU\_IRQ\_PROCESSING}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{XENPMU\_IRQ\_PROCESSING}{XENPMU\_IRQ\_PROCESSING}}
+{\footnotesize\ttfamily \#define X\+E\+N\+P\+M\+U\+\_\+\+I\+R\+Q\+\_\+\+P\+R\+O\+C\+E\+S\+S\+I\+NG~1}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{xen_2pmu_8c_a57a0aeeca810e77a2395fd6efe9b23e0}\label{xen_2pmu_8c_a57a0aeeca810e77a2395fd6efe9b23e0}} 
+\index{pmu.c@{pmu.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structxenpmu}{xenpmu}}}]{,  }\item[{xenpmu\+\_\+shared}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a27d4916c6e9a084acf4b7f7624af7ca8}\label{xen_2pmu_8c_a27d4916c6e9a084acf4b7f7624af7ca8}} 
+\index{pmu.c@{pmu.c}!get\_fam15h\_addr@{get\_fam15h\_addr}}
+\index{get\_fam15h\_addr@{get\_fam15h\_addr}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{get\_fam15h\_addr()}{get\_fam15h\_addr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} get\+\_\+fam15h\+\_\+addr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{xen_2pmu_8c_a9c0010483ecec7ad9e612f59f5735c1d}\label{xen_2pmu_8c_a9c0010483ecec7ad9e612f59f5735c1d}} 
+\index{pmu.c@{pmu.c}!is\_amd\_pmu\_msr@{is\_amd\_pmu\_msr}}
+\index{is\_amd\_pmu\_msr@{is\_amd\_pmu\_msr}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{is\_amd\_pmu\_msr()}{is\_amd\_pmu\_msr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+amd\+\_\+pmu\+\_\+msr (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{msr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{xen_2pmu_8c_acd45e0db83f11347ce9e27215c9e805a}\label{xen_2pmu_8c_acd45e0db83f11347ce9e27215c9e805a}} 
+\index{pmu.c@{pmu.c}!is\_intel\_pmu\_msr@{is\_intel\_pmu\_msr}}
+\index{is\_intel\_pmu\_msr@{is\_intel\_pmu\_msr}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{is\_intel\_pmu\_msr()}{is\_intel\_pmu\_msr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} is\+\_\+intel\+\_\+pmu\+\_\+msr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{msr\+\_\+index,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{type,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{index }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{xen_2pmu_8c_ad19cd16cb0e626c533ba89d4f7cb06e8}\label{xen_2pmu_8c_ad19cd16cb0e626c533ba89d4f7cb06e8}} 
+\index{pmu.c@{pmu.c}!is\_xen\_pmu@{is\_xen\_pmu}}
+\index{is\_xen\_pmu@{is\_xen\_pmu}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{is\_xen\_pmu()}{is\_xen\_pmu()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+xen\+\_\+pmu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{xen_2pmu_8c_aea9ca88db37ebcff92450b6b68903d46}\label{xen_2pmu_8c_aea9ca88db37ebcff92450b6b68903d46}} 
+\index{pmu.c@{pmu.c}!pmu\_apic\_update@{pmu\_apic\_update}}
+\index{pmu\_apic\_update@{pmu\_apic\_update}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{pmu\_apic\_update()}{pmu\_apic\_update()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pmu\+\_\+apic\+\_\+update (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}}}]{val }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{xen_2pmu_8c_af858cc2efac1ca0ed2ba57b129c9cb15}\label{xen_2pmu_8c_af858cc2efac1ca0ed2ba57b129c9cb15}} 
+\index{pmu.c@{pmu.c}!pmu\_msr\_read@{pmu\_msr\_read}}
+\index{pmu\_msr\_read@{pmu\_msr\_read}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{pmu\_msr\_read()}{pmu\_msr\_read()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pmu\+\_\+msr\+\_\+read (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{msr,  }\item[{uint64\+\_\+t $\ast$}]{val,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{err }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{xen_2pmu_8c_acb5deaf5b1992b771f2e571917dd5bd8}\label{xen_2pmu_8c_acb5deaf5b1992b771f2e571917dd5bd8}} 
+\index{pmu.c@{pmu.c}!pmu\_msr\_write@{pmu\_msr\_write}}
+\index{pmu\_msr\_write@{pmu\_msr\_write}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{pmu\_msr\_write()}{pmu\_msr\_write()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pmu\+\_\+msr\+\_\+write (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{msr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}}}]{low,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}}}]{high,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{err }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{xen_2pmu_8c_a03a6e149fd62ce925a799d5eb02c63f2}\label{xen_2pmu_8c_a03a6e149fd62ce925a799d5eb02c63f2}} 
+\index{pmu.c@{pmu.c}!xen\_amd\_pmu\_emulate@{xen\_amd\_pmu\_emulate}}
+\index{xen\_amd\_pmu\_emulate@{xen\_amd\_pmu\_emulate}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_amd\_pmu\_emulate()}{xen\_amd\_pmu\_emulate()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} xen\+\_\+amd\+\_\+pmu\+\_\+emulate (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{msr,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{val,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{is\+\_\+read }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{xen_2pmu_8c_abed27d5954c2a143d55be07c75af59b4}\label{xen_2pmu_8c_abed27d5954c2a143d55be07c75af59b4}} 
+\index{pmu.c@{pmu.c}!xen\_amd\_read\_pmc@{xen\_amd\_read\_pmc}}
+\index{xen\_amd\_read\_pmc@{xen\_amd\_read\_pmc}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_amd\_read\_pmc()}{xen\_amd\_read\_pmc()}}
+{\footnotesize\ttfamily static unsigned long long xen\+\_\+amd\+\_\+read\+\_\+pmc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{counter }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{xen_2pmu_8c_a261ded9925dff992117643ee8b623600}\label{xen_2pmu_8c_a261ded9925dff992117643ee8b623600}} 
+\index{pmu.c@{pmu.c}!xen\_convert\_regs@{xen\_convert\_regs}}
+\index{xen\_convert\_regs@{xen\_convert\_regs}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_convert\_regs()}{xen\_convert\_regs()}}
+{\footnotesize\ttfamily static void xen\+\_\+convert\+\_\+regs (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structxen__pmu__regs}{xen\+\_\+pmu\+\_\+regs}} $\ast$}]{xen\+\_\+regs,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{uint64\+\_\+t}]{pmu\+\_\+flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{xen_2pmu_8c_a8e79d8970d4150acfa9521c083f7a56d}\label{xen_2pmu_8c_a8e79d8970d4150acfa9521c083f7a56d}} 
+\index{pmu.c@{pmu.c}!xen\_get\_guest\_ip@{xen\_get\_guest\_ip}}
+\index{xen\_get\_guest\_ip@{xen\_get\_guest\_ip}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_get\_guest\_ip()}{xen\_get\_guest\_ip()}}
+{\footnotesize\ttfamily static unsigned long xen\+\_\+get\+\_\+guest\+\_\+ip (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_add1275bd86f1782e504df604cb046e9a}\label{xen_2pmu_8c_add1275bd86f1782e504df604cb046e9a}} 
+\index{pmu.c@{pmu.c}!xen\_intel\_pmu\_emulate@{xen\_intel\_pmu\_emulate}}
+\index{xen\_intel\_pmu\_emulate@{xen\_intel\_pmu\_emulate}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_intel\_pmu\_emulate()}{xen\_intel\_pmu\_emulate()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} xen\+\_\+intel\+\_\+pmu\+\_\+emulate (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{msr,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{val,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{index,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{is\+\_\+read }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{xen_2pmu_8c_abfecde3de34846b05db27e69ed7f6f2e}\label{xen_2pmu_8c_abfecde3de34846b05db27e69ed7f6f2e}} 
+\index{pmu.c@{pmu.c}!xen\_intel\_read\_pmc@{xen\_intel\_read\_pmc}}
+\index{xen\_intel\_read\_pmc@{xen\_intel\_read\_pmc}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_intel\_read\_pmc()}{xen\_intel\_read\_pmc()}}
+{\footnotesize\ttfamily static unsigned long long xen\+\_\+intel\+\_\+read\+\_\+pmc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{counter }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{xen_2pmu_8c_a36de168969704064e2bccb8030bc934e}\label{xen_2pmu_8c_a36de168969704064e2bccb8030bc934e}} 
+\index{pmu.c@{pmu.c}!xen\_is\_in\_guest@{xen\_is\_in\_guest}}
+\index{xen\_is\_in\_guest@{xen\_is\_in\_guest}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_is\_in\_guest()}{xen\_is\_in\_guest()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xen\+\_\+is\+\_\+in\+\_\+guest (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a9fe6e899b952d8e6e6a6df1fa918f771}\label{xen_2pmu_8c_a9fe6e899b952d8e6e6a6df1fa918f771}} 
+\index{pmu.c@{pmu.c}!xen\_is\_user\_mode@{xen\_is\_user\_mode}}
+\index{xen\_is\_user\_mode@{xen\_is\_user\_mode}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_is\_user\_mode()}{xen\_is\_user\_mode()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xen\+\_\+is\+\_\+user\+\_\+mode (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_ac5ca53755b446a43db09e1d91986c391}\label{xen_2pmu_8c_ac5ca53755b446a43db09e1d91986c391}} 
+\index{pmu.c@{pmu.c}!xen\_pmu\_arch\_init@{xen\_pmu\_arch\_init}}
+\index{xen\_pmu\_arch\_init@{xen\_pmu\_arch\_init}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pmu\_arch\_init()}{xen\_pmu\_arch\_init()}}
+{\footnotesize\ttfamily static void xen\+\_\+pmu\+\_\+arch\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{xen_2pmu_8c_a2a5ca54b615b8edb53f8690e35b5d790}\label{xen_2pmu_8c_a2a5ca54b615b8edb53f8690e35b5d790}} 
+\index{pmu.c@{pmu.c}!xen\_pmu\_finish@{xen\_pmu\_finish}}
+\index{xen\_pmu\_finish@{xen\_pmu\_finish}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pmu\_finish()}{xen\_pmu\_finish()}}
+{\footnotesize\ttfamily void xen\+\_\+pmu\+\_\+finish (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{xen_2pmu_8c_a60e8e768d618e5f491d143aefebd7c0a}\label{xen_2pmu_8c_a60e8e768d618e5f491d143aefebd7c0a}} 
+\index{pmu.c@{pmu.c}!xen\_pmu\_init@{xen\_pmu\_init}}
+\index{xen\_pmu\_init@{xen\_pmu\_init}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pmu\_init()}{xen\_pmu\_init()}}
+{\footnotesize\ttfamily void xen\+\_\+pmu\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{xen_2pmu_8c_a480bf4655074b48cf0a9c642ac0e2b1c}\label{xen_2pmu_8c_a480bf4655074b48cf0a9c642ac0e2b1c}} 
+\index{pmu.c@{pmu.c}!xen\_pmu\_irq\_handler@{xen\_pmu\_irq\_handler}}
+\index{xen\_pmu\_irq\_handler@{xen\_pmu\_irq\_handler}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_pmu\_irq\_handler()}{xen\_pmu\_irq\_handler()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{irqreturn_8h_a08c59433c471f5408cf4e210141871fd}{irqreturn\+\_\+t}} xen\+\_\+pmu\+\_\+irq\+\_\+handler (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{void $\ast$}]{dev\+\_\+id }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{xen_2pmu_8c_a2b1b43e68cee9fe14803144c788332e8}\label{xen_2pmu_8c_a2b1b43e68cee9fe14803144c788332e8}} 
+\index{pmu.c@{pmu.c}!xen\_read\_pmc@{xen\_read\_pmc}}
+\index{xen\_read\_pmc@{xen\_read\_pmc}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_read\_pmc()}{xen\_read\_pmc()}}
+{\footnotesize\ttfamily unsigned long long xen\+\_\+read\+\_\+pmc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{counter }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 26
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{xen_2pmu_8c_a607cfc60d578f60d5ad330b54a81ec3d}\label{xen_2pmu_8c_a607cfc60d578f60d5ad330b54a81ec3d}} 
+\index{pmu.c@{pmu.c}!amd\_counters\_base@{amd\_counters\_base}}
+\index{amd\_counters\_base@{amd\_counters\_base}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_counters\_base}{amd\_counters\_base}}
+{\footnotesize\ttfamily \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} amd\+\_\+counters\+\_\+base\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a15ba232fc531ad32ad4c64c8e8c58e8d}\label{xen_2pmu_8c_a15ba232fc531ad32ad4c64c8e8c58e8d}} 
+\index{pmu.c@{pmu.c}!amd\_ctrls\_base@{amd\_ctrls\_base}}
+\index{amd\_ctrls\_base@{amd\_ctrls\_base}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_ctrls\_base}{amd\_ctrls\_base}}
+{\footnotesize\ttfamily \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} amd\+\_\+ctrls\+\_\+base\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_ad7a9901dd88ee7fa8f12c7314737fb94}\label{xen_2pmu_8c_ad7a9901dd88ee7fa8f12c7314737fb94}} 
+\index{pmu.c@{pmu.c}!amd\_msr\_step@{amd\_msr\_step}}
+\index{amd\_msr\_step@{amd\_msr\_step}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_msr\_step}{amd\_msr\_step}}
+{\footnotesize\ttfamily \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} amd\+\_\+msr\+\_\+step\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a65d1c2b9338b6d8c41d70cfe194d4634}\label{xen_2pmu_8c_a65d1c2b9338b6d8c41d70cfe194d4634}} 
+\index{pmu.c@{pmu.c}!amd\_num\_counters@{amd\_num\_counters}}
+\index{amd\_num\_counters@{amd\_num\_counters}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_num\_counters}{amd\_num\_counters}}
+{\footnotesize\ttfamily \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} amd\+\_\+num\+\_\+counters\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a280ddd2257aae77cc80879ff63c27f50}\label{xen_2pmu_8c_a280ddd2257aae77cc80879ff63c27f50}} 
+\index{pmu.c@{pmu.c}!intel\_num\_arch\_counters@{intel\_num\_arch\_counters}}
+\index{intel\_num\_arch\_counters@{intel\_num\_arch\_counters}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{intel\_num\_arch\_counters}{intel\_num\_arch\_counters}}
+{\footnotesize\ttfamily \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} intel\+\_\+num\+\_\+arch\+\_\+counters\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a1278c46a0eccf721c07734546fada951}\label{xen_2pmu_8c_a1278c46a0eccf721c07734546fada951}} 
+\index{pmu.c@{pmu.c}!intel\_num\_fixed\_counters@{intel\_num\_fixed\_counters}}
+\index{intel\_num\_fixed\_counters@{intel\_num\_fixed\_counters}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{intel\_num\_fixed\_counters}{intel\_num\_fixed\_counters}}
+{\footnotesize\ttfamily \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} intel\+\_\+num\+\_\+fixed\+\_\+counters\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a7226c17e88779b56ab39702f57f62052}\label{xen_2pmu_8c_a7226c17e88779b56ab39702f57f62052}} 
+\index{pmu.c@{pmu.c}!k7\_counters\_mirrored@{k7\_counters\_mirrored}}
+\index{k7\_counters\_mirrored@{k7\_counters\_mirrored}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{k7\_counters\_mirrored}{k7\_counters\_mirrored}}
+{\footnotesize\ttfamily \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} k7\+\_\+counters\+\_\+mirrored\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{xen_2pmu_8c_a1e3fb182dcb1b377e5a495916a876310}\label{xen_2pmu_8c_a1e3fb182dcb1b377e5a495916a876310}} 
+\index{pmu.c@{pmu.c}!xen\_guest\_cbs@{xen\_guest\_cbs}}
+\index{xen\_guest\_cbs@{xen\_guest\_cbs}!pmu.c@{pmu.c}}
+\doxysubsubsection{\texorpdfstring{xen\_guest\_cbs}{xen\_guest\_cbs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structperf__guest__info__callbacks}{perf\+\_\+guest\+\_\+info\+\_\+callbacks}} xen\+\_\+guest\+\_\+cbs\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .is\_in\_guest            = \mbox{\hyperlink{xen_2pmu_8c_a36de168969704064e2bccb8030bc934e}{xen\_is\_in\_guest}},}
+\DoxyCodeLine{    .is\_user\_mode           = \mbox{\hyperlink{xen_2pmu_8c_a9fe6e899b952d8e6e6a6df1fa918f771}{xen\_is\_user\_mode}},}
+\DoxyCodeLine{    .get\_guest\_ip           = \mbox{\hyperlink{xen_2pmu_8c_a8e79d8970d4150acfa9521c083f7a56d}{xen\_get\_guest\_ip}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

@@ -1,0 +1,901 @@
+\hypertarget{kernel_2power_2hibernate_8c}{}\doxysection{kernel/power/hibernate.c File Reference}
+\label{kernel_2power_2hibernate_8c}\index{kernel/power/hibernate.c@{kernel/power/hibernate.c}}
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/suspend.\+h$>$}\newline
+{\ttfamily \#include $<$linux/reboot.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/device.\+h$>$}\newline
+{\ttfamily \#include $<$linux/async.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mount.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/console.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/freezer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/gfp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscore\+\_\+ops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ctype.\+h$>$}\newline
+{\ttfamily \#include $<$linux/genhd.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ktime.\+h$>$}\newline
+{\ttfamily \#include $<$linux/security.\+h$>$}\newline
+{\ttfamily \#include $<$linux/secretmem.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/power.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}power.\+h\char`\"{}}\newline
+Include dependency graph for hibernate.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}P\+M\+: hibernation\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1460f8ed64d58d91d20b17fa67692963}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+M\+AX}}~(\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a2104ac0a2cbd662b69572815b8fcf9ab}{\+\_\+\+\_\+\+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+A\+F\+T\+E\+R\+\_\+\+L\+A\+ST}}-\/1)
+\item 
+\#define \mbox{\hyperlink{kernel_2power_2hibernate_8c_a0e81677324dd6873ef6dd052f7a5850c}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+F\+I\+R\+ST}}~(\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a3ccbd95d32180665e708a0632c872489}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+I\+N\+V\+A\+L\+ID}} + 1)
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \{ \newline
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a3ccbd95d32180665e708a0632c872489}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+I\+N\+V\+A\+L\+ID}}, 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a691c5646c1245f33fc5a2e7c59140b73}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+P\+L\+A\+T\+F\+O\+RM}}, 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a70b5383751d1e5c5c139429f622c7cc7}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}, 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a518a7af6b63837d4b82e1f78b80e0a93}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+R\+E\+B\+O\+OT}}, 
+\newline
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694aa469f1c2e1978a0382c6cb0e4e68c18e}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+T\+E\+S\+T\+\_\+\+R\+E\+S\+U\+ME}}, 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a2104ac0a2cbd662b69572815b8fcf9ab}{\+\_\+\+\_\+\+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+A\+F\+T\+E\+R\+\_\+\+L\+A\+ST}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a0e7eab5f8f638fbfd658e41c9ae5e4a0}{hibernate\+\_\+acquire}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2power_2hibernate_8c_a7b0d3618e917e2657ac0f2a7844195fb}{hibernate\+\_\+release}} (void)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ad77212d4110d6b5fcf24003684b6839f}{hibernation\+\_\+available}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2power_2hibernate_8c_a539777d705d0b5bf16b7398493815da5}{hibernation\+\_\+set\+\_\+ops}} (const struct \mbox{\hyperlink{structplatform__hibernation__ops}{platform\+\_\+hibernation\+\_\+ops}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a9c04ca8ccfe54b94325067c49466d013}{ops}})
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a56f6b32236469ed244febb1ff3d3fecf}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2suspend_8h_a5457a4daeed5ff0496358b7551e1c1f3}{hibernation\+\_\+set\+\_\+ops}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ab153c28ad8411fe823089c4e5828f962}{system\+\_\+entering\+\_\+hibernation}} (void)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_adcef09de4c5219caf7cb82155acbd315}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2suspend_8h_a67282adefa7b08c4a2db373ea14becc6}{system\+\_\+entering\+\_\+hibernation}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a5751a50244fda42473dba47bf92c3aca}{hibernation\+\_\+test}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__params_8h_a598ecea1e0b51b81e423ccd57a11108a}{level}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_afb14fc071257caf6928f89cec78f603f}{platform\+\_\+begin}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2hibernate_8c_a428e12698f04578d58de9d1b3fdde31b}{platform\+\_\+end}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ad9b2d3edfd9b1a3af5ab7cfd7a7a41eb}{platform\+\_\+pre\+\_\+snapshot}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2hibernate_8c_a18339af2901a1ab6a09be437cdb3c6c9}{platform\+\_\+leave}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2hibernate_8c_afe0ad95793c46d57adc32b936a742d32}{platform\+\_\+finish}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1a494915a20b09d3203eb2736f275e17}{platform\+\_\+pre\+\_\+restore}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2hibernate_8c_ad1905826fde33f7e06aa6a742ee64713}{platform\+\_\+restore\+\_\+cleanup}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2hibernate_8c_a429d8c2fc89b1880297025c48e1eea2a}{platform\+\_\+recover}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+void \mbox{\hyperlink{kernel_2power_2hibernate_8c_a5bf72d4394f82274a9e9b2c19664c7e4}{swsusp\+\_\+show\+\_\+speed}} (\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} stop, unsigned nr\+\_\+pages, char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\item 
+\mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a383f5051326ab0011951e5d999fba7fd}{arch\+\_\+resume\+\_\+nosmt}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a05da7ed7c2cbfd50218d9dfb76cb24be}{create\+\_\+image}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a4a5f6e9ba06b24c86f2d8c7a414febf5}{hibernation\+\_\+snapshot}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1b2f3b2dd08a8fc31d3fbc22e225883e}{hibernate\+\_\+resume\+\_\+nonboot\+\_\+cpu\+\_\+disable}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1182653d00e5993d06382bc52a746749}{resume\+\_\+target\+\_\+kernel}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} platform\+\_\+mode)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a9d4c76c670aac5b53330b7b653eb16b9}{hibernation\+\_\+restore}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+mode)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a4fd94e051006b9560bf01e0c3e2045d2}{hibernation\+\_\+platform\+\_\+enter}} (void)
+\item 
+static void \mbox{\hyperlink{kernel_2power_2hibernate_8c_a3d5e4166008e00824dc4c924d948be8a}{power\+\_\+down}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a722f301afe3b6b84462e22b9e6c18a09}{load\+\_\+image\+\_\+and\+\_\+restore}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_abfedd2b9a4c6c47c36b6c0da519b93ca}{hibernate}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ab4fa67e94798c11b19fe5e58612c0348}{hibernate\+\_\+quiet\+\_\+exec}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}), void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a7abfb8050fa2e65f1c301788e1984758}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2suspend_8h_a5f0f3c90e750761dce0ec6399fe8594a}{hibernate\+\_\+quiet\+\_\+exec}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a672c29f9ceab89059f5521e84b59a9d9}{software\+\_\+resume}} (void)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a3c2d3b9e67d7cc9d2a1a97f34f90dda3}{late\+\_\+initcall\+\_\+sync}} (\mbox{\hyperlink{kernel_2power_2hibernate_8c_a672c29f9ceab89059f5521e84b59a9d9}{software\+\_\+resume}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ae128f9a62456f2b87596d5c1b2cdfe57}{disk\+\_\+show}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_acf433a956e83bb1832b27327e0632ffc}{disk\+\_\+store}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} n)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a09fa9a81113a920cd7a2c8b5924f0ac0}{power\+\_\+attr}} (disk)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_af923ff4c35f6484a042d27ec5a99afb2}{resume\+\_\+show}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_af398cb0ccb6305a1ef3ec4f3d7eaa206}{resume\+\_\+store}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} n)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a62550ff7f1dee5a114cacf082be80a81}{power\+\_\+attr}} (resume)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_aa384be67a7ad2623d8a005c1eebead9f}{resume\+\_\+offset\+\_\+show}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a3cc37067cf932e4961e09b95ef175e7f}{resume\+\_\+offset\+\_\+store}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} n)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a6f0c5f99a55f6457d7bec7aade24f300}{power\+\_\+attr}} (resume\+\_\+offset)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1c99e3c5b7cd232e8a2c8711b2523e4e}{image\+\_\+size\+\_\+show}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a8ee8e2ab69fb2d8cc948341009e10ed4}{image\+\_\+size\+\_\+store}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} n)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a833e324163f7c9af7f499ee0edce9ba6}{power\+\_\+attr}} (\mbox{\hyperlink{snapshot_8c_ada44ef70b7f9f71f564a8f5470c03bac}{image\+\_\+size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a2a310d97023fa86264f3b4472f336a10}{reserved\+\_\+size\+\_\+show}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_aa03d2ed62880bd00f926f9764dae785f}{reserved\+\_\+size\+\_\+store}} (struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$kobj, struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} n)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_aaba3f8e1caafdc012ff9b12184c4a237}{power\+\_\+attr}} (\mbox{\hyperlink{snapshot_8c_a4dd731a281fbed0f432b8f2119b61d38}{reserved\+\_\+size}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a8385ea30494ade8ce3e2ff83fd350273}{pm\+\_\+disk\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_acb9a19b1b50261ed3c27867ee7d2dd8e}{core\+\_\+initcall}} (\mbox{\hyperlink{kernel_2power_2hibernate_8c_a8385ea30494ade8ce3e2ff83fd350273}{pm\+\_\+disk\+\_\+init}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a3c265fbc14ba6e7517c3b57d9ed2bb6a}{resume\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a605a01ad2b1a81d72eeae2baa2e077a2}{resume\+\_\+offset\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ab2f6ce6b960321c44bd33eecb9a9fe62}{hibernate\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_abe733af09de4ec7b5d571e8cb0d7f5d3}{noresume\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a7a657927d634cedfa64fa40fdbd69817}{resumewait\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a71a79563cfe504e1158abf819b3e74c0}{resumedelay\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a57e88f8175c8c5dc77c2432206c802a4}{nohibernate\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_ac5cb8077110225c29ca785b408689489}{\+\_\+\+\_\+setup}} (\char`\"{}noresume\char`\"{}, noresume\+\_\+setup)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a87fbef9e9fd70d32596da16f2f4b3ce0}{\+\_\+\+\_\+setup}} (\char`\"{}resume\+\_\+offset=\char`\"{}, resume\+\_\+offset\+\_\+setup)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a7b64957d1831991ecc0683cc2bac9158}{\+\_\+\+\_\+setup}} (\char`\"{}resumewait\char`\"{}, resumewait\+\_\+setup)
+\item 
+\mbox{\hyperlink{kernel_2power_2hibernate_8c_a97f4441f9cb1a77f68f13d4edf358677}{\+\_\+\+\_\+setup}} (\char`\"{}nohibernate\char`\"{}, nohibernate\+\_\+setup)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a387922d5eb2dc03b69b3828ba3dda172}{nocompress}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ac8d6bdc3d1fa626d8aeb3bf1af8c7ed2}{noresume}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_aebaf092f37370e5d064cb86ba5ae0a5c}{nohibernate}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_aac39210a08700089ccd1c29e83b703ba}{resume\+\_\+wait}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_aba29ca32410f1485d87e46249b30b942}{resume\+\_\+delay}}
+\item 
+static char \mbox{\hyperlink{kernel_2power_2hibernate_8c_a94a5244783ba3f7b63a1054ba567c56f}{resume\+\_\+file}} \mbox{[}256\mbox{]} = \mbox{\hyperlink{autoconf_8h_ae89cfe82a042be57c90bc8d20d3c0f4b}{C\+O\+N\+F\+I\+G\+\_\+\+P\+M\+\_\+\+S\+T\+D\+\_\+\+P\+A\+R\+T\+I\+T\+I\+ON}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_a51282934e29e084764c633097efe37eb}{dev\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a674c55baf9f84d05a095c40d183bc912}{swsusp\+\_\+resume\+\_\+device}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a88275f1a940419810f50813977daf2e9}{swsusp\+\_\+resume\+\_\+block}}
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2power_8h_aff1c98b9c6450f05b1a83d5e618ca22c}{in\+\_\+suspend}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ab93dc22bde70bf176ad891b5a94705c0}{\+\_\+\+\_\+nosavedata}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_aed8f5a1700f793589bb2d4f7b7e0d6e6}{hibernation\+\_\+mode}} = \mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a70b5383751d1e5c5c139429f622c7cc7}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_ab1d8cd321bb17e7331678243c3e51d63}{freezer\+\_\+test\+\_\+done}}
+\item 
+static const struct \mbox{\hyperlink{structplatform__hibernation__ops}{platform\+\_\+hibernation\+\_\+ops}} $\ast$ \mbox{\hyperlink{kernel_2power_2hibernate_8c_afa1453bdd3a4ac93161e9b9f6dcccac0}{hibernation\+\_\+ops}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a0ae7b32ff246fb614a1187f8432ebc83}{hibernate\+\_\+atomic}} = \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{A\+T\+O\+M\+I\+C\+\_\+\+I\+N\+IT}}(1)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_a9d560340df0457a88c20d7c8ebe0a492}{entering\+\_\+platform\+\_\+hibernation}}
+\item 
+static const char $\ast$const \mbox{\hyperlink{kernel_2power_2hibernate_8c_a8ff03883463c17099b9ebb7b8d36bc02}{hibernation\+\_\+modes}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{kernel_2power_2hibernate_8c_acf8fa8a29f8579843b888a288b753df4}{g}} \mbox{[}$\,$\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{kernel_2power_2hibernate_8c_aff0ad0d0e3ee7e1841625b4bb7a79c55}{attr\+\_\+group}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a0e81677324dd6873ef6dd052f7a5850c}\label{kernel_2power_2hibernate_8c_a0e81677324dd6873ef6dd052f7a5850c}} 
+\index{hibernate.c@{hibernate.c}!HIBERNATION\_FIRST@{HIBERNATION\_FIRST}}
+\index{HIBERNATION\_FIRST@{HIBERNATION\_FIRST}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{HIBERNATION\_FIRST}{HIBERNATION\_FIRST}}
+{\footnotesize\ttfamily \#define H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+F\+I\+R\+ST~(\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a3ccbd95d32180665e708a0632c872489}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+I\+N\+V\+A\+L\+ID}} + 1)}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a1460f8ed64d58d91d20b17fa67692963}\label{kernel_2power_2hibernate_8c_a1460f8ed64d58d91d20b17fa67692963}} 
+\index{hibernate.c@{hibernate.c}!HIBERNATION\_MAX@{HIBERNATION\_MAX}}
+\index{HIBERNATION\_MAX@{HIBERNATION\_MAX}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{HIBERNATION\_MAX}{HIBERNATION\_MAX}}
+{\footnotesize\ttfamily \#define H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+M\+AX~(\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a2104ac0a2cbd662b69572815b8fcf9ab}{\+\_\+\+\_\+\+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+A\+F\+T\+E\+R\+\_\+\+L\+A\+ST}}-\/1)}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a1f8c165bf4196327bc3abff648276d92}\label{kernel_2power_2hibernate_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{hibernate.c@{hibernate.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}P\+M\+: hibernation\+: \char`\"{} fmt}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694}\label{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694}} 
+\doxysubsubsection{\texorpdfstring{anonymous enum}{anonymous enum}}
+{\footnotesize\ttfamily anonymous \mbox{\hyperlink{interfaceenum}{enum}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HIBERNATION\_INVALID@{HIBERNATION\_INVALID}!hibernate.c@{hibernate.c}}\index{hibernate.c@{hibernate.c}!HIBERNATION\_INVALID@{HIBERNATION\_INVALID}}}\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a3ccbd95d32180665e708a0632c872489}\label{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a3ccbd95d32180665e708a0632c872489}} 
+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+I\+N\+V\+A\+L\+ID&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HIBERNATION\_PLATFORM@{HIBERNATION\_PLATFORM}!hibernate.c@{hibernate.c}}\index{hibernate.c@{hibernate.c}!HIBERNATION\_PLATFORM@{HIBERNATION\_PLATFORM}}}\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a691c5646c1245f33fc5a2e7c59140b73}\label{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a691c5646c1245f33fc5a2e7c59140b73}} 
+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+P\+L\+A\+T\+F\+O\+RM&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HIBERNATION\_SHUTDOWN@{HIBERNATION\_SHUTDOWN}!hibernate.c@{hibernate.c}}\index{hibernate.c@{hibernate.c}!HIBERNATION\_SHUTDOWN@{HIBERNATION\_SHUTDOWN}}}\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a70b5383751d1e5c5c139429f622c7cc7}\label{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a70b5383751d1e5c5c139429f622c7cc7}} 
+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+S\+H\+U\+T\+D\+O\+WN&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HIBERNATION\_REBOOT@{HIBERNATION\_REBOOT}!hibernate.c@{hibernate.c}}\index{hibernate.c@{hibernate.c}!HIBERNATION\_REBOOT@{HIBERNATION\_REBOOT}}}\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a518a7af6b63837d4b82e1f78b80e0a93}\label{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a518a7af6b63837d4b82e1f78b80e0a93}} 
+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+R\+E\+B\+O\+OT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HIBERNATION\_TEST\_RESUME@{HIBERNATION\_TEST\_RESUME}!hibernate.c@{hibernate.c}}\index{hibernate.c@{hibernate.c}!HIBERNATION\_TEST\_RESUME@{HIBERNATION\_TEST\_RESUME}}}\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694aa469f1c2e1978a0382c6cb0e4e68c18e}\label{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694aa469f1c2e1978a0382c6cb0e4e68c18e}} 
+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+T\+E\+S\+T\+\_\+\+R\+E\+S\+U\+ME&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{\_\_HIBERNATION\_AFTER\_LAST@{\_\_HIBERNATION\_AFTER\_LAST}!hibernate.c@{hibernate.c}}\index{hibernate.c@{hibernate.c}!\_\_HIBERNATION\_AFTER\_LAST@{\_\_HIBERNATION\_AFTER\_LAST}}}\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a2104ac0a2cbd662b69572815b8fcf9ab}\label{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a2104ac0a2cbd662b69572815b8fcf9ab}} 
+\+\_\+\+\_\+\+H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+A\+F\+T\+E\+R\+\_\+\+L\+A\+ST&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a97f4441f9cb1a77f68f13d4edf358677}\label{kernel_2power_2hibernate_8c_a97f4441f9cb1a77f68f13d4edf358677}} 
+\index{hibernate.c@{hibernate.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [1/4]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}nohibernate\char`\"{}}]{,  }\item[{\mbox{\hyperlink{kernel_2power_2hibernate_8c_a57e88f8175c8c5dc77c2432206c802a4}{nohibernate\+\_\+setup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ac5cb8077110225c29ca785b408689489}\label{kernel_2power_2hibernate_8c_ac5cb8077110225c29ca785b408689489}} 
+\index{hibernate.c@{hibernate.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [2/4]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}noresume\char`\"{}}]{,  }\item[{\mbox{\hyperlink{kernel_2power_2hibernate_8c_abe733af09de4ec7b5d571e8cb0d7f5d3}{noresume\+\_\+setup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a87fbef9e9fd70d32596da16f2f4b3ce0}\label{kernel_2power_2hibernate_8c_a87fbef9e9fd70d32596da16f2f4b3ce0}} 
+\index{hibernate.c@{hibernate.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [3/4]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a7b64957d1831991ecc0683cc2bac9158}\label{kernel_2power_2hibernate_8c_a7b64957d1831991ecc0683cc2bac9158}} 
+\index{hibernate.c@{hibernate.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [4/4]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}resumewait\char`\"{}}]{,  }\item[{\mbox{\hyperlink{kernel_2power_2hibernate_8c_a7a657927d634cedfa64fa40fdbd69817}{resumewait\+\_\+setup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a383f5051326ab0011951e5d999fba7fd}\label{kernel_2power_2hibernate_8c_a383f5051326ab0011951e5d999fba7fd}} 
+\index{hibernate.c@{hibernate.c}!arch\_resume\_nosmt@{arch\_resume\_nosmt}}
+\index{arch\_resume\_nosmt@{arch\_resume\_nosmt}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{arch\_resume\_nosmt()}{arch\_resume\_nosmt()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arch\+\_\+resume\+\_\+nosmt (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_acb9a19b1b50261ed3c27867ee7d2dd8e}\label{kernel_2power_2hibernate_8c_acb9a19b1b50261ed3c27867ee7d2dd8e}} 
+\index{hibernate.c@{hibernate.c}!core\_initcall@{core\_initcall}}
+\index{core\_initcall@{core\_initcall}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{core\_initcall()}{core\_initcall()}}
+{\footnotesize\ttfamily core\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2power_2hibernate_8c_a8385ea30494ade8ce3e2ff83fd350273}{pm\+\_\+disk\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a05da7ed7c2cbfd50218d9dfb76cb24be}\label{kernel_2power_2hibernate_8c_a05da7ed7c2cbfd50218d9dfb76cb24be}} 
+\index{hibernate.c@{hibernate.c}!create\_image@{create\_image}}
+\index{create\_image@{create\_image}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{create\_image()}{create\_image()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} create\+\_\+image (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+create\+\_\+image -\/ Create a hibernation image. @platform\+\_\+mode\+: Whether or not to use the platform driver.
+
+Execute device drivers\textquotesingle{} \char`\"{}late\char`\"{} and \char`\"{}noirq\char`\"{} freeze callbacks, create a hibernation image and run the drivers\textquotesingle{} \char`\"{}noirq\char`\"{} and \char`\"{}early\char`\"{} thaw callbacks.
+
+Control reappears in this routine after the subsequent restore. Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ae128f9a62456f2b87596d5c1b2cdfe57}\label{kernel_2power_2hibernate_8c_ae128f9a62456f2b87596d5c1b2cdfe57}} 
+\index{hibernate.c@{hibernate.c}!disk\_show@{disk\_show}}
+\index{disk\_show@{disk\_show}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{disk\_show()}{disk\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} disk\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_acf433a956e83bb1832b27327e0632ffc}\label{kernel_2power_2hibernate_8c_acf433a956e83bb1832b27327e0632ffc}} 
+\index{hibernate.c@{hibernate.c}!disk\_store@{disk\_store}}
+\index{disk\_store@{disk\_store}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{disk\_store()}{disk\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} disk\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_adcef09de4c5219caf7cb82155acbd315}\label{kernel_2power_2hibernate_8c_adcef09de4c5219caf7cb82155acbd315}} 
+\index{hibernate.c@{hibernate.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2suspend_8h_a67282adefa7b08c4a2db373ea14becc6}{system\+\_\+entering\+\_\+hibernation}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a7abfb8050fa2e65f1c301788e1984758}\label{kernel_2power_2hibernate_8c_a7abfb8050fa2e65f1c301788e1984758}} 
+\index{hibernate.c@{hibernate.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2suspend_8h_a5f0f3c90e750761dce0ec6399fe8594a}{hibernate\+\_\+quiet\+\_\+exec}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a56f6b32236469ed244febb1ff3d3fecf}\label{kernel_2power_2hibernate_8c_a56f6b32236469ed244febb1ff3d3fecf}} 
+\index{hibernate.c@{hibernate.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2suspend_8h_a5457a4daeed5ff0496358b7551e1c1f3}{hibernation\+\_\+set\+\_\+ops}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_abfedd2b9a4c6c47c36b6c0da519b93ca}\label{kernel_2power_2hibernate_8c_abfedd2b9a4c6c47c36b6c0da519b93ca}} 
+\index{hibernate.c@{hibernate.c}!hibernate@{hibernate}}
+\index{hibernate@{hibernate}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernate()}{hibernate()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernate (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+hibernate -\/ Carry out system hibernation, including saving the image. Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a0e7eab5f8f638fbfd658e41c9ae5e4a0}\label{kernel_2power_2hibernate_8c_a0e7eab5f8f638fbfd658e41c9ae5e4a0}} 
+\index{hibernate.c@{hibernate.c}!hibernate\_acquire@{hibernate\_acquire}}
+\index{hibernate\_acquire@{hibernate\_acquire}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_acquire()}{hibernate\_acquire()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hibernate\+\_\+acquire (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ab4fa67e94798c11b19fe5e58612c0348}\label{kernel_2power_2hibernate_8c_ab4fa67e94798c11b19fe5e58612c0348}} 
+\index{hibernate.c@{hibernate.c}!hibernate\_quiet\_exec@{hibernate\_quiet\_exec}}
+\index{hibernate\_quiet\_exec@{hibernate\_quiet\_exec}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_quiet\_exec()}{hibernate\_quiet\_exec()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernate\+\_\+quiet\+\_\+exec (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}($\ast$)(void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})}]{func,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+hibernate\+\_\+quiet\+\_\+exec -\/ Execute a function with all devices frozen. @func\+: Function to execute. @data\+: Data pointer to pass to @func.
+
+Return the @func return value or an error code if it cannot be executed. Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a7b0d3618e917e2657ac0f2a7844195fb}\label{kernel_2power_2hibernate_8c_a7b0d3618e917e2657ac0f2a7844195fb}} 
+\index{hibernate.c@{hibernate.c}!hibernate\_release@{hibernate\_release}}
+\index{hibernate\_release@{hibernate\_release}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_release()}{hibernate\_release()}}
+{\footnotesize\ttfamily void hibernate\+\_\+release (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a1b2f3b2dd08a8fc31d3fbc22e225883e}\label{kernel_2power_2hibernate_8c_a1b2f3b2dd08a8fc31d3fbc22e225883e}} 
+\index{hibernate.c@{hibernate.c}!hibernate\_resume\_nonboot\_cpu\_disable@{hibernate\_resume\_nonboot\_cpu\_disable}}
+\index{hibernate\_resume\_nonboot\_cpu\_disable@{hibernate\_resume\_nonboot\_cpu\_disable}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_resume\_nonboot\_cpu\_disable()}{hibernate\_resume\_nonboot\_cpu\_disable()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} hibernate\+\_\+resume\+\_\+nonboot\+\_\+cpu\+\_\+disable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ab2f6ce6b960321c44bd33eecb9a9fe62}\label{kernel_2power_2hibernate_8c_ab2f6ce6b960321c44bd33eecb9a9fe62}} 
+\index{hibernate.c@{hibernate.c}!hibernate\_setup@{hibernate\_setup}}
+\index{hibernate\_setup@{hibernate\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_setup()}{hibernate\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hibernate\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ad77212d4110d6b5fcf24003684b6839f}\label{kernel_2power_2hibernate_8c_ad77212d4110d6b5fcf24003684b6839f}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_available@{hibernation\_available}}
+\index{hibernation\_available@{hibernation\_available}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_available()}{hibernation\_available()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hibernation\+\_\+available (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a4fd94e051006b9560bf01e0c3e2045d2}\label{kernel_2power_2hibernate_8c_a4fd94e051006b9560bf01e0c3e2045d2}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_platform\_enter@{hibernation\_platform\_enter}}
+\index{hibernation\_platform\_enter@{hibernation\_platform\_enter}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_platform\_enter()}{hibernation\_platform\_enter()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernation\+\_\+platform\+\_\+enter (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+hibernation\+\_\+platform\+\_\+enter -\/ Power off the system using the platform driver. Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a9d4c76c670aac5b53330b7b653eb16b9}\label{kernel_2power_2hibernate_8c_a9d4c76c670aac5b53330b7b653eb16b9}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_restore@{hibernation\_restore}}
+\index{hibernation\_restore@{hibernation\_restore}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_restore()}{hibernation\_restore()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernation\+\_\+restore (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})}
+
+hibernation\+\_\+restore -\/ Quiesce devices and restore from a hibernation image. @platform\+\_\+mode\+: If set, use platform driver to prepare for the transition.
+
+This routine must be called with system\+\_\+transition\+\_\+mutex held. If it is successful, control reappears in the restored target kernel in \mbox{\hyperlink{kernel_2power_2hibernate_8c_a4a5f6e9ba06b24c86f2d8c7a414febf5}{hibernation\+\_\+snapshot()}}. Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a539777d705d0b5bf16b7398493815da5}\label{kernel_2power_2hibernate_8c_a539777d705d0b5bf16b7398493815da5}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_set\_ops@{hibernation\_set\_ops}}
+\index{hibernation\_set\_ops@{hibernation\_set\_ops}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_set\_ops()}{hibernation\_set\_ops()}}
+{\footnotesize\ttfamily void hibernation\+\_\+set\+\_\+ops (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structplatform__hibernation__ops}{platform\+\_\+hibernation\+\_\+ops}} $\ast$}]{ops }\end{DoxyParamCaption})}
+
+hibernation\+\_\+set\+\_\+ops -\/ Set the global hibernate operations. @ops\+: Hibernation operations to use in subsequent hibernation transitions. Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a4a5f6e9ba06b24c86f2d8c7a414febf5}\label{kernel_2power_2hibernate_8c_a4a5f6e9ba06b24c86f2d8c7a414febf5}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_snapshot@{hibernation\_snapshot}}
+\index{hibernation\_snapshot@{hibernation\_snapshot}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_snapshot()}{hibernation\_snapshot()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernation\+\_\+snapshot (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})}
+
+hibernation\+\_\+snapshot -\/ Quiesce devices and create a hibernation image. @platform\+\_\+mode\+: If set, use platform driver to prepare for the transition.
+
+This routine must be called with system\+\_\+transition\+\_\+mutex held. Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a5751a50244fda42473dba47bf92c3aca}\label{kernel_2power_2hibernate_8c_a5751a50244fda42473dba47bf92c3aca}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_test@{hibernation\_test}}
+\index{hibernation\_test@{hibernation\_test}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_test()}{hibernation\_test()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernation\+\_\+test (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{level }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a1c99e3c5b7cd232e8a2c8711b2523e4e}\label{kernel_2power_2hibernate_8c_a1c99e3c5b7cd232e8a2c8711b2523e4e}} 
+\index{hibernate.c@{hibernate.c}!image\_size\_show@{image\_size\_show}}
+\index{image\_size\_show@{image\_size\_show}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{image\_size\_show()}{image\_size\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} image\+\_\+size\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a8ee8e2ab69fb2d8cc948341009e10ed4}\label{kernel_2power_2hibernate_8c_a8ee8e2ab69fb2d8cc948341009e10ed4}} 
+\index{hibernate.c@{hibernate.c}!image\_size\_store@{image\_size\_store}}
+\index{image\_size\_store@{image\_size\_store}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{image\_size\_store()}{image\_size\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} image\+\_\+size\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a3c2d3b9e67d7cc9d2a1a97f34f90dda3}\label{kernel_2power_2hibernate_8c_a3c2d3b9e67d7cc9d2a1a97f34f90dda3}} 
+\index{hibernate.c@{hibernate.c}!late\_initcall\_sync@{late\_initcall\_sync}}
+\index{late\_initcall\_sync@{late\_initcall\_sync}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall\_sync()}{late\_initcall\_sync()}}
+{\footnotesize\ttfamily late\+\_\+initcall\+\_\+sync (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2power_2hibernate_8c_a672c29f9ceab89059f5521e84b59a9d9}{software\+\_\+resume}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a722f301afe3b6b84462e22b9e6c18a09}\label{kernel_2power_2hibernate_8c_a722f301afe3b6b84462e22b9e6c18a09}} 
+\index{hibernate.c@{hibernate.c}!load\_image\_and\_restore@{load\_image\_and\_restore}}
+\index{load\_image\_and\_restore@{load\_image\_and\_restore}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{load\_image\_and\_restore()}{load\_image\_and\_restore()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} load\+\_\+image\+\_\+and\+\_\+restore (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a57e88f8175c8c5dc77c2432206c802a4}\label{kernel_2power_2hibernate_8c_a57e88f8175c8c5dc77c2432206c802a4}} 
+\index{hibernate.c@{hibernate.c}!nohibernate\_setup@{nohibernate\_setup}}
+\index{nohibernate\_setup@{nohibernate\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{nohibernate\_setup()}{nohibernate\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} nohibernate\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_abe733af09de4ec7b5d571e8cb0d7f5d3}\label{kernel_2power_2hibernate_8c_abe733af09de4ec7b5d571e8cb0d7f5d3}} 
+\index{hibernate.c@{hibernate.c}!noresume\_setup@{noresume\_setup}}
+\index{noresume\_setup@{noresume\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{noresume\_setup()}{noresume\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} noresume\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_afb14fc071257caf6928f89cec78f603f}\label{kernel_2power_2hibernate_8c_afb14fc071257caf6928f89cec78f603f}} 
+\index{hibernate.c@{hibernate.c}!platform\_begin@{platform\_begin}}
+\index{platform\_begin@{platform\_begin}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_begin()}{platform\_begin()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+begin (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+begin -\/ Call platform to start hibernation. @platform\+\_\+mode\+: Whether or not to use the platform driver. Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a428e12698f04578d58de9d1b3fdde31b}\label{kernel_2power_2hibernate_8c_a428e12698f04578d58de9d1b3fdde31b}} 
+\index{hibernate.c@{hibernate.c}!platform\_end@{platform\_end}}
+\index{platform\_end@{platform\_end}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_end()}{platform\_end()}}
+{\footnotesize\ttfamily static void platform\+\_\+end (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+end -\/ Call platform to finish transition to the working state. @platform\+\_\+mode\+: Whether or not to use the platform driver. Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_afe0ad95793c46d57adc32b936a742d32}\label{kernel_2power_2hibernate_8c_afe0ad95793c46d57adc32b936a742d32}} 
+\index{hibernate.c@{hibernate.c}!platform\_finish@{platform\_finish}}
+\index{platform\_finish@{platform\_finish}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_finish()}{platform\_finish()}}
+{\footnotesize\ttfamily static void platform\+\_\+finish (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+finish -\/ Call platform to switch the system to the working state. @platform\+\_\+mode\+: Whether or not to use the platform driver.
+
+Use the platform driver to switch the machine to the normal mode of operation.
+
+This routine must be called after platform\+\_\+prepare(). Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a18339af2901a1ab6a09be437cdb3c6c9}\label{kernel_2power_2hibernate_8c_a18339af2901a1ab6a09be437cdb3c6c9}} 
+\index{hibernate.c@{hibernate.c}!platform\_leave@{platform\_leave}}
+\index{platform\_leave@{platform\_leave}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_leave()}{platform\_leave()}}
+{\footnotesize\ttfamily static void platform\+\_\+leave (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+leave -\/ Call platform to prepare a transition to the working state. @platform\+\_\+mode\+: Whether or not to use the platform driver.
+
+Use the platform driver prepare to prepare the machine for switching to the normal mode of operation.
+
+This routine is called on one C\+PU with interrupts disabled. Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a1a494915a20b09d3203eb2736f275e17}\label{kernel_2power_2hibernate_8c_a1a494915a20b09d3203eb2736f275e17}} 
+\index{hibernate.c@{hibernate.c}!platform\_pre\_restore@{platform\_pre\_restore}}
+\index{platform\_pre\_restore@{platform\_pre\_restore}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_pre\_restore()}{platform\_pre\_restore()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+pre\+\_\+restore (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+pre\+\_\+restore -\/ Prepare for hibernate image restoration. @platform\+\_\+mode\+: Whether or not to use the platform driver.
+
+Use the platform driver to prepare the system for resume from a hibernation image.
+
+If the restore fails after this function has been called, \mbox{\hyperlink{kernel_2power_2hibernate_8c_ad1905826fde33f7e06aa6a742ee64713}{platform\+\_\+restore\+\_\+cleanup()}} must be called. Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ad9b2d3edfd9b1a3af5ab7cfd7a7a41eb}\label{kernel_2power_2hibernate_8c_ad9b2d3edfd9b1a3af5ab7cfd7a7a41eb}} 
+\index{hibernate.c@{hibernate.c}!platform\_pre\_snapshot@{platform\_pre\_snapshot}}
+\index{platform\_pre\_snapshot@{platform\_pre\_snapshot}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_pre\_snapshot()}{platform\_pre\_snapshot()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} platform\+\_\+pre\+\_\+snapshot (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+pre\+\_\+snapshot -\/ Call platform to prepare the machine for hibernation. @platform\+\_\+mode\+: Whether or not to use the platform driver.
+
+Use the platform driver to prepare the system for creating a hibernate image, if so configured, and return an error code if that fails. Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a429d8c2fc89b1880297025c48e1eea2a}\label{kernel_2power_2hibernate_8c_a429d8c2fc89b1880297025c48e1eea2a}} 
+\index{hibernate.c@{hibernate.c}!platform\_recover@{platform\_recover}}
+\index{platform\_recover@{platform\_recover}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_recover()}{platform\_recover()}}
+{\footnotesize\ttfamily static void platform\+\_\+recover (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+recover -\/ Recover from a failure to suspend devices. @platform\+\_\+mode\+: Whether or not to use the platform driver. Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ad1905826fde33f7e06aa6a742ee64713}\label{kernel_2power_2hibernate_8c_ad1905826fde33f7e06aa6a742ee64713}} 
+\index{hibernate.c@{hibernate.c}!platform\_restore\_cleanup@{platform\_restore\_cleanup}}
+\index{platform\_restore\_cleanup@{platform\_restore\_cleanup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{platform\_restore\_cleanup()}{platform\_restore\_cleanup()}}
+{\footnotesize\ttfamily static void platform\+\_\+restore\+\_\+cleanup (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+platform\+\_\+restore\+\_\+cleanup -\/ Switch to the working state after failing restore. @platform\+\_\+mode\+: Whether or not to use the platform driver.
+
+Use the platform driver to switch the system to the normal mode of operation after a failing restore.
+
+If \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1a494915a20b09d3203eb2736f275e17}{platform\+\_\+pre\+\_\+restore()}} has been called before the failing restore, this function must be called too, regardless of the result of \mbox{\hyperlink{kernel_2power_2hibernate_8c_a1a494915a20b09d3203eb2736f275e17}{platform\+\_\+pre\+\_\+restore()}}. Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a8385ea30494ade8ce3e2ff83fd350273}\label{kernel_2power_2hibernate_8c_a8385ea30494ade8ce3e2ff83fd350273}} 
+\index{hibernate.c@{hibernate.c}!pm\_disk\_init@{pm\_disk\_init}}
+\index{pm\_disk\_init@{pm\_disk\_init}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{pm\_disk\_init()}{pm\_disk\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pm\+\_\+disk\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a09fa9a81113a920cd7a2c8b5924f0ac0}\label{kernel_2power_2hibernate_8c_a09fa9a81113a920cd7a2c8b5924f0ac0}} 
+\index{hibernate.c@{hibernate.c}!power\_attr@{power\_attr}}
+\index{power\_attr@{power\_attr}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{power\_attr()}{power\_attr()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily power\+\_\+attr (\begin{DoxyParamCaption}\item[{disk}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a833e324163f7c9af7f499ee0edce9ba6}\label{kernel_2power_2hibernate_8c_a833e324163f7c9af7f499ee0edce9ba6}} 
+\index{hibernate.c@{hibernate.c}!power\_attr@{power\_attr}}
+\index{power\_attr@{power\_attr}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{power\_attr()}{power\_attr()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily power\+\_\+attr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{snapshot_8c_ada44ef70b7f9f71f564a8f5470c03bac}{image\+\_\+size}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aaba3f8e1caafdc012ff9b12184c4a237}\label{kernel_2power_2hibernate_8c_aaba3f8e1caafdc012ff9b12184c4a237}} 
+\index{hibernate.c@{hibernate.c}!power\_attr@{power\_attr}}
+\index{power\_attr@{power\_attr}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{power\_attr()}{power\_attr()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily power\+\_\+attr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{snapshot_8c_a4dd731a281fbed0f432b8f2119b61d38}{reserved\+\_\+size}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a62550ff7f1dee5a114cacf082be80a81}\label{kernel_2power_2hibernate_8c_a62550ff7f1dee5a114cacf082be80a81}} 
+\index{hibernate.c@{hibernate.c}!power\_attr@{power\_attr}}
+\index{power\_attr@{power\_attr}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{power\_attr()}{power\_attr()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily power\+\_\+attr (\begin{DoxyParamCaption}\item[{resume}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a6f0c5f99a55f6457d7bec7aade24f300}\label{kernel_2power_2hibernate_8c_a6f0c5f99a55f6457d7bec7aade24f300}} 
+\index{hibernate.c@{hibernate.c}!power\_attr@{power\_attr}}
+\index{power\_attr@{power\_attr}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{power\_attr()}{power\_attr()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily power\+\_\+attr (\begin{DoxyParamCaption}\item[{resume\+\_\+offset}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a3d5e4166008e00824dc4c924d948be8a}\label{kernel_2power_2hibernate_8c_a3d5e4166008e00824dc4c924d948be8a}} 
+\index{hibernate.c@{hibernate.c}!power\_down@{power\_down}}
+\index{power\_down@{power\_down}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{power\_down()}{power\_down()}}
+{\footnotesize\ttfamily static void power\+\_\+down (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+power\+\_\+down -\/ Shut the machine down for hibernation.
+
+Use the platform driver, if configured, to put the system into the sleep state corresponding to hibernation, or try to power it off or reboot, depending on the value of hibernation\+\_\+mode. Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a2a310d97023fa86264f3b4472f336a10}\label{kernel_2power_2hibernate_8c_a2a310d97023fa86264f3b4472f336a10}} 
+\index{hibernate.c@{hibernate.c}!reserved\_size\_show@{reserved\_size\_show}}
+\index{reserved\_size\_show@{reserved\_size\_show}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{reserved\_size\_show()}{reserved\_size\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} reserved\+\_\+size\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aa03d2ed62880bd00f926f9764dae785f}\label{kernel_2power_2hibernate_8c_aa03d2ed62880bd00f926f9764dae785f}} 
+\index{hibernate.c@{hibernate.c}!reserved\_size\_store@{reserved\_size\_store}}
+\index{reserved\_size\_store@{reserved\_size\_store}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{reserved\_size\_store()}{reserved\_size\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} reserved\+\_\+size\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a605a01ad2b1a81d72eeae2baa2e077a2}\label{kernel_2power_2hibernate_8c_a605a01ad2b1a81d72eeae2baa2e077a2}} 
+\index{hibernate.c@{hibernate.c}!resume\_offset\_setup@{resume\_offset\_setup}}
+\index{resume\_offset\_setup@{resume\_offset\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_offset\_setup()}{resume\_offset\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} resume\+\_\+offset\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aa384be67a7ad2623d8a005c1eebead9f}\label{kernel_2power_2hibernate_8c_aa384be67a7ad2623d8a005c1eebead9f}} 
+\index{hibernate.c@{hibernate.c}!resume\_offset\_show@{resume\_offset\_show}}
+\index{resume\_offset\_show@{resume\_offset\_show}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_offset\_show()}{resume\_offset\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} resume\+\_\+offset\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a3cc37067cf932e4961e09b95ef175e7f}\label{kernel_2power_2hibernate_8c_a3cc37067cf932e4961e09b95ef175e7f}} 
+\index{hibernate.c@{hibernate.c}!resume\_offset\_store@{resume\_offset\_store}}
+\index{resume\_offset\_store@{resume\_offset\_store}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_offset\_store()}{resume\_offset\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} resume\+\_\+offset\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a3c265fbc14ba6e7517c3b57d9ed2bb6a}\label{kernel_2power_2hibernate_8c_a3c265fbc14ba6e7517c3b57d9ed2bb6a}} 
+\index{hibernate.c@{hibernate.c}!resume\_setup@{resume\_setup}}
+\index{resume\_setup@{resume\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_setup()}{resume\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} resume\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_af923ff4c35f6484a042d27ec5a99afb2}\label{kernel_2power_2hibernate_8c_af923ff4c35f6484a042d27ec5a99afb2}} 
+\index{hibernate.c@{hibernate.c}!resume\_show@{resume\_show}}
+\index{resume\_show@{resume\_show}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_show()}{resume\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} resume\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_af398cb0ccb6305a1ef3ec4f3d7eaa206}\label{kernel_2power_2hibernate_8c_af398cb0ccb6305a1ef3ec4f3d7eaa206}} 
+\index{hibernate.c@{hibernate.c}!resume\_store@{resume\_store}}
+\index{resume\_store@{resume\_store}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_store()}{resume\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} resume\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkobject}{kobject}} $\ast$}]{kobj,  }\item[{struct \mbox{\hyperlink{structkobj__attribute}{kobj\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a1182653d00e5993d06382bc52a746749}\label{kernel_2power_2hibernate_8c_a1182653d00e5993d06382bc52a746749}} 
+\index{hibernate.c@{hibernate.c}!resume\_target\_kernel@{resume\_target\_kernel}}
+\index{resume\_target\_kernel@{resume\_target\_kernel}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_target\_kernel()}{resume\_target\_kernel()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} resume\+\_\+target\+\_\+kernel (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{platform\+\_\+mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+resume\+\_\+target\+\_\+kernel -\/ Restore system state from a hibernation image. @platform\+\_\+mode\+: Whether or not to use the platform driver.
+
+Execute device drivers\textquotesingle{} \char`\"{}noirq\char`\"{} and \char`\"{}late\char`\"{} freeze callbacks, restore the contents of highmem that have not been restored yet from the image and run the low-\/level code that will restore the remaining contents of memory and switch to the just restored target kernel. Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a71a79563cfe504e1158abf819b3e74c0}\label{kernel_2power_2hibernate_8c_a71a79563cfe504e1158abf819b3e74c0}} 
+\index{hibernate.c@{hibernate.c}!resumedelay\_setup@{resumedelay\_setup}}
+\index{resumedelay\_setup@{resumedelay\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resumedelay\_setup()}{resumedelay\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} resumedelay\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a7a657927d634cedfa64fa40fdbd69817}\label{kernel_2power_2hibernate_8c_a7a657927d634cedfa64fa40fdbd69817}} 
+\index{hibernate.c@{hibernate.c}!resumewait\_setup@{resumewait\_setup}}
+\index{resumewait\_setup@{resumewait\_setup}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resumewait\_setup()}{resumewait\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} resumewait\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a672c29f9ceab89059f5521e84b59a9d9}\label{kernel_2power_2hibernate_8c_a672c29f9ceab89059f5521e84b59a9d9}} 
+\index{hibernate.c@{hibernate.c}!software\_resume@{software\_resume}}
+\index{software\_resume@{software\_resume}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{software\_resume()}{software\_resume()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} software\+\_\+resume (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+software\+\_\+resume -\/ Resume from a saved hibernation image.
+
+This routine is called as a late initcall, when all devices have been discovered and initialized already.
+
+\mbox{\hyperlink{classThe}{The}} image reading code is called to see if there is a hibernation image available for reading. If that is the case, devices are quiesced and the contents of memory is restored from the saved image.
+
+If this is successful, control reappears in the restored target kernel in \mbox{\hyperlink{kernel_2power_2hibernate_8c_a4a5f6e9ba06b24c86f2d8c7a414febf5}{hibernation\+\_\+snapshot()}} which returns to \mbox{\hyperlink{kernel_2power_2hibernate_8c_abfedd2b9a4c6c47c36b6c0da519b93ca}{hibernate()}}. Otherwise, the routine attempts to recover gracefully and make the kernel return to the normal mode of operation. Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a5bf72d4394f82274a9e9b2c19664c7e4}\label{kernel_2power_2hibernate_8c_a5bf72d4394f82274a9e9b2c19664c7e4}} 
+\index{hibernate.c@{hibernate.c}!swsusp\_show\_speed@{swsusp\_show\_speed}}
+\index{swsusp\_show\_speed@{swsusp\_show\_speed}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_show\_speed()}{swsusp\_show\_speed()}}
+{\footnotesize\ttfamily void swsusp\+\_\+show\+\_\+speed (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}}}]{start,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}}}]{stop,  }\item[{unsigned}]{nr\+\_\+pages,  }\item[{char $\ast$}]{msg }\end{DoxyParamCaption})}
+
+swsusp\+\_\+show\+\_\+speed -\/ Print time elapsed between two events during hibernation. @start\+: Starting event. @stop\+: Final event. @nr\+\_\+pages\+: Number of memory pages processed between @start and @stop. @msg\+: Additional diagnostic message to print. Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ab153c28ad8411fe823089c4e5828f962}\label{kernel_2power_2hibernate_8c_ab153c28ad8411fe823089c4e5828f962}} 
+\index{hibernate.c@{hibernate.c}!system\_entering\_hibernation@{system\_entering\_hibernation}}
+\index{system\_entering\_hibernation@{system\_entering\_hibernation}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{system\_entering\_hibernation()}{system\_entering\_hibernation()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} system\+\_\+entering\+\_\+hibernation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ab93dc22bde70bf176ad891b5a94705c0}\label{kernel_2power_2hibernate_8c_ab93dc22bde70bf176ad891b5a94705c0}} 
+\index{hibernate.c@{hibernate.c}!\_\_nosavedata@{\_\_nosavedata}}
+\index{\_\_nosavedata@{\_\_nosavedata}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{\_\_nosavedata}{\_\_nosavedata}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2power_2power_8h_aff1c98b9c6450f05b1a83d5e618ca22c}{in\+\_\+suspend}} \+\_\+\+\_\+nosavedata}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aff0ad0d0e3ee7e1841625b4bb7a79c55}\label{kernel_2power_2hibernate_8c_aff0ad0d0e3ee7e1841625b4bb7a79c55}} 
+\index{hibernate.c@{hibernate.c}!attr\_group@{attr\_group}}
+\index{attr\_group@{attr\_group}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{attr\_group}{attr\_group}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} attr\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{kernel_2power_2hibernate_8c_acf8fa8a29f8579843b888a288b753df4}{g}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a9d560340df0457a88c20d7c8ebe0a492}\label{kernel_2power_2hibernate_8c_a9d560340df0457a88c20d7c8ebe0a492}} 
+\index{hibernate.c@{hibernate.c}!entering\_platform\_hibernation@{entering\_platform\_hibernation}}
+\index{entering\_platform\_hibernation@{entering\_platform\_hibernation}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{entering\_platform\_hibernation}{entering\_platform\_hibernation}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} entering\+\_\+platform\+\_\+hibernation\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ab1d8cd321bb17e7331678243c3e51d63}\label{kernel_2power_2hibernate_8c_ab1d8cd321bb17e7331678243c3e51d63}} 
+\index{hibernate.c@{hibernate.c}!freezer\_test\_done@{freezer\_test\_done}}
+\index{freezer\_test\_done@{freezer\_test\_done}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{freezer\_test\_done}{freezer\_test\_done}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} freezer\+\_\+test\+\_\+done}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_acf8fa8a29f8579843b888a288b753df4}\label{kernel_2power_2hibernate_8c_acf8fa8a29f8579843b888a288b753df4}} 
+\index{hibernate.c@{hibernate.c}!g@{g}}
+\index{g@{g}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{g}{g}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ g\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&disk\_attr.attr,}
+\DoxyCodeLine{    \&resume\_offset\_attr.attr,}
+\DoxyCodeLine{    \&resume\_attr.attr,}
+\DoxyCodeLine{    \&image\_size\_attr.attr,}
+\DoxyCodeLine{    \&reserved\_size\_attr.attr,}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a0ae7b32ff246fb614a1187f8432ebc83}\label{kernel_2power_2hibernate_8c_a0ae7b32ff246fb614a1187f8432ebc83}} 
+\index{hibernate.c@{hibernate.c}!hibernate\_atomic@{hibernate\_atomic}}
+\index{hibernate\_atomic@{hibernate\_atomic}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernate\_atomic}{hibernate\_atomic}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} hibernate\+\_\+atomic = \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{A\+T\+O\+M\+I\+C\+\_\+\+I\+N\+IT}}(1)\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aed8f5a1700f793589bb2d4f7b7e0d6e6}\label{kernel_2power_2hibernate_8c_aed8f5a1700f793589bb2d4f7b7e0d6e6}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_mode@{hibernation\_mode}}
+\index{hibernation\_mode@{hibernation\_mode}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_mode}{hibernation\_mode}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hibernation\+\_\+mode = \mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a70b5383751d1e5c5c139429f622c7cc7}{H\+I\+B\+E\+R\+N\+A\+T\+I\+O\+N\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a8ff03883463c17099b9ebb7b8d36bc02}\label{kernel_2power_2hibernate_8c_a8ff03883463c17099b9ebb7b8d36bc02}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_modes@{hibernation\_modes}}
+\index{hibernation\_modes@{hibernation\_modes}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_modes}{hibernation\_modes}}
+{\footnotesize\ttfamily const char$\ast$ const hibernation\+\_\+modes\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a691c5646c1245f33fc5a2e7c59140b73}{HIBERNATION\_PLATFORM}}]  = \textcolor{stringliteral}{"platform"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a70b5383751d1e5c5c139429f622c7cc7}{HIBERNATION\_SHUTDOWN}}]  = \textcolor{stringliteral}{"shutdown"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694a518a7af6b63837d4b82e1f78b80e0a93}{HIBERNATION\_REBOOT}}]  = \textcolor{stringliteral}{"reboot"},}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{    [\mbox{\hyperlink{kernel_2power_2hibernate_8c_a324626c8a5e99e28c43d895e854b3694aa469f1c2e1978a0382c6cb0e4e68c18e}{HIBERNATION\_TEST\_RESUME}}]    = \textcolor{stringliteral}{"test\_resume"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_afa1453bdd3a4ac93161e9b9f6dcccac0}\label{kernel_2power_2hibernate_8c_afa1453bdd3a4ac93161e9b9f6dcccac0}} 
+\index{hibernate.c@{hibernate.c}!hibernation\_ops@{hibernation\_ops}}
+\index{hibernation\_ops@{hibernation\_ops}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{hibernation\_ops}{hibernation\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structplatform__hibernation__ops}{platform\+\_\+hibernation\+\_\+ops}}$\ast$ hibernation\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a387922d5eb2dc03b69b3828ba3dda172}\label{kernel_2power_2hibernate_8c_a387922d5eb2dc03b69b3828ba3dda172}} 
+\index{hibernate.c@{hibernate.c}!nocompress@{nocompress}}
+\index{nocompress@{nocompress}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{nocompress}{nocompress}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nocompress\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aebaf092f37370e5d064cb86ba5ae0a5c}\label{kernel_2power_2hibernate_8c_aebaf092f37370e5d064cb86ba5ae0a5c}} 
+\index{hibernate.c@{hibernate.c}!nohibernate@{nohibernate}}
+\index{nohibernate@{nohibernate}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{nohibernate}{nohibernate}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nohibernate\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_ac8d6bdc3d1fa626d8aeb3bf1af8c7ed2}\label{kernel_2power_2hibernate_8c_ac8d6bdc3d1fa626d8aeb3bf1af8c7ed2}} 
+\index{hibernate.c@{hibernate.c}!noresume@{noresume}}
+\index{noresume@{noresume}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{noresume}{noresume}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} noresume\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aba29ca32410f1485d87e46249b30b942}\label{kernel_2power_2hibernate_8c_aba29ca32410f1485d87e46249b30b942}} 
+\index{hibernate.c@{hibernate.c}!resume\_delay@{resume\_delay}}
+\index{resume\_delay@{resume\_delay}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_delay}{resume\_delay}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} resume\+\_\+delay\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a94a5244783ba3f7b63a1054ba567c56f}\label{kernel_2power_2hibernate_8c_a94a5244783ba3f7b63a1054ba567c56f}} 
+\index{hibernate.c@{hibernate.c}!resume\_file@{resume\_file}}
+\index{resume\_file@{resume\_file}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_file}{resume\_file}}
+{\footnotesize\ttfamily char resume\+\_\+file\mbox{[}256\mbox{]} = \mbox{\hyperlink{autoconf_8h_ae89cfe82a042be57c90bc8d20d3c0f4b}{C\+O\+N\+F\+I\+G\+\_\+\+P\+M\+\_\+\+S\+T\+D\+\_\+\+P\+A\+R\+T\+I\+T\+I\+ON}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_aac39210a08700089ccd1c29e83b703ba}\label{kernel_2power_2hibernate_8c_aac39210a08700089ccd1c29e83b703ba}} 
+\index{hibernate.c@{hibernate.c}!resume\_wait@{resume\_wait}}
+\index{resume\_wait@{resume\_wait}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{resume\_wait}{resume\_wait}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} resume\+\_\+wait\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a88275f1a940419810f50813977daf2e9}\label{kernel_2power_2hibernate_8c_a88275f1a940419810f50813977daf2e9}} 
+\index{hibernate.c@{hibernate.c}!swsusp\_resume\_block@{swsusp\_resume\_block}}
+\index{swsusp\_resume\_block@{swsusp\_resume\_block}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_resume\_block}{swsusp\_resume\_block}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_a5633b035178a9028cd513925d3911199}{sector\+\_\+t}} swsusp\+\_\+resume\+\_\+block}
+
+\mbox{\Hypertarget{kernel_2power_2hibernate_8c_a674c55baf9f84d05a095c40d183bc912}\label{kernel_2power_2hibernate_8c_a674c55baf9f84d05a095c40d183bc912}} 
+\index{hibernate.c@{hibernate.c}!swsusp\_resume\_device@{swsusp\_resume\_device}}
+\index{swsusp\_resume\_device@{swsusp\_resume\_device}!hibernate.c@{hibernate.c}}
+\doxysubsubsection{\texorpdfstring{swsusp\_resume\_device}{swsusp\_resume\_device}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_a51282934e29e084764c633097efe37eb}{dev\+\_\+t}} swsusp\+\_\+resume\+\_\+device}
+

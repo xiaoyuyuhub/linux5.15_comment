@@ -1,0 +1,1263 @@
+\hypertarget{futex_8c}{}\doxysection{kernel/futex.c File Reference}
+\label{futex_8c}\index{kernel/futex.c@{kernel/futex.c}}
+{\ttfamily \#include $<$linux/compat.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jhash.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagemap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscalls.\+h$>$}\newline
+{\ttfamily \#include $<$linux/freezer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memblock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fault-\/inject.\+h$>$}\newline
+{\ttfamily \#include $<$linux/time\+\_\+namespace.\+h$>$}\newline
+{\ttfamily \#include $<$asm/futex.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}locking/rtmutex\+\_\+common.\+h\char`\"{}}\newline
+Include dependency graph for futex.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}}
+\item 
+struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}}
+\item 
+struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{futex_8c_ae6c5d4c38555b34481b238fa65594778}{F\+L\+A\+G\+S\+\_\+\+S\+H\+A\+R\+ED}}~0x00
+\item 
+\#define \mbox{\hyperlink{futex_8c_a209215f8251b6cb366066cf363314b5d}{F\+L\+A\+G\+S\+\_\+\+C\+L\+O\+C\+K\+RT}}~0x02
+\item 
+\#define \mbox{\hyperlink{futex_8c_ae583191cd898f70af4427b9207914ba5}{F\+L\+A\+G\+S\+\_\+\+H\+A\+S\+\_\+\+T\+I\+M\+E\+O\+UT}}~0x04
+\item 
+\#define \mbox{\hyperlink{futex_8c_a32ce6cd8dd5deb0f83aed33f7a5cffd5}{futex\+\_\+queues}}~(\mbox{\hyperlink{futex_8c_ac3ee6b6c7d25fdd2906f5768104d260a}{\+\_\+\+\_\+futex\+\_\+data.\+queues}})
+\item 
+\#define \mbox{\hyperlink{futex_8c_a083989c7ed5d3fb562da2a75f991b00f}{futex\+\_\+hashsize}}~(\mbox{\hyperlink{futex_8c_ad1ab506340dc498172f56facb133a99c}{\+\_\+\+\_\+futex\+\_\+data.\+hashsize}})
+\item 
+\#define \mbox{\hyperlink{futex_8c_aff36521ff0116be3e57c6432f638f27d}{H\+A\+N\+D\+L\+E\+\_\+\+D\+E\+A\+T\+H\+\_\+\+P\+E\+N\+D\+I\+NG}}~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}
+\item 
+\#define \mbox{\hyperlink{futex_8c_acbf08e5908b0f273311375c8ce7a5860}{H\+A\+N\+D\+L\+E\+\_\+\+D\+E\+A\+T\+H\+\_\+\+L\+I\+ST}}~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \{ \newline
+\mbox{\hyperlink{futex_8c_a6902a14a6779615044c115a5e6f96a92ae09568309fa23b6620ac17d337d1925b}{Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+N\+O\+NE}} = 0, 
+\mbox{\hyperlink{futex_8c_a6902a14a6779615044c115a5e6f96a92a92ed46d616ba5ad4e1f2af495bfc14c6}{Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+I\+G\+N\+O\+RE}}, 
+\mbox{\hyperlink{futex_8c_a6902a14a6779615044c115a5e6f96a92a62b4f182aeeed519728b25a2b98e6551}{Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+I\+N\+\_\+\+P\+R\+O\+G\+R\+E\+SS}}, 
+\mbox{\hyperlink{futex_8c_a6902a14a6779615044c115a5e6f96a92a45f9939a144c36afdf023140ada9f249}{Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+W\+A\+IT}}, 
+\newline
+\mbox{\hyperlink{futex_8c_a6902a14a6779615044c115a5e6f96a92a3b6f2059169361bf2a234fc325c2855b}{Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+D\+O\+NE}}, 
+\mbox{\hyperlink{futex_8c_a6902a14a6779615044c115a5e6f96a92ab886430c12c79c92f3a172ffd7305949}{Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+L\+O\+C\+K\+ED}}
+ \}
+\item 
+enum \mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}{futex\+\_\+access}} \{ \mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3ca626fed520b664686553247fa771aeb91}{F\+U\+T\+E\+X\+\_\+\+R\+E\+AD}}, 
+\mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3caafc04851565334ea8b62264122161911}{F\+U\+T\+E\+X\+\_\+\+W\+R\+I\+TE}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\begin{tabbing}
+xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=\kill
+struct \{\\
+\>struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\_hash\_bucket}} $\ast$ \mbox{\hyperlink{futex_8c_ac3ee6b6c7d25fdd2906f5768104d260a}{queues}}\\
+\>unsigned long \mbox{\hyperlink{futex_8c_ad1ab506340dc498172f56facb133a99c}{hashsize}}\\
+\} \mbox{\hyperlink{futex_8c_a756cf1ca71f6125c7d81accc5218852d}{\_\_aligned}} (2 $\ast$\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(long))\\
+
+\end{tabbing}\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{futex_8c_ada757eb1e7da7fc2974ba68afa0c8d2c}{should\+\_\+fail\+\_\+futex}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} fshared)
+\item 
+static void \mbox{\hyperlink{futex_8c_a0c895faeb81a2bab5f46c30dc719a749}{hb\+\_\+waiters\+\_\+inc}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb)
+\item 
+static void \mbox{\hyperlink{futex_8c_a2e284629c01aa481f73f411ec2aae93b}{hb\+\_\+waiters\+\_\+dec}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a9dccfa15c6bdfa4a60a6c305f1ac5902}{hb\+\_\+waiters\+\_\+pending}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb)
+\item 
+static struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$ \mbox{\hyperlink{futex_8c_a0d33b0212952406a03a1f721117833d7}{hash\+\_\+futex}} (union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_ab66c169070998abbb5ea79c31a13a86f}{match\+\_\+futex}} (union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$key1, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$key2)
+\item 
+static struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} $\ast$ \mbox{\hyperlink{futex_8c_a4b0241ec0e9e1b8799999d2f116791a6}{futex\+\_\+setup\+\_\+timer}} (\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$\mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}}, struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} $\ast$\mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} range\+\_\+ns)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{futex_8c_acea482b52b88221acb9d6105008a2c79}{get\+\_\+inode\+\_\+sequence\+\_\+number}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_af264f65098849c5b92e1c5ff098a3638}{get\+\_\+futex\+\_\+key}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} fshared, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}{futex\+\_\+access}} \mbox{\hyperlink{blkif_8h_a5ce7c7b2f0a6a5262e9718fb7edda30e}{rw}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a61a039c9054cf2c4065851128f964287}{fault\+\_\+in\+\_\+user\+\_\+writeable}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr)
+\item 
+static struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$ \mbox{\hyperlink{futex_8c_a1bac40514d96b62403bc9f40fcb68da2}{futex\+\_\+top\+\_\+waiter}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_afb0c6b3b50e86641f48526f295165c90}{cmpxchg\+\_\+futex\+\_\+value\+\_\+locked}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$curval, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} uval, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} newval)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a905ed16d718c34bb4218271c8c9bc866}{get\+\_\+futex\+\_\+value\+\_\+locked}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$\mbox{\hyperlink{apicdef_8h_a95653a0e059f85d3ccfe3a86caf0a34b}{dest}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{uapi_2linux_2nbd_8h_a40a5b09b54e6b509d25739f0d9a626e9}{from}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_ad3390656d84a5a0ca303ccb4b9540917}{refill\+\_\+pi\+\_\+state\+\_\+cache}} (void)
+\item 
+static struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$ \mbox{\hyperlink{futex_8c_abc004c79961ed8b1745a3d52d17056be}{alloc\+\_\+pi\+\_\+state}} (void)
+\item 
+static void \mbox{\hyperlink{futex_8c_aa266087e0b54ff5642b04000c6f310b4}{pi\+\_\+state\+\_\+update\+\_\+owner}} (struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$pi\+\_\+state, struct task\+\_\+struct $\ast$new\+\_\+owner)
+\item 
+static void \mbox{\hyperlink{futex_8c_a42d415452d9655a976257fc5af7dda9e}{get\+\_\+pi\+\_\+state}} (struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$pi\+\_\+state)
+\item 
+static void \mbox{\hyperlink{futex_8c_a3f62c971fb46d4a99d6f377a1f3dc6eb}{put\+\_\+pi\+\_\+state}} (struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$pi\+\_\+state)
+\item 
+static void \mbox{\hyperlink{futex_8c_adb18f1b0ac152c7af3c2d8b819212655}{exit\+\_\+pi\+\_\+state\+\_\+list}} (struct task\+\_\+struct $\ast$curr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_ab56bc90c95345d2f968c6ca1adf47aef}{attach\+\_\+to\+\_\+pi\+\_\+state}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} uval, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$pi\+\_\+state, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$\mbox{\hyperlink{rados_8h_abf017bad326517c1877d65ad5389b2f2}{ps}})
+\item 
+static void \mbox{\hyperlink{futex_8c_a12334062522d50eb48642978568723b2}{wait\+\_\+for\+\_\+owner\+\_\+exiting}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{xz__dec__test_8c_aa53b984cbb8e149556f0e3091f6e4c89}{ret}}, struct task\+\_\+struct $\ast$exiting)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a56fa77cc782ee2393a1b5e82a0a0e7ed}{handle\+\_\+exit\+\_\+race}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} uval, struct task\+\_\+struct $\ast$tsk)
+\item 
+static void \mbox{\hyperlink{futex_8c_a9866f47013fac2749ade710f326b7b95}{\+\_\+\+\_\+attach\+\_\+to\+\_\+pi\+\_\+owner}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$\mbox{\hyperlink{rados_8h_abf017bad326517c1877d65ad5389b2f2}{ps}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_adebc7ddf9b152c0328a904c46dbaab41}{attach\+\_\+to\+\_\+pi\+\_\+owner}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} uval, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$\mbox{\hyperlink{rados_8h_abf017bad326517c1877d65ad5389b2f2}{ps}}, struct task\+\_\+struct $\ast$$\ast$exiting)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a478ae93f7391cd395b55542864a58ef2}{lock\+\_\+pi\+\_\+update\+\_\+atomic}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} uval, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} newval)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a588e8a43c9baa79cd687f46e2fc03589}{futex\+\_\+lock\+\_\+pi\+\_\+atomic}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$\mbox{\hyperlink{rados_8h_abf017bad326517c1877d65ad5389b2f2}{ps}}, struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, struct task\+\_\+struct $\ast$$\ast$exiting, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} set\+\_\+waiters)
+\item 
+static void \mbox{\hyperlink{futex_8c_ac6d4108e925b9a37491a1483823286f3}{\+\_\+\+\_\+unqueue\+\_\+futex}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}})
+\item 
+static void \mbox{\hyperlink{futex_8c_a5766e0c6ab80fef723454df36ef028f3}{mark\+\_\+wake\+\_\+futex}} (struct \mbox{\hyperlink{structwake__q__head}{wake\+\_\+q\+\_\+head}} $\ast$wake\+\_\+q, struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_ab9477e92f7cc4d6447d94772f7a277a8}{wake\+\_\+futex\+\_\+pi}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} uval, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$pi\+\_\+state)
+\item 
+static void \mbox{\hyperlink{futex_8c_ab16815544b3a63ca5934ead391857abc}{double\+\_\+lock\+\_\+hb}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb1, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb2)
+\item 
+static void \mbox{\hyperlink{futex_8c_a7599a0d9bad8488f131d8fd86320fe2f}{double\+\_\+unlock\+\_\+hb}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb1, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb2)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a2fb71ea16c78d99cd6ea7a6f3414da75}{futex\+\_\+wake}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+wake, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} bitset)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a53184a3a1bb42d4c4de772e01d496a0e}{futex\+\_\+atomic\+\_\+op\+\_\+inuser}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} encoded\+\_\+op, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a764a0df952add651716ae16c5770c35a}{futex\+\_\+wake\+\_\+op}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr1, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr2, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+wake, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+wake2, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}})
+\item 
+static void \mbox{\hyperlink{futex_8c_a47108274b0317cdb6ff793abb72630e3}{requeue\+\_\+futex}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb1, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb2, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$key2)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{futex_8c_a962c5d11f8c48d9bd666c53fe355bb01}{futex\+\_\+requeue\+\_\+pi\+\_\+prepare}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$pi\+\_\+state)
+\item 
+static void \mbox{\hyperlink{futex_8c_a5719d4473b59536322b8423519bfefd6}{futex\+\_\+requeue\+\_\+pi\+\_\+complete}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{scsi__device_8h_a16502e0b6f9486c0933a09b55b3a95f6}{locked}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a586e027c4717158e7b8324ec10fd7fc5}{futex\+\_\+requeue\+\_\+pi\+\_\+wakeup\+\_\+sync}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}})
+\item 
+static void \mbox{\hyperlink{futex_8c_af6aedf32b40987499ac365c6eee0870f}{requeue\+\_\+pi\+\_\+wake\+\_\+futex}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a6c375505c8fc9495c0f49f8f09517130}{futex\+\_\+proxy\+\_\+trylock\+\_\+atomic}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$pifutex, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb1, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb2, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$key1, union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$key2, struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$\mbox{\hyperlink{rados_8h_abf017bad326517c1877d65ad5389b2f2}{ps}}, struct task\+\_\+struct $\ast$$\ast$exiting, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} set\+\_\+waiters)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a3e3395ff7c6569ddb1fdadab318db3ec}{futex\+\_\+requeue}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr1, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr2, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+wake, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+requeue, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$cmpval, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} requeue\+\_\+pi)
+\item 
+static struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$ \mbox{\hyperlink{futex_8c_a70d32a3376c97029b7998905235f1fca}{queue\+\_\+lock}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(\&hb -\/$>$ \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{futex_8c_a026bf9465056128a74a98325c1ea4387}{queue\+\_\+unlock}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(\&hb -\/$>$ \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{futex_8c_a38be5cedfa7a17d1826dc71ec52bd502}{\+\_\+\+\_\+queue\+\_\+me}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb)
+\item 
+static void \mbox{\hyperlink{futex_8c_a4d4b2cea799589871821f88905414f92}{queue\+\_\+me}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(\&hb -\/$>$ \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a960468687578520dc7402558a3fb73fb}{unqueue\+\_\+me}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}})
+\item 
+static void \mbox{\hyperlink{futex_8c_a41554e7bc71c4bdf4b16e2120b8fe81d}{unqueue\+\_\+me\+\_\+pi}} (struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a3e148776565a5a0bb32676d176f5241e}{\+\_\+\+\_\+fixup\+\_\+pi\+\_\+state\+\_\+owner}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct task\+\_\+struct $\ast$argowner)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_afd49f8ee8ed0c2c8d85497e7aa202350}{fixup\+\_\+pi\+\_\+state\+\_\+owner}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct task\+\_\+struct $\ast$argowner)
+\item 
+static long \mbox{\hyperlink{futex_8c_a4fa776c560fc75cd9e42467ce83a7b98}{futex\+\_\+wait\+\_\+restart}} (struct \mbox{\hyperlink{structrestart__block}{restart\+\_\+block}} $\ast$restart)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a0b321aa08948b07f8b408b611755d88b}{fixup\+\_\+owner}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{scsi__device_8h_a16502e0b6f9486c0933a09b55b3a95f6}{locked}})
+\item 
+static void \mbox{\hyperlink{futex_8c_a4bd7cac6f72e500aa325d6efe5d35835}{futex\+\_\+wait\+\_\+queue\+\_\+me}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb, struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} $\ast$\mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_abf3fe1ec9a5f6da0b1a0fd93f9708fc4}{futex\+\_\+wait\+\_\+setup}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$$\ast$hb)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a591d54ad9027da13464cde773a9241ba}{futex\+\_\+wait}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$abs\+\_\+time, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} bitset)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a4ca477db1e86056a6aa39c8266055ce2}{futex\+\_\+lock\+\_\+pi}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$\mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trylock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a7593c4b66258cd4ef0bc7c83e11e33da}{futex\+\_\+unlock\+\_\+pi}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a9ffb75ccd43d67bd0150bcceb431a7ed}{handle\+\_\+early\+\_\+requeue\+\_\+pi\+\_\+wakeup}} (struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$hb, struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} $\ast$\mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a3ea5757864e2364d908d1896585e0011}{futex\+\_\+wait\+\_\+requeue\+\_\+pi}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$abs\+\_\+time, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} bitset, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr2)
+\item 
+\mbox{\hyperlink{futex_8c_a9be33ba9ef2900b7d353516aa28953da}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2}} (set\+\_\+robust\+\_\+list, struct \mbox{\hyperlink{structrobust__list__head}{robust\+\_\+list\+\_\+head}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, \mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}, \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+\mbox{\hyperlink{futex_8c_ac47f66b746fd91925f9150eeb368e5f5}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E3}} (get\+\_\+robust\+\_\+list, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{structpid}{pid}}, struct \mbox{\hyperlink{structrobust__list__head}{robust\+\_\+list\+\_\+head}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, head\+\_\+ptr, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, len\+\_\+ptr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a22fc3c2a857837ad8b8cfe8e14b23020}{handle\+\_\+futex\+\_\+death}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, struct task\+\_\+struct $\ast$curr, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pi, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pending\+\_\+op)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a77528243fdcf8cc80838d7c7a3539524}{fetch\+\_\+robust\+\_\+entry}} (struct \mbox{\hyperlink{structrobust__list}{robust\+\_\+list}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$$\ast$entry, struct \mbox{\hyperlink{structrobust__list}{robust\+\_\+list}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$pi)
+\item 
+static void \mbox{\hyperlink{futex_8c_a3758ffdcf6bba2ed54f1a3eb7501a200}{exit\+\_\+robust\+\_\+list}} (struct task\+\_\+struct $\ast$curr)
+\item 
+static void \mbox{\hyperlink{futex_8c_ac900769f2dbc89bfa20fef963593a990}{futex\+\_\+cleanup}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+void \mbox{\hyperlink{futex_8c_a879a5346b8ab442562abec2fc1515480}{futex\+\_\+exit\+\_\+recursive}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+static void \mbox{\hyperlink{futex_8c_ad684fc0f1b008289ab304698a7364272}{futex\+\_\+cleanup\+\_\+begin}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+static void \mbox{\hyperlink{futex_8c_a1a6741c006580920a033161813c4f5f5}{futex\+\_\+cleanup\+\_\+end}} (struct task\+\_\+struct $\ast$tsk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}})
+\item 
+void \mbox{\hyperlink{futex_8c_a4c1e0fa181919b4af4953424573c9a1a}{futex\+\_\+exec\+\_\+release}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+void \mbox{\hyperlink{futex_8c_ae3a11c6b6693b4bdac368aa486d95552}{futex\+\_\+exit\+\_\+release}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+long \mbox{\hyperlink{futex_8c_a15fb3d5d53dcb5f942e2165837c3514c}{do\+\_\+futex}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$\mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$uaddr2, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} val2, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} val3)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{futex_8c_aa06dfb69bc49a17a1fa6ebdc535632b4}{futex\+\_\+cmd\+\_\+has\+\_\+timeout}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{uapi_2linux_2virtio__net_8h_a0de40fae14654a63d8d1b50cf2874806}{cmd}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{futex_8c_a6dc0c617e1cef43a24b198d767380670}{futex\+\_\+init\+\_\+timeout}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{uapi_2linux_2virtio__net_8h_a0de40fae14654a63d8d1b50cf2874806}{cmd}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}}, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_ac8a1f6f44110c38c6459023493706bc5}{ts}}, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+\mbox{\hyperlink{futex_8c_a2f5a6635ec4caf4cb3dbfef82070c3f3}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E6}} (futex, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, uaddr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}, \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, const struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, utime, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, uaddr2, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}, val3)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{futex_8c_a8c7f0d2b00189bb6390494dfd8c05d48}{futex\+\_\+detect\+\_\+cmpxchg}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{futex_8c_a60986da034aaa293c577377d610bad25}{futex\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{futex_8c_a93f4cb80064ed0f3ad0d1265d4f22fe4}{core\+\_\+initcall}} (\mbox{\hyperlink{futex_8c_a60986da034aaa293c577377d610bad25}{futex\+\_\+init}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{futex_8c_ab03d63a595f239b1e07fafef07bc3bcc}{futex\+\_\+cmpxchg\+\_\+enabled}}
+\item 
+struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} \mbox{\hyperlink{futex_8c_a491f476cb7974ae6e083a83254ff5929}{\+\_\+\+\_\+randomize\+\_\+layout}}
+\item 
+static const struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} \mbox{\hyperlink{futex_8c_af8ebbcd9f1eaa4107ce0ecba7150870f}{futex\+\_\+q\+\_\+init}}
+\item 
+struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} \mbox{\hyperlink{futex_8c_a827f820ace1689accaca9b2e4b46d69f}{\+\_\+\+\_\+\+\_\+\+\_\+cacheline\+\_\+aligned\+\_\+in\+\_\+smp}}
+\item 
+\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}{futex\+\_\+access}} \mbox{\hyperlink{futex_8c_a4ffccb78fffbdfabb8d7a42358e2c4b4}{\+\_\+\+\_\+aligned}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{futex_8c_a209215f8251b6cb366066cf363314b5d}\label{futex_8c_a209215f8251b6cb366066cf363314b5d}} 
+\index{futex.c@{futex.c}!FLAGS\_CLOCKRT@{FLAGS\_CLOCKRT}}
+\index{FLAGS\_CLOCKRT@{FLAGS\_CLOCKRT}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{FLAGS\_CLOCKRT}{FLAGS\_CLOCKRT}}
+{\footnotesize\ttfamily \#define F\+L\+A\+G\+S\+\_\+\+C\+L\+O\+C\+K\+RT~0x02}
+
+\mbox{\Hypertarget{futex_8c_ae583191cd898f70af4427b9207914ba5}\label{futex_8c_ae583191cd898f70af4427b9207914ba5}} 
+\index{futex.c@{futex.c}!FLAGS\_HAS\_TIMEOUT@{FLAGS\_HAS\_TIMEOUT}}
+\index{FLAGS\_HAS\_TIMEOUT@{FLAGS\_HAS\_TIMEOUT}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{FLAGS\_HAS\_TIMEOUT}{FLAGS\_HAS\_TIMEOUT}}
+{\footnotesize\ttfamily \#define F\+L\+A\+G\+S\+\_\+\+H\+A\+S\+\_\+\+T\+I\+M\+E\+O\+UT~0x04}
+
+\mbox{\Hypertarget{futex_8c_ae6c5d4c38555b34481b238fa65594778}\label{futex_8c_ae6c5d4c38555b34481b238fa65594778}} 
+\index{futex.c@{futex.c}!FLAGS\_SHARED@{FLAGS\_SHARED}}
+\index{FLAGS\_SHARED@{FLAGS\_SHARED}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{FLAGS\_SHARED}{FLAGS\_SHARED}}
+{\footnotesize\ttfamily \#define F\+L\+A\+G\+S\+\_\+\+S\+H\+A\+R\+ED~0x00}
+
+\mbox{\Hypertarget{futex_8c_a083989c7ed5d3fb562da2a75f991b00f}\label{futex_8c_a083989c7ed5d3fb562da2a75f991b00f}} 
+\index{futex.c@{futex.c}!futex\_hashsize@{futex\_hashsize}}
+\index{futex\_hashsize@{futex\_hashsize}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_hashsize}{futex\_hashsize}}
+{\footnotesize\ttfamily \#define futex\+\_\+hashsize~(\mbox{\hyperlink{futex_8c_ad1ab506340dc498172f56facb133a99c}{\+\_\+\+\_\+futex\+\_\+data.\+hashsize}})}
+
+\mbox{\Hypertarget{futex_8c_a32ce6cd8dd5deb0f83aed33f7a5cffd5}\label{futex_8c_a32ce6cd8dd5deb0f83aed33f7a5cffd5}} 
+\index{futex.c@{futex.c}!futex\_queues@{futex\_queues}}
+\index{futex\_queues@{futex\_queues}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_queues}{futex\_queues}}
+{\footnotesize\ttfamily \#define futex\+\_\+queues~(\mbox{\hyperlink{futex_8c_ac3ee6b6c7d25fdd2906f5768104d260a}{\+\_\+\+\_\+futex\+\_\+data.\+queues}})}
+
+\mbox{\Hypertarget{futex_8c_acbf08e5908b0f273311375c8ce7a5860}\label{futex_8c_acbf08e5908b0f273311375c8ce7a5860}} 
+\index{futex.c@{futex.c}!HANDLE\_DEATH\_LIST@{HANDLE\_DEATH\_LIST}}
+\index{HANDLE\_DEATH\_LIST@{HANDLE\_DEATH\_LIST}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{HANDLE\_DEATH\_LIST}{HANDLE\_DEATH\_LIST}}
+{\footnotesize\ttfamily \#define H\+A\+N\+D\+L\+E\+\_\+\+D\+E\+A\+T\+H\+\_\+\+L\+I\+ST~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}}
+
+\mbox{\Hypertarget{futex_8c_aff36521ff0116be3e57c6432f638f27d}\label{futex_8c_aff36521ff0116be3e57c6432f638f27d}} 
+\index{futex.c@{futex.c}!HANDLE\_DEATH\_PENDING@{HANDLE\_DEATH\_PENDING}}
+\index{HANDLE\_DEATH\_PENDING@{HANDLE\_DEATH\_PENDING}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{HANDLE\_DEATH\_PENDING}{HANDLE\_DEATH\_PENDING}}
+{\footnotesize\ttfamily \#define H\+A\+N\+D\+L\+E\+\_\+\+D\+E\+A\+T\+H\+\_\+\+P\+E\+N\+D\+I\+NG~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{futex_8c_a6902a14a6779615044c115a5e6f96a92}\label{futex_8c_a6902a14a6779615044c115a5e6f96a92}} 
+\doxysubsubsection{\texorpdfstring{anonymous enum}{anonymous enum}}
+{\footnotesize\ttfamily anonymous \mbox{\hyperlink{interfaceenum}{enum}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{Q\_REQUEUE\_PI\_NONE@{Q\_REQUEUE\_PI\_NONE}!futex.c@{futex.c}}\index{futex.c@{futex.c}!Q\_REQUEUE\_PI\_NONE@{Q\_REQUEUE\_PI\_NONE}}}\mbox{\Hypertarget{futex_8c_a6902a14a6779615044c115a5e6f96a92ae09568309fa23b6620ac17d337d1925b}\label{futex_8c_a6902a14a6779615044c115a5e6f96a92ae09568309fa23b6620ac17d337d1925b}} 
+Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+N\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{Q\_REQUEUE\_PI\_IGNORE@{Q\_REQUEUE\_PI\_IGNORE}!futex.c@{futex.c}}\index{futex.c@{futex.c}!Q\_REQUEUE\_PI\_IGNORE@{Q\_REQUEUE\_PI\_IGNORE}}}\mbox{\Hypertarget{futex_8c_a6902a14a6779615044c115a5e6f96a92a92ed46d616ba5ad4e1f2af495bfc14c6}\label{futex_8c_a6902a14a6779615044c115a5e6f96a92a92ed46d616ba5ad4e1f2af495bfc14c6}} 
+Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+I\+G\+N\+O\+RE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{Q\_REQUEUE\_PI\_IN\_PROGRESS@{Q\_REQUEUE\_PI\_IN\_PROGRESS}!futex.c@{futex.c}}\index{futex.c@{futex.c}!Q\_REQUEUE\_PI\_IN\_PROGRESS@{Q\_REQUEUE\_PI\_IN\_PROGRESS}}}\mbox{\Hypertarget{futex_8c_a6902a14a6779615044c115a5e6f96a92a62b4f182aeeed519728b25a2b98e6551}\label{futex_8c_a6902a14a6779615044c115a5e6f96a92a62b4f182aeeed519728b25a2b98e6551}} 
+Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+I\+N\+\_\+\+P\+R\+O\+G\+R\+E\+SS&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{Q\_REQUEUE\_PI\_WAIT@{Q\_REQUEUE\_PI\_WAIT}!futex.c@{futex.c}}\index{futex.c@{futex.c}!Q\_REQUEUE\_PI\_WAIT@{Q\_REQUEUE\_PI\_WAIT}}}\mbox{\Hypertarget{futex_8c_a6902a14a6779615044c115a5e6f96a92a45f9939a144c36afdf023140ada9f249}\label{futex_8c_a6902a14a6779615044c115a5e6f96a92a45f9939a144c36afdf023140ada9f249}} 
+Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+W\+A\+IT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{Q\_REQUEUE\_PI\_DONE@{Q\_REQUEUE\_PI\_DONE}!futex.c@{futex.c}}\index{futex.c@{futex.c}!Q\_REQUEUE\_PI\_DONE@{Q\_REQUEUE\_PI\_DONE}}}\mbox{\Hypertarget{futex_8c_a6902a14a6779615044c115a5e6f96a92a3b6f2059169361bf2a234fc325c2855b}\label{futex_8c_a6902a14a6779615044c115a5e6f96a92a3b6f2059169361bf2a234fc325c2855b}} 
+Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+D\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{Q\_REQUEUE\_PI\_LOCKED@{Q\_REQUEUE\_PI\_LOCKED}!futex.c@{futex.c}}\index{futex.c@{futex.c}!Q\_REQUEUE\_PI\_LOCKED@{Q\_REQUEUE\_PI\_LOCKED}}}\mbox{\Hypertarget{futex_8c_a6902a14a6779615044c115a5e6f96a92ab886430c12c79c92f3a172ffd7305949}\label{futex_8c_a6902a14a6779615044c115a5e6f96a92ab886430c12c79c92f3a172ffd7305949}} 
+Q\+\_\+\+R\+E\+Q\+U\+E\+U\+E\+\_\+\+P\+I\+\_\+\+L\+O\+C\+K\+ED&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}\label{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}} 
+\index{futex.c@{futex.c}!futex\_access@{futex\_access}}
+\index{futex\_access@{futex\_access}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_access}{futex\_access}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}{futex\+\_\+access}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{FUTEX\_READ@{FUTEX\_READ}!futex.c@{futex.c}}\index{futex.c@{futex.c}!FUTEX\_READ@{FUTEX\_READ}}}\mbox{\Hypertarget{futex_8c_a91be82c4943db7c7a3499f3cc419fa3ca626fed520b664686553247fa771aeb91}\label{futex_8c_a91be82c4943db7c7a3499f3cc419fa3ca626fed520b664686553247fa771aeb91}} 
+F\+U\+T\+E\+X\+\_\+\+R\+E\+AD&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{FUTEX\_WRITE@{FUTEX\_WRITE}!futex.c@{futex.c}}\index{futex.c@{futex.c}!FUTEX\_WRITE@{FUTEX\_WRITE}}}\mbox{\Hypertarget{futex_8c_a91be82c4943db7c7a3499f3cc419fa3caafc04851565334ea8b62264122161911}\label{futex_8c_a91be82c4943db7c7a3499f3cc419fa3caafc04851565334ea8b62264122161911}} 
+F\+U\+T\+E\+X\+\_\+\+W\+R\+I\+TE&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{futex_8c_a756cf1ca71f6125c7d81accc5218852d}\label{futex_8c_a756cf1ca71f6125c7d81accc5218852d}} 
+\index{futex.c@{futex.c}!\_\_aligned@{\_\_aligned}}
+\index{\_\_aligned@{\_\_aligned}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_aligned()}{\_\_aligned()}}
+{\footnotesize\ttfamily static struct @486 \+\_\+\+\_\+aligned (\begin{DoxyParamCaption}\item[{2 $\ast$}]{sizeoflong }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{futex_8c_a9866f47013fac2749ade710f326b7b95}\label{futex_8c_a9866f47013fac2749ade710f326b7b95}} 
+\index{futex.c@{futex.c}!\_\_attach\_to\_pi\_owner@{\_\_attach\_to\_pi\_owner}}
+\index{\_\_attach\_to\_pi\_owner@{\_\_attach\_to\_pi\_owner}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_attach\_to\_pi\_owner()}{\_\_attach\_to\_pi\_owner()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+attach\+\_\+to\+\_\+pi\+\_\+owner (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{p,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$}]{ps }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{futex_8c_a3e148776565a5a0bb32676d176f5241e}\label{futex_8c_a3e148776565a5a0bb32676d176f5241e}} 
+\index{futex.c@{futex.c}!\_\_fixup\_pi\_state\_owner@{\_\_fixup\_pi\_state\_owner}}
+\index{\_\_fixup\_pi\_state\_owner@{\_\_fixup\_pi\_state\_owner}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_fixup\_pi\_state\_owner()}{\_\_fixup\_pi\_state\_owner()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+fixup\+\_\+pi\+\_\+state\+\_\+owner (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct task\+\_\+struct $\ast$}]{argowner }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{futex_8c_a38be5cedfa7a17d1826dc71ec52bd502}\label{futex_8c_a38be5cedfa7a17d1826dc71ec52bd502}} 
+\index{futex.c@{futex.c}!\_\_queue\_me@{\_\_queue\_me}}
+\index{\_\_queue\_me@{\_\_queue\_me}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_queue\_me()}{\_\_queue\_me()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+queue\+\_\+me (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{futex_8c_ac6d4108e925b9a37491a1483823286f3}\label{futex_8c_ac6d4108e925b9a37491a1483823286f3}} 
+\index{futex.c@{futex.c}!\_\_unqueue\_futex@{\_\_unqueue\_futex}}
+\index{\_\_unqueue\_futex@{\_\_unqueue\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_unqueue\_futex()}{\_\_unqueue\_futex()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+unqueue\+\_\+futex (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_ac6d4108e925b9a37491a1483823286f3}{\+\_\+\+\_\+unqueue\+\_\+futex()}} -\/ Remove the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} from its \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} @q\+: \mbox{\hyperlink{classThe}{The}} \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} to unqueue
+
+\mbox{\hyperlink{classThe}{The}} q-\/$>$lock\+\_\+ptr must not be N\+U\+LL and must be held by the caller. Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{futex_8c_abc004c79961ed8b1745a3d52d17056be}\label{futex_8c_abc004c79961ed8b1745a3d52d17056be}} 
+\index{futex.c@{futex.c}!alloc\_pi\_state@{alloc\_pi\_state}}
+\index{alloc\_pi\_state@{alloc\_pi\_state}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_pi\_state()}{alloc\_pi\_state()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}}$\ast$ alloc\+\_\+pi\+\_\+state (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{futex_8c_adebc7ddf9b152c0328a904c46dbaab41}\label{futex_8c_adebc7ddf9b152c0328a904c46dbaab41}} 
+\index{futex.c@{futex.c}!attach\_to\_pi\_owner@{attach\_to\_pi\_owner}}
+\index{attach\_to\_pi\_owner@{attach\_to\_pi\_owner}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{attach\_to\_pi\_owner()}{attach\_to\_pi\_owner()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} attach\+\_\+to\+\_\+pi\+\_\+owner (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{uval,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$}]{ps,  }\item[{struct task\+\_\+struct $\ast$$\ast$}]{exiting }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{futex_8c_ab56bc90c95345d2f968c6ca1adf47aef}\label{futex_8c_ab56bc90c95345d2f968c6ca1adf47aef}} 
+\index{futex.c@{futex.c}!attach\_to\_pi\_state@{attach\_to\_pi\_state}}
+\index{attach\_to\_pi\_state@{attach\_to\_pi\_state}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{attach\_to\_pi\_state()}{attach\_to\_pi\_state()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} attach\+\_\+to\+\_\+pi\+\_\+state (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{uval,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$}]{pi\+\_\+state,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$}]{ps }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{futex_8c_afb0c6b3b50e86641f48526f295165c90}\label{futex_8c_afb0c6b3b50e86641f48526f295165c90}} 
+\index{futex.c@{futex.c}!cmpxchg\_futex\_value\_locked@{cmpxchg\_futex\_value\_locked}}
+\index{cmpxchg\_futex\_value\_locked@{cmpxchg\_futex\_value\_locked}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{cmpxchg\_futex\_value\_locked()}{cmpxchg\_futex\_value\_locked()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} cmpxchg\+\_\+futex\+\_\+value\+\_\+locked (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$}]{curval,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{uval,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{newval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{futex_8c_a93f4cb80064ed0f3ad0d1265d4f22fe4}\label{futex_8c_a93f4cb80064ed0f3ad0d1265d4f22fe4}} 
+\index{futex.c@{futex.c}!core\_initcall@{core\_initcall}}
+\index{core\_initcall@{core\_initcall}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{core\_initcall()}{core\_initcall()}}
+{\footnotesize\ttfamily core\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{futex_8c_a60986da034aaa293c577377d610bad25}{futex\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{futex_8c_a15fb3d5d53dcb5f942e2165837c3514c}\label{futex_8c_a15fb3d5d53dcb5f942e2165837c3514c}} 
+\index{futex.c@{futex.c}!do\_futex@{do\_futex}}
+\index{do\_futex@{do\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{do\_futex()}{do\_futex()}}
+{\footnotesize\ttfamily long do\+\_\+futex (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{op,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{val,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$}]{timeout,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr2,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{val2,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{val3 }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{futex_8c_ab16815544b3a63ca5934ead391857abc}\label{futex_8c_ab16815544b3a63ca5934ead391857abc}} 
+\index{futex.c@{futex.c}!double\_lock\_hb@{double\_lock\_hb}}
+\index{double\_lock\_hb@{double\_lock\_hb}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{double\_lock\_hb()}{double\_lock\_hb()}}
+{\footnotesize\ttfamily static void double\+\_\+lock\+\_\+hb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb1,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{futex_8c_a7599a0d9bad8488f131d8fd86320fe2f}\label{futex_8c_a7599a0d9bad8488f131d8fd86320fe2f}} 
+\index{futex.c@{futex.c}!double\_unlock\_hb@{double\_unlock\_hb}}
+\index{double\_unlock\_hb@{double\_unlock\_hb}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{double\_unlock\_hb()}{double\_unlock\_hb()}}
+{\footnotesize\ttfamily static void double\+\_\+unlock\+\_\+hb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb1,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{futex_8c_adb18f1b0ac152c7af3c2d8b819212655}\label{futex_8c_adb18f1b0ac152c7af3c2d8b819212655}} 
+\index{futex.c@{futex.c}!exit\_pi\_state\_list@{exit\_pi\_state\_list}}
+\index{exit\_pi\_state\_list@{exit\_pi\_state\_list}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{exit\_pi\_state\_list()}{exit\_pi\_state\_list()}}
+{\footnotesize\ttfamily static void exit\+\_\+pi\+\_\+state\+\_\+list (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{futex_8c_a3758ffdcf6bba2ed54f1a3eb7501a200}\label{futex_8c_a3758ffdcf6bba2ed54f1a3eb7501a200}} 
+\index{futex.c@{futex.c}!exit\_robust\_list@{exit\_robust\_list}}
+\index{exit\_robust\_list@{exit\_robust\_list}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{exit\_robust\_list()}{exit\_robust\_list()}}
+{\footnotesize\ttfamily static void exit\+\_\+robust\+\_\+list (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{futex_8c_a61a039c9054cf2c4065851128f964287}\label{futex_8c_a61a039c9054cf2c4065851128f964287}} 
+\index{futex.c@{futex.c}!fault\_in\_user\_writeable@{fault\_in\_user\_writeable}}
+\index{fault\_in\_user\_writeable@{fault\_in\_user\_writeable}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{fault\_in\_user\_writeable()}{fault\_in\_user\_writeable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fault\+\_\+in\+\_\+user\+\_\+writeable (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a61a039c9054cf2c4065851128f964287}{fault\+\_\+in\+\_\+user\+\_\+writeable()}} -\/ Fault in user address and verify RW access @uaddr\+: pointer to faulting user space address
+
+Slow path to fixup the fault we just took in the atomic write access to @uaddr.
+
+We have no generic implementation of a non-\/destructive write to the user address. We know that we faulted in the atomic pagefault disabled section so we can as well avoid the \#\+PF overhead by calling \mbox{\hyperlink{gup_8c_aae0075c7e51f84b52b0631623dd6269f}{get\+\_\+user\+\_\+pages()}} right away. Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{futex_8c_a77528243fdcf8cc80838d7c7a3539524}\label{futex_8c_a77528243fdcf8cc80838d7c7a3539524}} 
+\index{futex.c@{futex.c}!fetch\_robust\_entry@{fetch\_robust\_entry}}
+\index{fetch\_robust\_entry@{fetch\_robust\_entry}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{fetch\_robust\_entry()}{fetch\_robust\_entry()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fetch\+\_\+robust\+\_\+entry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrobust__list}{robust\+\_\+list}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$$\ast$}]{entry,  }\item[{struct \mbox{\hyperlink{structrobust__list}{robust\+\_\+list}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{head,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{pi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{futex_8c_a0b321aa08948b07f8b408b611755d88b}\label{futex_8c_a0b321aa08948b07f8b408b611755d88b}} 
+\index{futex.c@{futex.c}!fixup\_owner@{fixup\_owner}}
+\index{fixup\_owner@{fixup\_owner}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{fixup\_owner()}{fixup\_owner()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fixup\+\_\+owner (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{locked }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a0b321aa08948b07f8b408b611755d88b}{fixup\+\_\+owner()}} -\/ Post lock pi\+\_\+state and corner case management @uaddr\+: user address of the futex @q\+: \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} (\mbox{\hyperlink{protocolcontains-p}{contains}} pi\+\_\+state and access to the \mbox{\hyperlink{structrt__mutex}{rt\+\_\+mutex}}) @locked\+: if the attempt to take the \mbox{\hyperlink{structrt__mutex}{rt\+\_\+mutex}} succeeded (1) or not (0)
+
+After attempting to lock an \mbox{\hyperlink{structrt__mutex}{rt\+\_\+mutex}}, this function is called to cleanup the pi\+\_\+state owner as well as handle race conditions that may allow us to acquire the lock. Must be called with the hb lock held.
+
+Return\+:
+\begin{DoxyItemize}
+\item 1 -\/ success, lock taken;
+\item 0 -\/ success, lock not taken;
+\item $<$0 -\/ on error (-\/E\+F\+A\+U\+LT) 
+\end{DoxyItemize}Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{futex_8c_afd49f8ee8ed0c2c8d85497e7aa202350}\label{futex_8c_afd49f8ee8ed0c2c8d85497e7aa202350}} 
+\index{futex.c@{futex.c}!fixup\_pi\_state\_owner@{fixup\_pi\_state\_owner}}
+\index{fixup\_pi\_state\_owner@{fixup\_pi\_state\_owner}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{fixup\_pi\_state\_owner()}{fixup\_pi\_state\_owner()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fixup\+\_\+pi\+\_\+state\+\_\+owner (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct task\+\_\+struct $\ast$}]{argowner }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{futex_8c_a53184a3a1bb42d4c4de772e01d496a0e}\label{futex_8c_a53184a3a1bb42d4c4de772e01d496a0e}} 
+\index{futex.c@{futex.c}!futex\_atomic\_op\_inuser@{futex\_atomic\_op\_inuser}}
+\index{futex\_atomic\_op\_inuser@{futex\_atomic\_op\_inuser}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_atomic\_op\_inuser()}{futex\_atomic\_op\_inuser()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+atomic\+\_\+op\+\_\+inuser (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{encoded\+\_\+op,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{futex_8c_ac900769f2dbc89bfa20fef963593a990}\label{futex_8c_ac900769f2dbc89bfa20fef963593a990}} 
+\index{futex.c@{futex.c}!futex\_cleanup@{futex\_cleanup}}
+\index{futex\_cleanup@{futex\_cleanup}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_cleanup()}{futex\_cleanup()}}
+{\footnotesize\ttfamily static void futex\+\_\+cleanup (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{futex_8c_ad684fc0f1b008289ab304698a7364272}\label{futex_8c_ad684fc0f1b008289ab304698a7364272}} 
+\index{futex.c@{futex.c}!futex\_cleanup\_begin@{futex\_cleanup\_begin}}
+\index{futex\_cleanup\_begin@{futex\_cleanup\_begin}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_cleanup\_begin()}{futex\_cleanup\_begin()}}
+{\footnotesize\ttfamily static void futex\+\_\+cleanup\+\_\+begin (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{futex_8c_a1a6741c006580920a033161813c4f5f5}\label{futex_8c_a1a6741c006580920a033161813c4f5f5}} 
+\index{futex.c@{futex.c}!futex\_cleanup\_end@{futex\_cleanup\_end}}
+\index{futex\_cleanup\_end@{futex\_cleanup\_end}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_cleanup\_end()}{futex\_cleanup\_end()}}
+{\footnotesize\ttfamily static void futex\+\_\+cleanup\+\_\+end (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{futex_8c_aa06dfb69bc49a17a1fa6ebdc535632b4}\label{futex_8c_aa06dfb69bc49a17a1fa6ebdc535632b4}} 
+\index{futex.c@{futex.c}!futex\_cmd\_has\_timeout@{futex\_cmd\_has\_timeout}}
+\index{futex\_cmd\_has\_timeout@{futex\_cmd\_has\_timeout}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_cmd\_has\_timeout()}{futex\_cmd\_has\_timeout()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} futex\+\_\+cmd\+\_\+has\+\_\+timeout (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{cmd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{futex_8c_a8c7f0d2b00189bb6390494dfd8c05d48}\label{futex_8c_a8c7f0d2b00189bb6390494dfd8c05d48}} 
+\index{futex.c@{futex.c}!futex\_detect\_cmpxchg@{futex\_detect\_cmpxchg}}
+\index{futex\_detect\_cmpxchg@{futex\_detect\_cmpxchg}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_detect\_cmpxchg()}{futex\_detect\_cmpxchg()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} futex\+\_\+detect\+\_\+cmpxchg (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{futex_8c_a4c1e0fa181919b4af4953424573c9a1a}\label{futex_8c_a4c1e0fa181919b4af4953424573c9a1a}} 
+\index{futex.c@{futex.c}!futex\_exec\_release@{futex\_exec\_release}}
+\index{futex\_exec\_release@{futex\_exec\_release}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_exec\_release()}{futex\_exec\_release()}}
+{\footnotesize\ttfamily void futex\+\_\+exec\+\_\+release (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{futex_8c_a879a5346b8ab442562abec2fc1515480}\label{futex_8c_a879a5346b8ab442562abec2fc1515480}} 
+\index{futex.c@{futex.c}!futex\_exit\_recursive@{futex\_exit\_recursive}}
+\index{futex\_exit\_recursive@{futex\_exit\_recursive}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_exit\_recursive()}{futex\_exit\_recursive()}}
+{\footnotesize\ttfamily void futex\+\_\+exit\+\_\+recursive (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})}
+
+futex\+\_\+exit\+\_\+recursive -\/ Set the tasks futex state to F\+U\+T\+E\+X\+\_\+\+S\+T\+A\+T\+E\+\_\+\+D\+E\+AD @tsk\+: task to set the state on
+
+Set the futex exit state of the task lockless. \mbox{\hyperlink{classThe}{The}} futex waiter code observes that state when a task is exiting and loops until the task has actually finished the futex cleanup. \mbox{\hyperlink{classThe}{The}} worst case for this is that the waiter runs through the wait loop until the state becomes visible.
+
+This is called from the recursive fault handling path in \mbox{\hyperlink{exit_8c_a40d5ce07ef41c9aecf2c6e25c29c745d}{do\+\_\+exit()}}.
+
+This is best effort. Either the futex exit code has run already or not. If the O\+W\+N\+E\+R\+\_\+\+D\+I\+ED bit has been set on the futex then the waiter can take it over. If not, the problem is pushed back to user space. If the futex exit code did not run yet, then an already queued waiter might block forever, but there is nothing which can be done about that. Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{futex_8c_ae3a11c6b6693b4bdac368aa486d95552}\label{futex_8c_ae3a11c6b6693b4bdac368aa486d95552}} 
+\index{futex.c@{futex.c}!futex\_exit\_release@{futex\_exit\_release}}
+\index{futex\_exit\_release@{futex\_exit\_release}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_exit\_release()}{futex\_exit\_release()}}
+{\footnotesize\ttfamily void futex\+\_\+exit\+\_\+release (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{futex_8c_a60986da034aaa293c577377d610bad25}\label{futex_8c_a60986da034aaa293c577377d610bad25}} 
+\index{futex.c@{futex.c}!futex\_init@{futex\_init}}
+\index{futex\_init@{futex\_init}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_init()}{futex\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} futex\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{futex_8c_a6dc0c617e1cef43a24b198d767380670}\label{futex_8c_a6dc0c617e1cef43a24b198d767380670}} 
+\index{futex.c@{futex.c}!futex\_init\_timeout@{futex\_init\_timeout}}
+\index{futex\_init\_timeout@{futex\_init\_timeout}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_init\_timeout()}{futex\_init\_timeout()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+init\+\_\+timeout (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{cmd,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{op,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{ts,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{futex_8c_a4ca477db1e86056a6aa39c8266055ce2}\label{futex_8c_a4ca477db1e86056a6aa39c8266055ce2}} 
+\index{futex.c@{futex.c}!futex\_lock\_pi@{futex\_lock\_pi}}
+\index{futex\_lock\_pi@{futex\_lock\_pi}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_lock\_pi()}{futex\_lock\_pi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+lock\+\_\+pi (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$}]{time,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trylock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{futex_8c_a588e8a43c9baa79cd687f46e2fc03589}\label{futex_8c_a588e8a43c9baa79cd687f46e2fc03589}} 
+\index{futex.c@{futex.c}!futex\_lock\_pi\_atomic@{futex\_lock\_pi\_atomic}}
+\index{futex\_lock\_pi\_atomic@{futex\_lock\_pi\_atomic}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_lock\_pi\_atomic()}{futex\_lock\_pi\_atomic()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+lock\+\_\+pi\+\_\+atomic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$}]{ps,  }\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{struct task\+\_\+struct $\ast$$\ast$}]{exiting,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{set\+\_\+waiters }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a588e8a43c9baa79cd687f46e2fc03589}{futex\+\_\+lock\+\_\+pi\+\_\+atomic()}} -\/ Atomic work required to acquire a pi aware futex @uaddr\+: the pi futex user address @hb\+: the pi futex hash bucket @key\+: the futex key associated with uaddr and hb @ps\+: the pi\+\_\+state pointer where we store the result of the lookup @task\+: the task to perform the atomic lock work for. This will be \char`\"{}current\char`\"{} except in the case of requeue pi. @exiting\+: Pointer to store the task pointer of the owner task which is in the middle of exiting @set\+\_\+waiters\+: force setting the F\+U\+T\+E\+X\+\_\+\+W\+A\+I\+T\+E\+RS bit (1) or not (0)
+
+Return\+:
+\begin{DoxyItemize}
+\item 0 -\/ ready to wait;
+\item 1 -\/ acquired the lock;
+\item $<$0 -\/ error
+\end{DoxyItemize}
+
+\mbox{\hyperlink{classThe}{The}} hb-\/$>$lock must be held by the caller.
+
+@exiting is only set when the return value is -\/E\+B\+U\+SY. If so, this holds a refcount on the exiting task on return and the caller needs to drop it after waiting for the exit to complete. Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{futex_8c_a6c375505c8fc9495c0f49f8f09517130}\label{futex_8c_a6c375505c8fc9495c0f49f8f09517130}} 
+\index{futex.c@{futex.c}!futex\_proxy\_trylock\_atomic@{futex\_proxy\_trylock\_atomic}}
+\index{futex\_proxy\_trylock\_atomic@{futex\_proxy\_trylock\_atomic}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_proxy\_trylock\_atomic()}{futex\_proxy\_trylock\_atomic()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+proxy\+\_\+trylock\+\_\+atomic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{pifutex,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb1,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb2,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key1,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key2,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$$\ast$}]{ps,  }\item[{struct task\+\_\+struct $\ast$$\ast$}]{exiting,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{set\+\_\+waiters }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a6c375505c8fc9495c0f49f8f09517130}{futex\+\_\+proxy\+\_\+trylock\+\_\+atomic()}} -\/ Attempt an atomic lock for the top waiter @pifutex\+: the user address of the to futex @hb1\+: the from futex hash bucket, must be locked by the caller @hb2\+: the to futex hash bucket, must be locked by the caller @key1\+: the from futex key @key2\+: the to futex key @ps\+: address to store the pi\+\_\+state pointer @exiting\+: Pointer to store the task pointer of the owner task which is in the middle of exiting @set\+\_\+waiters\+: force setting the F\+U\+T\+E\+X\+\_\+\+W\+A\+I\+T\+E\+RS bit (1) or not (0)
+
+Try and get the lock on behalf of the top waiter if we can do it atomically. Wake the top waiter if we succeed. If the caller specified set\+\_\+waiters, then direct \mbox{\hyperlink{futex_8c_a588e8a43c9baa79cd687f46e2fc03589}{futex\+\_\+lock\+\_\+pi\+\_\+atomic()}} to force setting the F\+U\+T\+E\+X\+\_\+\+W\+A\+I\+T\+E\+RS bit. hb1 and hb2 must be held by the caller.
+
+@exiting is only set when the return value is -\/E\+B\+U\+SY. If so, this holds a refcount on the exiting task on return and the caller needs to drop it after waiting for the exit to complete.
+
+Return\+:
+\begin{DoxyItemize}
+\item 0 -\/ failed to acquire the lock atomically;
+\item $>$0 -\/ acquired the lock, return value is vpid of the top\+\_\+waiter
+\item $<$0 -\/ error 
+\end{DoxyItemize}Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{futex_8c_a3e3395ff7c6569ddb1fdadab318db3ec}\label{futex_8c_a3e3395ff7c6569ddb1fdadab318db3ec}} 
+\index{futex.c@{futex.c}!futex\_requeue@{futex\_requeue}}
+\index{futex\_requeue@{futex\_requeue}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_requeue()}{futex\_requeue()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+requeue (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr1,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr2,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+wake,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+requeue,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$}]{cmpval,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{requeue\+\_\+pi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a3e3395ff7c6569ddb1fdadab318db3ec}{futex\+\_\+requeue()}} -\/ Requeue waiters from uaddr1 to uaddr2 @uaddr1\+: source futex user address @flags\+: futex flags (F\+L\+A\+G\+S\+\_\+\+S\+H\+A\+R\+ED, etc.) @uaddr2\+: target futex user address @nr\+\_\+wake\+: number of waiters to wake (must be 1 for requeue\+\_\+pi) @nr\+\_\+requeue\+: number of waiters to requeue (0-\/I\+N\+T\+\_\+\+M\+AX) @cmpval\+: @uaddr1 expected value (or N\+U\+LL) @requeue\+\_\+pi\+: if we are attempting to requeue from a non-\/pi futex to a pi futex (pi to pi requeue is not supported)
+
+Requeue waiters on uaddr1 to uaddr2. In the requeue\+\_\+pi case, try to acquire uaddr2 atomically on behalf of the top waiter.
+
+Return\+:
+\begin{DoxyItemize}
+\item $>$=0 -\/ on success, the number of tasks requeued or woken;
+\item $<$0 -\/ on error 
+\end{DoxyItemize}Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{futex_8c_a5719d4473b59536322b8423519bfefd6}\label{futex_8c_a5719d4473b59536322b8423519bfefd6}} 
+\index{futex.c@{futex.c}!futex\_requeue\_pi\_complete@{futex\_requeue\_pi\_complete}}
+\index{futex\_requeue\_pi\_complete@{futex\_requeue\_pi\_complete}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_requeue\_pi\_complete()}{futex\_requeue\_pi\_complete()}}
+{\footnotesize\ttfamily static void futex\+\_\+requeue\+\_\+pi\+\_\+complete (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{locked }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{futex_8c_a962c5d11f8c48d9bd666c53fe355bb01}\label{futex_8c_a962c5d11f8c48d9bd666c53fe355bb01}} 
+\index{futex.c@{futex.c}!futex\_requeue\_pi\_prepare@{futex\_requeue\_pi\_prepare}}
+\index{futex\_requeue\_pi\_prepare@{futex\_requeue\_pi\_prepare}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_requeue\_pi\_prepare()}{futex\_requeue\_pi\_prepare()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} futex\+\_\+requeue\+\_\+pi\+\_\+prepare (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$}]{pi\+\_\+state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{futex_8c_a586e027c4717158e7b8324ec10fd7fc5}\label{futex_8c_a586e027c4717158e7b8324ec10fd7fc5}} 
+\index{futex.c@{futex.c}!futex\_requeue\_pi\_wakeup\_sync@{futex\_requeue\_pi\_wakeup\_sync}}
+\index{futex\_requeue\_pi\_wakeup\_sync@{futex\_requeue\_pi\_wakeup\_sync}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_requeue\_pi\_wakeup\_sync()}{futex\_requeue\_pi\_wakeup\_sync()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+requeue\+\_\+pi\+\_\+wakeup\+\_\+sync (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 64
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{futex_8c_a4b0241ec0e9e1b8799999d2f116791a6}\label{futex_8c_a4b0241ec0e9e1b8799999d2f116791a6}} 
+\index{futex.c@{futex.c}!futex\_setup\_timer@{futex\_setup\_timer}}
+\index{futex\_setup\_timer@{futex\_setup\_timer}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_setup\_timer()}{futex\_setup\_timer()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}}$\ast$ futex\+\_\+setup\+\_\+timer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$}]{time,  }\item[{struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} $\ast$}]{timeout,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{range\+\_\+ns }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+futex\+\_\+setup\+\_\+timer -\/ set up the sleeping hrtimer. @time\+: ptr to the given timeout value @timeout\+: the \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} structure to be set up @flags\+: futex flags @range\+\_\+ns\+: optional range in ns
+
+Return\+: Initialized \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} structure or N\+U\+LL if no timeout value given Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{futex_8c_a1bac40514d96b62403bc9f40fcb68da2}\label{futex_8c_a1bac40514d96b62403bc9f40fcb68da2}} 
+\index{futex.c@{futex.c}!futex\_top\_waiter@{futex\_top\_waiter}}
+\index{futex\_top\_waiter@{futex\_top\_waiter}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_top\_waiter()}{futex\_top\_waiter()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}}$\ast$ futex\+\_\+top\+\_\+waiter (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a1bac40514d96b62403bc9f40fcb68da2}{futex\+\_\+top\+\_\+waiter()}} -\/ Return the highest priority waiter on a futex @hb\+: the hash bucket the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}}\textquotesingle{}s reside in @key\+: the futex key (to distinguish it from other futex \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}}\textquotesingle{}s)
+
+Must be called with the hb lock held. Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{futex_8c_a7593c4b66258cd4ef0bc7c83e11e33da}\label{futex_8c_a7593c4b66258cd4ef0bc7c83e11e33da}} 
+\index{futex.c@{futex.c}!futex\_unlock\_pi@{futex\_unlock\_pi}}
+\index{futex\_unlock\_pi@{futex\_unlock\_pi}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_unlock\_pi()}{futex\_unlock\_pi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+unlock\+\_\+pi (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{futex_8c_a591d54ad9027da13464cde773a9241ba}\label{futex_8c_a591d54ad9027da13464cde773a9241ba}} 
+\index{futex.c@{futex.c}!futex\_wait@{futex\_wait}}
+\index{futex\_wait@{futex\_wait}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_wait()}{futex\_wait()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+wait (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{val,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$}]{abs\+\_\+time,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{bitset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{futex_8c_a4bd7cac6f72e500aa325d6efe5d35835}\label{futex_8c_a4bd7cac6f72e500aa325d6efe5d35835}} 
+\index{futex.c@{futex.c}!futex\_wait\_queue\_me@{futex\_wait\_queue\_me}}
+\index{futex\_wait\_queue\_me@{futex\_wait\_queue\_me}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_wait\_queue\_me()}{futex\_wait\_queue\_me()}}
+{\footnotesize\ttfamily static void futex\+\_\+wait\+\_\+queue\+\_\+me (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb,  }\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} $\ast$}]{timeout }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a4bd7cac6f72e500aa325d6efe5d35835}{futex\+\_\+wait\+\_\+queue\+\_\+me()}} -\/ \mbox{\hyperlink{futex_8c_a4d4b2cea799589871821f88905414f92}{queue\+\_\+me()}} and wait for wakeup, timeout, or signal @hb\+: the futex hash bucket, must be locked by the caller @q\+: the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} to queue up on @timeout\+: the prepared \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}}, or null for no timeout Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{futex_8c_a3ea5757864e2364d908d1896585e0011}\label{futex_8c_a3ea5757864e2364d908d1896585e0011}} 
+\index{futex.c@{futex.c}!futex\_wait\_requeue\_pi@{futex\_wait\_requeue\_pi}}
+\index{futex\_wait\_requeue\_pi@{futex\_wait\_requeue\_pi}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_wait\_requeue\_pi()}{futex\_wait\_requeue\_pi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+wait\+\_\+requeue\+\_\+pi (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{val,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} $\ast$}]{abs\+\_\+time,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{bitset,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a3ea5757864e2364d908d1896585e0011}{futex\+\_\+wait\+\_\+requeue\+\_\+pi()}} -\/ Wait on uaddr and take uaddr2 @uaddr\+: the futex we initially wait on (non-\/pi) @flags\+: futex flags (F\+L\+A\+G\+S\+\_\+\+S\+H\+A\+R\+ED, F\+L\+A\+G\+S\+\_\+\+C\+L\+O\+C\+K\+RT, etc.), they must be the same type, no requeueing from private to shared, etc. @val\+: the expected value of uaddr @abs\+\_\+time\+: absolute timeout @bitset\+: 32 bit wakeup bitset set by userspace, defaults to all @uaddr2\+: the pi futex we will take prior to returning to user-\/space
+
+\mbox{\hyperlink{classThe}{The}} caller will wait on uaddr and will be requeued by \mbox{\hyperlink{futex_8c_a3e3395ff7c6569ddb1fdadab318db3ec}{futex\+\_\+requeue()}} to uaddr2 which must be PI aware and unique from uaddr. Normal wakeup will wake on uaddr2 and complete the acquisition of the \mbox{\hyperlink{structrt__mutex}{rt\+\_\+mutex}} prior to returning to userspace. This ensures the \mbox{\hyperlink{structrt__mutex}{rt\+\_\+mutex}} maintains an owner when it has waiters; without one, the pi logic would not know which task to boost/deboost, if there was a need to.
+
+We call schedule in \mbox{\hyperlink{futex_8c_a4bd7cac6f72e500aa325d6efe5d35835}{futex\+\_\+wait\+\_\+queue\+\_\+me()}} when we enqueue and return there via the following-- 1) wakeup on uaddr2 after an atomic lock acquisition by \mbox{\hyperlink{futex_8c_a3e3395ff7c6569ddb1fdadab318db3ec}{futex\+\_\+requeue()}} 2) wakeup on uaddr2 after a requeue 3) signal 4) timeout
+
+If 3, cleanup and return -\/E\+R\+E\+S\+T\+A\+R\+T\+N\+O\+I\+N\+TR.
+
+If 2, we may then block on trying to take the \mbox{\hyperlink{structrt__mutex}{rt\+\_\+mutex}} and return via\+: 5) successful lock 6) signal 7) timeout 8) other lock acquisition failure
+
+If 6, return -\/E\+W\+O\+U\+L\+D\+B\+L\+O\+CK (restarting the syscall would do the same).
+
+If 4 or 7, we cleanup and return with -\/E\+T\+I\+M\+E\+D\+O\+UT.
+
+Return\+:
+\begin{DoxyItemize}
+\item 0 -\/ On success;
+\item $<$0 -\/ On error 
+\end{DoxyItemize}Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{futex_8c_a4fa776c560fc75cd9e42467ce83a7b98}\label{futex_8c_a4fa776c560fc75cd9e42467ce83a7b98}} 
+\index{futex.c@{futex.c}!futex\_wait\_restart@{futex\_wait\_restart}}
+\index{futex\_wait\_restart@{futex\_wait\_restart}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_wait\_restart()}{futex\_wait\_restart()}}
+{\footnotesize\ttfamily static long futex\+\_\+wait\+\_\+restart (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrestart__block}{restart\+\_\+block}} $\ast$}]{restart }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{futex_8c_abf3fe1ec9a5f6da0b1a0fd93f9708fc4}\label{futex_8c_abf3fe1ec9a5f6da0b1a0fd93f9708fc4}} 
+\index{futex.c@{futex.c}!futex\_wait\_setup@{futex\_wait\_setup}}
+\index{futex\_wait\_setup@{futex\_wait\_setup}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_wait\_setup()}{futex\_wait\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+wait\+\_\+setup (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{val,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$$\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_abf3fe1ec9a5f6da0b1a0fd93f9708fc4}{futex\+\_\+wait\+\_\+setup()}} -\/ Prepare to wait on a futex @uaddr\+: the futex userspace address @val\+: the expected value @flags\+: futex flags (F\+L\+A\+G\+S\+\_\+\+S\+H\+A\+R\+ED, etc.) @q\+: the associated \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} @hb\+: storage for \mbox{\hyperlink{structhash__bucket}{hash\+\_\+bucket}} pointer to be returned to caller
+
+Setup the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} and locate the \mbox{\hyperlink{structhash__bucket}{hash\+\_\+bucket}}. Get the futex value and compare it with the expected value. Handle atomic faults internally. Return with the hb lock held on success, and unlocked on failure.
+
+Return\+:
+\begin{DoxyItemize}
+\item 0 -\/ uaddr \mbox{\hyperlink{protocolcontains-p}{contains}} val and hb has been locked;
+\item $<$1 -\/ -\/E\+F\+A\+U\+LT or -\/E\+W\+O\+U\+L\+D\+B\+L\+O\+CK (uaddr does not contain val) and hb is unlocked 
+\end{DoxyItemize}Here is the call graph for this function\+:
+% FIG 80
+Here is the caller graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{futex_8c_a2fb71ea16c78d99cd6ea7a6f3414da75}\label{futex_8c_a2fb71ea16c78d99cd6ea7a6f3414da75}} 
+\index{futex.c@{futex.c}!futex\_wake@{futex\_wake}}
+\index{futex\_wake@{futex\_wake}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_wake()}{futex\_wake()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+wake (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+wake,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{bitset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{futex_8c_a764a0df952add651716ae16c5770c35a}\label{futex_8c_a764a0df952add651716ae16c5770c35a}} 
+\index{futex.c@{futex.c}!futex\_wake\_op@{futex\_wake\_op}}
+\index{futex\_wake\_op@{futex\_wake\_op}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_wake\_op()}{futex\_wake\_op()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} futex\+\_\+wake\+\_\+op (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr1,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr2,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+wake,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+wake2,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{op }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{futex_8c_af264f65098849c5b92e1c5ff098a3638}\label{futex_8c_af264f65098849c5b92e1c5ff098a3638}} 
+\index{futex.c@{futex.c}!get\_futex\_key@{get\_futex\_key}}
+\index{get\_futex\_key@{get\_futex\_key}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{get\_futex\_key()}{get\_futex\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+futex\+\_\+key (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{fshared,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}{futex\+\_\+access}}}]{rw }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_af264f65098849c5b92e1c5ff098a3638}{get\+\_\+futex\+\_\+key()}} -\/ Get parameters which are the keys for a futex @uaddr\+: virtual address of the futex @fshared\+: false for a P\+R\+O\+C\+E\+S\+S\+\_\+\+P\+R\+I\+V\+A\+TE futex, true for P\+R\+O\+C\+E\+S\+S\+\_\+\+S\+H\+A\+R\+ED @key\+: address where result is stored. @rw\+: mapping needs to be read/write (values\+: F\+U\+T\+E\+X\+\_\+\+R\+E\+AD, F\+U\+T\+E\+X\+\_\+\+W\+R\+I\+TE)
+
+Return\+: a negative error code or 0
+
+\mbox{\hyperlink{classThe}{The}} key words are stored in @key on success.
+
+For shared mappings (when @fshared), the key is\+:
+
+( inode-\/$>$i\+\_\+sequence, page-\/$>$index, offset\+\_\+within\+\_\+page )
+
+\mbox{[} also see \mbox{\hyperlink{futex_8c_acea482b52b88221acb9d6105008a2c79}{get\+\_\+inode\+\_\+sequence\+\_\+number()}} \mbox{]}
+
+For private mappings (or when !@fshared), the key is\+:
+
+( current-\/$>$mm, address, 0 )
+
+This allows (cross process, where applicable) identification of the futex without keeping the page pinned for the duration of the F\+U\+T\+E\+X\+\_\+\+W\+A\+IT.
+
+\mbox{\hyperlink{linux_2pagemap_8h_a5cde33a4300809af9c9b6f74132d7502}{lock\+\_\+page()}} might sleep, the caller should not hold a spinlock. Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{futex_8c_a905ed16d718c34bb4218271c8c9bc866}\label{futex_8c_a905ed16d718c34bb4218271c8c9bc866}} 
+\index{futex.c@{futex.c}!get\_futex\_value\_locked@{get\_futex\_value\_locked}}
+\index{get\_futex\_value\_locked@{get\_futex\_value\_locked}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{get\_futex\_value\_locked()}{get\_futex\_value\_locked()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+futex\+\_\+value\+\_\+locked (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$}]{dest,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{from }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{futex_8c_acea482b52b88221acb9d6105008a2c79}\label{futex_8c_acea482b52b88221acb9d6105008a2c79}} 
+\index{futex.c@{futex.c}!get\_inode\_sequence\_number@{get\_inode\_sequence\_number}}
+\index{get\_inode\_sequence\_number@{get\_inode\_sequence\_number}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{get\_inode\_sequence\_number()}{get\_inode\_sequence\_number()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} get\+\_\+inode\+\_\+sequence\+\_\+number (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 90
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{futex_8c_a42d415452d9655a976257fc5af7dda9e}\label{futex_8c_a42d415452d9655a976257fc5af7dda9e}} 
+\index{futex.c@{futex.c}!get\_pi\_state@{get\_pi\_state}}
+\index{get\_pi\_state@{get\_pi\_state}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{get\_pi\_state()}{get\_pi\_state()}}
+{\footnotesize\ttfamily static void get\+\_\+pi\+\_\+state (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$}]{pi\+\_\+state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 92
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{futex_8c_a9ffb75ccd43d67bd0150bcceb431a7ed}\label{futex_8c_a9ffb75ccd43d67bd0150bcceb431a7ed}} 
+\index{futex.c@{futex.c}!handle\_early\_requeue\_pi\_wakeup@{handle\_early\_requeue\_pi\_wakeup}}
+\index{handle\_early\_requeue\_pi\_wakeup@{handle\_early\_requeue\_pi\_wakeup}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{handle\_early\_requeue\_pi\_wakeup()}{handle\_early\_requeue\_pi\_wakeup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} handle\+\_\+early\+\_\+requeue\+\_\+pi\+\_\+wakeup (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb,  }\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structhrtimer__sleeper}{hrtimer\+\_\+sleeper}} $\ast$}]{timeout }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a9ffb75ccd43d67bd0150bcceb431a7ed}{handle\+\_\+early\+\_\+requeue\+\_\+pi\+\_\+wakeup()}} -\/ Handle early wakeup on the initial futex @hb\+: the \mbox{\hyperlink{structhash__bucket}{hash\+\_\+bucket}} \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} was original enqueued on @q\+: the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} woken while waiting to be requeued @timeout\+: the timeout associated with the wait (N\+U\+LL if none)
+
+Determine the cause for the early wakeup.
+
+Return\+: -\/E\+W\+O\+U\+L\+D\+B\+L\+O\+CK or -\/E\+T\+I\+M\+E\+D\+O\+UT or -\/E\+R\+E\+S\+T\+A\+R\+T\+N\+O\+I\+N\+TR Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{futex_8c_a56fa77cc782ee2393a1b5e82a0a0e7ed}\label{futex_8c_a56fa77cc782ee2393a1b5e82a0a0e7ed}} 
+\index{futex.c@{futex.c}!handle\_exit\_race@{handle\_exit\_race}}
+\index{handle\_exit\_race@{handle\_exit\_race}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{handle\_exit\_race()}{handle\_exit\_race()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} handle\+\_\+exit\+\_\+race (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{uval,  }\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{futex_8c_a22fc3c2a857837ad8b8cfe8e14b23020}\label{futex_8c_a22fc3c2a857837ad8b8cfe8e14b23020}} 
+\index{futex.c@{futex.c}!handle\_futex\_death@{handle\_futex\_death}}
+\index{handle\_futex\_death@{handle\_futex\_death}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{handle\_futex\_death()}{handle\_futex\_death()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} handle\+\_\+futex\+\_\+death (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{pi,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{pending\+\_\+op }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 98
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{futex_8c_a0d33b0212952406a03a1f721117833d7}\label{futex_8c_a0d33b0212952406a03a1f721117833d7}} 
+\index{futex.c@{futex.c}!hash\_futex@{hash\_futex}}
+\index{hash\_futex@{hash\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{hash\_futex()}{hash\_futex()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}}$\ast$ hash\+\_\+futex (\begin{DoxyParamCaption}\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+hash\+\_\+futex -\/ Return the hash bucket in the global hash @key\+: Pointer to the futex key for which the hash is calculated
+
+We hash on the keys returned from get\+\_\+futex\+\_\+key (see below) and return the corresponding hash bucket in the global hash. Here is the call graph for this function\+:
+% FIG 100
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{futex_8c_a2e284629c01aa481f73f411ec2aae93b}\label{futex_8c_a2e284629c01aa481f73f411ec2aae93b}} 
+\index{futex.c@{futex.c}!hb\_waiters\_dec@{hb\_waiters\_dec}}
+\index{hb\_waiters\_dec@{hb\_waiters\_dec}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{hb\_waiters\_dec()}{hb\_waiters\_dec()}}
+{\footnotesize\ttfamily static void hb\+\_\+waiters\+\_\+dec (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 102
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{futex_8c_a0c895faeb81a2bab5f46c30dc719a749}\label{futex_8c_a0c895faeb81a2bab5f46c30dc719a749}} 
+\index{futex.c@{futex.c}!hb\_waiters\_inc@{hb\_waiters\_inc}}
+\index{hb\_waiters\_inc@{hb\_waiters\_inc}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{hb\_waiters\_inc()}{hb\_waiters\_inc()}}
+{\footnotesize\ttfamily static void hb\+\_\+waiters\+\_\+inc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 104
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{futex_8c_a9dccfa15c6bdfa4a60a6c305f1ac5902}\label{futex_8c_a9dccfa15c6bdfa4a60a6c305f1ac5902}} 
+\index{futex.c@{futex.c}!hb\_waiters\_pending@{hb\_waiters\_pending}}
+\index{hb\_waiters\_pending@{hb\_waiters\_pending}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{hb\_waiters\_pending()}{hb\_waiters\_pending()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hb\+\_\+waiters\+\_\+pending (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{futex_8c_a478ae93f7391cd395b55542864a58ef2}\label{futex_8c_a478ae93f7391cd395b55542864a58ef2}} 
+\index{futex.c@{futex.c}!lock\_pi\_update\_atomic@{lock\_pi\_update\_atomic}}
+\index{lock\_pi\_update\_atomic@{lock\_pi\_update\_atomic}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{lock\_pi\_update\_atomic()}{lock\_pi\_update\_atomic()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lock\+\_\+pi\+\_\+update\+\_\+atomic (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{uval,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{newval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{futex_8c_a5766e0c6ab80fef723454df36ef028f3}\label{futex_8c_a5766e0c6ab80fef723454df36ef028f3}} 
+\index{futex.c@{futex.c}!mark\_wake\_futex@{mark\_wake\_futex}}
+\index{mark\_wake\_futex@{mark\_wake\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{mark\_wake\_futex()}{mark\_wake\_futex()}}
+{\footnotesize\ttfamily static void mark\+\_\+wake\+\_\+futex (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwake__q__head}{wake\+\_\+q\+\_\+head}} $\ast$}]{wake\+\_\+q,  }\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{futex_8c_ab66c169070998abbb5ea79c31a13a86f}\label{futex_8c_ab66c169070998abbb5ea79c31a13a86f}} 
+\index{futex.c@{futex.c}!match\_futex@{match\_futex}}
+\index{match\_futex@{match\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{match\_futex()}{match\_futex()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} match\+\_\+futex (\begin{DoxyParamCaption}\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key1,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+match\+\_\+futex -\/ Check whether two futex keys are equal @key1\+: Pointer to key1 @key2\+: Pointer to key2
+
+Return 1 if two futex\+\_\+keys are equal, 0 otherwise. Here is the caller graph for this function\+:
+% FIG 112
+\mbox{\Hypertarget{futex_8c_aa266087e0b54ff5642b04000c6f310b4}\label{futex_8c_aa266087e0b54ff5642b04000c6f310b4}} 
+\index{futex.c@{futex.c}!pi\_state\_update\_owner@{pi\_state\_update\_owner}}
+\index{pi\_state\_update\_owner@{pi\_state\_update\_owner}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{pi\_state\_update\_owner()}{pi\_state\_update\_owner()}}
+{\footnotesize\ttfamily static void pi\+\_\+state\+\_\+update\+\_\+owner (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$}]{pi\+\_\+state,  }\item[{struct task\+\_\+struct $\ast$}]{new\+\_\+owner }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 113
+Here is the caller graph for this function\+:
+% FIG 114
+\mbox{\Hypertarget{futex_8c_a3f62c971fb46d4a99d6f377a1f3dc6eb}\label{futex_8c_a3f62c971fb46d4a99d6f377a1f3dc6eb}} 
+\index{futex.c@{futex.c}!put\_pi\_state@{put\_pi\_state}}
+\index{put\_pi\_state@{put\_pi\_state}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{put\_pi\_state()}{put\_pi\_state()}}
+{\footnotesize\ttfamily static void put\+\_\+pi\+\_\+state (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$}]{pi\+\_\+state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 115
+Here is the caller graph for this function\+:
+% FIG 116
+\mbox{\Hypertarget{futex_8c_a70d32a3376c97029b7998905235f1fca}\label{futex_8c_a70d32a3376c97029b7998905235f1fca}} 
+\index{futex.c@{futex.c}!queue\_lock@{queue\_lock}}
+\index{queue\_lock@{queue\_lock}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{queue\_lock()}{queue\_lock()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}}$\ast$ queue\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q }\end{DoxyParamCaption}) \& -\/$>$ \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 117
+Here is the caller graph for this function\+:
+% FIG 118
+\mbox{\Hypertarget{futex_8c_a4d4b2cea799589871821f88905414f92}\label{futex_8c_a4d4b2cea799589871821f88905414f92}} 
+\index{futex.c@{futex.c}!queue\_me@{queue\_me}}
+\index{queue\_me@{queue\_me}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{queue\_me()}{queue\_me()}}
+{\footnotesize\ttfamily static void queue\+\_\+me (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb }\end{DoxyParamCaption}) \& -\/$>$ \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a4d4b2cea799589871821f88905414f92}{queue\+\_\+me()}} -\/ Enqueue the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} on the \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} @q\+: \mbox{\hyperlink{classThe}{The}} \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} to enqueue @hb\+: \mbox{\hyperlink{classThe}{The}} destination hash bucket
+
+\mbox{\hyperlink{classThe}{The}} hb-\/$>$lock must be held by the caller, and is released here. A call to \mbox{\hyperlink{futex_8c_a4d4b2cea799589871821f88905414f92}{queue\+\_\+me()}} is typically paired with exactly one call to \mbox{\hyperlink{futex_8c_a960468687578520dc7402558a3fb73fb}{unqueue\+\_\+me()}}. \mbox{\hyperlink{classThe}{The}} exceptions involve the PI related operations, which may use \mbox{\hyperlink{futex_8c_a41554e7bc71c4bdf4b16e2120b8fe81d}{unqueue\+\_\+me\+\_\+pi()}} or nothing if the unqueue is done as part of the wake process and the unqueue state is implicit in the state of woken task (see \mbox{\hyperlink{futex_8c_a3ea5757864e2364d908d1896585e0011}{futex\+\_\+wait\+\_\+requeue\+\_\+pi()}} for an example). Here is the call graph for this function\+:
+% FIG 119
+Here is the caller graph for this function\+:
+% FIG 120
+\mbox{\Hypertarget{futex_8c_a026bf9465056128a74a98325c1ea4387}\label{futex_8c_a026bf9465056128a74a98325c1ea4387}} 
+\index{futex.c@{futex.c}!queue\_unlock@{queue\_unlock}}
+\index{queue\_unlock@{queue\_unlock}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{queue\_unlock()}{queue\_unlock()}}
+{\footnotesize\ttfamily static void queue\+\_\+unlock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb }\end{DoxyParamCaption}) \& -\/$>$ \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 121
+Here is the caller graph for this function\+:
+% FIG 122
+\mbox{\Hypertarget{futex_8c_ad3390656d84a5a0ca303ccb4b9540917}\label{futex_8c_ad3390656d84a5a0ca303ccb4b9540917}} 
+\index{futex.c@{futex.c}!refill\_pi\_state\_cache@{refill\_pi\_state\_cache}}
+\index{refill\_pi\_state\_cache@{refill\_pi\_state\_cache}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{refill\_pi\_state\_cache()}{refill\_pi\_state\_cache()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} refill\+\_\+pi\+\_\+state\+\_\+cache (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 123
+Here is the caller graph for this function\+:
+% FIG 124
+\mbox{\Hypertarget{futex_8c_a47108274b0317cdb6ff793abb72630e3}\label{futex_8c_a47108274b0317cdb6ff793abb72630e3}} 
+\index{futex.c@{futex.c}!requeue\_futex@{requeue\_futex}}
+\index{requeue\_futex@{requeue\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{requeue\_futex()}{requeue\_futex()}}
+{\footnotesize\ttfamily static void requeue\+\_\+futex (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb1,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb2,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key2 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a47108274b0317cdb6ff793abb72630e3}{requeue\+\_\+futex()}} -\/ Requeue a \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} from one hb to another @q\+: the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} to requeue @hb1\+: the source \mbox{\hyperlink{structhash__bucket}{hash\+\_\+bucket}} @hb2\+: the target \mbox{\hyperlink{structhash__bucket}{hash\+\_\+bucket}} @key2\+: the new key for the requeued \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} Here is the call graph for this function\+:
+% FIG 125
+Here is the caller graph for this function\+:
+% FIG 126
+\mbox{\Hypertarget{futex_8c_af6aedf32b40987499ac365c6eee0870f}\label{futex_8c_af6aedf32b40987499ac365c6eee0870f}} 
+\index{futex.c@{futex.c}!requeue\_pi\_wake\_futex@{requeue\_pi\_wake\_futex}}
+\index{requeue\_pi\_wake\_futex@{requeue\_pi\_wake\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{requeue\_pi\_wake\_futex()}{requeue\_pi\_wake\_futex()}}
+{\footnotesize\ttfamily static void requeue\+\_\+pi\+\_\+wake\+\_\+futex (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q,  }\item[{union \mbox{\hyperlink{unionfutex__key}{futex\+\_\+key}} $\ast$}]{key,  }\item[{struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$}]{hb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_af6aedf32b40987499ac365c6eee0870f}{requeue\+\_\+pi\+\_\+wake\+\_\+futex()}} -\/ Wake a task that acquired the lock during requeue @q\+: the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} @key\+: the key of the requeue target futex @hb\+: the \mbox{\hyperlink{structhash__bucket}{hash\+\_\+bucket}} of the requeue target futex
+
+During futex\+\_\+requeue, with requeue\+\_\+pi=1, it is possible to acquire the target futex if it is uncontended or via a lock steal.
+
+1) Set @q\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}} to the requeue target futex key so the waiter can detect the wakeup on the right futex.
+
+2) Dequeue @q from the hash bucket.
+
+3) Set @q\+::rt\+\_\+waiter to N\+U\+LL so the woken up task can detect atomic lock acquisition.
+
+4) Set the q-\/$>$lock\+\_\+ptr to the requeue target hb-\/$>$lock for the case that the waiter has to fixup the pi state.
+
+5) Complete the requeue state so the waiter can make progress. After this point the waiter task can return from the syscall immediately in case that the pi state does not have to be fixed up.
+
+6) Wake the waiter task.
+
+Must be called with both q-\/$>$lock\+\_\+ptr and hb-\/$>$lock held. Here is the call graph for this function\+:
+% FIG 127
+Here is the caller graph for this function\+:
+% FIG 128
+\mbox{\Hypertarget{futex_8c_ada757eb1e7da7fc2974ba68afa0c8d2c}\label{futex_8c_ada757eb1e7da7fc2974ba68afa0c8d2c}} 
+\index{futex.c@{futex.c}!should\_fail\_futex@{should\_fail\_futex}}
+\index{should\_fail\_futex@{should\_fail\_futex}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{should\_fail\_futex()}{should\_fail\_futex()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} should\+\_\+fail\+\_\+futex (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{fshared }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 129
+\mbox{\Hypertarget{futex_8c_a9be33ba9ef2900b7d353516aa28953da}\label{futex_8c_a9be33ba9ef2900b7d353516aa28953da}} 
+\index{futex.c@{futex.c}!SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}}
+\index{SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE2()}{SYSCALL\_DEFINE2()}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2 (\begin{DoxyParamCaption}\item[{set\+\_\+robust\+\_\+list}]{,  }\item[{struct \mbox{\hyperlink{structrobust__list__head}{robust\+\_\+list\+\_\+head}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{,  }\item[{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{include_2uapi_2asm-generic_2unistd_8h_a192e6c38eacf3a59dc2bf4ebdf825b99}{sys\+\_\+set\+\_\+robust\+\_\+list()}} -\/ Set the robust-\/futex list head of a task @head\+: pointer to the list-\/head @len\+: length of the list-\/head, as userspace expects \mbox{\Hypertarget{futex_8c_ac47f66b746fd91925f9150eeb368e5f5}\label{futex_8c_ac47f66b746fd91925f9150eeb368e5f5}} 
+\index{futex.c@{futex.c}!SYSCALL\_DEFINE3@{SYSCALL\_DEFINE3}}
+\index{SYSCALL\_DEFINE3@{SYSCALL\_DEFINE3}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE3()}{SYSCALL\_DEFINE3()}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E3 (\begin{DoxyParamCaption}\item[{get\+\_\+robust\+\_\+list}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{structpid}{pid}}}]{,  }\item[{struct \mbox{\hyperlink{structrobust__list__head}{robust\+\_\+list\+\_\+head}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{head\+\_\+ptr}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{len\+\_\+ptr}]{ }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{include_2linux_2syscalls_8h_aa624dc780c460b12c7026da638558c14}{sys\+\_\+get\+\_\+robust\+\_\+list()}} -\/ Get the robust-\/futex list head of a task @pid\+: pid of the process \mbox{[}zero for current task\mbox{]} @head\+\_\+ptr\+: pointer to a list-\/head pointer, the kernel fills it in @len\+\_\+ptr\+: pointer to a length field, the kernel fills in the header size Here is the call graph for this function\+:
+% FIG 130
+\mbox{\Hypertarget{futex_8c_a2f5a6635ec4caf4cb3dbfef82070c3f3}\label{futex_8c_a2f5a6635ec4caf4cb3dbfef82070c3f3}} 
+\index{futex.c@{futex.c}!SYSCALL\_DEFINE6@{SYSCALL\_DEFINE6}}
+\index{SYSCALL\_DEFINE6@{SYSCALL\_DEFINE6}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE6()}{SYSCALL\_DEFINE6()}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E6 (\begin{DoxyParamCaption}\item[{futex}]{,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{uaddr}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}}}]{,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{,  }\item[{\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}}]{,  }\item[{const struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{utime}]{,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{uaddr2}]{,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{,  }\item[{val3}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 131
+\mbox{\Hypertarget{futex_8c_a960468687578520dc7402558a3fb73fb}\label{futex_8c_a960468687578520dc7402558a3fb73fb}} 
+\index{futex.c@{futex.c}!unqueue\_me@{unqueue\_me}}
+\index{unqueue\_me@{unqueue\_me}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{unqueue\_me()}{unqueue\_me()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} unqueue\+\_\+me (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\hyperlink{futex_8c_a960468687578520dc7402558a3fb73fb}{unqueue\+\_\+me()}} -\/ Remove the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} from its \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} @q\+: \mbox{\hyperlink{classThe}{The}} \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} to unqueue
+
+\mbox{\hyperlink{classThe}{The}} q-\/$>$lock\+\_\+ptr must not be held by the caller. A call to \mbox{\hyperlink{futex_8c_a960468687578520dc7402558a3fb73fb}{unqueue\+\_\+me()}} must be paired with exactly one earlier call to \mbox{\hyperlink{futex_8c_a4d4b2cea799589871821f88905414f92}{queue\+\_\+me()}}.
+
+Return\+:
+\begin{DoxyItemize}
+\item 1 -\/ if the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} was still queued (and we removed unqueued it);
+\item 0 -\/ if the \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} was already removed by the waking thread 
+\end{DoxyItemize}Here is the call graph for this function\+:
+% FIG 132
+Here is the caller graph for this function\+:
+% FIG 133
+\mbox{\Hypertarget{futex_8c_a41554e7bc71c4bdf4b16e2120b8fe81d}\label{futex_8c_a41554e7bc71c4bdf4b16e2120b8fe81d}} 
+\index{futex.c@{futex.c}!unqueue\_me\_pi@{unqueue\_me\_pi}}
+\index{unqueue\_me\_pi@{unqueue\_me\_pi}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{unqueue\_me\_pi()}{unqueue\_me\_pi()}}
+{\footnotesize\ttfamily static void unqueue\+\_\+me\+\_\+pi (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} $\ast$}]{q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 134
+Here is the caller graph for this function\+:
+% FIG 135
+\mbox{\Hypertarget{futex_8c_a12334062522d50eb48642978568723b2}\label{futex_8c_a12334062522d50eb48642978568723b2}} 
+\index{futex.c@{futex.c}!wait\_for\_owner\_exiting@{wait\_for\_owner\_exiting}}
+\index{wait\_for\_owner\_exiting@{wait\_for\_owner\_exiting}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{wait\_for\_owner\_exiting()}{wait\_for\_owner\_exiting()}}
+{\footnotesize\ttfamily static void wait\+\_\+for\+\_\+owner\+\_\+exiting (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{ret,  }\item[{struct task\+\_\+struct $\ast$}]{exiting }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+wait\+\_\+for\+\_\+owner\+\_\+exiting -\/ Block until the owner has exited @ret\+: owner\textquotesingle{}s current futex lock status @exiting\+: Pointer to the exiting task
+
+Caller must hold a refcount on @exiting. Here is the call graph for this function\+:
+% FIG 136
+Here is the caller graph for this function\+:
+% FIG 137
+\mbox{\Hypertarget{futex_8c_ab9477e92f7cc4d6447d94772f7a277a8}\label{futex_8c_ab9477e92f7cc4d6447d94772f7a277a8}} 
+\index{futex.c@{futex.c}!wake\_futex\_pi@{wake\_futex\_pi}}
+\index{wake\_futex\_pi@{wake\_futex\_pi}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{wake\_futex\_pi()}{wake\_futex\_pi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} wake\+\_\+futex\+\_\+pi (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{uaddr,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{uval,  }\item[{struct \mbox{\hyperlink{structfutex__pi__state}{futex\+\_\+pi\+\_\+state}} $\ast$}]{pi\+\_\+state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 138
+Here is the caller graph for this function\+:
+% FIG 139
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{futex_8c_a827f820ace1689accaca9b2e4b46d69f}\label{futex_8c_a827f820ace1689accaca9b2e4b46d69f}} 
+\index{futex.c@{futex.c}!\_\_\_\_cacheline\_aligned\_in\_smp@{\_\_\_\_cacheline\_aligned\_in\_smp}}
+\index{\_\_\_\_cacheline\_aligned\_in\_smp@{\_\_\_\_cacheline\_aligned\_in\_smp}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_\_\_cacheline\_aligned\_in\_smp}{\_\_\_\_cacheline\_aligned\_in\_smp}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} \+\_\+\+\_\+\+\_\+\+\_\+cacheline\+\_\+aligned\+\_\+in\+\_\+smp}
+
+\mbox{\Hypertarget{futex_8c_a4ffccb78fffbdfabb8d7a42358e2c4b4}\label{futex_8c_a4ffccb78fffbdfabb8d7a42358e2c4b4}} 
+\index{futex.c@{futex.c}!\_\_aligned@{\_\_aligned}}
+\index{\_\_aligned@{\_\_aligned}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_aligned}{\_\_aligned}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{futex_8c_a91be82c4943db7c7a3499f3cc419fa3c}{futex\+\_\+access}} \+\_\+\+\_\+aligned}
+
+\mbox{\Hypertarget{futex_8c_a491f476cb7974ae6e083a83254ff5929}\label{futex_8c_a491f476cb7974ae6e083a83254ff5929}} 
+\index{futex.c@{futex.c}!\_\_randomize\_layout@{\_\_randomize\_layout}}
+\index{\_\_randomize\_layout@{\_\_randomize\_layout}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{\_\_randomize\_layout}{\_\_randomize\_layout}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} \+\_\+\+\_\+randomize\+\_\+layout}
+
+\mbox{\Hypertarget{futex_8c_ab03d63a595f239b1e07fafef07bc3bcc}\label{futex_8c_ab03d63a595f239b1e07fafef07bc3bcc}} 
+\index{futex.c@{futex.c}!futex\_cmpxchg\_enabled@{futex\_cmpxchg\_enabled}}
+\index{futex\_cmpxchg\_enabled@{futex\_cmpxchg\_enabled}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_cmpxchg\_enabled}{futex\_cmpxchg\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} futex\+\_\+cmpxchg\+\_\+enabled\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{futex_8c_af8ebbcd9f1eaa4107ce0ecba7150870f}\label{futex_8c_af8ebbcd9f1eaa4107ce0ecba7150870f}} 
+\index{futex.c@{futex.c}!futex\_q\_init@{futex\_q\_init}}
+\index{futex\_q\_init@{futex\_q\_init}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{futex\_q\_init}{futex\_q\_init}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfutex__q}{futex\+\_\+q}} futex\+\_\+q\+\_\+init\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    .key        = \mbox{\hyperlink{include_2linux_2futex_8h_a4d47919e239b7fadeb6904b7b6b6d884}{FUTEX\_KEY\_INIT}},}
+\DoxyCodeLine{    .bitset     = \mbox{\hyperlink{include_2uapi_2linux_2futex_8h_a2781c8bc86df515d5a1691ef43adae48}{FUTEX\_BITSET\_MATCH\_ANY}},}
+\DoxyCodeLine{    .requeue\_state  = \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{ATOMIC\_INIT}}(\mbox{\hyperlink{futex_8c_a6902a14a6779615044c115a5e6f96a92ae09568309fa23b6620ac17d337d1925b}{Q\_REQUEUE\_PI\_NONE}}),}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{futex_8c_ad1ab506340dc498172f56facb133a99c}\label{futex_8c_ad1ab506340dc498172f56facb133a99c}} 
+\index{futex.c@{futex.c}!hashsize@{hashsize}}
+\index{hashsize@{hashsize}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{hashsize}{hashsize}}
+{\footnotesize\ttfamily unsigned long hashsize}
+
+\mbox{\Hypertarget{futex_8c_ac3ee6b6c7d25fdd2906f5768104d260a}\label{futex_8c_ac3ee6b6c7d25fdd2906f5768104d260a}} 
+\index{futex.c@{futex.c}!queues@{queues}}
+\index{queues@{queues}!futex.c@{futex.c}}
+\doxysubsubsection{\texorpdfstring{queues}{queues}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structfutex__hash__bucket}{futex\+\_\+hash\+\_\+bucket}} $\ast$ queues}
+

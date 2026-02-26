@@ -1,0 +1,940 @@
+\hypertarget{posix-timers_8c}{}\doxysection{kernel/time/posix-\/timers.c File Reference}
+\label{posix-timers_8c}\index{kernel/time/posix-\/timers.c@{kernel/time/posix-\/timers.c}}
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/time.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/compiler.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hash.\+h$>$}\newline
+{\ttfamily \#include $<$linux/posix-\/clock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/posix-\/timers.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscalls.\+h$>$}\newline
+{\ttfamily \#include $<$linux/wait.\+h$>$}\newline
+{\ttfamily \#include $<$linux/workqueue.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hashtable.\+h$>$}\newline
+{\ttfamily \#include $<$linux/compat.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nospec.\+h$>$}\newline
+{\ttfamily \#include $<$linux/time\+\_\+namespace.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}timekeeping.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}posix-\/timers.\+h\char`\"{}}\newline
+Include dependency graph for posix-\/timers.c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{posix-timers_8c_a180521fa3185aaa68dea4e04891334b8}{lock\+\_\+timer}}(\mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}},  \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\#define \mbox{\hyperlink{posix-timers_8c_a7c46c9b9946872d8ddffa0ba89096ab8}{I\+T\+\_\+\+I\+D\+\_\+\+S\+ET}}~1
+\item 
+\#define \mbox{\hyperlink{posix-timers_8c_a2b9256d9952269e8080a92842050fe56}{I\+T\+\_\+\+I\+D\+\_\+\+N\+O\+T\+\_\+\+S\+ET}}~0
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{posix-timers_8c_acdb4da33f233945dd952ffb88b9028f3}{D\+E\+F\+I\+N\+E\+\_\+\+H\+A\+S\+H\+T\+A\+B\+LE}} (posix\+\_\+timers\+\_\+hashtable, 9)
+\item 
+static \mbox{\hyperlink{posix-timers_8c_a0a87cafe29823ea7a676f279f3c9d563}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (hash\+\_\+lock)
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} $\ast$ \mbox{\hyperlink{posix-timers_8c_a5858df66dd97d7f14d9e0f32565f9c1e}{clockid\+\_\+to\+\_\+kclock}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$ \mbox{\hyperlink{posix-timers_8c_a564663348c8e106b0ad9d57c4eca9bde}{\+\_\+\+\_\+lock\+\_\+timer}} (\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} timer\+\_\+id, unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_aaa7ab1c4b72f40b6c311c236de2e01e3}{hash}} (struct \mbox{\hyperlink{structsignal__struct}{signal\+\_\+struct}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_ac1d0f07f1f1b3fb726f46a23646396f7}{sig}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr)
+\item 
+static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$ \mbox{\hyperlink{posix-timers_8c_aed210153dc8b27f91a9ccf3734b85914}{\+\_\+\+\_\+posix\+\_\+timers\+\_\+find}} (struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, struct \mbox{\hyperlink{structsignal__struct}{signal\+\_\+struct}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_ac1d0f07f1f1b3fb726f46a23646396f7}{sig}}, \mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$ \mbox{\hyperlink{posix-timers_8c_a50250f0c1a0fbb98b85b3ee970cd6d1d}{posix\+\_\+timer\+\_\+by\+\_\+id}} (\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_ac01fe8e4cc171d79b1308d8cf514c16b}{posix\+\_\+timer\+\_\+add}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{posix-timers_8c_a8c005bb9a50a5c20009412eba861e6c6}{unlock\+\_\+timer}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_abbd9a9cd83622b8d4de8427f70c86d76}{posix\+\_\+get\+\_\+realtime\+\_\+timespec}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} \mbox{\hyperlink{posix-timers_8c_a2c4036c7ec1c403a4336e92ff1827035}{posix\+\_\+get\+\_\+realtime\+\_\+ktime}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a05f8d6e33e923d2c3357cd82a4e5ed68}{posix\+\_\+clock\+\_\+realtime\+\_\+set}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, const struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_ad39f15ce75d8df4abacac7b2f4e2126e}{posix\+\_\+clock\+\_\+realtime\+\_\+adj}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{struct____kernel__timex}{\+\_\+\+\_\+kernel\+\_\+timex}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_aeb65c23281972700e19862ac173c59c3}{posix\+\_\+get\+\_\+monotonic\+\_\+timespec}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} \mbox{\hyperlink{posix-timers_8c_a9e9d16b14b768e4b6502ef62c64113c7}{posix\+\_\+get\+\_\+monotonic\+\_\+ktime}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a4423cf88dc5617b2b1893750d4063f49}{posix\+\_\+get\+\_\+monotonic\+\_\+raw}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a060f67526012999185a1176fe60a644c}{posix\+\_\+get\+\_\+realtime\+\_\+coarse}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a82b0e96b96fb846c303864db8b83f326}{posix\+\_\+get\+\_\+monotonic\+\_\+coarse}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_ae4f7c32ce15054a26dcc2bfad4625062}{posix\+\_\+get\+\_\+coarse\+\_\+res}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_ace00714cf1d720a754cc51023922340c}{posix\+\_\+get\+\_\+boottime\+\_\+timespec}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} \mbox{\hyperlink{posix-timers_8c_a086ba0b908be90187bc44229ecac6b0c}{posix\+\_\+get\+\_\+boottime\+\_\+ktime}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a8efe6da886e18e563b0ca433870da936}{posix\+\_\+get\+\_\+tai\+\_\+timespec}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} \mbox{\hyperlink{posix-timers_8c_a61edc0341a17c0dea9d631798ba8d958}{posix\+\_\+get\+\_\+tai\+\_\+ktime}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}{posix\+\_\+get\+\_\+hrtimer\+\_\+res}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_affe644ebf5dacef618d4bcffc78571a2}{init\+\_\+posix\+\_\+timers}} (void)
+\item 
+\mbox{\hyperlink{posix-timers_8c_aa7f3ec7c8fd04310e57271961d7d460b}{\+\_\+\+\_\+initcall}} (\mbox{\hyperlink{posix-timers_8c_affe644ebf5dacef618d4bcffc78571a2}{init\+\_\+posix\+\_\+timers}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a277b6725a52e44ac584284dabd505a60}{timer\+\_\+overrun\+\_\+to\+\_\+int}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} baseval)
+\item 
+static void \mbox{\hyperlink{posix-timers_8c_ad8172fd0ab45acac2bb262d14ea119e8}{common\+\_\+hrtimer\+\_\+rearm}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr)
+\item 
+void \mbox{\hyperlink{posix-timers_8c_ad9fcd8ba45c70bb8851b66e566575fd0}{posixtimer\+\_\+rearm}} (struct \mbox{\hyperlink{structkernel__siginfo}{kernel\+\_\+siginfo}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a7452bb5367c517ee9e5d2c66312c3e3f}{posix\+\_\+timer\+\_\+event}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} si\+\_\+private)
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{hrtimer_8h_a3c67a5c61b0e200e0c60fc71d45e1112}{hrtimer\+\_\+restart}} \mbox{\hyperlink{posix-timers_8c_a19d8dec9ae32ff514f5f110e73d4e894}{posix\+\_\+timer\+\_\+fn}} (struct \mbox{\hyperlink{structhrtimer}{hrtimer}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static struct \mbox{\hyperlink{structpid}{pid}} $\ast$ \mbox{\hyperlink{posix-timers_8c_a82445cba5452a74d3add8cf71de2dc2a}{good\+\_\+sigevent}} (\mbox{\hyperlink{include_2uapi_2asm-generic_2siginfo_8h_accb56a44836adc215898ae7385b572b9}{sigevent\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$ \mbox{\hyperlink{posix-timers_8c_a6a655747514983ec0dc7a23088487a1b}{alloc\+\_\+posix\+\_\+timer}} (void)
+\item 
+static void \mbox{\hyperlink{posix-timers_8c_a66d7a2b3b47c31bd041f349c13cdbcaa}{k\+\_\+itimer\+\_\+rcu\+\_\+free}} (struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}})
+\item 
+static void \mbox{\hyperlink{posix-timers_8c_a81a9d729c33a2e8577bedfe762d55cbe}{release\+\_\+posix\+\_\+timer}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$\mbox{\hyperlink{apicdef_8h_a61d1da01bba827a23adb7020c5d9f128}{tmr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} it\+\_\+id\+\_\+set)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a09901b00790e6c32db044b52d4e7b6f0}{common\+\_\+timer\+\_\+create}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$new\+\_\+timer)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a46ce42325bfed95f4409bd66b55ab827}{do\+\_\+timer\+\_\+create}} (\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{structsigevent}{sigevent}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$created\+\_\+timer\+\_\+id)
+\item 
+\mbox{\hyperlink{posix-timers_8c_ab346870568958fd710ff0d0a584d9c80}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E3}} (timer\+\_\+create, const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}, which\+\_\+clock, struct \mbox{\hyperlink{structsigevent}{sigevent}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, timer\+\_\+event\+\_\+spec, \mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, created\+\_\+timer\+\_\+id)
+\item 
+static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} \mbox{\hyperlink{posix-timers_8c_ac0863ecfe6afdf2c5d19272b9564f10e}{common\+\_\+hrtimer\+\_\+remaining}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} now)
+\item 
+static \mbox{\hyperlink{actypes_8h_a2fc89b3e9d12a5e30a335c7660459943}{s64}} \mbox{\hyperlink{posix-timers_8c_a2db017177ebb57f1bdcfbd5fece747d6}{common\+\_\+hrtimer\+\_\+forward}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} now)
+\item 
+void \mbox{\hyperlink{posix-timers_8c_a9fdcc14afdde9cf4f36e8580b175af36}{common\+\_\+timer\+\_\+get}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$cur\+\_\+setting)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a033e3156fe82851cf618054d14db0eeb}{do\+\_\+timer\+\_\+gettime}} (\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} timer\+\_\+id, struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$setting)
+\item 
+\mbox{\hyperlink{posix-timers_8c_a6350b7d520009e8d0a1cc87310ae6367}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2}} (timer\+\_\+gettime, \mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}, timer\+\_\+id, struct \mbox{\hyperlink{struct____kernel__itimerspec}{\+\_\+\+\_\+kernel\+\_\+itimerspec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, setting)
+\item 
+\mbox{\hyperlink{posix-timers_8c_a58b54844146a2cf6b88be1292af2706d}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E1}} (timer\+\_\+getoverrun, \mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}, timer\+\_\+id)
+\item 
+static void \mbox{\hyperlink{posix-timers_8c_aa646fff2b415e041f5c6a118e3d0fe18}{common\+\_\+hrtimer\+\_\+arm}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} expires, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} absolute, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} sigev\+\_\+none)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a25ee055f96584cdcec3e28a3c7d55758}{common\+\_\+hrtimer\+\_\+try\+\_\+to\+\_\+cancel}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr)
+\item 
+static void \mbox{\hyperlink{posix-timers_8c_a80276757dfa712a4098906d7fcfa8c8b}{common\+\_\+timer\+\_\+wait\+\_\+running}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$ \mbox{\hyperlink{posix-timers_8c_a4b9d7ae86d3a6a9cf3b3dc9059daf802}{timer\+\_\+wait\+\_\+running}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a21d10bf921120775bbb47b9fd29c7db2}{common\+\_\+timer\+\_\+set}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$timr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$new\+\_\+setting, struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$old\+\_\+setting)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_aa5a344b895b9be97184a4ed65b67863e}{do\+\_\+timer\+\_\+settime}} (\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} timer\+\_\+id, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} tmr\+\_\+flags, struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$new\+\_\+spec64, struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$old\+\_\+spec64)
+\item 
+\mbox{\hyperlink{posix-timers_8c_aa303048299505cb7e8dbc95a1af89861}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E4}} (timer\+\_\+settime, \mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}, timer\+\_\+id, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, const struct \mbox{\hyperlink{struct____kernel__itimerspec}{\+\_\+\+\_\+kernel\+\_\+itimerspec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, new\+\_\+setting, struct \mbox{\hyperlink{struct____kernel__itimerspec}{\+\_\+\+\_\+kernel\+\_\+itimerspec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, old\+\_\+setting)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a1dd395a844c918c12a150c02af0554c1}{common\+\_\+timer\+\_\+del}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_ad8c161ace6aeb4359432bbe7ef200481}{timer\+\_\+delete\+\_\+hook}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+\mbox{\hyperlink{posix-timers_8c_a15a5a52a9c83145571565af25ec21913}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E1}} (timer\+\_\+delete, \mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}, timer\+\_\+id)
+\item 
+static void \mbox{\hyperlink{posix-timers_8c_ae929b872de26a49b251bc07722d1642f}{itimer\+\_\+delete}} (struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+void \mbox{\hyperlink{posix-timers_8c_a08b0fcca704128e2d236add94e8c13b6}{exit\+\_\+itimers}} (struct \mbox{\hyperlink{structsignal__struct}{signal\+\_\+struct}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_ac1d0f07f1f1b3fb726f46a23646396f7}{sig}})
+\item 
+\mbox{\hyperlink{posix-timers_8c_a687649950fb39b0a5279e6f38f47f12e}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2}} (clock\+\_\+settime, const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}, which\+\_\+clock, const struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, \mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+\mbox{\hyperlink{posix-timers_8c_accaf06fc76152d00e673f7fa9f472871}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2}} (\mbox{\hyperlink{um__vdso_8c_a5d045fedd67b75bb0692bcc960b1eca8}{clock\+\_\+gettime}}, const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}, which\+\_\+clock, struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, \mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_aa7124c949d212b363732936fb110da1e}{do\+\_\+clock\+\_\+adjtime}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, struct \mbox{\hyperlink{struct____kernel__timex}{\+\_\+\+\_\+kernel\+\_\+timex}} $\ast$ktx)
+\item 
+\mbox{\hyperlink{posix-timers_8c_a7991da40a4324675dcc644c4db7554f7}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2}} (clock\+\_\+adjtime, const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}, which\+\_\+clock, struct \mbox{\hyperlink{struct____kernel__timex}{\+\_\+\+\_\+kernel\+\_\+timex}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, utx)
+\item 
+\mbox{\hyperlink{posix-timers_8c_a2b1ccb9a895e4009491ec2a84a7f4c5b}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2}} (clock\+\_\+getres, const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}, which\+\_\+clock, struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, \mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a062dd33b38ec2e9bbc11faeedb5a10e2}{common\+\_\+nsleep}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, const struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$rqtp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{posix-timers_8c_a6c151c9158c70097bedc338f0a69b367}{common\+\_\+nsleep\+\_\+timens}} (const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}} which\+\_\+clock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, const struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$rqtp)
+\item 
+\mbox{\hyperlink{posix-timers_8c_a3f7d99929f942ba80fde0df73ce39679}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E4}} (clock\+\_\+nanosleep, const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}, which\+\_\+clock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, const struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, rqtp, struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, rmtp)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$ \mbox{\hyperlink{posix-timers_8c_a7e12929cb56b81b5bc563dd84b39bf62}{posix\+\_\+timers\+\_\+cache}}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} $\ast$const \mbox{\hyperlink{posix-timers_8c_a417021cc71474828e9a430d8689675cf}{posix\+\_\+clocks}} \mbox{[}$\,$\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} \mbox{\hyperlink{posix-timers_8c_a9977311cd17e31597843e795574bac56}{clock\+\_\+realtime}} \mbox{\hyperlink{posix-timers_8c_ac5b1c4b29dc72e1dac9073ead7b136d7}{clock\+\_\+monotonic}}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} \mbox{\hyperlink{posix-timers_8c_a9977311cd17e31597843e795574bac56}{clock\+\_\+realtime}}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} \mbox{\hyperlink{posix-timers_8c_a26d0e83fd3c629f744d94c0347351bd6}{clock\+\_\+monotonic\+\_\+raw}}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} \mbox{\hyperlink{posix-timers_8c_a55b6a7567a24c01b574de5ad89f4cbff}{clock\+\_\+realtime\+\_\+coarse}}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} \mbox{\hyperlink{posix-timers_8c_a520dcc5a637bb607f3451757ddb58d34}{clock\+\_\+monotonic\+\_\+coarse}}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} \mbox{\hyperlink{posix-timers_8c_a4b7ce933f811313c01620ff91f6d5625}{clock\+\_\+tai}}
+\item 
+static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} \mbox{\hyperlink{posix-timers_8c_a2b66c2462aac6ca234a1eeb69639d8c5}{clock\+\_\+boottime}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{posix-timers_8c_a2b9256d9952269e8080a92842050fe56}\label{posix-timers_8c_a2b9256d9952269e8080a92842050fe56}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!IT\_ID\_NOT\_SET@{IT\_ID\_NOT\_SET}}
+\index{IT\_ID\_NOT\_SET@{IT\_ID\_NOT\_SET}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{IT\_ID\_NOT\_SET}{IT\_ID\_NOT\_SET}}
+{\footnotesize\ttfamily \#define I\+T\+\_\+\+I\+D\+\_\+\+N\+O\+T\+\_\+\+S\+ET~0}
+
+\mbox{\Hypertarget{posix-timers_8c_a7c46c9b9946872d8ddffa0ba89096ab8}\label{posix-timers_8c_a7c46c9b9946872d8ddffa0ba89096ab8}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!IT\_ID\_SET@{IT\_ID\_SET}}
+\index{IT\_ID\_SET@{IT\_ID\_SET}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{IT\_ID\_SET}{IT\_ID\_SET}}
+{\footnotesize\ttfamily \#define I\+T\+\_\+\+I\+D\+\_\+\+S\+ET~1}
+
+\mbox{\Hypertarget{posix-timers_8c_a180521fa3185aaa68dea4e04891334b8}\label{posix-timers_8c_a180521fa3185aaa68dea4e04891334b8}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!lock\_timer@{lock\_timer}}
+\index{lock\_timer@{lock\_timer}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{lock\_timer}{lock\_timer}}
+{\footnotesize\ttfamily \#define lock\+\_\+timer(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}},  }\item[{}]{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{(\{  \textcolor{keyword}{struct }\mbox{\hyperlink{structk__itimer}{k\_itimer}} *\_\_timr;                       \(\backslash\)}
+\DoxyCodeLine{    \_\_cond\_lock(\&\_\_timr-\/>\mbox{\hyperlink{structk__itimer_a981f6ac9a35a9f91ba2aa7d3f0f6e6de}{it\_lock}}, \_\_timr = \mbox{\hyperlink{posix-timers_8c_a564663348c8e106b0ad9d57c4eca9bde}{\_\_lock\_timer}}(\mbox{\hyperlink{msgr_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}, \mbox{\hyperlink{pvclock-abi_8h_aa558ea6e2a542f36f82fb8b8e25952e5}{flags}}));  \(\backslash\)}
+\DoxyCodeLine{    \_\_timr;                                \(\backslash\)}
+\DoxyCodeLine{\})}
+
+\end{DoxyCode}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{posix-timers_8c_aa7f3ec7c8fd04310e57271961d7d460b}\label{posix-timers_8c_aa7f3ec7c8fd04310e57271961d7d460b}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!\_\_initcall@{\_\_initcall}}
+\index{\_\_initcall@{\_\_initcall}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initcall()}{\_\_initcall()}}
+{\footnotesize\ttfamily \+\_\+\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{posix-timers_8c_affe644ebf5dacef618d4bcffc78571a2}{init\+\_\+posix\+\_\+timers}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{posix-timers_8c_a564663348c8e106b0ad9d57c4eca9bde}\label{posix-timers_8c_a564663348c8e106b0ad9d57c4eca9bde}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!\_\_lock\_timer@{\_\_lock\_timer}}
+\index{\_\_lock\_timer@{\_\_lock\_timer}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_timer()}{\_\_lock\_timer()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$ \+\_\+\+\_\+lock\+\_\+timer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{timer\+\_\+id,  }\item[{unsigned long $\ast$}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{posix-timers_8c_aed210153dc8b27f91a9ccf3734b85914}\label{posix-timers_8c_aed210153dc8b27f91a9ccf3734b85914}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!\_\_posix\_timers\_find@{\_\_posix\_timers\_find}}
+\index{\_\_posix\_timers\_find@{\_\_posix\_timers\_find}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{\_\_posix\_timers\_find()}{\_\_posix\_timers\_find()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}}$\ast$ \+\_\+\+\_\+posix\+\_\+timers\+\_\+find (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} $\ast$}]{head,  }\item[{struct \mbox{\hyperlink{structsignal__struct}{signal\+\_\+struct}} $\ast$}]{sig,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 2
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{posix-timers_8c_a6a655747514983ec0dc7a23088487a1b}\label{posix-timers_8c_a6a655747514983ec0dc7a23088487a1b}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!alloc\_posix\_timer@{alloc\_posix\_timer}}
+\index{alloc\_posix\_timer@{alloc\_posix\_timer}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_posix\_timer()}{alloc\_posix\_timer()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}}$\ast$ alloc\+\_\+posix\+\_\+timer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{posix-timers_8c_a5858df66dd97d7f14d9e0f32565f9c1e}\label{posix-timers_8c_a5858df66dd97d7f14d9e0f32565f9c1e}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clockid\_to\_kclock@{clockid\_to\_kclock}}
+\index{clockid\_to\_kclock@{clockid\_to\_kclock}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clockid\_to\_kclock()}{clockid\_to\_kclock()}}
+{\footnotesize\ttfamily static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} $\ast$ clockid\+\_\+to\+\_\+kclock (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{posix-timers_8c_aa646fff2b415e041f5c6a118e3d0fe18}\label{posix-timers_8c_aa646fff2b415e041f5c6a118e3d0fe18}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_hrtimer\_arm@{common\_hrtimer\_arm}}
+\index{common\_hrtimer\_arm@{common\_hrtimer\_arm}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_hrtimer\_arm()}{common\_hrtimer\_arm()}}
+{\footnotesize\ttfamily static void common\+\_\+hrtimer\+\_\+arm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}}}]{expires,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{absolute,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{sigev\+\_\+none }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{posix-timers_8c_a2db017177ebb57f1bdcfbd5fece747d6}\label{posix-timers_8c_a2db017177ebb57f1bdcfbd5fece747d6}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_hrtimer\_forward@{common\_hrtimer\_forward}}
+\index{common\_hrtimer\_forward@{common\_hrtimer\_forward}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_hrtimer\_forward()}{common\_hrtimer\_forward()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_a2fc89b3e9d12a5e30a335c7660459943}{s64}} common\+\_\+hrtimer\+\_\+forward (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}}}]{now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{posix-timers_8c_ad8172fd0ab45acac2bb262d14ea119e8}\label{posix-timers_8c_ad8172fd0ab45acac2bb262d14ea119e8}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_hrtimer\_rearm@{common\_hrtimer\_rearm}}
+\index{common\_hrtimer\_rearm@{common\_hrtimer\_rearm}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_hrtimer\_rearm()}{common\_hrtimer\_rearm()}}
+{\footnotesize\ttfamily static void common\+\_\+hrtimer\+\_\+rearm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{posix-timers_8c_ac0863ecfe6afdf2c5d19272b9564f10e}\label{posix-timers_8c_ac0863ecfe6afdf2c5d19272b9564f10e}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_hrtimer\_remaining@{common\_hrtimer\_remaining}}
+\index{common\_hrtimer\_remaining@{common\_hrtimer\_remaining}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_hrtimer\_remaining()}{common\_hrtimer\_remaining()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} common\+\_\+hrtimer\+\_\+remaining (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{\mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}}}]{now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{posix-timers_8c_a25ee055f96584cdcec3e28a3c7d55758}\label{posix-timers_8c_a25ee055f96584cdcec3e28a3c7d55758}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_hrtimer\_try\_to\_cancel@{common\_hrtimer\_try\_to\_cancel}}
+\index{common\_hrtimer\_try\_to\_cancel@{common\_hrtimer\_try\_to\_cancel}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_hrtimer\_try\_to\_cancel()}{common\_hrtimer\_try\_to\_cancel()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} common\+\_\+hrtimer\+\_\+try\+\_\+to\+\_\+cancel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{posix-timers_8c_a062dd33b38ec2e9bbc11faeedb5a10e2}\label{posix-timers_8c_a062dd33b38ec2e9bbc11faeedb5a10e2}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_nsleep@{common\_nsleep}}
+\index{common\_nsleep@{common\_nsleep}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_nsleep()}{common\_nsleep()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} common\+\_\+nsleep (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{const struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{rqtp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{posix-timers_8c_a6c151c9158c70097bedc338f0a69b367}\label{posix-timers_8c_a6c151c9158c70097bedc338f0a69b367}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_nsleep\_timens@{common\_nsleep\_timens}}
+\index{common\_nsleep\_timens@{common\_nsleep\_timens}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_nsleep\_timens()}{common\_nsleep\_timens()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} common\+\_\+nsleep\+\_\+timens (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{const struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{rqtp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{posix-timers_8c_a09901b00790e6c32db044b52d4e7b6f0}\label{posix-timers_8c_a09901b00790e6c32db044b52d4e7b6f0}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_timer\_create@{common\_timer\_create}}
+\index{common\_timer\_create@{common\_timer\_create}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_timer\_create()}{common\_timer\_create()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} common\+\_\+timer\+\_\+create (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{new\+\_\+timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{posix-timers_8c_a1dd395a844c918c12a150c02af0554c1}\label{posix-timers_8c_a1dd395a844c918c12a150c02af0554c1}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_timer\_del@{common\_timer\_del}}
+\index{common\_timer\_del@{common\_timer\_del}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_timer\_del()}{common\_timer\_del()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} common\+\_\+timer\+\_\+del (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timer }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{posix-timers_8c_a9fdcc14afdde9cf4f36e8580b175af36}\label{posix-timers_8c_a9fdcc14afdde9cf4f36e8580b175af36}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_timer\_get@{common\_timer\_get}}
+\index{common\_timer\_get@{common\_timer\_get}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_timer\_get()}{common\_timer\_get()}}
+{\footnotesize\ttfamily void common\+\_\+timer\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$}]{cur\+\_\+setting }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{posix-timers_8c_a21d10bf921120775bbb47b9fd29c7db2}\label{posix-timers_8c_a21d10bf921120775bbb47b9fd29c7db2}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_timer\_set@{common\_timer\_set}}
+\index{common\_timer\_set@{common\_timer\_set}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_timer\_set()}{common\_timer\_set()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} common\+\_\+timer\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$}]{new\+\_\+setting,  }\item[{struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$}]{old\+\_\+setting }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{posix-timers_8c_a80276757dfa712a4098906d7fcfa8c8b}\label{posix-timers_8c_a80276757dfa712a4098906d7fcfa8c8b}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!common\_timer\_wait\_running@{common\_timer\_wait\_running}}
+\index{common\_timer\_wait\_running@{common\_timer\_wait\_running}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{common\_timer\_wait\_running()}{common\_timer\_wait\_running()}}
+{\footnotesize\ttfamily static void common\+\_\+timer\+\_\+wait\+\_\+running (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{posix-timers_8c_acdb4da33f233945dd952ffb88b9028f3}\label{posix-timers_8c_acdb4da33f233945dd952ffb88b9028f3}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!DEFINE\_HASHTABLE@{DEFINE\_HASHTABLE}}
+\index{DEFINE\_HASHTABLE@{DEFINE\_HASHTABLE}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_HASHTABLE()}{DEFINE\_HASHTABLE()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+H\+A\+S\+H\+T\+A\+B\+LE (\begin{DoxyParamCaption}\item[{posix\+\_\+timers\+\_\+hashtable}]{,  }\item[{9}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{posix-timers_8c_a0a87cafe29823ea7a676f279f3c9d563}\label{posix-timers_8c_a0a87cafe29823ea7a676f279f3c9d563}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{hash\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{posix-timers_8c_aa7124c949d212b363732936fb110da1e}\label{posix-timers_8c_aa7124c949d212b363732936fb110da1e}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!do\_clock\_adjtime@{do\_clock\_adjtime}}
+\index{do\_clock\_adjtime@{do\_clock\_adjtime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{do\_clock\_adjtime()}{do\_clock\_adjtime()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} do\+\_\+clock\+\_\+adjtime (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{struct____kernel__timex}{\+\_\+\+\_\+kernel\+\_\+timex}} $\ast$}]{ktx }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{posix-timers_8c_a46ce42325bfed95f4409bd66b55ab827}\label{posix-timers_8c_a46ce42325bfed95f4409bd66b55ab827}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!do\_timer\_create@{do\_timer\_create}}
+\index{do\_timer\_create@{do\_timer\_create}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{do\_timer\_create()}{do\_timer\_create()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} do\+\_\+timer\+\_\+create (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structsigevent}{sigevent}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{created\+\_\+timer\+\_\+id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{posix-timers_8c_a033e3156fe82851cf618054d14db0eeb}\label{posix-timers_8c_a033e3156fe82851cf618054d14db0eeb}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!do\_timer\_gettime@{do\_timer\_gettime}}
+\index{do\_timer\_gettime@{do\_timer\_gettime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{do\_timer\_gettime()}{do\_timer\_gettime()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} do\+\_\+timer\+\_\+gettime (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{timer\+\_\+id,  }\item[{struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$}]{setting }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{posix-timers_8c_aa5a344b895b9be97184a4ed65b67863e}\label{posix-timers_8c_aa5a344b895b9be97184a4ed65b67863e}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!do\_timer\_settime@{do\_timer\_settime}}
+\index{do\_timer\_settime@{do\_timer\_settime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{do\_timer\_settime()}{do\_timer\_settime()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} do\+\_\+timer\+\_\+settime (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{timer\+\_\+id,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{tmr\+\_\+flags,  }\item[{struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$}]{new\+\_\+spec64,  }\item[{struct \mbox{\hyperlink{structitimerspec64}{itimerspec64}} $\ast$}]{old\+\_\+spec64 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{posix-timers_8c_a08b0fcca704128e2d236add94e8c13b6}\label{posix-timers_8c_a08b0fcca704128e2d236add94e8c13b6}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!exit\_itimers@{exit\_itimers}}
+\index{exit\_itimers@{exit\_itimers}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{exit\_itimers()}{exit\_itimers()}}
+{\footnotesize\ttfamily void exit\+\_\+itimers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsignal__struct}{signal\+\_\+struct}} $\ast$}]{sig }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{posix-timers_8c_a82445cba5452a74d3add8cf71de2dc2a}\label{posix-timers_8c_a82445cba5452a74d3add8cf71de2dc2a}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!good\_sigevent@{good\_sigevent}}
+\index{good\_sigevent@{good\_sigevent}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{good\_sigevent()}{good\_sigevent()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpid}{pid}}$\ast$ good\+\_\+sigevent (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2uapi_2asm-generic_2siginfo_8h_accb56a44836adc215898ae7385b572b9}{sigevent\+\_\+t}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{posix-timers_8c_aaa7ab1c4b72f40b6c311c236de2e01e3}\label{posix-timers_8c_aaa7ab1c4b72f40b6c311c236de2e01e3}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!hash@{hash}}
+\index{hash@{hash}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{hash()}{hash()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structhash}{hash}} (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsignal__struct}{signal\+\_\+struct}} $\ast$}]{sig,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{posix-timers_8c_affe644ebf5dacef618d4bcffc78571a2}\label{posix-timers_8c_affe644ebf5dacef618d4bcffc78571a2}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!init\_posix\_timers@{init\_posix\_timers}}
+\index{init\_posix\_timers@{init\_posix\_timers}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{init\_posix\_timers()}{init\_posix\_timers()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+posix\+\_\+timers (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{posix-timers_8c_ae929b872de26a49b251bc07722d1642f}\label{posix-timers_8c_ae929b872de26a49b251bc07722d1642f}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!itimer\_delete@{itimer\_delete}}
+\index{itimer\_delete@{itimer\_delete}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{itimer\_delete()}{itimer\_delete()}}
+{\footnotesize\ttfamily static void itimer\+\_\+delete (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{posix-timers_8c_a66d7a2b3b47c31bd041f349c13cdbcaa}\label{posix-timers_8c_a66d7a2b3b47c31bd041f349c13cdbcaa}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!k\_itimer\_rcu\_free@{k\_itimer\_rcu\_free}}
+\index{k\_itimer\_rcu\_free@{k\_itimer\_rcu\_free}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{k\_itimer\_rcu\_free()}{k\_itimer\_rcu\_free()}}
+{\footnotesize\ttfamily static void k\+\_\+itimer\+\_\+rcu\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$}]{head }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{posix-timers_8c_ad39f15ce75d8df4abacac7b2f4e2126e}\label{posix-timers_8c_ad39f15ce75d8df4abacac7b2f4e2126e}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_clock\_realtime\_adj@{posix\_clock\_realtime\_adj}}
+\index{posix\_clock\_realtime\_adj@{posix\_clock\_realtime\_adj}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_clock\_realtime\_adj()}{posix\_clock\_realtime\_adj()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+clock\+\_\+realtime\+\_\+adj (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{struct____kernel__timex}{\+\_\+\+\_\+kernel\+\_\+timex}} $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{posix-timers_8c_a05f8d6e33e923d2c3357cd82a4e5ed68}\label{posix-timers_8c_a05f8d6e33e923d2c3357cd82a4e5ed68}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_clock\_realtime\_set@{posix\_clock\_realtime\_set}}
+\index{posix\_clock\_realtime\_set@{posix\_clock\_realtime\_set}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_clock\_realtime\_set()}{posix\_clock\_realtime\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+clock\+\_\+realtime\+\_\+set (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{const struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{posix-timers_8c_a086ba0b908be90187bc44229ecac6b0c}\label{posix-timers_8c_a086ba0b908be90187bc44229ecac6b0c}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_boottime\_ktime@{posix\_get\_boottime\_ktime}}
+\index{posix\_get\_boottime\_ktime@{posix\_get\_boottime\_ktime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_boottime\_ktime()}{posix\_get\_boottime\_ktime()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} posix\+\_\+get\+\_\+boottime\+\_\+ktime (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{posix-timers_8c_ace00714cf1d720a754cc51023922340c}\label{posix-timers_8c_ace00714cf1d720a754cc51023922340c}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_boottime\_timespec@{posix\_get\_boottime\_timespec}}
+\index{posix\_get\_boottime\_timespec@{posix\_get\_boottime\_timespec}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_boottime\_timespec()}{posix\_get\_boottime\_timespec()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+boottime\+\_\+timespec (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{posix-timers_8c_ae4f7c32ce15054a26dcc2bfad4625062}\label{posix-timers_8c_ae4f7c32ce15054a26dcc2bfad4625062}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_coarse\_res@{posix\_get\_coarse\_res}}
+\index{posix\_get\_coarse\_res@{posix\_get\_coarse\_res}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_coarse\_res()}{posix\_get\_coarse\_res()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+coarse\+\_\+res (\begin{DoxyParamCaption}\item[{const \mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}\label{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_hrtimer\_res@{posix\_get\_hrtimer\_res}}
+\index{posix\_get\_hrtimer\_res@{posix\_get\_hrtimer\_res}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_hrtimer\_res()}{posix\_get\_hrtimer\_res()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+hrtimer\+\_\+res (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{posix-timers_8c_a82b0e96b96fb846c303864db8b83f326}\label{posix-timers_8c_a82b0e96b96fb846c303864db8b83f326}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_monotonic\_coarse@{posix\_get\_monotonic\_coarse}}
+\index{posix\_get\_monotonic\_coarse@{posix\_get\_monotonic\_coarse}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_monotonic\_coarse()}{posix\_get\_monotonic\_coarse()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+monotonic\+\_\+coarse (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{posix-timers_8c_a9e9d16b14b768e4b6502ef62c64113c7}\label{posix-timers_8c_a9e9d16b14b768e4b6502ef62c64113c7}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_monotonic\_ktime@{posix\_get\_monotonic\_ktime}}
+\index{posix\_get\_monotonic\_ktime@{posix\_get\_monotonic\_ktime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_monotonic\_ktime()}{posix\_get\_monotonic\_ktime()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} posix\+\_\+get\+\_\+monotonic\+\_\+ktime (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{posix-timers_8c_a4423cf88dc5617b2b1893750d4063f49}\label{posix-timers_8c_a4423cf88dc5617b2b1893750d4063f49}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_monotonic\_raw@{posix\_get\_monotonic\_raw}}
+\index{posix\_get\_monotonic\_raw@{posix\_get\_monotonic\_raw}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_monotonic\_raw()}{posix\_get\_monotonic\_raw()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+monotonic\+\_\+raw (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{posix-timers_8c_aeb65c23281972700e19862ac173c59c3}\label{posix-timers_8c_aeb65c23281972700e19862ac173c59c3}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_monotonic\_timespec@{posix\_get\_monotonic\_timespec}}
+\index{posix\_get\_monotonic\_timespec@{posix\_get\_monotonic\_timespec}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_monotonic\_timespec()}{posix\_get\_monotonic\_timespec()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+monotonic\+\_\+timespec (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{posix-timers_8c_a060f67526012999185a1176fe60a644c}\label{posix-timers_8c_a060f67526012999185a1176fe60a644c}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_realtime\_coarse@{posix\_get\_realtime\_coarse}}
+\index{posix\_get\_realtime\_coarse@{posix\_get\_realtime\_coarse}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_realtime\_coarse()}{posix\_get\_realtime\_coarse()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+realtime\+\_\+coarse (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{posix-timers_8c_a2c4036c7ec1c403a4336e92ff1827035}\label{posix-timers_8c_a2c4036c7ec1c403a4336e92ff1827035}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_realtime\_ktime@{posix\_get\_realtime\_ktime}}
+\index{posix\_get\_realtime\_ktime@{posix\_get\_realtime\_ktime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_realtime\_ktime()}{posix\_get\_realtime\_ktime()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} posix\+\_\+get\+\_\+realtime\+\_\+ktime (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{posix-timers_8c_abbd9a9cd83622b8d4de8427f70c86d76}\label{posix-timers_8c_abbd9a9cd83622b8d4de8427f70c86d76}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_realtime\_timespec@{posix\_get\_realtime\_timespec}}
+\index{posix\_get\_realtime\_timespec@{posix\_get\_realtime\_timespec}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_realtime\_timespec()}{posix\_get\_realtime\_timespec()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+realtime\+\_\+timespec (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{posix-timers_8c_a61edc0341a17c0dea9d631798ba8d958}\label{posix-timers_8c_a61edc0341a17c0dea9d631798ba8d958}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_tai\_ktime@{posix\_get\_tai\_ktime}}
+\index{posix\_get\_tai\_ktime@{posix\_get\_tai\_ktime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_tai\_ktime()}{posix\_get\_tai\_ktime()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{linux_2ktime_8h_aaa66f0d899b63ede66e5e77be093842b}{ktime\+\_\+t}} posix\+\_\+get\+\_\+tai\+\_\+ktime (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{posix-timers_8c_a8efe6da886e18e563b0ca433870da936}\label{posix-timers_8c_a8efe6da886e18e563b0ca433870da936}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_get\_tai\_timespec@{posix\_get\_tai\_timespec}}
+\index{posix\_get\_tai\_timespec@{posix\_get\_tai\_timespec}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_get\_tai\_timespec()}{posix\_get\_tai\_timespec()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+get\+\_\+tai\+\_\+timespec (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a6f631e2df1167d39737ee3dbe2c5fb76}{clockid\+\_\+t}}}]{which\+\_\+clock,  }\item[{struct \mbox{\hyperlink{structtimespec64}{timespec64}} $\ast$}]{tp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{posix-timers_8c_ac01fe8e4cc171d79b1308d8cf514c16b}\label{posix-timers_8c_ac01fe8e4cc171d79b1308d8cf514c16b}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_timer\_add@{posix\_timer\_add}}
+\index{posix\_timer\_add@{posix\_timer\_add}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_timer\_add()}{posix\_timer\_add()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+timer\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{posix-timers_8c_a50250f0c1a0fbb98b85b3ee970cd6d1d}\label{posix-timers_8c_a50250f0c1a0fbb98b85b3ee970cd6d1d}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_timer\_by\_id@{posix\_timer\_by\_id}}
+\index{posix\_timer\_by\_id@{posix\_timer\_by\_id}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_timer\_by\_id()}{posix\_timer\_by\_id()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}}$\ast$ posix\+\_\+timer\+\_\+by\+\_\+id (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{posix-timers_8c_a7452bb5367c517ee9e5d2c66312c3e3f}\label{posix-timers_8c_a7452bb5367c517ee9e5d2c66312c3e3f}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_timer\_event@{posix\_timer\_event}}
+\index{posix\_timer\_event@{posix\_timer\_event}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_timer\_event()}{posix\_timer\_event()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} posix\+\_\+timer\+\_\+event (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{si\+\_\+private }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{posix-timers_8c_a19d8dec9ae32ff514f5f110e73d4e894}\label{posix-timers_8c_a19d8dec9ae32ff514f5f110e73d4e894}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_timer\_fn@{posix\_timer\_fn}}
+\index{posix\_timer\_fn@{posix\_timer\_fn}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_timer\_fn()}{posix\_timer\_fn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{hrtimer_8h_a3c67a5c61b0e200e0c60fc71d45e1112}{hrtimer\+\_\+restart}} posix\+\_\+timer\+\_\+fn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhrtimer}{hrtimer}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{posix-timers_8c_ad9fcd8ba45c70bb8851b66e566575fd0}\label{posix-timers_8c_ad9fcd8ba45c70bb8851b66e566575fd0}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posixtimer\_rearm@{posixtimer\_rearm}}
+\index{posixtimer\_rearm@{posixtimer\_rearm}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posixtimer\_rearm()}{posixtimer\_rearm()}}
+{\footnotesize\ttfamily void posixtimer\+\_\+rearm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__siginfo}{kernel\+\_\+siginfo}} $\ast$}]{info }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{posix-timers_8c_a81a9d729c33a2e8577bedfe762d55cbe}\label{posix-timers_8c_a81a9d729c33a2e8577bedfe762d55cbe}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!release\_posix\_timer@{release\_posix\_timer}}
+\index{release\_posix\_timer@{release\_posix\_timer}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{release\_posix\_timer()}{release\_posix\_timer()}}
+{\footnotesize\ttfamily static void release\+\_\+posix\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{tmr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{it\+\_\+id\+\_\+set }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{posix-timers_8c_a15a5a52a9c83145571565af25ec21913}\label{posix-timers_8c_a15a5a52a9c83145571565af25ec21913}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE1@{SYSCALL\_DEFINE1}}
+\index{SYSCALL\_DEFINE1@{SYSCALL\_DEFINE1}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE1()}{SYSCALL\_DEFINE1()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E1 (\begin{DoxyParamCaption}\item[{timer\+\_\+delete}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{,  }\item[{timer\+\_\+id}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{posix-timers_8c_a58b54844146a2cf6b88be1292af2706d}\label{posix-timers_8c_a58b54844146a2cf6b88be1292af2706d}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE1@{SYSCALL\_DEFINE1}}
+\index{SYSCALL\_DEFINE1@{SYSCALL\_DEFINE1}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE1()}{SYSCALL\_DEFINE1()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E1 (\begin{DoxyParamCaption}\item[{timer\+\_\+getoverrun}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{,  }\item[{timer\+\_\+id}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{posix-timers_8c_a7991da40a4324675dcc644c4db7554f7}\label{posix-timers_8c_a7991da40a4324675dcc644c4db7554f7}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}}
+\index{SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE2()}{SYSCALL\_DEFINE2()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2 (\begin{DoxyParamCaption}\item[{clock\+\_\+adjtime}]{,  }\item[{const}]{clockid\+\_\+t,  }\item[{which\+\_\+clock}]{,  }\item[{struct \mbox{\hyperlink{struct____kernel__timex}{\+\_\+\+\_\+kernel\+\_\+timex}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{utx}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{posix-timers_8c_a2b1ccb9a895e4009491ec2a84a7f4c5b}\label{posix-timers_8c_a2b1ccb9a895e4009491ec2a84a7f4c5b}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}}
+\index{SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE2()}{SYSCALL\_DEFINE2()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2 (\begin{DoxyParamCaption}\item[{clock\+\_\+getres}]{,  }\item[{const}]{clockid\+\_\+t,  }\item[{which\+\_\+clock}]{,  }\item[{struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{posix-timers_8c_accaf06fc76152d00e673f7fa9f472871}\label{posix-timers_8c_accaf06fc76152d00e673f7fa9f472871}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}}
+\index{SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE2()}{SYSCALL\_DEFINE2()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2 (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{um__vdso_8c_a5d045fedd67b75bb0692bcc960b1eca8}{clock\+\_\+gettime}}}]{,  }\item[{const}]{clockid\+\_\+t,  }\item[{which\+\_\+clock}]{,  }\item[{struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{posix-timers_8c_a687649950fb39b0a5279e6f38f47f12e}\label{posix-timers_8c_a687649950fb39b0a5279e6f38f47f12e}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}}
+\index{SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE2()}{SYSCALL\_DEFINE2()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2 (\begin{DoxyParamCaption}\item[{clock\+\_\+settime}]{,  }\item[{const}]{clockid\+\_\+t,  }\item[{which\+\_\+clock}]{,  }\item[{const struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{\mbox{\hyperlink{nf__tables__offload_8h_a74c46b81b32eaefbf0db3a17a065c5d1}{tp}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{posix-timers_8c_a6350b7d520009e8d0a1cc87310ae6367}\label{posix-timers_8c_a6350b7d520009e8d0a1cc87310ae6367}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}}
+\index{SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE2()}{SYSCALL\_DEFINE2()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2 (\begin{DoxyParamCaption}\item[{timer\+\_\+gettime}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{,  }\item[{timer\+\_\+id}]{,  }\item[{struct \mbox{\hyperlink{struct____kernel__itimerspec}{\+\_\+\+\_\+kernel\+\_\+itimerspec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{setting}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{posix-timers_8c_ab346870568958fd710ff0d0a584d9c80}\label{posix-timers_8c_ab346870568958fd710ff0d0a584d9c80}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE3@{SYSCALL\_DEFINE3}}
+\index{SYSCALL\_DEFINE3@{SYSCALL\_DEFINE3}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE3()}{SYSCALL\_DEFINE3()}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E3 (\begin{DoxyParamCaption}\item[{timer\+\_\+create}]{,  }\item[{const}]{clockid\+\_\+t,  }\item[{which\+\_\+clock}]{,  }\item[{struct \mbox{\hyperlink{structsigevent}{sigevent}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{timer\+\_\+event\+\_\+spec}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{created\+\_\+timer\+\_\+id}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{posix-timers_8c_a3f7d99929f942ba80fde0df73ce39679}\label{posix-timers_8c_a3f7d99929f942ba80fde0df73ce39679}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE4@{SYSCALL\_DEFINE4}}
+\index{SYSCALL\_DEFINE4@{SYSCALL\_DEFINE4}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE4()}{SYSCALL\_DEFINE4()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E4 (\begin{DoxyParamCaption}\item[{clock\+\_\+nanosleep}]{,  }\item[{const}]{clockid\+\_\+t,  }\item[{which\+\_\+clock}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}}]{,  }\item[{const struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{rqtp}]{,  }\item[{struct \mbox{\hyperlink{struct____kernel__timespec}{\+\_\+\+\_\+kernel\+\_\+timespec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{rmtp}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{posix-timers_8c_aa303048299505cb7e8dbc95a1af89861}\label{posix-timers_8c_aa303048299505cb7e8dbc95a1af89861}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!SYSCALL\_DEFINE4@{SYSCALL\_DEFINE4}}
+\index{SYSCALL\_DEFINE4@{SYSCALL\_DEFINE4}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE4()}{SYSCALL\_DEFINE4()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E4 (\begin{DoxyParamCaption}\item[{timer\+\_\+settime}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a8506eeb0a72621b3fa9435ce726c6bb0}{timer\+\_\+t}}}]{,  }\item[{timer\+\_\+id}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}}]{,  }\item[{const struct \mbox{\hyperlink{struct____kernel__itimerspec}{\+\_\+\+\_\+kernel\+\_\+itimerspec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{new\+\_\+setting}]{,  }\item[{struct \mbox{\hyperlink{struct____kernel__itimerspec}{\+\_\+\+\_\+kernel\+\_\+itimerspec}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{old\+\_\+setting}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{posix-timers_8c_ad8c161ace6aeb4359432bbe7ef200481}\label{posix-timers_8c_ad8c161ace6aeb4359432bbe7ef200481}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!timer\_delete\_hook@{timer\_delete\_hook}}
+\index{timer\_delete\_hook@{timer\_delete\_hook}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{timer\_delete\_hook()}{timer\_delete\_hook()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} timer\+\_\+delete\+\_\+hook (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{posix-timers_8c_a277b6725a52e44ac584284dabd505a60}\label{posix-timers_8c_a277b6725a52e44ac584284dabd505a60}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!timer\_overrun\_to\_int@{timer\_overrun\_to\_int}}
+\index{timer\_overrun\_to\_int@{timer\_overrun\_to\_int}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{timer\_overrun\_to\_int()}{timer\_overrun\_to\_int()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} timer\+\_\+overrun\+\_\+to\+\_\+int (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{baseval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{posix-timers_8c_a4b9d7ae86d3a6a9cf3b3dc9059daf802}\label{posix-timers_8c_a4b9d7ae86d3a6a9cf3b3dc9059daf802}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!timer\_wait\_running@{timer\_wait\_running}}
+\index{timer\_wait\_running@{timer\_wait\_running}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{timer\_wait\_running()}{timer\_wait\_running()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}}$\ast$ timer\+\_\+wait\+\_\+running (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timer,  }\item[{unsigned long $\ast$}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{posix-timers_8c_a8c005bb9a50a5c20009412eba861e6c6}\label{posix-timers_8c_a8c005bb9a50a5c20009412eba861e6c6}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!unlock\_timer@{unlock\_timer}}
+\index{unlock\_timer@{unlock\_timer}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{unlock\_timer()}{unlock\_timer()}}
+{\footnotesize\ttfamily static void unlock\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structk__itimer}{k\+\_\+itimer}} $\ast$}]{timr,  }\item[{unsigned long}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{posix-timers_8c_a2b66c2462aac6ca234a1eeb69639d8c5}\label{posix-timers_8c_a2b66c2462aac6ca234a1eeb69639d8c5}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clock\_boottime@{clock\_boottime}}
+\index{clock\_boottime@{clock\_boottime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clock\_boottime}{clock\_boottime}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} clock\+\_\+boottime\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .clock\_getres       = \mbox{\hyperlink{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}{posix\_get\_hrtimer\_res}},}
+\DoxyCodeLine{    .clock\_get\_ktime    = \mbox{\hyperlink{posix-timers_8c_a086ba0b908be90187bc44229ecac6b0c}{posix\_get\_boottime\_ktime}},}
+\DoxyCodeLine{    .clock\_get\_timespec = \mbox{\hyperlink{posix-timers_8c_ace00714cf1d720a754cc51023922340c}{posix\_get\_boottime\_timespec}},}
+\DoxyCodeLine{    .nsleep         = \mbox{\hyperlink{posix-timers_8c_a6c151c9158c70097bedc338f0a69b367}{common\_nsleep\_timens}},}
+\DoxyCodeLine{    .timer\_create       = \mbox{\hyperlink{posix-timers_8c_a09901b00790e6c32db044b52d4e7b6f0}{common\_timer\_create}},}
+\DoxyCodeLine{    .timer\_set      = \mbox{\hyperlink{posix-timers_8c_a21d10bf921120775bbb47b9fd29c7db2}{common\_timer\_set}},}
+\DoxyCodeLine{    .timer\_get      = \mbox{\hyperlink{posix-timers_8c_a9fdcc14afdde9cf4f36e8580b175af36}{common\_timer\_get}},}
+\DoxyCodeLine{    .timer\_del      = \mbox{\hyperlink{posix-timers_8c_a1dd395a844c918c12a150c02af0554c1}{common\_timer\_del}},}
+\DoxyCodeLine{    .timer\_rearm        = \mbox{\hyperlink{posix-timers_8c_ad8172fd0ab45acac2bb262d14ea119e8}{common\_hrtimer\_rearm}},}
+\DoxyCodeLine{    .timer\_forward      = \mbox{\hyperlink{posix-timers_8c_a2db017177ebb57f1bdcfbd5fece747d6}{common\_hrtimer\_forward}},}
+\DoxyCodeLine{    .timer\_remaining    = \mbox{\hyperlink{posix-timers_8c_ac0863ecfe6afdf2c5d19272b9564f10e}{common\_hrtimer\_remaining}},}
+\DoxyCodeLine{    .timer\_try\_to\_cancel    = \mbox{\hyperlink{posix-timers_8c_a25ee055f96584cdcec3e28a3c7d55758}{common\_hrtimer\_try\_to\_cancel}},}
+\DoxyCodeLine{    .timer\_wait\_running = \mbox{\hyperlink{posix-timers_8c_a80276757dfa712a4098906d7fcfa8c8b}{common\_timer\_wait\_running}},}
+\DoxyCodeLine{    .timer\_arm      = \mbox{\hyperlink{posix-timers_8c_aa646fff2b415e041f5c6a118e3d0fe18}{common\_hrtimer\_arm}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_ac5b1c4b29dc72e1dac9073ead7b136d7}\label{posix-timers_8c_ac5b1c4b29dc72e1dac9073ead7b136d7}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clock\_monotonic@{clock\_monotonic}}
+\index{clock\_monotonic@{clock\_monotonic}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clock\_monotonic}{clock\_monotonic}}
+{\footnotesize\ttfamily static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} clock\+\_\+monotonic\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .clock\_getres       = \mbox{\hyperlink{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}{posix\_get\_hrtimer\_res}},}
+\DoxyCodeLine{    .clock\_get\_timespec = \mbox{\hyperlink{posix-timers_8c_aeb65c23281972700e19862ac173c59c3}{posix\_get\_monotonic\_timespec}},}
+\DoxyCodeLine{    .clock\_get\_ktime    = \mbox{\hyperlink{posix-timers_8c_a9e9d16b14b768e4b6502ef62c64113c7}{posix\_get\_monotonic\_ktime}},}
+\DoxyCodeLine{    .nsleep         = \mbox{\hyperlink{posix-timers_8c_a6c151c9158c70097bedc338f0a69b367}{common\_nsleep\_timens}},}
+\DoxyCodeLine{    .timer\_create       = \mbox{\hyperlink{posix-timers_8c_a09901b00790e6c32db044b52d4e7b6f0}{common\_timer\_create}},}
+\DoxyCodeLine{    .timer\_set      = \mbox{\hyperlink{posix-timers_8c_a21d10bf921120775bbb47b9fd29c7db2}{common\_timer\_set}},}
+\DoxyCodeLine{    .timer\_get      = \mbox{\hyperlink{posix-timers_8c_a9fdcc14afdde9cf4f36e8580b175af36}{common\_timer\_get}},}
+\DoxyCodeLine{    .timer\_del      = \mbox{\hyperlink{posix-timers_8c_a1dd395a844c918c12a150c02af0554c1}{common\_timer\_del}},}
+\DoxyCodeLine{    .timer\_rearm        = \mbox{\hyperlink{posix-timers_8c_ad8172fd0ab45acac2bb262d14ea119e8}{common\_hrtimer\_rearm}},}
+\DoxyCodeLine{    .timer\_forward      = \mbox{\hyperlink{posix-timers_8c_a2db017177ebb57f1bdcfbd5fece747d6}{common\_hrtimer\_forward}},}
+\DoxyCodeLine{    .timer\_remaining    = \mbox{\hyperlink{posix-timers_8c_ac0863ecfe6afdf2c5d19272b9564f10e}{common\_hrtimer\_remaining}},}
+\DoxyCodeLine{    .timer\_try\_to\_cancel    = \mbox{\hyperlink{posix-timers_8c_a25ee055f96584cdcec3e28a3c7d55758}{common\_hrtimer\_try\_to\_cancel}},}
+\DoxyCodeLine{    .timer\_wait\_running = \mbox{\hyperlink{posix-timers_8c_a80276757dfa712a4098906d7fcfa8c8b}{common\_timer\_wait\_running}},}
+\DoxyCodeLine{    .timer\_arm      = \mbox{\hyperlink{posix-timers_8c_aa646fff2b415e041f5c6a118e3d0fe18}{common\_hrtimer\_arm}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_a520dcc5a637bb607f3451757ddb58d34}\label{posix-timers_8c_a520dcc5a637bb607f3451757ddb58d34}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clock\_monotonic\_coarse@{clock\_monotonic\_coarse}}
+\index{clock\_monotonic\_coarse@{clock\_monotonic\_coarse}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clock\_monotonic\_coarse}{clock\_monotonic\_coarse}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} clock\+\_\+monotonic\+\_\+coarse\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .clock\_getres       = \mbox{\hyperlink{posix-timers_8c_ae4f7c32ce15054a26dcc2bfad4625062}{posix\_get\_coarse\_res}},}
+\DoxyCodeLine{    .clock\_get\_timespec = \mbox{\hyperlink{posix-timers_8c_a82b0e96b96fb846c303864db8b83f326}{posix\_get\_monotonic\_coarse}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_a26d0e83fd3c629f744d94c0347351bd6}\label{posix-timers_8c_a26d0e83fd3c629f744d94c0347351bd6}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clock\_monotonic\_raw@{clock\_monotonic\_raw}}
+\index{clock\_monotonic\_raw@{clock\_monotonic\_raw}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clock\_monotonic\_raw}{clock\_monotonic\_raw}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} clock\+\_\+monotonic\+\_\+raw\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .clock\_getres       = \mbox{\hyperlink{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}{posix\_get\_hrtimer\_res}},}
+\DoxyCodeLine{    .clock\_get\_timespec = \mbox{\hyperlink{posix-timers_8c_a4423cf88dc5617b2b1893750d4063f49}{posix\_get\_monotonic\_raw}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_a9977311cd17e31597843e795574bac56}\label{posix-timers_8c_a9977311cd17e31597843e795574bac56}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clock\_realtime@{clock\_realtime}}
+\index{clock\_realtime@{clock\_realtime}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clock\_realtime}{clock\_realtime}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} clock\+\_\+realtime\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .clock\_getres       = \mbox{\hyperlink{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}{posix\_get\_hrtimer\_res}},}
+\DoxyCodeLine{    .clock\_get\_timespec = \mbox{\hyperlink{posix-timers_8c_abbd9a9cd83622b8d4de8427f70c86d76}{posix\_get\_realtime\_timespec}},}
+\DoxyCodeLine{    .clock\_get\_ktime    = \mbox{\hyperlink{posix-timers_8c_a2c4036c7ec1c403a4336e92ff1827035}{posix\_get\_realtime\_ktime}},}
+\DoxyCodeLine{    .clock\_set      = \mbox{\hyperlink{posix-timers_8c_a05f8d6e33e923d2c3357cd82a4e5ed68}{posix\_clock\_realtime\_set}},}
+\DoxyCodeLine{    .clock\_adj      = \mbox{\hyperlink{posix-timers_8c_ad39f15ce75d8df4abacac7b2f4e2126e}{posix\_clock\_realtime\_adj}},}
+\DoxyCodeLine{    .nsleep         = \mbox{\hyperlink{posix-timers_8c_a062dd33b38ec2e9bbc11faeedb5a10e2}{common\_nsleep}},}
+\DoxyCodeLine{    .timer\_create       = \mbox{\hyperlink{posix-timers_8c_a09901b00790e6c32db044b52d4e7b6f0}{common\_timer\_create}},}
+\DoxyCodeLine{    .timer\_set      = \mbox{\hyperlink{posix-timers_8c_a21d10bf921120775bbb47b9fd29c7db2}{common\_timer\_set}},}
+\DoxyCodeLine{    .timer\_get      = \mbox{\hyperlink{posix-timers_8c_a9fdcc14afdde9cf4f36e8580b175af36}{common\_timer\_get}},}
+\DoxyCodeLine{    .timer\_del      = \mbox{\hyperlink{posix-timers_8c_a1dd395a844c918c12a150c02af0554c1}{common\_timer\_del}},}
+\DoxyCodeLine{    .timer\_rearm        = \mbox{\hyperlink{posix-timers_8c_ad8172fd0ab45acac2bb262d14ea119e8}{common\_hrtimer\_rearm}},}
+\DoxyCodeLine{    .timer\_forward      = \mbox{\hyperlink{posix-timers_8c_a2db017177ebb57f1bdcfbd5fece747d6}{common\_hrtimer\_forward}},}
+\DoxyCodeLine{    .timer\_remaining    = \mbox{\hyperlink{posix-timers_8c_ac0863ecfe6afdf2c5d19272b9564f10e}{common\_hrtimer\_remaining}},}
+\DoxyCodeLine{    .timer\_try\_to\_cancel    = \mbox{\hyperlink{posix-timers_8c_a25ee055f96584cdcec3e28a3c7d55758}{common\_hrtimer\_try\_to\_cancel}},}
+\DoxyCodeLine{    .timer\_wait\_running = \mbox{\hyperlink{posix-timers_8c_a80276757dfa712a4098906d7fcfa8c8b}{common\_timer\_wait\_running}},}
+\DoxyCodeLine{    .timer\_arm      = \mbox{\hyperlink{posix-timers_8c_aa646fff2b415e041f5c6a118e3d0fe18}{common\_hrtimer\_arm}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_a55b6a7567a24c01b574de5ad89f4cbff}\label{posix-timers_8c_a55b6a7567a24c01b574de5ad89f4cbff}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clock\_realtime\_coarse@{clock\_realtime\_coarse}}
+\index{clock\_realtime\_coarse@{clock\_realtime\_coarse}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clock\_realtime\_coarse}{clock\_realtime\_coarse}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} clock\+\_\+realtime\+\_\+coarse\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .clock\_getres       = \mbox{\hyperlink{posix-timers_8c_ae4f7c32ce15054a26dcc2bfad4625062}{posix\_get\_coarse\_res}},}
+\DoxyCodeLine{    .clock\_get\_timespec = \mbox{\hyperlink{posix-timers_8c_a060f67526012999185a1176fe60a644c}{posix\_get\_realtime\_coarse}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_a4b7ce933f811313c01620ff91f6d5625}\label{posix-timers_8c_a4b7ce933f811313c01620ff91f6d5625}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!clock\_tai@{clock\_tai}}
+\index{clock\_tai@{clock\_tai}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{clock\_tai}{clock\_tai}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} clock\+\_\+tai\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .clock\_getres       = \mbox{\hyperlink{posix-timers_8c_ad32369d6446a369afb52c3dc14c33bce}{posix\_get\_hrtimer\_res}},}
+\DoxyCodeLine{    .clock\_get\_ktime    = \mbox{\hyperlink{posix-timers_8c_a61edc0341a17c0dea9d631798ba8d958}{posix\_get\_tai\_ktime}},}
+\DoxyCodeLine{    .clock\_get\_timespec = \mbox{\hyperlink{posix-timers_8c_a8efe6da886e18e563b0ca433870da936}{posix\_get\_tai\_timespec}},}
+\DoxyCodeLine{    .nsleep         = \mbox{\hyperlink{posix-timers_8c_a062dd33b38ec2e9bbc11faeedb5a10e2}{common\_nsleep}},}
+\DoxyCodeLine{    .timer\_create       = \mbox{\hyperlink{posix-timers_8c_a09901b00790e6c32db044b52d4e7b6f0}{common\_timer\_create}},}
+\DoxyCodeLine{    .timer\_set      = \mbox{\hyperlink{posix-timers_8c_a21d10bf921120775bbb47b9fd29c7db2}{common\_timer\_set}},}
+\DoxyCodeLine{    .timer\_get      = \mbox{\hyperlink{posix-timers_8c_a9fdcc14afdde9cf4f36e8580b175af36}{common\_timer\_get}},}
+\DoxyCodeLine{    .timer\_del      = \mbox{\hyperlink{posix-timers_8c_a1dd395a844c918c12a150c02af0554c1}{common\_timer\_del}},}
+\DoxyCodeLine{    .timer\_rearm        = \mbox{\hyperlink{posix-timers_8c_ad8172fd0ab45acac2bb262d14ea119e8}{common\_hrtimer\_rearm}},}
+\DoxyCodeLine{    .timer\_forward      = \mbox{\hyperlink{posix-timers_8c_a2db017177ebb57f1bdcfbd5fece747d6}{common\_hrtimer\_forward}},}
+\DoxyCodeLine{    .timer\_remaining    = \mbox{\hyperlink{posix-timers_8c_ac0863ecfe6afdf2c5d19272b9564f10e}{common\_hrtimer\_remaining}},}
+\DoxyCodeLine{    .timer\_try\_to\_cancel    = \mbox{\hyperlink{posix-timers_8c_a25ee055f96584cdcec3e28a3c7d55758}{common\_hrtimer\_try\_to\_cancel}},}
+\DoxyCodeLine{    .timer\_wait\_running = \mbox{\hyperlink{posix-timers_8c_a80276757dfa712a4098906d7fcfa8c8b}{common\_timer\_wait\_running}},}
+\DoxyCodeLine{    .timer\_arm      = \mbox{\hyperlink{posix-timers_8c_aa646fff2b415e041f5c6a118e3d0fe18}{common\_hrtimer\_arm}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_a417021cc71474828e9a430d8689675cf}\label{posix-timers_8c_a417021cc71474828e9a430d8689675cf}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_clocks@{posix\_clocks}}
+\index{posix\_clocks@{posix\_clocks}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_clocks}{posix\_clocks}}
+{\footnotesize\ttfamily static const struct \mbox{\hyperlink{structk__clock}{k\+\_\+clock}} $\ast$const posix\+\_\+clocks\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_a922ce1ae64374c9410c8a999e25e82af}{CLOCK\_REALTIME}}]      = \&\mbox{\hyperlink{posix-timers_8c_a9977311cd17e31597843e795574bac56}{clock\_realtime}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_a6fb83f5e91e704391ff796553d5e0f46}{CLOCK\_MONOTONIC}}]        = \&\mbox{\hyperlink{posix-timers_8c_ac5b1c4b29dc72e1dac9073ead7b136d7}{clock\_monotonic}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_ae1c3939a1e7b7cd1e5a4a7fa601cc4e9}{CLOCK\_PROCESS\_CPUTIME\_ID}}]  = \&\mbox{\hyperlink{posix-cpu-timers_8c_a3788a68216021a13bc247452d763bb52}{clock\_process}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_a30114e19c18f57f83727bcaba2458f1e}{CLOCK\_THREAD\_CPUTIME\_ID}}]    = \&\mbox{\hyperlink{posix-cpu-timers_8c_afa02694c7184f35fc488fee7c78879c8}{clock\_thread}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_abc28c2ee4e33ae055ef2f737110a7020}{CLOCK\_MONOTONIC\_RAW}}]        = \&\mbox{\hyperlink{posix-timers_8c_a26d0e83fd3c629f744d94c0347351bd6}{clock\_monotonic\_raw}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_accb072221e0afcac765ec2bb6e4eca04}{CLOCK\_REALTIME\_COARSE}}]        = \&\mbox{\hyperlink{posix-timers_8c_a55b6a7567a24c01b574de5ad89f4cbff}{clock\_realtime\_coarse}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_aec7304645b1e13a52fa6dfb11f1c671b}{CLOCK\_MONOTONIC\_COARSE}}]  = \&\mbox{\hyperlink{posix-timers_8c_a520dcc5a637bb607f3451757ddb58d34}{clock\_monotonic\_coarse}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_a178a9965a4481e583b0b4a559c950567}{CLOCK\_BOOTTIME}}]      = \&\mbox{\hyperlink{posix-timers_8c_a2b66c2462aac6ca234a1eeb69639d8c5}{clock\_boottime}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_ac16321003eac28fbea29eb0407a5360e}{CLOCK\_REALTIME\_ALARM}}]      = \&\mbox{\hyperlink{kernel_2time_2posix-timers_8h_ae87663d4141b6bd4eae4708cabc62916}{alarm\_clock}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_aab2693d9b979b68ebf71f6bb801331f0}{CLOCK\_BOOTTIME\_ALARM}}]      = \&\mbox{\hyperlink{kernel_2time_2posix-timers_8h_ae87663d4141b6bd4eae4708cabc62916}{alarm\_clock}},}
+\DoxyCodeLine{    [\mbox{\hyperlink{include_2uapi_2linux_2time_8h_aac0f6cb98c51d8dfdf32ce113425252f}{CLOCK\_TAI}}]            = \&\mbox{\hyperlink{posix-timers_8c_a4b7ce933f811313c01620ff91f6d5625}{clock\_tai}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{posix-timers_8c_a7e12929cb56b81b5bc563dd84b39bf62}\label{posix-timers_8c_a7e12929cb56b81b5bc563dd84b39bf62}} 
+\index{posix-\/timers.c@{posix-\/timers.c}!posix\_timers\_cache@{posix\_timers\_cache}}
+\index{posix\_timers\_cache@{posix\_timers\_cache}!posix-\/timers.c@{posix-\/timers.c}}
+\doxysubsubsection{\texorpdfstring{posix\_timers\_cache}{posix\_timers\_cache}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ posix\+\_\+timers\+\_\+cache\hspace{0.3cm}{\ttfamily [static]}}
+

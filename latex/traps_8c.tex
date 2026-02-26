@@ -1,0 +1,524 @@
+\hypertarget{traps_8c}{}\doxysection{arch/x86/kernel/traps.c File Reference}
+\label{traps_8c}\index{arch/x86/kernel/traps.c@{arch/x86/kernel/traps.c}}
+{\ttfamily \#include $<$linux/context\+\_\+tracking.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kallsyms.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kprobes.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kdebug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kgdb.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ptrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uprobes.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/errno.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kexec.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task\+\_\+stack.\+h$>$}\newline
+{\ttfamily \#include $<$linux/timer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/io.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hardirq.\+h$>$}\newline
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include $<$asm/stacktrace.\+h$>$}\newline
+{\ttfamily \#include $<$asm/processor.\+h$>$}\newline
+{\ttfamily \#include $<$asm/debugreg.\+h$>$}\newline
+{\ttfamily \#include $<$asm/realmode.\+h$>$}\newline
+{\ttfamily \#include $<$asm/text-\/patching.\+h$>$}\newline
+{\ttfamily \#include $<$asm/ftrace.\+h$>$}\newline
+{\ttfamily \#include $<$asm/traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/desc.\+h$>$}\newline
+{\ttfamily \#include $<$asm/fpu/internal.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu\+\_\+entry\+\_\+area.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mce.\+h$>$}\newline
+{\ttfamily \#include $<$asm/fixmap.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mach\+\_\+traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/alternative.\+h$>$}\newline
+{\ttfamily \#include $<$asm/fpu/xstate.\+h$>$}\newline
+{\ttfamily \#include $<$asm/vm86.\+h$>$}\newline
+{\ttfamily \#include $<$asm/umip.\+h$>$}\newline
+{\ttfamily \#include $<$asm/insn.\+h$>$}\newline
+{\ttfamily \#include $<$asm/insn-\/eval.\+h$>$}\newline
+{\ttfamily \#include $<$asm/vdso.\+h$>$}\newline
+{\ttfamily \#include $<$asm/processor-\/flags.\+h$>$}\newline
+{\ttfamily \#include $<$asm/setup.\+h$>$}\newline
+{\ttfamily \#include $<$asm/proto.\+h$>$}\newline
+Include dependency graph for traps.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{traps_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{traps_8c_a5f4d0c4a149443917ec64087ce137d04}{G\+P\+F\+S\+TR}}~\char`\"{}general protection \mbox{\hyperlink{vmx__ops_8h_a8a481c41d08d5e32cf37ee711425acc8}{fault}}\char`\"{}
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5c}{kernel\+\_\+gp\+\_\+hint}} \{ \mbox{\hyperlink{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5ca0003790ddaac5a7169ab2b0db742b14a}{G\+P\+\_\+\+N\+O\+\_\+\+H\+I\+NT}}, 
+\mbox{\hyperlink{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5ca2df5286fbb76ebb11c84bacdb16b0d28}{G\+P\+\_\+\+N\+O\+N\+\_\+\+C\+A\+N\+O\+N\+I\+C\+AL}}, 
+\mbox{\hyperlink{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5caeba83af3cbc151461c1bf91c3e6424e1}{G\+P\+\_\+\+C\+A\+N\+O\+N\+I\+C\+AL}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{traps_8c_a67541d229f6de2207300c01c0ffd30b6}{D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP}} (\mbox{\hyperlink{include_2asm_2desc_8h_a362d4aecc96ad5b3b13bf8badda7aaa6}{system\+\_\+vectors}}, \mbox{\hyperlink{include_2asm_2irq__vectors_8h_a00688ff65110d31b64f74f0f54736d09}{N\+R\+\_\+\+V\+E\+C\+T\+O\+RS}})
+\item 
+static void \mbox{\hyperlink{traps_8c_aaded788ac22388658bd5a7a4cef7a496}{cond\+\_\+local\+\_\+irq\+\_\+enable}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{traps_8c_ac396eac91d7198a8b3d3e948afd2ffcd}{cond\+\_\+local\+\_\+irq\+\_\+disable}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{traps_8c_a49ccbd5e3d0518c8820e0ccb3165f118}{is\+\_\+valid\+\_\+bugaddr}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static nokprobe\+\_\+inline \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{traps_8c_abcf1a315ae051303a2dce6aaacbe1272}{do\+\_\+trap\+\_\+no\+\_\+signal}} (struct task\+\_\+struct $\ast$tsk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trapnr, const char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}})
+\item 
+static void \mbox{\hyperlink{traps_8c_a72ec4b82101e83fcaddd80f26982f7e1}{show\+\_\+signal}} (struct task\+\_\+struct $\ast$tsk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} signr, const char $\ast$\mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, const char $\ast$\mbox{\hyperlink{linux_2hid_8h_a6a2438be08bca98db53ee7abe96afc62}{desc}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}})
+\item 
+static void \mbox{\hyperlink{traps_8c_a6a62bc19974e267f4ed0ec47e9886180}{do\+\_\+trap}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trapnr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} signr, char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sicode, void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\mbox{\hyperlink{traps_8c_a92fa943a8fc73c70f0080f5446b2da57}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{traps_8c_a6a62bc19974e267f4ed0ec47e9886180}{do\+\_\+trap}})
+\item 
+static void \mbox{\hyperlink{traps_8c_a8f0dec12a56d5b2c0f91ffc62c76d1c5}{do\+\_\+error\+\_\+trap}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}}, char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}}, unsigned long trapnr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} signr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sicode, void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ \mbox{\hyperlink{traps_8c_ae96f17f5b8b7626697237d53cec65488}{error\+\_\+get\+\_\+trap\+\_\+addr}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{traps_8c_a60c1b75fa7096da613f67a0678ef01b8}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+divide\+\_\+error)
+\item 
+\mbox{\hyperlink{traps_8c_a8f4b782f3dae7c65f4531301146ff221}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+overflow)
+\item 
+static void \mbox{\hyperlink{traps_8c_a8cb368b2602bb2f32540848db6f4cf14}{handle\+\_\+invalid\+\_\+op}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static noinstr \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{traps_8c_a219e6798e74314c3dd80637784487314}{handle\+\_\+bug}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{traps_8c_a62955420ddf53aeaeb975113217d89ad}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW}} (exc\+\_\+invalid\+\_\+op)
+\item 
+\mbox{\hyperlink{traps_8c_a9238e0fe43e75c7d495b66cdb7a33550}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+coproc\+\_\+segment\+\_\+overrun)
+\item 
+\mbox{\hyperlink{traps_8c_abf03104f8e1a3a0f7149c175069f6898}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE}} (exc\+\_\+invalid\+\_\+tss)
+\item 
+\mbox{\hyperlink{traps_8c_a5179177ee12a676ebd0014231742b9b9}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE}} (exc\+\_\+segment\+\_\+not\+\_\+present)
+\item 
+\mbox{\hyperlink{traps_8c_acf02de0123e56d078aca31b1c034de0e}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE}} (exc\+\_\+stack\+\_\+segment)
+\item 
+\mbox{\hyperlink{traps_8c_ab2b8dbb14bb8a132adcb661e6199f473}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE}} (exc\+\_\+alignment\+\_\+check)
+\item 
+\mbox{\hyperlink{traps_8c_a61a07c64d91bf3aad5a1b568031b51c0}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+DF}} (exc\+\_\+double\+\_\+fault)
+\item 
+\mbox{\hyperlink{traps_8c_af25c15695bafca717ee8f7921357837d}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+bounds)
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5c}{kernel\+\_\+gp\+\_\+hint}} \mbox{\hyperlink{traps_8c_a9c3bdfe946c0a17abae5cbdef75be0d3}{get\+\_\+kernel\+\_\+gp\+\_\+address}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\mbox{\hyperlink{traps_8c_a2d9afb41b58e5b20b32abdbe56f92f71}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE}} (exc\+\_\+general\+\_\+protection)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{traps_8c_aef30fb1477d8d799c1f31672dad060c3}{do\+\_\+int3}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{traps_8c_aa8768522da75f76b79df26004590436d}{do\+\_\+int3\+\_\+user}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{traps_8c_a7fe1a117c69b100242a2b2beaf8634f6}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW}} (exc\+\_\+int3)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{traps_8c_ac1ec5838e387cbd36a1db4695f9cdc82}{is\+\_\+sysenter\+\_\+singlestep}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} unsigned long \mbox{\hyperlink{traps_8c_a2dac8d0963f2958b5d822878f3ce6cf5}{debug\+\_\+read\+\_\+clear\+\_\+dr6}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{traps_8c_af0ec186bbc5bb878b8c2d0bfb3399433}{notify\+\_\+debug}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, unsigned long $\ast$dr6)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{traps_8c_a42f9c1ff93c74762fea68f045e05dbed}{exc\+\_\+debug\+\_\+kernel}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, unsigned long dr6)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{traps_8c_ae87680dfc11d78bf26fb670959eaa298}{exc\+\_\+debug\+\_\+user}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, unsigned long dr6)
+\item 
+\mbox{\hyperlink{traps_8c_a81032dbdfcbd6bd411cf815dfcebecdf}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW}} (exc\+\_\+debug)
+\item 
+static void \mbox{\hyperlink{traps_8c_ad6d6ca4d15229dd847b4b10d21fe65a7}{math\+\_\+error}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trapnr)
+\item 
+\mbox{\hyperlink{traps_8c_ac78f836d4115b2052375b539ca3a1de2}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+coprocessor\+\_\+error)
+\item 
+\mbox{\hyperlink{traps_8c_afcbfcd568042640ffdf03122634845b3}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+simd\+\_\+coprocessor\+\_\+error)
+\item 
+\mbox{\hyperlink{traps_8c_a839e34038b4e2cfe2946080c4a929f25}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+spurious\+\_\+interrupt\+\_\+bug)
+\item 
+\mbox{\hyperlink{traps_8c_a4b4b58e7bb7589fc32928bb2e7d3540f}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY}} (exc\+\_\+device\+\_\+not\+\_\+available)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{traps_8c_af911de0ec4641ef03ef0e641821f65cb}{trap\+\_\+init}} (void)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{traps_8c_a5f4d0c4a149443917ec64087ce137d04}\label{traps_8c_a5f4d0c4a149443917ec64087ce137d04}} 
+\index{traps.c@{traps.c}!GPFSTR@{GPFSTR}}
+\index{GPFSTR@{GPFSTR}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{GPFSTR}{GPFSTR}}
+{\footnotesize\ttfamily \#define G\+P\+F\+S\+TR~\char`\"{}general protection \mbox{\hyperlink{vmx__ops_8h_a8a481c41d08d5e32cf37ee711425acc8}{fault}}\char`\"{}}
+
+\mbox{\Hypertarget{traps_8c_a1f8c165bf4196327bc3abff648276d92}\label{traps_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{traps.c@{traps.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5c}\label{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5c}} 
+\index{traps.c@{traps.c}!kernel\_gp\_hint@{kernel\_gp\_hint}}
+\index{kernel\_gp\_hint@{kernel\_gp\_hint}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{kernel\_gp\_hint}{kernel\_gp\_hint}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5c}{kernel\+\_\+gp\+\_\+hint}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{GP\_NO\_HINT@{GP\_NO\_HINT}!traps.c@{traps.c}}\index{traps.c@{traps.c}!GP\_NO\_HINT@{GP\_NO\_HINT}}}\mbox{\Hypertarget{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5ca0003790ddaac5a7169ab2b0db742b14a}\label{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5ca0003790ddaac5a7169ab2b0db742b14a}} 
+G\+P\+\_\+\+N\+O\+\_\+\+H\+I\+NT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{GP\_NON\_CANONICAL@{GP\_NON\_CANONICAL}!traps.c@{traps.c}}\index{traps.c@{traps.c}!GP\_NON\_CANONICAL@{GP\_NON\_CANONICAL}}}\mbox{\Hypertarget{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5ca2df5286fbb76ebb11c84bacdb16b0d28}\label{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5ca2df5286fbb76ebb11c84bacdb16b0d28}} 
+G\+P\+\_\+\+N\+O\+N\+\_\+\+C\+A\+N\+O\+N\+I\+C\+AL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{GP\_CANONICAL@{GP\_CANONICAL}!traps.c@{traps.c}}\index{traps.c@{traps.c}!GP\_CANONICAL@{GP\_CANONICAL}}}\mbox{\Hypertarget{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5caeba83af3cbc151461c1bf91c3e6424e1}\label{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5caeba83af3cbc151461c1bf91c3e6424e1}} 
+G\+P\+\_\+\+C\+A\+N\+O\+N\+I\+C\+AL&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{traps_8c_ac396eac91d7198a8b3d3e948afd2ffcd}\label{traps_8c_ac396eac91d7198a8b3d3e948afd2ffcd}} 
+\index{traps.c@{traps.c}!cond\_local\_irq\_disable@{cond\_local\_irq\_disable}}
+\index{cond\_local\_irq\_disable@{cond\_local\_irq\_disable}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{cond\_local\_irq\_disable()}{cond\_local\_irq\_disable()}}
+{\footnotesize\ttfamily static void cond\+\_\+local\+\_\+irq\+\_\+disable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{traps_8c_aaded788ac22388658bd5a7a4cef7a496}\label{traps_8c_aaded788ac22388658bd5a7a4cef7a496}} 
+\index{traps.c@{traps.c}!cond\_local\_irq\_enable@{cond\_local\_irq\_enable}}
+\index{cond\_local\_irq\_enable@{cond\_local\_irq\_enable}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{cond\_local\_irq\_enable()}{cond\_local\_irq\_enable()}}
+{\footnotesize\ttfamily static void cond\+\_\+local\+\_\+irq\+\_\+enable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{traps_8c_a2dac8d0963f2958b5d822878f3ce6cf5}\label{traps_8c_a2dac8d0963f2958b5d822878f3ce6cf5}} 
+\index{traps.c@{traps.c}!debug\_read\_clear\_dr6@{debug\_read\_clear\_dr6}}
+\index{debug\_read\_clear\_dr6@{debug\_read\_clear\_dr6}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{debug\_read\_clear\_dr6()}{debug\_read\_clear\_dr6()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} unsigned long debug\+\_\+read\+\_\+clear\+\_\+dr6 (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{traps_8c_a67541d229f6de2207300c01c0ffd30b6}\label{traps_8c_a67541d229f6de2207300c01c0ffd30b6}} 
+\index{traps.c@{traps.c}!DECLARE\_BITMAP@{DECLARE\_BITMAP}}
+\index{DECLARE\_BITMAP@{DECLARE\_BITMAP}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_BITMAP()}{DECLARE\_BITMAP()}}
+{\footnotesize\ttfamily D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2asm_2desc_8h_a362d4aecc96ad5b3b13bf8badda7aaa6}{system\+\_\+vectors}}}]{,  }\item[{\mbox{\hyperlink{include_2asm_2irq__vectors_8h_a00688ff65110d31b64f74f0f54736d09}{N\+R\+\_\+\+V\+E\+C\+T\+O\+RS}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{traps_8c_af25c15695bafca717ee8f7921357837d}\label{traps_8c_af25c15695bafca717ee8f7921357837d}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [1/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+bounds}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{traps_8c_a9238e0fe43e75c7d495b66cdb7a33550}\label{traps_8c_a9238e0fe43e75c7d495b66cdb7a33550}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [2/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+coproc\+\_\+segment\+\_\+overrun}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{traps_8c_ac78f836d4115b2052375b539ca3a1de2}\label{traps_8c_ac78f836d4115b2052375b539ca3a1de2}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [3/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+coprocessor\+\_\+error}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{traps_8c_a4b4b58e7bb7589fc32928bb2e7d3540f}\label{traps_8c_a4b4b58e7bb7589fc32928bb2e7d3540f}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [4/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+device\+\_\+not\+\_\+available}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{traps_8c_a60c1b75fa7096da613f67a0678ef01b8}\label{traps_8c_a60c1b75fa7096da613f67a0678ef01b8}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [5/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+divide\+\_\+error}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{traps_8c_a8f4b782f3dae7c65f4531301146ff221}\label{traps_8c_a8f4b782f3dae7c65f4531301146ff221}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [6/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+overflow}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{traps_8c_afcbfcd568042640ffdf03122634845b3}\label{traps_8c_afcbfcd568042640ffdf03122634845b3}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [7/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+simd\+\_\+coprocessor\+\_\+error}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{traps_8c_a839e34038b4e2cfe2946080c4a929f25}\label{traps_8c_a839e34038b4e2cfe2946080c4a929f25}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}}
+\index{DEFINE\_IDTENTRY@{DEFINE\_IDTENTRY}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY()}{DEFINE\_IDTENTRY()}\hspace{0.1cm}{\footnotesize\ttfamily [8/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+RY (\begin{DoxyParamCaption}\item[{exc\+\_\+spurious\+\_\+interrupt\+\_\+bug}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{traps_8c_a61a07c64d91bf3aad5a1b568031b51c0}\label{traps_8c_a61a07c64d91bf3aad5a1b568031b51c0}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_DF@{DEFINE\_IDTENTRY\_DF}}
+\index{DEFINE\_IDTENTRY\_DF@{DEFINE\_IDTENTRY\_DF}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_DF()}{DEFINE\_IDTENTRY\_DF()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+DF (\begin{DoxyParamCaption}\item[{exc\+\_\+double\+\_\+fault}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{traps_8c_ab2b8dbb14bb8a132adcb661e6199f473}\label{traps_8c_ab2b8dbb14bb8a132adcb661e6199f473}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}}
+\index{DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_ERRORCODE()}{DEFINE\_IDTENTRY\_ERRORCODE()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE (\begin{DoxyParamCaption}\item[{exc\+\_\+alignment\+\_\+check}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{traps_8c_a2d9afb41b58e5b20b32abdbe56f92f71}\label{traps_8c_a2d9afb41b58e5b20b32abdbe56f92f71}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}}
+\index{DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_ERRORCODE()}{DEFINE\_IDTENTRY\_ERRORCODE()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE (\begin{DoxyParamCaption}\item[{exc\+\_\+general\+\_\+protection}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{traps_8c_abf03104f8e1a3a0f7149c175069f6898}\label{traps_8c_abf03104f8e1a3a0f7149c175069f6898}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}}
+\index{DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_ERRORCODE()}{DEFINE\_IDTENTRY\_ERRORCODE()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE (\begin{DoxyParamCaption}\item[{exc\+\_\+invalid\+\_\+tss}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{traps_8c_a5179177ee12a676ebd0014231742b9b9}\label{traps_8c_a5179177ee12a676ebd0014231742b9b9}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}}
+\index{DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_ERRORCODE()}{DEFINE\_IDTENTRY\_ERRORCODE()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE (\begin{DoxyParamCaption}\item[{exc\+\_\+segment\+\_\+not\+\_\+present}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{traps_8c_acf02de0123e56d078aca31b1c034de0e}\label{traps_8c_acf02de0123e56d078aca31b1c034de0e}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}}
+\index{DEFINE\_IDTENTRY\_ERRORCODE@{DEFINE\_IDTENTRY\_ERRORCODE}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_ERRORCODE()}{DEFINE\_IDTENTRY\_ERRORCODE()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+E\+R\+R\+O\+R\+C\+O\+DE (\begin{DoxyParamCaption}\item[{exc\+\_\+stack\+\_\+segment}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{traps_8c_a81032dbdfcbd6bd411cf815dfcebecdf}\label{traps_8c_a81032dbdfcbd6bd411cf815dfcebecdf}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}}
+\index{DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_RAW()}{DEFINE\_IDTENTRY\_RAW()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW (\begin{DoxyParamCaption}\item[{exc\+\_\+debug}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{traps_8c_a7fe1a117c69b100242a2b2beaf8634f6}\label{traps_8c_a7fe1a117c69b100242a2b2beaf8634f6}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}}
+\index{DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_RAW()}{DEFINE\_IDTENTRY\_RAW()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW (\begin{DoxyParamCaption}\item[{exc\+\_\+int3}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{traps_8c_a62955420ddf53aeaeb975113217d89ad}\label{traps_8c_a62955420ddf53aeaeb975113217d89ad}} 
+\index{traps.c@{traps.c}!DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}}
+\index{DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_RAW()}{DEFINE\_IDTENTRY\_RAW()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW (\begin{DoxyParamCaption}\item[{exc\+\_\+invalid\+\_\+op}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{traps_8c_a8f0dec12a56d5b2c0f91ffc62c76d1c5}\label{traps_8c_a8f0dec12a56d5b2c0f91ffc62c76d1c5}} 
+\index{traps.c@{traps.c}!do\_error\_trap@{do\_error\_trap}}
+\index{do\_error\_trap@{do\_error\_trap}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{do\_error\_trap()}{do\_error\_trap()}}
+{\footnotesize\ttfamily static void do\+\_\+error\+\_\+trap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{long}]{error\+\_\+code,  }\item[{char $\ast$}]{str,  }\item[{unsigned long}]{trapnr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{signr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{sicode,  }\item[{void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{traps_8c_aef30fb1477d8d799c1f31672dad060c3}\label{traps_8c_aef30fb1477d8d799c1f31672dad060c3}} 
+\index{traps.c@{traps.c}!do\_int3@{do\_int3}}
+\index{do\_int3@{do\_int3}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{do\_int3()}{do\_int3()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} do\+\_\+int3 (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{traps_8c_aa8768522da75f76b79df26004590436d}\label{traps_8c_aa8768522da75f76b79df26004590436d}} 
+\index{traps.c@{traps.c}!do\_int3\_user@{do\_int3\_user}}
+\index{do\_int3\_user@{do\_int3\_user}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{do\_int3\_user()}{do\_int3\_user()}}
+{\footnotesize\ttfamily static void do\+\_\+int3\+\_\+user (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{traps_8c_a6a62bc19974e267f4ed0ec47e9886180}\label{traps_8c_a6a62bc19974e267f4ed0ec47e9886180}} 
+\index{traps.c@{traps.c}!do\_trap@{do\_trap}}
+\index{do\_trap@{do\_trap}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{do\_trap()}{do\_trap()}}
+{\footnotesize\ttfamily static void do\+\_\+trap (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trapnr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{signr,  }\item[{char $\ast$}]{str,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{long}]{error\+\_\+code,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{sicode,  }\item[{void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{traps_8c_abcf1a315ae051303a2dce6aaacbe1272}\label{traps_8c_abcf1a315ae051303a2dce6aaacbe1272}} 
+\index{traps.c@{traps.c}!do\_trap\_no\_signal@{do\_trap\_no\_signal}}
+\index{do\_trap\_no\_signal@{do\_trap\_no\_signal}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{do\_trap\_no\_signal()}{do\_trap\_no\_signal()}}
+{\footnotesize\ttfamily static nokprobe\+\_\+inline \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} do\+\_\+trap\+\_\+no\+\_\+signal (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trapnr,  }\item[{const char $\ast$}]{str,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{long}]{error\+\_\+code }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{traps_8c_ae96f17f5b8b7626697237d53cec65488}\label{traps_8c_ae96f17f5b8b7626697237d53cec65488}} 
+\index{traps.c@{traps.c}!error\_get\_trap\_addr@{error\_get\_trap\_addr}}
+\index{error\_get\_trap\_addr@{error\_get\_trap\_addr}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{error\_get\_trap\_addr()}{error\_get\_trap\_addr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}}$\ast$ error\+\_\+get\+\_\+trap\+\_\+addr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{traps_8c_a42f9c1ff93c74762fea68f045e05dbed}\label{traps_8c_a42f9c1ff93c74762fea68f045e05dbed}} 
+\index{traps.c@{traps.c}!exc\_debug\_kernel@{exc\_debug\_kernel}}
+\index{exc\_debug\_kernel@{exc\_debug\_kernel}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{exc\_debug\_kernel()}{exc\_debug\_kernel()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void exc\+\_\+debug\+\_\+kernel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{unsigned long}]{dr6 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{traps_8c_ae87680dfc11d78bf26fb670959eaa298}\label{traps_8c_ae87680dfc11d78bf26fb670959eaa298}} 
+\index{traps.c@{traps.c}!exc\_debug\_user@{exc\_debug\_user}}
+\index{exc\_debug\_user@{exc\_debug\_user}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{exc\_debug\_user()}{exc\_debug\_user()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void exc\+\_\+debug\+\_\+user (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{unsigned long}]{dr6 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{traps_8c_a9c3bdfe946c0a17abae5cbdef75be0d3}\label{traps_8c_a9c3bdfe946c0a17abae5cbdef75be0d3}} 
+\index{traps.c@{traps.c}!get\_kernel\_gp\_address@{get\_kernel\_gp\_address}}
+\index{get\_kernel\_gp\_address@{get\_kernel\_gp\_address}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{get\_kernel\_gp\_address()}{get\_kernel\_gp\_address()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{traps_8c_ad26aae4e81c90d3c0d49ee6e2d5aeb5c}{kernel\+\_\+gp\+\_\+hint}} get\+\_\+kernel\+\_\+gp\+\_\+address (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{unsigned long $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{traps_8c_a219e6798e74314c3dd80637784487314}\label{traps_8c_a219e6798e74314c3dd80637784487314}} 
+\index{traps.c@{traps.c}!handle\_bug@{handle\_bug}}
+\index{handle\_bug@{handle\_bug}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{handle\_bug()}{handle\_bug()}}
+{\footnotesize\ttfamily static noinstr \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} handle\+\_\+bug (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{traps_8c_a8cb368b2602bb2f32540848db6f4cf14}\label{traps_8c_a8cb368b2602bb2f32540848db6f4cf14}} 
+\index{traps.c@{traps.c}!handle\_invalid\_op@{handle\_invalid\_op}}
+\index{handle\_invalid\_op@{handle\_invalid\_op}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{handle\_invalid\_op()}{handle\_invalid\_op()}}
+{\footnotesize\ttfamily static void handle\+\_\+invalid\+\_\+op (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{traps_8c_ac1ec5838e387cbd36a1db4695f9cdc82}\label{traps_8c_ac1ec5838e387cbd36a1db4695f9cdc82}} 
+\index{traps.c@{traps.c}!is\_sysenter\_singlestep@{is\_sysenter\_singlestep}}
+\index{is\_sysenter\_singlestep@{is\_sysenter\_singlestep}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{is\_sysenter\_singlestep()}{is\_sysenter\_singlestep()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+sysenter\+\_\+singlestep (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{traps_8c_a49ccbd5e3d0518c8820e0ccb3165f118}\label{traps_8c_a49ccbd5e3d0518c8820e0ccb3165f118}} 
+\index{traps.c@{traps.c}!is\_valid\_bugaddr@{is\_valid\_bugaddr}}
+\index{is\_valid\_bugaddr@{is\_valid\_bugaddr}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{is\_valid\_bugaddr()}{is\_valid\_bugaddr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} is\+\_\+valid\+\_\+bugaddr (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{traps_8c_ad6d6ca4d15229dd847b4b10d21fe65a7}\label{traps_8c_ad6d6ca4d15229dd847b4b10d21fe65a7}} 
+\index{traps.c@{traps.c}!math\_error@{math\_error}}
+\index{math\_error@{math\_error}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{math\_error()}{math\_error()}}
+{\footnotesize\ttfamily static void math\+\_\+error (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trapnr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{traps_8c_a92fa943a8fc73c70f0080f5446b2da57}\label{traps_8c_a92fa943a8fc73c70f0080f5446b2da57}} 
+\index{traps.c@{traps.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{traps_8c_a6a62bc19974e267f4ed0ec47e9886180}{do\+\_\+trap}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{traps_8c_af0ec186bbc5bb878b8c2d0bfb3399433}\label{traps_8c_af0ec186bbc5bb878b8c2d0bfb3399433}} 
+\index{traps.c@{traps.c}!notify\_debug@{notify\_debug}}
+\index{notify\_debug@{notify\_debug}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{notify\_debug()}{notify\_debug()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} notify\+\_\+debug (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{unsigned long $\ast$}]{dr6 }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{traps_8c_a72ec4b82101e83fcaddd80f26982f7e1}\label{traps_8c_a72ec4b82101e83fcaddd80f26982f7e1}} 
+\index{traps.c@{traps.c}!show\_signal@{show\_signal}}
+\index{show\_signal@{show\_signal}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{show\_signal()}{show\_signal()}}
+{\footnotesize\ttfamily static void show\+\_\+signal (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{signr,  }\item[{const char $\ast$}]{type,  }\item[{const char $\ast$}]{desc,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{long}]{error\+\_\+code }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{traps_8c_af911de0ec4641ef03ef0e641821f65cb}\label{traps_8c_af911de0ec4641ef03ef0e641821f65cb}} 
+\index{traps.c@{traps.c}!trap\_init@{trap\_init}}
+\index{trap\_init@{trap\_init}!traps.c@{traps.c}}
+\doxysubsubsection{\texorpdfstring{trap\_init()}{trap\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} trap\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+

@@ -1,0 +1,1852 @@
+\hypertarget{slub_8c}{}\doxysection{mm/slub.c File Reference}
+\label{slub_8c}\index{mm/slub.c@{mm/slub.c}}
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bit\+\_\+spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}slab.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$linux/proc\+\_\+fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kasan.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpuset.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mempolicy.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ctype.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugobjects.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kallsyms.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kfence.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memory.\+h$>$}\newline
+{\ttfamily \#include $<$linux/math64.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fault-\/inject.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stacktrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/prefetch.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memcontrol.\+h$>$}\newline
+{\ttfamily \#include $<$linux/random.\+h$>$}\newline
+{\ttfamily \#include $<$kunit/test.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/kmem.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}internal.\+h\char`\"{}}\newline
+Include dependency graph for slub.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structtrack}{track}}
+\item 
+struct \mbox{\hyperlink{structslub__flush__work}{slub\+\_\+flush\+\_\+work}}
+\item 
+struct \mbox{\hyperlink{structdetached__freelist}{detached\+\_\+freelist}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{slub_8c_ada3aba40cce2652630932d130dcf988d}{slub\+\_\+get\+\_\+cpu\+\_\+ptr}}(var)~\mbox{\hyperlink{percpu-defs_8h_a0ee332081e94d99f783f9b76358c2677}{get\+\_\+cpu\+\_\+ptr}}(var)
+\item 
+\#define \mbox{\hyperlink{slub_8c_a195599f5c2b749caac26c1a002849201}{slub\+\_\+put\+\_\+cpu\+\_\+ptr}}(var)~\mbox{\hyperlink{percpu-defs_8h_aa068cf04881407e37cb1ad9c1cd41d2d}{put\+\_\+cpu\+\_\+ptr}}(var)
+\item 
+\#define \mbox{\hyperlink{slub_8c_a283448b6a911db4525eb67b0abb6f470}{M\+I\+N\+\_\+\+P\+A\+R\+T\+I\+AL}}~5
+\item 
+\#define \mbox{\hyperlink{slub_8c_a2c724583a70b546f2c8621699a640876}{M\+A\+X\+\_\+\+P\+A\+R\+T\+I\+AL}}~10
+\item 
+\#define \mbox{\hyperlink{slub_8c_a35c135ba4871c93f4636e184a3eb1b3b}{D\+E\+B\+U\+G\+\_\+\+D\+E\+F\+A\+U\+L\+T\+\_\+\+F\+L\+A\+GS}}
+\item 
+\#define \mbox{\hyperlink{slub_8c_ab08bb10d87d9dda2c07e86cbd65defcc}{S\+L\+A\+B\+\_\+\+N\+O\+\_\+\+C\+M\+P\+X\+C\+HG}}
+\item 
+\#define \mbox{\hyperlink{slub_8c_a50444f8e23717d31a43e96a18388c502}{D\+E\+B\+U\+G\+\_\+\+M\+E\+T\+A\+D\+A\+T\+A\+\_\+\+F\+L\+A\+GS}}~(\mbox{\hyperlink{include_2linux_2slab_8h_a42d889869a7770705f96ef6bb6d1f4d7}{S\+L\+A\+B\+\_\+\+R\+E\+D\+\_\+\+Z\+O\+NE}} $\vert$ \mbox{\hyperlink{include_2linux_2slab_8h_a02fd6eaabd48b1d171d45237a9d6afad}{S\+L\+A\+B\+\_\+\+P\+O\+I\+S\+ON}} $\vert$ \mbox{\hyperlink{include_2linux_2slab_8h_a4c24849b5048a97a7c3d70ec7d0963dc}{S\+L\+A\+B\+\_\+\+S\+T\+O\+R\+E\+\_\+\+U\+S\+ER}})
+\item 
+\#define \mbox{\hyperlink{slub_8c_adb796379b006fc652c09fe7970535f81}{O\+O\+\_\+\+S\+H\+I\+FT}}~16
+\item 
+\#define \mbox{\hyperlink{slub_8c_a6b57c415931c2b9d3336c299de8546f3}{O\+O\+\_\+\+M\+A\+SK}}~((1 $<$$<$ \mbox{\hyperlink{slub_8c_adb796379b006fc652c09fe7970535f81}{O\+O\+\_\+\+S\+H\+I\+FT}}) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{slub_8c_a0500fafb7975b76f660a8bf9e102e38c}{M\+A\+X\+\_\+\+O\+B\+J\+S\+\_\+\+P\+E\+R\+\_\+\+P\+A\+GE}}~32767 /$\ast$ since \mbox{\hyperlink{structpage_a7e44b43d4182d1d65f12e60877112dc8}{page.\+objects}} is u15 $\ast$/
+\item 
+\#define \mbox{\hyperlink{slub_8c_a38233df680213525ee541b9cca333b81}{\+\_\+\+\_\+\+O\+B\+J\+E\+C\+T\+\_\+\+P\+O\+I\+S\+ON}}~((\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{compiler__types_8h_ab95a84e6535084347da05cdf197e045c}{\+\_\+\+\_\+force}})0x80000000U)
+\item 
+\#define \mbox{\hyperlink{slub_8c_a10e0ffbb79a09145cd59038c2d142872}{\+\_\+\+\_\+\+C\+M\+P\+X\+C\+H\+G\+\_\+\+D\+O\+U\+B\+LE}}~((\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{compiler__types_8h_ab95a84e6535084347da05cdf197e045c}{\+\_\+\+\_\+force}})0x40000000U)
+\item 
+\#define \mbox{\hyperlink{slub_8c_a636667a15d7f5bf1151637647eb3566a}{T\+R\+A\+C\+K\+\_\+\+A\+D\+D\+R\+S\+\_\+\+C\+O\+U\+NT}}~16
+\item 
+\#define \mbox{\hyperlink{slub_8c_a46cfaca21aca0a21eb22cb86c88e0340}{for\+\_\+each\+\_\+object}}(\+\_\+\+\_\+p,  \+\_\+\+\_\+s,  \+\_\+\+\_\+addr,  \+\_\+\+\_\+objects)
+\item 
+\#define \mbox{\hyperlink{slub_8c_ae6f08ffbb26b2c4420c49727e2e493f1}{slub\+\_\+debug}}~0
+\item 
+\#define \mbox{\hyperlink{slub_8c_a4b2100ac3a3ecc2342e869973a6cdaa4}{disable\+\_\+higher\+\_\+order\+\_\+debug}}~0
+\item 
+\#define \mbox{\hyperlink{slub_8c_a5eedc35b76ce97e169a6f1fcd657fec5}{T\+I\+D\+\_\+\+S\+T\+EP}}~1
+\item 
+\#define \mbox{\hyperlink{slub_8c_a4db6d3658f3eb161ba92b1982d5b6d08}{S\+H\+R\+I\+N\+K\+\_\+\+P\+R\+O\+M\+O\+T\+E\+\_\+\+M\+AX}}~32
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{slub_8c_a1ab285278f6aadbcc5642de1ac8132dc}{track\+\_\+item}} \{ \mbox{\hyperlink{slub_8c_a1ab285278f6aadbcc5642de1ac8132dca04bc065371a1532fccc8c815ee4359e1}{T\+R\+A\+C\+K\+\_\+\+A\+L\+L\+OC}}, 
+\mbox{\hyperlink{slub_8c_a1ab285278f6aadbcc5642de1ac8132dca556c78dd6818801ab4a7a8cded450d58}{T\+R\+A\+C\+K\+\_\+\+F\+R\+EE}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_a96d57d9177c47af377a05344c4ff64a6}{kmem\+\_\+cache\+\_\+debug}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+void $\ast$ \mbox{\hyperlink{slub_8c_aeec22d12f9e0e6d7affdd5fe3c3c229b}{fixup\+\_\+red\+\_\+left}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_ad11450608d37ae375227bbcfcbc008f1}{kmem\+\_\+cache\+\_\+has\+\_\+cpu\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_af1991a22dd0d730221c437321d85ac8b}{sysfs\+\_\+slab\+\_\+add}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a80b9e5cfbe90d66432a00fd6205a4718}{sysfs\+\_\+slab\+\_\+alias}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, const char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a61d38f020f5a2bcc905d8b7674f4f16b}{debugfs\+\_\+slab\+\_\+add}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a1d52440ec65fe67a7ce93cfe4bed3fb7}{stat}} (const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{slub__def_8h_a941fceda51e3eafd88dec169928b92a3}{stat\+\_\+item}} si)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a484235b6d4b58fbf5dbbafc402d69be2}{freelist\+\_\+ptr}} (const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, unsigned long ptr\+\_\+addr)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a534fc15f6ac13e9615ea581cf5b56c3e}{freelist\+\_\+dereference}} (const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$ptr\+\_\+addr)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a61d8717636396cba4247fe862f18f73d}{get\+\_\+freepointer}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$object)
+\item 
+static void \mbox{\hyperlink{slub_8c_a8a09c0e4a1d8311dd77a2e2c5714f20c}{prefetch\+\_\+freepointer}} (const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$object)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_abc417a02bd297859db9f0b40802ff2f2}{get\+\_\+freepointer\+\_\+safe}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$object)
+\item 
+static void \mbox{\hyperlink{slub_8c_aeba21275322f596f4c4796705bc2c4e2}{set\+\_\+freepointer}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$object, void $\ast$\mbox{\hyperlink{if__hippi_8h_a41f6f49c6656522625c34c112cd44a3b}{fp}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a07cbd82dc632fe41e69c222262af2883}{order\+\_\+objects}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}} \mbox{\hyperlink{slub_8c_ad73fa1e3ae14785bcb4da1edd3203c3c}{oo\+\_\+make}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a645928dd9ee94866d87f096a3ec6b12c}{oo\+\_\+order}} (struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}} \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a716ae0146191dfef09f1c8ddf415f88f}{oo\+\_\+objects}} (struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}} \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_af4b7efb0962ba62a44ecc2b02313ae9b}{\+\_\+\+\_\+slab\+\_\+lock}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_a3f8642bde9bd3260a41170c038d40088}{\+\_\+\+\_\+slab\+\_\+unlock}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_a86e18d35c29cba67fe995e41ff635e14}{slab\+\_\+lock}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_a543005938fd42973facc5f9c589cfcfb}{slab\+\_\+unlock}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_ad1a254275b0da2c848d9c3594533fc31}{\+\_\+\+\_\+cmpxchg\+\_\+double\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$freelist\+\_\+old, unsigned long counters\+\_\+old, void $\ast$freelist\+\_\+new, unsigned long counters\+\_\+new, const char $\ast$n)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_a2bf470a5c420289f1f6d4545860a1906}{cmpxchg\+\_\+double\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$freelist\+\_\+old, unsigned long counters\+\_\+old, void $\ast$freelist\+\_\+new, unsigned long counters\+\_\+new, const char $\ast$n)
+\item 
+static void \mbox{\hyperlink{slub_8c_a3d48bad559409c4f1c750a8f6bbbda7b}{setup\+\_\+object\+\_\+debug}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$object)
+\item 
+static void \mbox{\hyperlink{slub_8c_aedd872592c3e2b01b78d612d4f3f4840}{setup\+\_\+page\+\_\+debug}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_ae5141d34cf2a984dbd6cd5bbced6a071}{alloc\+\_\+debug\+\_\+processing}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$object, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a33969d0eac56a211ff0939bf0eb1f415}{free\+\_\+debug\+\_\+processing}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, void $\ast$tail, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bulk\+\_\+cnt, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a43159f747cdb91e0d98d948c0bfb32dc}{slab\+\_\+pad\+\_\+check}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a3c2cec0d13d1fe4951a185cfdf6efc3b}{check\+\_\+object}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$object, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a42cef4316fc39e3975fa64e9fa3b14f5}{add\+\_\+full}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{slub_8c_afd48052e3ef598fba00fa793d7e24ea8}{remove\+\_\+full}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{slub_8c_a58769a9b8bca1f14705ae36cc2f551c4}{kmem\+\_\+cache\+\_\+flags}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ceph__fs_8h_a57cea87838786e59b03b488ec570317f}{object\+\_\+size}}, \mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}})
+\item 
+static unsigned long \mbox{\hyperlink{slub_8c_a345fca574eb2b9f67196c44c91fbe9d2}{slabs\+\_\+node}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}})
+\item 
+static unsigned long \mbox{\hyperlink{slub_8c_a3c1230fd33729df8f31c315728d5463b}{node\+\_\+nr\+\_\+slabs}} (struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n)
+\item 
+static void \mbox{\hyperlink{slub_8c_a32cb328d2d8e265548723a0e3b5951de}{inc\+\_\+slabs\+\_\+node}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} objects)
+\item 
+static void \mbox{\hyperlink{slub_8c_aac5ae0138978178ca9181ca0715496bd}{dec\+\_\+slabs\+\_\+node}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} objects)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_afe19f88978507eb26335a802f1871629}{freelist\+\_\+corrupted}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$$\ast$freelist, void $\ast$nextfree)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a3710dbf88204658f6b208cab69e2e3a9}{kmalloc\+\_\+large\+\_\+node\+\_\+hook}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_a0d99cb9c7bc8d11b769822045571f913}{kfree\+\_\+hook}} (void $\ast$\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_adacf5c834460b203b8d7634d84fdecd2}{slab\+\_\+free\+\_\+hook}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rbtree__test_8c_a17fb021b480a1f220d2579807fa2e398}{init}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_a8c649b81e03c2e44c6c1ab007cdd2842}{slab\+\_\+free\+\_\+freelist\+\_\+hook}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$$\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, void $\ast$$\ast$tail, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}})
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a19d9e3346973404544bc7c0a79f1728b}{setup\+\_\+object}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$object)
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{slub_8c_acb9a3f6e91805fe8706b094cb32866fb}{alloc\+\_\+slab\+\_\+page}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}} oo)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a2766501d33d276eb64b83b800563c65b}{init\+\_\+cache\+\_\+random\+\_\+seq}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a08a05966e9fff049d5348b72eba188f7}{init\+\_\+freelist\+\_\+randomization}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_a1694fd8a6ec73d6f61f3ea9cb42794f9}{shuffle\+\_\+freelist}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{slub_8c_a3fb43def04a83dc48036b6e6dfb46e33}{allocate\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}})
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{slub_8c_a0034a358ddcae27493429968533fc71e}{new\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}})
+\item 
+static void \mbox{\hyperlink{slub_8c_ab20a763d64a3ac39f711d01ed94ce79c}{\+\_\+\+\_\+free\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{slub_8c_ade5e568b547d8cd91ac83fb31b4eb30a}{rcu\+\_\+free\+\_\+slab}} (struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$h)
+\item 
+static void \mbox{\hyperlink{slub_8c_a8f345b78cbd13693ff9cf81853edc04a}{free\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{slub_8c_abd86e2aa4d27d27c6e5bc11b54c49eeb}{discard\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a97805b92258dafc9f811bb04b0e58cd4}{\+\_\+\+\_\+add\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} tail)
+\item 
+static void \mbox{\hyperlink{slub_8c_a38123fb2fa4d8e33ad9a9320b8f702b5}{add\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} tail)
+\item 
+static void \mbox{\hyperlink{slub_8c_a1dfa0f56af84124d63c17a1f1cdd7234}{remove\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a4d9ef9bdbc11fda6c9687c7394211489}{acquire\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{btrfs__tree_8h_ae1b0cc5d03887945734bb59883b0e020}{mode}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$objects)
+\item 
+static void \mbox{\hyperlink{slub_8c_ada15b4cf2ed55f23cfd1aaa13dfe0c7f}{put\+\_\+cpu\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} drain)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_a9c81314da2fad890efb3865b5cf16236}{pfmemalloc\+\_\+match}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a404a6485ef678836f0fe420a5cc42625}{get\+\_\+partial\+\_\+node}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$ret\+\_\+page, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a6a0487aa395220a1b138f0720c1b91f2}{get\+\_\+any\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$ret\+\_\+page)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_ad84ba092da86d3f41ebc0fcde1393096}{get\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$ret\+\_\+page)
+\item 
+static unsigned long \mbox{\hyperlink{slub_8c_adfd3e577c598d8790163d1465f44b9d7}{next\+\_\+tid}} (unsigned long \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a0d8b123ea69a4934d40dd8a23182b1aa}{init\+\_\+tid}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a3da9b8c962710c7ace65280c9b447e2a}{note\+\_\+cmpxchg\+\_\+failure}} (const char $\ast$n, const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, unsigned long \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a3c250368e533033514018098f55e9c39}{init\+\_\+kmem\+\_\+cache\+\_\+cpus}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a02e1304fab40572dc37358f7dff78355}{deactivate\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$freelist)
+\item 
+static void \mbox{\hyperlink{slub_8c_a6c815e400bdf131dd99755ee3fd65e6b}{unfreeze\+\_\+partials}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a81e4623fb6064eb05b2258e7b66b541f}{unfreeze\+\_\+partials\+\_\+cpu}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{slub_8c_ab4366a5eb2179e865e30d4c4e7cf1f0d}{flush\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a0f80eee6fd00344b531d3b139c35e46b}{\+\_\+\+\_\+flush\+\_\+cpu\+\_\+slab}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a85537a3cda82180194695a2bfe541d3d}{flush\+\_\+cpu\+\_\+slab}} (struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$\mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_aad57484016654da87125db86f4227ea3}{w}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_a7f06f1d3f093b0f5eb3afe41cf8b095c}{has\+\_\+cpu\+\_\+slab}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{slub_8c_a13a2e5aa38e6de7ae2ac3a86a32713f9}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (flush\+\_\+lock)
+\item 
+static \mbox{\hyperlink{slub_8c_a8176e2e87de6310f3b5a257014ec53a9}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structslub__flush__work}{slub\+\_\+flush\+\_\+work}}, slub\+\_\+flush)
+\item 
+static void \mbox{\hyperlink{slub_8c_a26de0755b680f2e8e6703fa70784a89b}{flush\+\_\+all\+\_\+cpus\+\_\+locked}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{slub_8c_ad25863b0a2d6a1a20762d676d4b1da7e}{flush\+\_\+all}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a64feb43129de4b0a147251bb67a19c44}{slub\+\_\+cpu\+\_\+dead}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a7f4fc781346248f84ddc308db99311cf}{node\+\_\+match}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void \mbox{\hyperlink{slub_8c_a1d60d1c6d26274c4794f5a80a8f09091}{slab\+\_\+out\+\_\+of\+\_\+memory}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nid)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_ae3f2c5c9c6a74bed39d0d40b08b7962d}{pfmemalloc\+\_\+match\+\_\+unsafe}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags)
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a72eeeebc50ebcbdf00aa0255e652e78c}{get\+\_\+freelist}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_a5f3ce7eae2e0c0e0004608b818a5618d}{\+\_\+\+\_\+\+\_\+slab\+\_\+alloc}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void $\ast$ \mbox{\hyperlink{slub_8c_ab6b4caa0ce88684d1ea53fe4534aa1cb}{\+\_\+\+\_\+slab\+\_\+alloc}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_aaab1cdf7c51bc0e753fbae2bf01fdafe}{maybe\+\_\+wipe\+\_\+obj\+\_\+freeptr}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$obj)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void $\ast$ \mbox{\hyperlink{slub_8c_a548b3c05854cd7185b80f81af8047988}{slab\+\_\+alloc\+\_\+node}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} orig\+\_\+size)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void $\ast$ \mbox{\hyperlink{slub_8c_a4ad5f5354a9558a936752f4c421bed98}{slab\+\_\+alloc}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} orig\+\_\+size)
+\item 
+void $\ast$ \mbox{\hyperlink{slub_8c_a57a3009871f8165450843a706193474c}{kmem\+\_\+cache\+\_\+alloc}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags)
+\item 
+\mbox{\hyperlink{slub_8c_a8bd568fd926e82c7f9a045968ddd296d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_a57a3009871f8165450843a706193474c}{kmem\+\_\+cache\+\_\+alloc}})
+\item 
+static void \mbox{\hyperlink{slub_8c_ad1cc666d2ebe79fea1056bc428f1ee74}{\+\_\+\+\_\+slab\+\_\+free}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, void $\ast$tail, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_a9eb06e4dbdc11dc0263b9751563b06c1}{do\+\_\+slab\+\_\+free}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, void $\ast$tail, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{slub_8c_a4b28cc8b3a27cf165dcea0ebfaf00b55}{slab\+\_\+free}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, void $\ast$tail, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+void \mbox{\hyperlink{slub_8c_a810d496c52cf11dd651bb4777292e8f4}{kmem\+\_\+cache\+\_\+free}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})
+\item 
+\mbox{\hyperlink{slub_8c_a03bd792af9f502174a76acb4c333a155}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_a810d496c52cf11dd651bb4777292e8f4}{kmem\+\_\+cache\+\_\+free}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a33bee21d5d059943c82b4007a3c996c5}{free\+\_\+nonslab\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$object)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_ac98d40cb41bff2341ea33a4a8eb9fb7e}{build\+\_\+detached\+\_\+freelist}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, void $\ast$$\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, struct \mbox{\hyperlink{structdetached__freelist}{detached\+\_\+freelist}} $\ast$df)
+\item 
+void \mbox{\hyperlink{slub_8c_ad71879dc5a858fc6743c68d038db566e}{kmem\+\_\+cache\+\_\+free\+\_\+bulk}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, void $\ast$$\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{slub_8c_a1fd402d9f7e3bd39b089bd657f3b50c1}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_ad71879dc5a858fc6743c68d038db566e}{kmem\+\_\+cache\+\_\+free\+\_\+bulk}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a94dd0935d21a8a28392069b75365d4c2}{kmem\+\_\+cache\+\_\+alloc\+\_\+bulk}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, void $\ast$$\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{slub_8c_a5dbcec94b4d91f60ea3a728adae3fd57}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_a94dd0935d21a8a28392069b75365d4c2}{kmem\+\_\+cache\+\_\+alloc\+\_\+bulk}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_aa247056209a320eb940eae7f1a8e1796}{slab\+\_\+order}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+objects, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+order, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fract\+\_\+leftover)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a564c41de435a6ec95f8d1985cde9961f}{calculate\+\_\+order}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{slub_8c_a37de78fadc54973b68dd51ea5875ae57}{init\+\_\+kmem\+\_\+cache\+\_\+node}} (struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_ae8c657387324b19e2010a91bde7ace93}{alloc\+\_\+kmem\+\_\+cache\+\_\+cpus}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{slub_8c_ae76acc39ef92d4f0310fa6bdd9484021}{early\+\_\+kmem\+\_\+cache\+\_\+node\+\_\+alloc}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}})
+\item 
+static void \mbox{\hyperlink{slub_8c_aa11761dd2a018ef8b8bbd942159ef21a}{free\+\_\+kmem\+\_\+cache\+\_\+nodes}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+void \mbox{\hyperlink{slub_8c_ac9a7fcfc8462dc44e7aea459a4921648}{\+\_\+\+\_\+kmem\+\_\+cache\+\_\+release}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_af1a426aa140c913e6e3f288240862819}{init\+\_\+kmem\+\_\+cache\+\_\+nodes}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static void \mbox{\hyperlink{slub_8c_aab9028920bccb241f9eea1b27d621b81}{set\+\_\+min\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, unsigned long \mbox{\hyperlink{uapi_2sound_2asoc_8h_af76c6939ecb8056b71b7547c8c5d6baa}{min}})
+\item 
+static void \mbox{\hyperlink{slub_8c_afda2494495ef20eb9cdc7c71fdd2c98c}{set\+\_\+cpu\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a546a87a749fae73bf0384a2543df4388}{calculate\+\_\+sizes}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} forced\+\_\+order)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a8042a49a0533596273a211ef513871f3}{kmem\+\_\+cache\+\_\+open}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{slub_8c_aeea2844d24b9e1251f050e8a8ac33400}{list\+\_\+slab\+\_\+objects}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, const char $\ast$text)
+\item 
+static void \mbox{\hyperlink{slub_8c_ac3bac68bb93fa1ad33cde1d07ff794d3}{free\+\_\+partial}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$n)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{slub_8c_ae6801de531ba645f0ae46eccfd3fecff}{\+\_\+\+\_\+kmem\+\_\+cache\+\_\+empty}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_ae4dc3b793efbd9fb28543a1e37d28625}{\+\_\+\+\_\+kmem\+\_\+cache\+\_\+shutdown}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{slub_8c_ad3298c5deb164b66fb70481124a9ef7d}{setup\+\_\+slub\+\_\+min\+\_\+order}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{slub_8c_a9cf01b6caaa0634058baa79776aaa95e}{\+\_\+\+\_\+setup}} (\char`\"{}slub\+\_\+min\+\_\+order=\char`\"{}, setup\+\_\+slub\+\_\+min\+\_\+order)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{slub_8c_adb8ec6c1ea8fcdf106258f1a055bc5b0}{setup\+\_\+slub\+\_\+max\+\_\+order}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{slub_8c_a15dbf4af9b6efc9f05b5dc5866404137}{setup\+\_\+slub\+\_\+min\+\_\+objects}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+void $\ast$ \mbox{\hyperlink{slub_8c_abfd66e320fec23b046de54de73b3e75e}{\+\_\+\+\_\+kmalloc}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{slub_8c_a895088dca9cef8edba9f19c025f9e25c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_abfd66e320fec23b046de54de73b3e75e}{\+\_\+\+\_\+kmalloc}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{slub_8c_af7b6169220a894583676320dc6ea7928}{\+\_\+\+\_\+ksize}} (const void $\ast$object)
+\item 
+\mbox{\hyperlink{slub_8c_a634576f414c4b39af1c18cee07654d0d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_af7b6169220a894583676320dc6ea7928}{\+\_\+\+\_\+ksize}})
+\item 
+void \mbox{\hyperlink{slub_8c_a8d9b84040f2957bf143976c2d0fa37f7}{kfree}} (const void $\ast$\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})
+\item 
+\mbox{\hyperlink{slub_8c_a37ccffeabbc5a753bcad40881d1adc5e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_a8d9b84040f2957bf143976c2d0fa37f7}{kfree}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a3bb23c94982e9786c912475c939e55dc}{\+\_\+\+\_\+kmem\+\_\+cache\+\_\+do\+\_\+shrink}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_ad7a6a20368bf72e80796c21c32e3b18b}{\+\_\+\+\_\+kmem\+\_\+cache\+\_\+shrink}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a43e2c5ac4bcf0f24a089acc40dc9e065}{slab\+\_\+mem\+\_\+going\+\_\+offline\+\_\+callback}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{slub_8c_ad250429e510e18a7955432a16fb18b48}{slab\+\_\+mem\+\_\+offline\+\_\+callback}} (void $\ast$arg)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a1e62b49b0bbb0dd691d3be39efc5531a}{slab\+\_\+mem\+\_\+going\+\_\+online\+\_\+callback}} (void $\ast$arg)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_af04b112f6055304915a6e113dfd715b8}{slab\+\_\+memory\+\_\+callback}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$self, unsigned long \mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}}, void $\ast$arg)
+\item 
+static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{slub_8c_a568843d94b65d60f5146220fefa36371}{bootstrap}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$static\+\_\+cache)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{slub_8c_ae30738b69a6fc9386d3327f183901baa}{kmem\+\_\+cache\+\_\+init}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{slub_8c_ab96ff7a3b2629f59d8ea6fcc5b50d97a}{kmem\+\_\+cache\+\_\+init\+\_\+late}} (void)
+\item 
+struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$ \mbox{\hyperlink{slub_8c_a3d83d1fb4ed2b10de7284d2e985ee13d}{\+\_\+\+\_\+kmem\+\_\+cache\+\_\+alias}} (const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}, \mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, void($\ast$ctor)(void $\ast$))
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a253c5b9f46eb8e929b12eb1f0fd98ad7}{\+\_\+\+\_\+kmem\+\_\+cache\+\_\+create}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, \mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+void $\ast$ \mbox{\hyperlink{slub_8c_a996215f007f4adba570ace3edd1e4aa9}{\+\_\+\+\_\+kmalloc\+\_\+track\+\_\+caller}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} gfpflags, unsigned long caller)
+\item 
+\mbox{\hyperlink{slub_8c_abecf0072649e42165e04a27fc4c5634e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{slub_8c_a996215f007f4adba570ace3edd1e4aa9}{\+\_\+\+\_\+kmalloc\+\_\+track\+\_\+caller}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{structnodemask__t}{nodemask\+\_\+t}} \mbox{\hyperlink{slub_8c_ad947a95b9d253fbda2de5498d588e477}{slab\+\_\+nodes}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a5705d128d180eef828b566f4171bc6c2}{slub\+\_\+min\+\_\+order}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_a0bf9cdcb88038885d0b04e40b991856d}{slub\+\_\+max\+\_\+order}} = \mbox{\hyperlink{include_2linux_2mmzone_8h_a243a5537279d199adcb7cd9eb0efda25}{P\+A\+G\+E\+\_\+\+A\+L\+L\+O\+C\+\_\+\+C\+O\+S\+T\+L\+Y\+\_\+\+O\+R\+D\+ER}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{slub_8c_aaa769a374d8ee254144a752743ab9cca}{slub\+\_\+min\+\_\+objects}}
+\item 
+static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$ \mbox{\hyperlink{slub_8c_a240147a57c155d813c374cfbbbe23749}{kmem\+\_\+cache\+\_\+node}}
+\item 
+static struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} \mbox{\hyperlink{slub_8c_a604db76f01c9a9e75d592875f9334855}{slab\+\_\+memory\+\_\+callback\+\_\+nb}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{slub_8c_a10e0ffbb79a09145cd59038c2d142872}\label{slub_8c_a10e0ffbb79a09145cd59038c2d142872}} 
+\index{slub.c@{slub.c}!\_\_CMPXCHG\_DOUBLE@{\_\_CMPXCHG\_DOUBLE}}
+\index{\_\_CMPXCHG\_DOUBLE@{\_\_CMPXCHG\_DOUBLE}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_CMPXCHG\_DOUBLE}{\_\_CMPXCHG\_DOUBLE}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+\+C\+M\+P\+X\+C\+H\+G\+\_\+\+D\+O\+U\+B\+LE~((\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{compiler__types_8h_ab95a84e6535084347da05cdf197e045c}{\+\_\+\+\_\+force}})0x40000000U)}
+
+\mbox{\Hypertarget{slub_8c_a38233df680213525ee541b9cca333b81}\label{slub_8c_a38233df680213525ee541b9cca333b81}} 
+\index{slub.c@{slub.c}!\_\_OBJECT\_POISON@{\_\_OBJECT\_POISON}}
+\index{\_\_OBJECT\_POISON@{\_\_OBJECT\_POISON}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_OBJECT\_POISON}{\_\_OBJECT\_POISON}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+\+O\+B\+J\+E\+C\+T\+\_\+\+P\+O\+I\+S\+ON~((\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} \mbox{\hyperlink{compiler__types_8h_ab95a84e6535084347da05cdf197e045c}{\+\_\+\+\_\+force}})0x80000000U)}
+
+\mbox{\Hypertarget{slub_8c_a35c135ba4871c93f4636e184a3eb1b3b}\label{slub_8c_a35c135ba4871c93f4636e184a3eb1b3b}} 
+\index{slub.c@{slub.c}!DEBUG\_DEFAULT\_FLAGS@{DEBUG\_DEFAULT\_FLAGS}}
+\index{DEBUG\_DEFAULT\_FLAGS@{DEBUG\_DEFAULT\_FLAGS}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{DEBUG\_DEFAULT\_FLAGS}{DEBUG\_DEFAULT\_FLAGS}}
+{\footnotesize\ttfamily \#define D\+E\+B\+U\+G\+\_\+\+D\+E\+F\+A\+U\+L\+T\+\_\+\+F\+L\+A\+GS}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                (\mbox{\hyperlink{include_2linux_2slab_8h_a123df28431ce6951cf3f02bf47bc79ea}{SLAB\_CONSISTENCY\_CHECKS}} | \mbox{\hyperlink{include_2linux_2slab_8h_a42d889869a7770705f96ef6bb6d1f4d7}{SLAB\_RED\_ZONE}} | \(\backslash\)}
+\DoxyCodeLine{                SLAB\_POISON | \mbox{\hyperlink{include_2linux_2slab_8h_a4c24849b5048a97a7c3d70ec7d0963dc}{SLAB\_STORE\_USER}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{slub_8c_a50444f8e23717d31a43e96a18388c502}\label{slub_8c_a50444f8e23717d31a43e96a18388c502}} 
+\index{slub.c@{slub.c}!DEBUG\_METADATA\_FLAGS@{DEBUG\_METADATA\_FLAGS}}
+\index{DEBUG\_METADATA\_FLAGS@{DEBUG\_METADATA\_FLAGS}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{DEBUG\_METADATA\_FLAGS}{DEBUG\_METADATA\_FLAGS}}
+{\footnotesize\ttfamily \#define D\+E\+B\+U\+G\+\_\+\+M\+E\+T\+A\+D\+A\+T\+A\+\_\+\+F\+L\+A\+GS~(\mbox{\hyperlink{include_2linux_2slab_8h_a42d889869a7770705f96ef6bb6d1f4d7}{S\+L\+A\+B\+\_\+\+R\+E\+D\+\_\+\+Z\+O\+NE}} $\vert$ \mbox{\hyperlink{include_2linux_2slab_8h_a02fd6eaabd48b1d171d45237a9d6afad}{S\+L\+A\+B\+\_\+\+P\+O\+I\+S\+ON}} $\vert$ \mbox{\hyperlink{include_2linux_2slab_8h_a4c24849b5048a97a7c3d70ec7d0963dc}{S\+L\+A\+B\+\_\+\+S\+T\+O\+R\+E\+\_\+\+U\+S\+ER}})}
+
+\mbox{\Hypertarget{slub_8c_a4b2100ac3a3ecc2342e869973a6cdaa4}\label{slub_8c_a4b2100ac3a3ecc2342e869973a6cdaa4}} 
+\index{slub.c@{slub.c}!disable\_higher\_order\_debug@{disable\_higher\_order\_debug}}
+\index{disable\_higher\_order\_debug@{disable\_higher\_order\_debug}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{disable\_higher\_order\_debug}{disable\_higher\_order\_debug}}
+{\footnotesize\ttfamily \#define disable\+\_\+higher\+\_\+order\+\_\+debug~0}
+
+\mbox{\Hypertarget{slub_8c_a46cfaca21aca0a21eb22cb86c88e0340}\label{slub_8c_a46cfaca21aca0a21eb22cb86c88e0340}} 
+\index{slub.c@{slub.c}!for\_each\_object@{for\_each\_object}}
+\index{for\_each\_object@{for\_each\_object}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{for\_each\_object}{for\_each\_object}}
+{\footnotesize\ttfamily \#define for\+\_\+each\+\_\+object(\begin{DoxyParamCaption}\item[{}]{\+\_\+\+\_\+p,  }\item[{}]{\+\_\+\+\_\+s,  }\item[{}]{\+\_\+\+\_\+addr,  }\item[{}]{\+\_\+\+\_\+objects }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{for} (\_\_p = \mbox{\hyperlink{slub_8c_aeec22d12f9e0e6d7affdd5fe3c3c229b}{fixup\_red\_left}}(\_\_s, \_\_addr); \(\backslash\)}
+\DoxyCodeLine{        \_\_p < (\_\_addr) + (\_\_objects) * (\_\_s)-\/>\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}; \(\backslash\)}
+\DoxyCodeLine{        \_\_p += (\_\_s)-\/>\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{slub_8c_a0500fafb7975b76f660a8bf9e102e38c}\label{slub_8c_a0500fafb7975b76f660a8bf9e102e38c}} 
+\index{slub.c@{slub.c}!MAX\_OBJS\_PER\_PAGE@{MAX\_OBJS\_PER\_PAGE}}
+\index{MAX\_OBJS\_PER\_PAGE@{MAX\_OBJS\_PER\_PAGE}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_OBJS\_PER\_PAGE}{MAX\_OBJS\_PER\_PAGE}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+O\+B\+J\+S\+\_\+\+P\+E\+R\+\_\+\+P\+A\+GE~32767 /$\ast$ since \mbox{\hyperlink{structpage_a7e44b43d4182d1d65f12e60877112dc8}{page.\+objects}} is u15 $\ast$/}
+
+\mbox{\Hypertarget{slub_8c_a2c724583a70b546f2c8621699a640876}\label{slub_8c_a2c724583a70b546f2c8621699a640876}} 
+\index{slub.c@{slub.c}!MAX\_PARTIAL@{MAX\_PARTIAL}}
+\index{MAX\_PARTIAL@{MAX\_PARTIAL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_PARTIAL}{MAX\_PARTIAL}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+P\+A\+R\+T\+I\+AL~10}
+
+\mbox{\Hypertarget{slub_8c_a283448b6a911db4525eb67b0abb6f470}\label{slub_8c_a283448b6a911db4525eb67b0abb6f470}} 
+\index{slub.c@{slub.c}!MIN\_PARTIAL@{MIN\_PARTIAL}}
+\index{MIN\_PARTIAL@{MIN\_PARTIAL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{MIN\_PARTIAL}{MIN\_PARTIAL}}
+{\footnotesize\ttfamily \#define M\+I\+N\+\_\+\+P\+A\+R\+T\+I\+AL~5}
+
+\mbox{\Hypertarget{slub_8c_a6b57c415931c2b9d3336c299de8546f3}\label{slub_8c_a6b57c415931c2b9d3336c299de8546f3}} 
+\index{slub.c@{slub.c}!OO\_MASK@{OO\_MASK}}
+\index{OO\_MASK@{OO\_MASK}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{OO\_MASK}{OO\_MASK}}
+{\footnotesize\ttfamily \#define O\+O\+\_\+\+M\+A\+SK~((1 $<$$<$ \mbox{\hyperlink{slub_8c_adb796379b006fc652c09fe7970535f81}{O\+O\+\_\+\+S\+H\+I\+FT}}) -\/ 1)}
+
+\mbox{\Hypertarget{slub_8c_adb796379b006fc652c09fe7970535f81}\label{slub_8c_adb796379b006fc652c09fe7970535f81}} 
+\index{slub.c@{slub.c}!OO\_SHIFT@{OO\_SHIFT}}
+\index{OO\_SHIFT@{OO\_SHIFT}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{OO\_SHIFT}{OO\_SHIFT}}
+{\footnotesize\ttfamily \#define O\+O\+\_\+\+S\+H\+I\+FT~16}
+
+\mbox{\Hypertarget{slub_8c_a4db6d3658f3eb161ba92b1982d5b6d08}\label{slub_8c_a4db6d3658f3eb161ba92b1982d5b6d08}} 
+\index{slub.c@{slub.c}!SHRINK\_PROMOTE\_MAX@{SHRINK\_PROMOTE\_MAX}}
+\index{SHRINK\_PROMOTE\_MAX@{SHRINK\_PROMOTE\_MAX}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{SHRINK\_PROMOTE\_MAX}{SHRINK\_PROMOTE\_MAX}}
+{\footnotesize\ttfamily \#define S\+H\+R\+I\+N\+K\+\_\+\+P\+R\+O\+M\+O\+T\+E\+\_\+\+M\+AX~32}
+
+\mbox{\Hypertarget{slub_8c_ab08bb10d87d9dda2c07e86cbd65defcc}\label{slub_8c_ab08bb10d87d9dda2c07e86cbd65defcc}} 
+\index{slub.c@{slub.c}!SLAB\_NO\_CMPXCHG@{SLAB\_NO\_CMPXCHG}}
+\index{SLAB\_NO\_CMPXCHG@{SLAB\_NO\_CMPXCHG}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{SLAB\_NO\_CMPXCHG}{SLAB\_NO\_CMPXCHG}}
+{\footnotesize\ttfamily \#define S\+L\+A\+B\+\_\+\+N\+O\+\_\+\+C\+M\+P\+X\+C\+HG}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                (\mbox{\hyperlink{include_2linux_2slab_8h_a123df28431ce6951cf3f02bf47bc79ea}{SLAB\_CONSISTENCY\_CHECKS}} | \mbox{\hyperlink{include_2linux_2slab_8h_a4c24849b5048a97a7c3d70ec7d0963dc}{SLAB\_STORE\_USER}} | \(\backslash\)}
+\DoxyCodeLine{                SLAB\_TRACE)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{slub_8c_ae6f08ffbb26b2c4420c49727e2e493f1}\label{slub_8c_ae6f08ffbb26b2c4420c49727e2e493f1}} 
+\index{slub.c@{slub.c}!slub\_debug@{slub\_debug}}
+\index{slub\_debug@{slub\_debug}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slub\_debug}{slub\_debug}}
+{\footnotesize\ttfamily \#define slub\+\_\+debug~0}
+
+\mbox{\Hypertarget{slub_8c_ada3aba40cce2652630932d130dcf988d}\label{slub_8c_ada3aba40cce2652630932d130dcf988d}} 
+\index{slub.c@{slub.c}!slub\_get\_cpu\_ptr@{slub\_get\_cpu\_ptr}}
+\index{slub\_get\_cpu\_ptr@{slub\_get\_cpu\_ptr}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slub\_get\_cpu\_ptr}{slub\_get\_cpu\_ptr}}
+{\footnotesize\ttfamily \#define slub\+\_\+get\+\_\+cpu\+\_\+ptr(\begin{DoxyParamCaption}\item[{}]{var }\end{DoxyParamCaption})~\mbox{\hyperlink{percpu-defs_8h_a0ee332081e94d99f783f9b76358c2677}{get\+\_\+cpu\+\_\+ptr}}(var)}
+
+\mbox{\Hypertarget{slub_8c_a195599f5c2b749caac26c1a002849201}\label{slub_8c_a195599f5c2b749caac26c1a002849201}} 
+\index{slub.c@{slub.c}!slub\_put\_cpu\_ptr@{slub\_put\_cpu\_ptr}}
+\index{slub\_put\_cpu\_ptr@{slub\_put\_cpu\_ptr}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slub\_put\_cpu\_ptr}{slub\_put\_cpu\_ptr}}
+{\footnotesize\ttfamily \#define slub\+\_\+put\+\_\+cpu\+\_\+ptr(\begin{DoxyParamCaption}\item[{}]{var }\end{DoxyParamCaption})~\mbox{\hyperlink{percpu-defs_8h_aa068cf04881407e37cb1ad9c1cd41d2d}{put\+\_\+cpu\+\_\+ptr}}(var)}
+
+\mbox{\Hypertarget{slub_8c_a5eedc35b76ce97e169a6f1fcd657fec5}\label{slub_8c_a5eedc35b76ce97e169a6f1fcd657fec5}} 
+\index{slub.c@{slub.c}!TID\_STEP@{TID\_STEP}}
+\index{TID\_STEP@{TID\_STEP}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{TID\_STEP}{TID\_STEP}}
+{\footnotesize\ttfamily \#define T\+I\+D\+\_\+\+S\+T\+EP~1}
+
+\mbox{\Hypertarget{slub_8c_a636667a15d7f5bf1151637647eb3566a}\label{slub_8c_a636667a15d7f5bf1151637647eb3566a}} 
+\index{slub.c@{slub.c}!TRACK\_ADDRS\_COUNT@{TRACK\_ADDRS\_COUNT}}
+\index{TRACK\_ADDRS\_COUNT@{TRACK\_ADDRS\_COUNT}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{TRACK\_ADDRS\_COUNT}{TRACK\_ADDRS\_COUNT}}
+{\footnotesize\ttfamily \#define T\+R\+A\+C\+K\+\_\+\+A\+D\+D\+R\+S\+\_\+\+C\+O\+U\+NT~16}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{slub_8c_a1ab285278f6aadbcc5642de1ac8132dc}\label{slub_8c_a1ab285278f6aadbcc5642de1ac8132dc}} 
+\index{slub.c@{slub.c}!track\_item@{track\_item}}
+\index{track\_item@{track\_item}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{track\_item}{track\_item}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{slub_8c_a1ab285278f6aadbcc5642de1ac8132dc}{track\+\_\+item}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{TRACK\_ALLOC@{TRACK\_ALLOC}!slub.c@{slub.c}}\index{slub.c@{slub.c}!TRACK\_ALLOC@{TRACK\_ALLOC}}}\mbox{\Hypertarget{slub_8c_a1ab285278f6aadbcc5642de1ac8132dca04bc065371a1532fccc8c815ee4359e1}\label{slub_8c_a1ab285278f6aadbcc5642de1ac8132dca04bc065371a1532fccc8c815ee4359e1}} 
+T\+R\+A\+C\+K\+\_\+\+A\+L\+L\+OC&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{TRACK\_FREE@{TRACK\_FREE}!slub.c@{slub.c}}\index{slub.c@{slub.c}!TRACK\_FREE@{TRACK\_FREE}}}\mbox{\Hypertarget{slub_8c_a1ab285278f6aadbcc5642de1ac8132dca556c78dd6818801ab4a7a8cded450d58}\label{slub_8c_a1ab285278f6aadbcc5642de1ac8132dca556c78dd6818801ab4a7a8cded450d58}} 
+T\+R\+A\+C\+K\+\_\+\+F\+R\+EE&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{slub_8c_a5f3ce7eae2e0c0e0004608b818a5618d}\label{slub_8c_a5f3ce7eae2e0c0e0004608b818a5618d}} 
+\index{slub.c@{slub.c}!\_\_\_slab\_alloc@{\_\_\_slab\_alloc}}
+\index{\_\_\_slab\_alloc@{\_\_\_slab\_alloc}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_\_slab\_alloc()}{\_\_\_slab\_alloc()}}
+{\footnotesize\ttfamily static void$\ast$ \+\_\+\+\_\+\+\_\+slab\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{unsigned long}]{addr,  }\item[{struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{slub_8c_a97805b92258dafc9f811bb04b0e58cd4}\label{slub_8c_a97805b92258dafc9f811bb04b0e58cd4}} 
+\index{slub.c@{slub.c}!\_\_add\_partial@{\_\_add\_partial}}
+\index{\_\_add\_partial@{\_\_add\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_add\_partial()}{\_\_add\_partial()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+add\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{tail }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{slub_8c_ad1a254275b0da2c848d9c3594533fc31}\label{slub_8c_ad1a254275b0da2c848d9c3594533fc31}} 
+\index{slub.c@{slub.c}!\_\_cmpxchg\_double\_slab@{\_\_cmpxchg\_double\_slab}}
+\index{\_\_cmpxchg\_double\_slab@{\_\_cmpxchg\_double\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_cmpxchg\_double\_slab()}{\_\_cmpxchg\_double\_slab()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+\+\_\+cmpxchg\+\_\+double\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{freelist\+\_\+old,  }\item[{unsigned long}]{counters\+\_\+old,  }\item[{void $\ast$}]{freelist\+\_\+new,  }\item[{unsigned long}]{counters\+\_\+new,  }\item[{const char $\ast$}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{slub_8c_a0f80eee6fd00344b531d3b139c35e46b}\label{slub_8c_a0f80eee6fd00344b531d3b139c35e46b}} 
+\index{slub.c@{slub.c}!\_\_flush\_cpu\_slab@{\_\_flush\_cpu\_slab}}
+\index{\_\_flush\_cpu\_slab@{\_\_flush\_cpu\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_flush\_cpu\_slab()}{\_\_flush\_cpu\_slab()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+flush\+\_\+cpu\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{slub_8c_ab20a763d64a3ac39f711d01ed94ce79c}\label{slub_8c_ab20a763d64a3ac39f711d01ed94ce79c}} 
+\index{slub.c@{slub.c}!\_\_free\_slab@{\_\_free\_slab}}
+\index{\_\_free\_slab@{\_\_free\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_free\_slab()}{\_\_free\_slab()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+free\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{slub_8c_abfd66e320fec23b046de54de73b3e75e}\label{slub_8c_abfd66e320fec23b046de54de73b3e75e}} 
+\index{slub.c@{slub.c}!\_\_kmalloc@{\_\_kmalloc}}
+\index{\_\_kmalloc@{\_\_kmalloc}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmalloc()}{\_\_kmalloc()}}
+{\footnotesize\ttfamily void$\ast$ \+\_\+\+\_\+kmalloc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{slub_8c_a996215f007f4adba570ace3edd1e4aa9}\label{slub_8c_a996215f007f4adba570ace3edd1e4aa9}} 
+\index{slub.c@{slub.c}!\_\_kmalloc\_track\_caller@{\_\_kmalloc\_track\_caller}}
+\index{\_\_kmalloc\_track\_caller@{\_\_kmalloc\_track\_caller}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmalloc\_track\_caller()}{\_\_kmalloc\_track\_caller()}}
+{\footnotesize\ttfamily void$\ast$ \+\_\+\+\_\+kmalloc\+\_\+track\+\_\+caller (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags,  }\item[{unsigned long}]{caller }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{slub_8c_a3d83d1fb4ed2b10de7284d2e985ee13d}\label{slub_8c_a3d83d1fb4ed2b10de7284d2e985ee13d}} 
+\index{slub.c@{slub.c}!\_\_kmem\_cache\_alias@{\_\_kmem\_cache\_alias}}
+\index{\_\_kmem\_cache\_alias@{\_\_kmem\_cache\_alias}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmem\_cache\_alias()}{\_\_kmem\_cache\_alias()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ \+\_\+\+\_\+kmem\+\_\+cache\+\_\+alias (\begin{DoxyParamCaption}\item[{const char $\ast$}]{name,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{align,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}}}]{flags,  }\item[{void($\ast$)(void $\ast$)}]{ctor }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{slub_8c_a253c5b9f46eb8e929b12eb1f0fd98ad7}\label{slub_8c_a253c5b9f46eb8e929b12eb1f0fd98ad7}} 
+\index{slub.c@{slub.c}!\_\_kmem\_cache\_create@{\_\_kmem\_cache\_create}}
+\index{\_\_kmem\_cache\_create@{\_\_kmem\_cache\_create}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmem\_cache\_create()}{\_\_kmem\_cache\_create()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+kmem\+\_\+cache\+\_\+create (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}}}]{flags }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+kmem\+\_\+cache\+\_\+create -\/ Create a cache. @cachep\+: cache management descriptor @flags\+: S\+L\+AB flags
+
+Returns a ptr to the cache on success, N\+U\+LL on failure. Cannot be called within a int, but can be interrupted. \mbox{\hyperlink{classThe}{The}} @ctor is run when new pages are allocated by the cache.
+
+\mbox{\hyperlink{classThe}{The}} flags are
+
+S\+L\+A\+B\+\_\+\+P\+O\+I\+S\+ON -\/ Poison the slab with a known test pattern (a5a5a5a5) to catch references to uninitialised memory.
+
+S\+L\+A\+B\+\_\+\+R\+E\+D\+\_\+\+Z\+O\+NE -\/ Insert `Red' zones around the allocated memory to check for buffer overruns.
+
+S\+L\+A\+B\+\_\+\+H\+W\+C\+A\+C\+H\+E\+\_\+\+A\+L\+I\+GN -\/ Align the objects in this cache to a hardware cacheline. This can be beneficial if you\textquotesingle{}re counting cycles as closely as davem.
+
+Return\+: a pointer to the created cache or N\+U\+LL in case of error Here is the call graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{slub_8c_a3bb23c94982e9786c912475c939e55dc}\label{slub_8c_a3bb23c94982e9786c912475c939e55dc}} 
+\index{slub.c@{slub.c}!\_\_kmem\_cache\_do\_shrink@{\_\_kmem\_cache\_do\_shrink}}
+\index{\_\_kmem\_cache\_do\_shrink@{\_\_kmem\_cache\_do\_shrink}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmem\_cache\_do\_shrink()}{\_\_kmem\_cache\_do\_shrink()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+kmem\+\_\+cache\+\_\+do\+\_\+shrink (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{slub_8c_ae6801de531ba645f0ae46eccfd3fecff}\label{slub_8c_ae6801de531ba645f0ae46eccfd3fecff}} 
+\index{slub.c@{slub.c}!\_\_kmem\_cache\_empty@{\_\_kmem\_cache\_empty}}
+\index{\_\_kmem\_cache\_empty@{\_\_kmem\_cache\_empty}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmem\_cache\_empty()}{\_\_kmem\_cache\_empty()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+\+\_\+kmem\+\_\+cache\+\_\+empty (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{slub_8c_ac9a7fcfc8462dc44e7aea459a4921648}\label{slub_8c_ac9a7fcfc8462dc44e7aea459a4921648}} 
+\index{slub.c@{slub.c}!\_\_kmem\_cache\_release@{\_\_kmem\_cache\_release}}
+\index{\_\_kmem\_cache\_release@{\_\_kmem\_cache\_release}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmem\_cache\_release()}{\_\_kmem\_cache\_release()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+kmem\+\_\+cache\+\_\+release (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{slub_8c_ad7a6a20368bf72e80796c21c32e3b18b}\label{slub_8c_ad7a6a20368bf72e80796c21c32e3b18b}} 
+\index{slub.c@{slub.c}!\_\_kmem\_cache\_shrink@{\_\_kmem\_cache\_shrink}}
+\index{\_\_kmem\_cache\_shrink@{\_\_kmem\_cache\_shrink}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmem\_cache\_shrink()}{\_\_kmem\_cache\_shrink()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+kmem\+\_\+cache\+\_\+shrink (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{slub_8c_ae4dc3b793efbd9fb28543a1e37d28625}\label{slub_8c_ae4dc3b793efbd9fb28543a1e37d28625}} 
+\index{slub.c@{slub.c}!\_\_kmem\_cache\_shutdown@{\_\_kmem\_cache\_shutdown}}
+\index{\_\_kmem\_cache\_shutdown@{\_\_kmem\_cache\_shutdown}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmem\_cache\_shutdown()}{\_\_kmem\_cache\_shutdown()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+kmem\+\_\+cache\+\_\+shutdown (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{slub_8c_af7b6169220a894583676320dc6ea7928}\label{slub_8c_af7b6169220a894583676320dc6ea7928}} 
+\index{slub.c@{slub.c}!\_\_ksize@{\_\_ksize}}
+\index{\_\_ksize@{\_\_ksize}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ksize()}{\_\_ksize()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \+\_\+\+\_\+ksize (\begin{DoxyParamCaption}\item[{const void $\ast$}]{object }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+ksize -- Uninstrumented ksize. @objp\+: pointer to the object
+
+Unlike \mbox{\hyperlink{include_2linux_2slab_8h_ae0c564d61c2a8523f9206f5c3865a31c}{ksize()}}, \mbox{\hyperlink{slab_8c_aeb4082276c26daa554e1a16ac406ef28}{\+\_\+\+\_\+ksize()}} is uninstrumented, and does not provide the same safety checks as \mbox{\hyperlink{include_2linux_2slab_8h_ae0c564d61c2a8523f9206f5c3865a31c}{ksize()}} with K\+A\+S\+AN instrumentation enabled.
+
+Return\+: size of the actual memory used by @objp in bytes Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{slub_8c_a9cf01b6caaa0634058baa79776aaa95e}\label{slub_8c_a9cf01b6caaa0634058baa79776aaa95e}} 
+\index{slub.c@{slub.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_ab6b4caa0ce88684d1ea53fe4534aa1cb}\label{slub_8c_ab6b4caa0ce88684d1ea53fe4534aa1cb}} 
+\index{slub.c@{slub.c}!\_\_slab\_alloc@{\_\_slab\_alloc}}
+\index{\_\_slab\_alloc@{\_\_slab\_alloc}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_slab\_alloc()}{\_\_slab\_alloc()}}
+{\footnotesize\ttfamily static void$\ast$ \+\_\+\+\_\+slab\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{unsigned long}]{addr,  }\item[{struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{slub_8c_ad1cc666d2ebe79fea1056bc428f1ee74}\label{slub_8c_ad1cc666d2ebe79fea1056bc428f1ee74}} 
+\index{slub.c@{slub.c}!\_\_slab\_free@{\_\_slab\_free}}
+\index{\_\_slab\_free@{\_\_slab\_free}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_slab\_free()}{\_\_slab\_free()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+slab\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{head,  }\item[{void $\ast$}]{tail,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cnt,  }\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{slub_8c_af4b7efb0962ba62a44ecc2b02313ae9b}\label{slub_8c_af4b7efb0962ba62a44ecc2b02313ae9b}} 
+\index{slub.c@{slub.c}!\_\_slab\_lock@{\_\_slab\_lock}}
+\index{\_\_slab\_lock@{\_\_slab\_lock}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_slab\_lock()}{\_\_slab\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \+\_\+\+\_\+slab\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{slub_8c_a3f8642bde9bd3260a41170c038d40088}\label{slub_8c_a3f8642bde9bd3260a41170c038d40088}} 
+\index{slub.c@{slub.c}!\_\_slab\_unlock@{\_\_slab\_unlock}}
+\index{\_\_slab\_unlock@{\_\_slab\_unlock}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{\_\_slab\_unlock()}{\_\_slab\_unlock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \+\_\+\+\_\+slab\+\_\+unlock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{slub_8c_a4d9ef9bdbc11fda6c9687c7394211489}\label{slub_8c_a4d9ef9bdbc11fda6c9687c7394211489}} 
+\index{slub.c@{slub.c}!acquire\_slab@{acquire\_slab}}
+\index{acquire\_slab@{acquire\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{acquire\_slab()}{acquire\_slab()}}
+{\footnotesize\ttfamily static void$\ast$ acquire\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{mode,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{objects }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{slub_8c_a42cef4316fc39e3975fa64e9fa3b14f5}\label{slub_8c_a42cef4316fc39e3975fa64e9fa3b14f5}} 
+\index{slub.c@{slub.c}!add\_full@{add\_full}}
+\index{add\_full@{add\_full}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{add\_full()}{add\_full()}}
+{\footnotesize\ttfamily static void add\+\_\+full (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{slub_8c_a38123fb2fa4d8e33ad9a9320b8f702b5}\label{slub_8c_a38123fb2fa4d8e33ad9a9320b8f702b5}} 
+\index{slub.c@{slub.c}!add\_partial@{add\_partial}}
+\index{add\_partial@{add\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{add\_partial()}{add\_partial()}}
+{\footnotesize\ttfamily static void add\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{tail }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{slub_8c_ae5141d34cf2a984dbd6cd5bbced6a071}\label{slub_8c_ae5141d34cf2a984dbd6cd5bbced6a071}} 
+\index{slub.c@{slub.c}!alloc\_debug\_processing@{alloc\_debug\_processing}}
+\index{alloc\_debug\_processing@{alloc\_debug\_processing}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_debug\_processing()}{alloc\_debug\_processing()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+debug\+\_\+processing (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{object,  }\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{slub_8c_ae8c657387324b19e2010a91bde7ace93}\label{slub_8c_ae8c657387324b19e2010a91bde7ace93}} 
+\index{slub.c@{slub.c}!alloc\_kmem\_cache\_cpus@{alloc\_kmem\_cache\_cpus}}
+\index{alloc\_kmem\_cache\_cpus@{alloc\_kmem\_cache\_cpus}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_kmem\_cache\_cpus()}{alloc\_kmem\_cache\_cpus()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+kmem\+\_\+cache\+\_\+cpus (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{slub_8c_acb9a3f6e91805fe8706b094cb32866fb}\label{slub_8c_acb9a3f6e91805fe8706b094cb32866fb}} 
+\index{slub.c@{slub.c}!alloc\_slab\_page@{alloc\_slab\_page}}
+\index{alloc\_slab\_page@{alloc\_slab\_page}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_slab\_page()}{alloc\_slab\_page()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ alloc\+\_\+slab\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}}}]{oo }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{slub_8c_a3fb43def04a83dc48036b6e6dfb46e33}\label{slub_8c_a3fb43def04a83dc48036b6e6dfb46e33}} 
+\index{slub.c@{slub.c}!allocate\_slab@{allocate\_slab}}
+\index{allocate\_slab@{allocate\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{allocate\_slab()}{allocate\_slab()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ allocate\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{slub_8c_a568843d94b65d60f5146220fefa36371}\label{slub_8c_a568843d94b65d60f5146220fefa36371}} 
+\index{slub.c@{slub.c}!bootstrap@{bootstrap}}
+\index{bootstrap@{bootstrap}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{bootstrap()}{bootstrap()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} bootstrap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{static\+\_\+cache }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{slub_8c_ac98d40cb41bff2341ea33a4a8eb9fb7e}\label{slub_8c_ac98d40cb41bff2341ea33a4a8eb9fb7e}} 
+\index{slub.c@{slub.c}!build\_detached\_freelist@{build\_detached\_freelist}}
+\index{build\_detached\_freelist@{build\_detached\_freelist}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{build\_detached\_freelist()}{build\_detached\_freelist()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} build\+\_\+detached\+\_\+freelist (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{void $\ast$$\ast$}]{p,  }\item[{struct \mbox{\hyperlink{structdetached__freelist}{detached\+\_\+freelist}} $\ast$}]{df }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{slub_8c_a564c41de435a6ec95f8d1985cde9961f}\label{slub_8c_a564c41de435a6ec95f8d1985cde9961f}} 
+\index{slub.c@{slub.c}!calculate\_order@{calculate\_order}}
+\index{calculate\_order@{calculate\_order}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{calculate\_order()}{calculate\_order()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} calculate\+\_\+order (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{slub_8c_a546a87a749fae73bf0384a2543df4388}\label{slub_8c_a546a87a749fae73bf0384a2543df4388}} 
+\index{slub.c@{slub.c}!calculate\_sizes@{calculate\_sizes}}
+\index{calculate\_sizes@{calculate\_sizes}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{calculate\_sizes()}{calculate\_sizes()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} calculate\+\_\+sizes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{forced\+\_\+order }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{slub_8c_a3c2cec0d13d1fe4951a185cfdf6efc3b}\label{slub_8c_a3c2cec0d13d1fe4951a185cfdf6efc3b}} 
+\index{slub.c@{slub.c}!check\_object@{check\_object}}
+\index{check\_object@{check\_object}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{check\_object()}{check\_object()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{object,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{slub_8c_a2bf470a5c420289f1f6d4545860a1906}\label{slub_8c_a2bf470a5c420289f1f6d4545860a1906}} 
+\index{slub.c@{slub.c}!cmpxchg\_double\_slab@{cmpxchg\_double\_slab}}
+\index{cmpxchg\_double\_slab@{cmpxchg\_double\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{cmpxchg\_double\_slab()}{cmpxchg\_double\_slab()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} cmpxchg\+\_\+double\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{freelist\+\_\+old,  }\item[{unsigned long}]{counters\+\_\+old,  }\item[{void $\ast$}]{freelist\+\_\+new,  }\item[{unsigned long}]{counters\+\_\+new,  }\item[{const char $\ast$}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{slub_8c_a02e1304fab40572dc37358f7dff78355}\label{slub_8c_a02e1304fab40572dc37358f7dff78355}} 
+\index{slub.c@{slub.c}!deactivate\_slab@{deactivate\_slab}}
+\index{deactivate\_slab@{deactivate\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{deactivate\_slab()}{deactivate\_slab()}}
+{\footnotesize\ttfamily static void deactivate\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{freelist }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{slub_8c_a61d38f020f5a2bcc905d8b7674f4f16b}\label{slub_8c_a61d38f020f5a2bcc905d8b7674f4f16b}} 
+\index{slub.c@{slub.c}!debugfs\_slab\_add@{debugfs\_slab\_add}}
+\index{debugfs\_slab\_add@{debugfs\_slab\_add}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{debugfs\_slab\_add()}{debugfs\_slab\_add()}}
+{\footnotesize\ttfamily static void debugfs\+\_\+slab\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{slub_8c_aac5ae0138978178ca9181ca0715496bd}\label{slub_8c_aac5ae0138978178ca9181ca0715496bd}} 
+\index{slub.c@{slub.c}!dec\_slabs\_node@{dec\_slabs\_node}}
+\index{dec\_slabs\_node@{dec\_slabs\_node}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{dec\_slabs\_node()}{dec\_slabs\_node()}}
+{\footnotesize\ttfamily static void dec\+\_\+slabs\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{objects }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{slub_8c_a13a2e5aa38e6de7ae2ac3a86a32713f9}\label{slub_8c_a13a2e5aa38e6de7ae2ac3a86a32713f9}} 
+\index{slub.c@{slub.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{flush\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{slub_8c_a8176e2e87de6310f3b5a257014ec53a9}\label{slub_8c_a8176e2e87de6310f3b5a257014ec53a9}} 
+\index{slub.c@{slub.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structslub__flush__work}{slub\+\_\+flush\+\_\+work}}}]{,  }\item[{slub\+\_\+flush}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{slub_8c_abd86e2aa4d27d27c6e5bc11b54c49eeb}\label{slub_8c_abd86e2aa4d27d27c6e5bc11b54c49eeb}} 
+\index{slub.c@{slub.c}!discard\_slab@{discard\_slab}}
+\index{discard\_slab@{discard\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{discard\_slab()}{discard\_slab()}}
+{\footnotesize\ttfamily static void discard\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{slub_8c_a9eb06e4dbdc11dc0263b9751563b06c1}\label{slub_8c_a9eb06e4dbdc11dc0263b9751563b06c1}} 
+\index{slub.c@{slub.c}!do\_slab\_free@{do\_slab\_free}}
+\index{do\_slab\_free@{do\_slab\_free}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{do\_slab\_free()}{do\_slab\_free()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void do\+\_\+slab\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{head,  }\item[{void $\ast$}]{tail,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cnt,  }\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{slub_8c_ae76acc39ef92d4f0310fa6bdd9484021}\label{slub_8c_ae76acc39ef92d4f0310fa6bdd9484021}} 
+\index{slub.c@{slub.c}!early\_kmem\_cache\_node\_alloc@{early\_kmem\_cache\_node\_alloc}}
+\index{early\_kmem\_cache\_node\_alloc@{early\_kmem\_cache\_node\_alloc}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{early\_kmem\_cache\_node\_alloc()}{early\_kmem\_cache\_node\_alloc()}}
+{\footnotesize\ttfamily static void early\+\_\+kmem\+\_\+cache\+\_\+node\+\_\+alloc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 64
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{slub_8c_a895088dca9cef8edba9f19c025f9e25c}\label{slub_8c_a895088dca9cef8edba9f19c025f9e25c}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_abfd66e320fec23b046de54de73b3e75e}{\+\_\+\+\_\+kmalloc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_abecf0072649e42165e04a27fc4c5634e}\label{slub_8c_abecf0072649e42165e04a27fc4c5634e}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_a996215f007f4adba570ace3edd1e4aa9}{\+\_\+\+\_\+kmalloc\+\_\+track\+\_\+caller}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_a634576f414c4b39af1c18cee07654d0d}\label{slub_8c_a634576f414c4b39af1c18cee07654d0d}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_af7b6169220a894583676320dc6ea7928}{\+\_\+\+\_\+ksize}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_a37ccffeabbc5a753bcad40881d1adc5e}\label{slub_8c_a37ccffeabbc5a753bcad40881d1adc5e}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_a8d9b84040f2957bf143976c2d0fa37f7}{kfree}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_a8bd568fd926e82c7f9a045968ddd296d}\label{slub_8c_a8bd568fd926e82c7f9a045968ddd296d}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_a57a3009871f8165450843a706193474c}{kmem\+\_\+cache\+\_\+alloc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_a5dbcec94b4d91f60ea3a728adae3fd57}\label{slub_8c_a5dbcec94b4d91f60ea3a728adae3fd57}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_a94dd0935d21a8a28392069b75365d4c2}{kmem\+\_\+cache\+\_\+alloc\+\_\+bulk}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_a03bd792af9f502174a76acb4c333a155}\label{slub_8c_a03bd792af9f502174a76acb4c333a155}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_a810d496c52cf11dd651bb4777292e8f4}{kmem\+\_\+cache\+\_\+free}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_a1fd402d9f7e3bd39b089bd657f3b50c1}\label{slub_8c_a1fd402d9f7e3bd39b089bd657f3b50c1}} 
+\index{slub.c@{slub.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/8]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{slub_8c_ad71879dc5a858fc6743c68d038db566e}{kmem\+\_\+cache\+\_\+free\+\_\+bulk}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{slub_8c_aeec22d12f9e0e6d7affdd5fe3c3c229b}\label{slub_8c_aeec22d12f9e0e6d7affdd5fe3c3c229b}} 
+\index{slub.c@{slub.c}!fixup\_red\_left@{fixup\_red\_left}}
+\index{fixup\_red\_left@{fixup\_red\_left}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{fixup\_red\_left()}{fixup\_red\_left()}}
+{\footnotesize\ttfamily void$\ast$ fixup\+\_\+red\+\_\+left (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{slub_8c_ad25863b0a2d6a1a20762d676d4b1da7e}\label{slub_8c_ad25863b0a2d6a1a20762d676d4b1da7e}} 
+\index{slub.c@{slub.c}!flush\_all@{flush\_all}}
+\index{flush\_all@{flush\_all}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{flush\_all()}{flush\_all()}}
+{\footnotesize\ttfamily static void flush\+\_\+all (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{slub_8c_a26de0755b680f2e8e6703fa70784a89b}\label{slub_8c_a26de0755b680f2e8e6703fa70784a89b}} 
+\index{slub.c@{slub.c}!flush\_all\_cpus\_locked@{flush\_all\_cpus\_locked}}
+\index{flush\_all\_cpus\_locked@{flush\_all\_cpus\_locked}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{flush\_all\_cpus\_locked()}{flush\_all\_cpus\_locked()}}
+{\footnotesize\ttfamily static void flush\+\_\+all\+\_\+cpus\+\_\+locked (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{slub_8c_a85537a3cda82180194695a2bfe541d3d}\label{slub_8c_a85537a3cda82180194695a2bfe541d3d}} 
+\index{slub.c@{slub.c}!flush\_cpu\_slab@{flush\_cpu\_slab}}
+\index{flush\_cpu\_slab@{flush\_cpu\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{flush\_cpu\_slab()}{flush\_cpu\_slab()}}
+{\footnotesize\ttfamily static void flush\+\_\+cpu\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$}]{w }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{slub_8c_ab4366a5eb2179e865e30d4c4e7cf1f0d}\label{slub_8c_ab4366a5eb2179e865e30d4c4e7cf1f0d}} 
+\index{slub.c@{slub.c}!flush\_slab@{flush\_slab}}
+\index{flush\_slab@{flush\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{flush\_slab()}{flush\_slab()}}
+{\footnotesize\ttfamily static void flush\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{slub_8c_a33969d0eac56a211ff0939bf0eb1f415}\label{slub_8c_a33969d0eac56a211ff0939bf0eb1f415}} 
+\index{slub.c@{slub.c}!free\_debug\_processing@{free\_debug\_processing}}
+\index{free\_debug\_processing@{free\_debug\_processing}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{free\_debug\_processing()}{free\_debug\_processing()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} free\+\_\+debug\+\_\+processing (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{head,  }\item[{void $\ast$}]{tail,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bulk\+\_\+cnt,  }\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{slub_8c_aa11761dd2a018ef8b8bbd942159ef21a}\label{slub_8c_aa11761dd2a018ef8b8bbd942159ef21a}} 
+\index{slub.c@{slub.c}!free\_kmem\_cache\_nodes@{free\_kmem\_cache\_nodes}}
+\index{free\_kmem\_cache\_nodes@{free\_kmem\_cache\_nodes}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{free\_kmem\_cache\_nodes()}{free\_kmem\_cache\_nodes()}}
+{\footnotesize\ttfamily static void free\+\_\+kmem\+\_\+cache\+\_\+nodes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{slub_8c_a33bee21d5d059943c82b4007a3c996c5}\label{slub_8c_a33bee21d5d059943c82b4007a3c996c5}} 
+\index{slub.c@{slub.c}!free\_nonslab\_page@{free\_nonslab\_page}}
+\index{free\_nonslab\_page@{free\_nonslab\_page}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{free\_nonslab\_page()}{free\_nonslab\_page()}}
+{\footnotesize\ttfamily static void free\+\_\+nonslab\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 79
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{slub_8c_ac3bac68bb93fa1ad33cde1d07ff794d3}\label{slub_8c_ac3bac68bb93fa1ad33cde1d07ff794d3}} 
+\index{slub.c@{slub.c}!free\_partial@{free\_partial}}
+\index{free\_partial@{free\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{free\_partial()}{free\_partial()}}
+{\footnotesize\ttfamily static void free\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{slub_8c_a8f345b78cbd13693ff9cf81853edc04a}\label{slub_8c_a8f345b78cbd13693ff9cf81853edc04a}} 
+\index{slub.c@{slub.c}!free\_slab@{free\_slab}}
+\index{free\_slab@{free\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{free\_slab()}{free\_slab()}}
+{\footnotesize\ttfamily static void free\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 83
+Here is the caller graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{slub_8c_afe19f88978507eb26335a802f1871629}\label{slub_8c_afe19f88978507eb26335a802f1871629}} 
+\index{slub.c@{slub.c}!freelist\_corrupted@{freelist\_corrupted}}
+\index{freelist\_corrupted@{freelist\_corrupted}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{freelist\_corrupted()}{freelist\_corrupted()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} freelist\+\_\+corrupted (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$$\ast$}]{freelist,  }\item[{void $\ast$}]{nextfree }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{slub_8c_a534fc15f6ac13e9615ea581cf5b56c3e}\label{slub_8c_a534fc15f6ac13e9615ea581cf5b56c3e}} 
+\index{slub.c@{slub.c}!freelist\_dereference@{freelist\_dereference}}
+\index{freelist\_dereference@{freelist\_dereference}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{freelist\_dereference()}{freelist\_dereference()}}
+{\footnotesize\ttfamily static void$\ast$ freelist\+\_\+dereference (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{ptr\+\_\+addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{slub_8c_a484235b6d4b58fbf5dbbafc402d69be2}\label{slub_8c_a484235b6d4b58fbf5dbbafc402d69be2}} 
+\index{slub.c@{slub.c}!freelist\_ptr@{freelist\_ptr}}
+\index{freelist\_ptr@{freelist\_ptr}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{freelist\_ptr()}{freelist\_ptr()}}
+{\footnotesize\ttfamily static void$\ast$ freelist\+\_\+ptr (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{ptr,  }\item[{unsigned long}]{ptr\+\_\+addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{slub_8c_a6a0487aa395220a1b138f0720c1b91f2}\label{slub_8c_a6a0487aa395220a1b138f0720c1b91f2}} 
+\index{slub.c@{slub.c}!get\_any\_partial@{get\_any\_partial}}
+\index{get\_any\_partial@{get\_any\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{get\_any\_partial()}{get\_any\_partial()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+any\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{ret\+\_\+page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 90
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{slub_8c_a72eeeebc50ebcbdf00aa0255e652e78c}\label{slub_8c_a72eeeebc50ebcbdf00aa0255e652e78c}} 
+\index{slub.c@{slub.c}!get\_freelist@{get\_freelist}}
+\index{get\_freelist@{get\_freelist}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{get\_freelist()}{get\_freelist()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+freelist (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 92
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{slub_8c_a61d8717636396cba4247fe862f18f73d}\label{slub_8c_a61d8717636396cba4247fe862f18f73d}} 
+\index{slub.c@{slub.c}!get\_freepointer@{get\_freepointer}}
+\index{get\_freepointer@{get\_freepointer}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{get\_freepointer()}{get\_freepointer()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+freepointer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{slub_8c_abc417a02bd297859db9f0b40802ff2f2}\label{slub_8c_abc417a02bd297859db9f0b40802ff2f2}} 
+\index{slub.c@{slub.c}!get\_freepointer\_safe@{get\_freepointer\_safe}}
+\index{get\_freepointer\_safe@{get\_freepointer\_safe}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{get\_freepointer\_safe()}{get\_freepointer\_safe()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+freepointer\+\_\+safe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{slub_8c_ad84ba092da86d3f41ebc0fcde1393096}\label{slub_8c_ad84ba092da86d3f41ebc0fcde1393096}} 
+\index{slub.c@{slub.c}!get\_partial@{get\_partial}}
+\index{get\_partial@{get\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{get\_partial()}{get\_partial()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{ret\+\_\+page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 98
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{slub_8c_a404a6485ef678836f0fe420a5cc42625}\label{slub_8c_a404a6485ef678836f0fe420a5cc42625}} 
+\index{slub.c@{slub.c}!get\_partial\_node@{get\_partial\_node}}
+\index{get\_partial\_node@{get\_partial\_node}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{get\_partial\_node()}{get\_partial\_node()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+partial\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{ret\+\_\+page,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 100
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{slub_8c_a7f06f1d3f093b0f5eb3afe41cf8b095c}\label{slub_8c_a7f06f1d3f093b0f5eb3afe41cf8b095c}} 
+\index{slub.c@{slub.c}!has\_cpu\_slab@{has\_cpu\_slab}}
+\index{has\_cpu\_slab@{has\_cpu\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{has\_cpu\_slab()}{has\_cpu\_slab()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} has\+\_\+cpu\+\_\+slab (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{slub_8c_a32cb328d2d8e265548723a0e3b5951de}\label{slub_8c_a32cb328d2d8e265548723a0e3b5951de}} 
+\index{slub.c@{slub.c}!inc\_slabs\_node@{inc\_slabs\_node}}
+\index{inc\_slabs\_node@{inc\_slabs\_node}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{inc\_slabs\_node()}{inc\_slabs\_node()}}
+{\footnotesize\ttfamily static void inc\+\_\+slabs\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{objects }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{slub_8c_a2766501d33d276eb64b83b800563c65b}\label{slub_8c_a2766501d33d276eb64b83b800563c65b}} 
+\index{slub.c@{slub.c}!init\_cache\_random\_seq@{init\_cache\_random\_seq}}
+\index{init\_cache\_random\_seq@{init\_cache\_random\_seq}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{init\_cache\_random\_seq()}{init\_cache\_random\_seq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+cache\+\_\+random\+\_\+seq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{slub_8c_a08a05966e9fff049d5348b72eba188f7}\label{slub_8c_a08a05966e9fff049d5348b72eba188f7}} 
+\index{slub.c@{slub.c}!init\_freelist\_randomization@{init\_freelist\_randomization}}
+\index{init\_freelist\_randomization@{init\_freelist\_randomization}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{init\_freelist\_randomization()}{init\_freelist\_randomization()}}
+{\footnotesize\ttfamily static void init\+\_\+freelist\+\_\+randomization (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{slub_8c_a3c250368e533033514018098f55e9c39}\label{slub_8c_a3c250368e533033514018098f55e9c39}} 
+\index{slub.c@{slub.c}!init\_kmem\_cache\_cpus@{init\_kmem\_cache\_cpus}}
+\index{init\_kmem\_cache\_cpus@{init\_kmem\_cache\_cpus}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{init\_kmem\_cache\_cpus()}{init\_kmem\_cache\_cpus()}}
+{\footnotesize\ttfamily static void init\+\_\+kmem\+\_\+cache\+\_\+cpus (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{slub_8c_a37de78fadc54973b68dd51ea5875ae57}\label{slub_8c_a37de78fadc54973b68dd51ea5875ae57}} 
+\index{slub.c@{slub.c}!init\_kmem\_cache\_node@{init\_kmem\_cache\_node}}
+\index{init\_kmem\_cache\_node@{init\_kmem\_cache\_node}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{init\_kmem\_cache\_node()}{init\_kmem\_cache\_node()}}
+{\footnotesize\ttfamily static void init\+\_\+kmem\+\_\+cache\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{slub_8c_af1a426aa140c913e6e3f288240862819}\label{slub_8c_af1a426aa140c913e6e3f288240862819}} 
+\index{slub.c@{slub.c}!init\_kmem\_cache\_nodes@{init\_kmem\_cache\_nodes}}
+\index{init\_kmem\_cache\_nodes@{init\_kmem\_cache\_nodes}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{init\_kmem\_cache\_nodes()}{init\_kmem\_cache\_nodes()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+kmem\+\_\+cache\+\_\+nodes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{slub_8c_a0d8b123ea69a4934d40dd8a23182b1aa}\label{slub_8c_a0d8b123ea69a4934d40dd8a23182b1aa}} 
+\index{slub.c@{slub.c}!init\_tid@{init\_tid}}
+\index{init\_tid@{init\_tid}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{init\_tid()}{init\_tid()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+tid (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 112
+\mbox{\Hypertarget{slub_8c_a8d9b84040f2957bf143976c2d0fa37f7}\label{slub_8c_a8d9b84040f2957bf143976c2d0fa37f7}} 
+\index{slub.c@{slub.c}!kfree@{kfree}}
+\index{kfree@{kfree}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kfree()}{kfree()}}
+{\footnotesize\ttfamily void kfree (\begin{DoxyParamCaption}\item[{const void $\ast$}]{x }\end{DoxyParamCaption})}
+
+kfree -\/ free previously allocated memory @objp\+: pointer returned by kmalloc.
+
+If @objp is N\+U\+LL, no operation is performed.
+
+Don\textquotesingle{}t free memory not originally allocated by \mbox{\hyperlink{include_2linux_2slab_8h_a1d68b78a92a928652719a969b7f75f7c}{kmalloc()}} or you will run into trouble. Here is the call graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{slub_8c_a0d99cb9c7bc8d11b769822045571f913}\label{slub_8c_a0d99cb9c7bc8d11b769822045571f913}} 
+\index{slub.c@{slub.c}!kfree\_hook@{kfree\_hook}}
+\index{kfree\_hook@{kfree\_hook}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kfree\_hook()}{kfree\_hook()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void kfree\+\_\+hook (\begin{DoxyParamCaption}\item[{void $\ast$}]{x }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 114
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{slub_8c_a3710dbf88204658f6b208cab69e2e3a9}\label{slub_8c_a3710dbf88204658f6b208cab69e2e3a9}} 
+\index{slub.c@{slub.c}!kmalloc\_large\_node\_hook@{kmalloc\_large\_node\_hook}}
+\index{kmalloc\_large\_node\_hook@{kmalloc\_large\_node\_hook}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmalloc\_large\_node\_hook()}{kmalloc\_large\_node\_hook()}}
+{\footnotesize\ttfamily static void$\ast$ kmalloc\+\_\+large\+\_\+node\+\_\+hook (\begin{DoxyParamCaption}\item[{void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 116
+\mbox{\Hypertarget{slub_8c_a57a3009871f8165450843a706193474c}\label{slub_8c_a57a3009871f8165450843a706193474c}} 
+\index{slub.c@{slub.c}!kmem\_cache\_alloc@{kmem\_cache\_alloc}}
+\index{kmem\_cache\_alloc@{kmem\_cache\_alloc}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_alloc()}{kmem\_cache\_alloc()}}
+{\footnotesize\ttfamily void$\ast$ kmem\+\_\+cache\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags }\end{DoxyParamCaption})}
+
+kmem\+\_\+cache\+\_\+alloc -\/ Allocate an object @cachep\+: \mbox{\hyperlink{classThe}{The}} cache to allocate from. @flags\+: See \mbox{\hyperlink{include_2linux_2slab_8h_a1d68b78a92a928652719a969b7f75f7c}{kmalloc()}}.
+
+Allocate an object from this cache. \mbox{\hyperlink{classThe}{The}} flags are only relevant if the cache has no available objects.
+
+Return\+: pointer to the new object or N\+U\+LL in case of error Here is the call graph for this function\+:
+% FIG 117
+Here is the caller graph for this function\+:
+% FIG 118
+\mbox{\Hypertarget{slub_8c_a94dd0935d21a8a28392069b75365d4c2}\label{slub_8c_a94dd0935d21a8a28392069b75365d4c2}} 
+\index{slub.c@{slub.c}!kmem\_cache\_alloc\_bulk@{kmem\_cache\_alloc\_bulk}}
+\index{kmem\_cache\_alloc\_bulk@{kmem\_cache\_alloc\_bulk}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_alloc\_bulk()}{kmem\_cache\_alloc\_bulk()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmem\+\_\+cache\+\_\+alloc\+\_\+bulk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{void $\ast$$\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 119
+Here is the caller graph for this function\+:
+% FIG 120
+\mbox{\Hypertarget{slub_8c_a96d57d9177c47af377a05344c4ff64a6}\label{slub_8c_a96d57d9177c47af377a05344c4ff64a6}} 
+\index{slub.c@{slub.c}!kmem\_cache\_debug@{kmem\_cache\_debug}}
+\index{kmem\_cache\_debug@{kmem\_cache\_debug}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_debug()}{kmem\_cache\_debug()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kmem\+\_\+cache\+\_\+debug (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 121
+Here is the caller graph for this function\+:
+% FIG 122
+\mbox{\Hypertarget{slub_8c_a58769a9b8bca1f14705ae36cc2f551c4}\label{slub_8c_a58769a9b8bca1f14705ae36cc2f551c4}} 
+\index{slub.c@{slub.c}!kmem\_cache\_flags@{kmem\_cache\_flags}}
+\index{kmem\_cache\_flags@{kmem\_cache\_flags}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_flags()}{kmem\_cache\_flags()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}} kmem\+\_\+cache\+\_\+flags (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{object\+\_\+size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}}}]{flags,  }\item[{const char $\ast$}]{name }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{slub_8c_a810d496c52cf11dd651bb4777292e8f4}\label{slub_8c_a810d496c52cf11dd651bb4777292e8f4}} 
+\index{slub.c@{slub.c}!kmem\_cache\_free@{kmem\_cache\_free}}
+\index{kmem\_cache\_free@{kmem\_cache\_free}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_free()}{kmem\_cache\_free()}}
+{\footnotesize\ttfamily void kmem\+\_\+cache\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{x }\end{DoxyParamCaption})}
+
+kmem\+\_\+cache\+\_\+free -\/ Deallocate an object @cachep\+: \mbox{\hyperlink{classThe}{The}} cache the allocation was from. @objp\+: \mbox{\hyperlink{classThe}{The}} previously allocated object.
+
+Free an object which was previously allocated from this cache. Here is the call graph for this function\+:
+% FIG 124
+\mbox{\Hypertarget{slub_8c_ad71879dc5a858fc6743c68d038db566e}\label{slub_8c_ad71879dc5a858fc6743c68d038db566e}} 
+\index{slub.c@{slub.c}!kmem\_cache\_free\_bulk@{kmem\_cache\_free\_bulk}}
+\index{kmem\_cache\_free\_bulk@{kmem\_cache\_free\_bulk}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_free\_bulk()}{kmem\_cache\_free\_bulk()}}
+{\footnotesize\ttfamily void kmem\+\_\+cache\+\_\+free\+\_\+bulk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{void $\ast$$\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 125
+Here is the caller graph for this function\+:
+% FIG 126
+\mbox{\Hypertarget{slub_8c_ad11450608d37ae375227bbcfcbc008f1}\label{slub_8c_ad11450608d37ae375227bbcfcbc008f1}} 
+\index{slub.c@{slub.c}!kmem\_cache\_has\_cpu\_partial@{kmem\_cache\_has\_cpu\_partial}}
+\index{kmem\_cache\_has\_cpu\_partial@{kmem\_cache\_has\_cpu\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_has\_cpu\_partial()}{kmem\_cache\_has\_cpu\_partial()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kmem\+\_\+cache\+\_\+has\+\_\+cpu\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 127
+Here is the caller graph for this function\+:
+% FIG 128
+\mbox{\Hypertarget{slub_8c_ae30738b69a6fc9386d3327f183901baa}\label{slub_8c_ae30738b69a6fc9386d3327f183901baa}} 
+\index{slub.c@{slub.c}!kmem\_cache\_init@{kmem\_cache\_init}}
+\index{kmem\_cache\_init@{kmem\_cache\_init}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_init()}{kmem\_cache\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kmem\+\_\+cache\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 129
+Here is the caller graph for this function\+:
+% FIG 130
+\mbox{\Hypertarget{slub_8c_ab96ff7a3b2629f59d8ea6fcc5b50d97a}\label{slub_8c_ab96ff7a3b2629f59d8ea6fcc5b50d97a}} 
+\index{slub.c@{slub.c}!kmem\_cache\_init\_late@{kmem\_cache\_init\_late}}
+\index{kmem\_cache\_init\_late@{kmem\_cache\_init\_late}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_init\_late()}{kmem\_cache\_init\_late()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kmem\+\_\+cache\+\_\+init\+\_\+late (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 131
+\mbox{\Hypertarget{slub_8c_a8042a49a0533596273a211ef513871f3}\label{slub_8c_a8042a49a0533596273a211ef513871f3}} 
+\index{slub.c@{slub.c}!kmem\_cache\_open@{kmem\_cache\_open}}
+\index{kmem\_cache\_open@{kmem\_cache\_open}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_open()}{kmem\_cache\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmem\+\_\+cache\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ab5cae9eb6895643d8c67739b35527daa}{slab\+\_\+flags\+\_\+t}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 132
+Here is the caller graph for this function\+:
+% FIG 133
+\mbox{\Hypertarget{slub_8c_aeea2844d24b9e1251f050e8a8ac33400}\label{slub_8c_aeea2844d24b9e1251f050e8a8ac33400}} 
+\index{slub.c@{slub.c}!list\_slab\_objects@{list\_slab\_objects}}
+\index{list\_slab\_objects@{list\_slab\_objects}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{list\_slab\_objects()}{list\_slab\_objects()}}
+{\footnotesize\ttfamily static void list\+\_\+slab\+\_\+objects (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{const char $\ast$}]{text }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 134
+Here is the caller graph for this function\+:
+% FIG 135
+\mbox{\Hypertarget{slub_8c_aaab1cdf7c51bc0e753fbae2bf01fdafe}\label{slub_8c_aaab1cdf7c51bc0e753fbae2bf01fdafe}} 
+\index{slub.c@{slub.c}!maybe\_wipe\_obj\_freeptr@{maybe\_wipe\_obj\_freeptr}}
+\index{maybe\_wipe\_obj\_freeptr@{maybe\_wipe\_obj\_freeptr}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{maybe\_wipe\_obj\_freeptr()}{maybe\_wipe\_obj\_freeptr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void maybe\+\_\+wipe\+\_\+obj\+\_\+freeptr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{obj }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 136
+Here is the caller graph for this function\+:
+% FIG 137
+\mbox{\Hypertarget{slub_8c_a0034a358ddcae27493429968533fc71e}\label{slub_8c_a0034a358ddcae27493429968533fc71e}} 
+\index{slub.c@{slub.c}!new\_slab@{new\_slab}}
+\index{new\_slab@{new\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{new\_slab()}{new\_slab()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ new\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 138
+Here is the caller graph for this function\+:
+% FIG 139
+\mbox{\Hypertarget{slub_8c_adfd3e577c598d8790163d1465f44b9d7}\label{slub_8c_adfd3e577c598d8790163d1465f44b9d7}} 
+\index{slub.c@{slub.c}!next\_tid@{next\_tid}}
+\index{next\_tid@{next\_tid}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{next\_tid()}{next\_tid()}}
+{\footnotesize\ttfamily static unsigned long next\+\_\+tid (\begin{DoxyParamCaption}\item[{unsigned long}]{tid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 140
+\mbox{\Hypertarget{slub_8c_a7f4fc781346248f84ddc308db99311cf}\label{slub_8c_a7f4fc781346248f84ddc308db99311cf}} 
+\index{slub.c@{slub.c}!node\_match@{node\_match}}
+\index{node\_match@{node\_match}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{node\_match()}{node\_match()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} node\+\_\+match (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 141
+\mbox{\Hypertarget{slub_8c_a3c1230fd33729df8f31c315728d5463b}\label{slub_8c_a3c1230fd33729df8f31c315728d5463b}} 
+\index{slub.c@{slub.c}!node\_nr\_slabs@{node\_nr\_slabs}}
+\index{node\_nr\_slabs@{node\_nr\_slabs}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{node\_nr\_slabs()}{node\_nr\_slabs()}}
+{\footnotesize\ttfamily static unsigned long node\+\_\+nr\+\_\+slabs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 142
+\mbox{\Hypertarget{slub_8c_a3da9b8c962710c7ace65280c9b447e2a}\label{slub_8c_a3da9b8c962710c7ace65280c9b447e2a}} 
+\index{slub.c@{slub.c}!note\_cmpxchg\_failure@{note\_cmpxchg\_failure}}
+\index{note\_cmpxchg\_failure@{note\_cmpxchg\_failure}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{note\_cmpxchg\_failure()}{note\_cmpxchg\_failure()}}
+{\footnotesize\ttfamily static void note\+\_\+cmpxchg\+\_\+failure (\begin{DoxyParamCaption}\item[{const char $\ast$}]{n,  }\item[{const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{unsigned long}]{tid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 143
+Here is the caller graph for this function\+:
+% FIG 144
+\mbox{\Hypertarget{slub_8c_ad73fa1e3ae14785bcb4da1edd3203c3c}\label{slub_8c_ad73fa1e3ae14785bcb4da1edd3203c3c}} 
+\index{slub.c@{slub.c}!oo\_make@{oo\_make}}
+\index{oo\_make@{oo\_make}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{oo\_make()}{oo\_make()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}} oo\+\_\+make (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 145
+Here is the caller graph for this function\+:
+% FIG 146
+\mbox{\Hypertarget{slub_8c_a716ae0146191dfef09f1c8ddf415f88f}\label{slub_8c_a716ae0146191dfef09f1c8ddf415f88f}} 
+\index{slub.c@{slub.c}!oo\_objects@{oo\_objects}}
+\index{oo\_objects@{oo\_objects}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{oo\_objects()}{oo\_objects()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} oo\+\_\+objects (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}}}]{x }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 147
+\mbox{\Hypertarget{slub_8c_a645928dd9ee94866d87f096a3ec6b12c}\label{slub_8c_a645928dd9ee94866d87f096a3ec6b12c}} 
+\index{slub.c@{slub.c}!oo\_order@{oo\_order}}
+\index{oo\_order@{oo\_order}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{oo\_order()}{oo\_order()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} oo\+\_\+order (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache__order__objects}{kmem\+\_\+cache\+\_\+order\+\_\+objects}}}]{x }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 148
+\mbox{\Hypertarget{slub_8c_a07cbd82dc632fe41e69c222262af2883}\label{slub_8c_a07cbd82dc632fe41e69c222262af2883}} 
+\index{slub.c@{slub.c}!order\_objects@{order\_objects}}
+\index{order\_objects@{order\_objects}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{order\_objects()}{order\_objects()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order\+\_\+objects (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 149
+\mbox{\Hypertarget{slub_8c_a9c81314da2fad890efb3865b5cf16236}\label{slub_8c_a9c81314da2fad890efb3865b5cf16236}} 
+\index{slub.c@{slub.c}!pfmemalloc\_match@{pfmemalloc\_match}}
+\index{pfmemalloc\_match@{pfmemalloc\_match}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{pfmemalloc\_match()}{pfmemalloc\_match()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pfmemalloc\+\_\+match (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 150
+Here is the caller graph for this function\+:
+% FIG 151
+\mbox{\Hypertarget{slub_8c_ae3f2c5c9c6a74bed39d0d40b08b7962d}\label{slub_8c_ae3f2c5c9c6a74bed39d0d40b08b7962d}} 
+\index{slub.c@{slub.c}!pfmemalloc\_match\_unsafe@{pfmemalloc\_match\_unsafe}}
+\index{pfmemalloc\_match\_unsafe@{pfmemalloc\_match\_unsafe}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{pfmemalloc\_match\_unsafe()}{pfmemalloc\_match\_unsafe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pfmemalloc\+\_\+match\+\_\+unsafe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 152
+Here is the caller graph for this function\+:
+% FIG 153
+\mbox{\Hypertarget{slub_8c_a8a09c0e4a1d8311dd77a2e2c5714f20c}\label{slub_8c_a8a09c0e4a1d8311dd77a2e2c5714f20c}} 
+\index{slub.c@{slub.c}!prefetch\_freepointer@{prefetch\_freepointer}}
+\index{prefetch\_freepointer@{prefetch\_freepointer}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{prefetch\_freepointer()}{prefetch\_freepointer()}}
+{\footnotesize\ttfamily static void prefetch\+\_\+freepointer (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 154
+\mbox{\Hypertarget{slub_8c_ada15b4cf2ed55f23cfd1aaa13dfe0c7f}\label{slub_8c_ada15b4cf2ed55f23cfd1aaa13dfe0c7f}} 
+\index{slub.c@{slub.c}!put\_cpu\_partial@{put\_cpu\_partial}}
+\index{put\_cpu\_partial@{put\_cpu\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{put\_cpu\_partial()}{put\_cpu\_partial()}}
+{\footnotesize\ttfamily static void put\+\_\+cpu\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{drain }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 155
+\mbox{\Hypertarget{slub_8c_ade5e568b547d8cd91ac83fb31b4eb30a}\label{slub_8c_ade5e568b547d8cd91ac83fb31b4eb30a}} 
+\index{slub.c@{slub.c}!rcu\_free\_slab@{rcu\_free\_slab}}
+\index{rcu\_free\_slab@{rcu\_free\_slab}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_free\_slab()}{rcu\_free\_slab()}}
+{\footnotesize\ttfamily static void rcu\+\_\+free\+\_\+slab (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$}]{h }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 156
+Here is the caller graph for this function\+:
+% FIG 157
+\mbox{\Hypertarget{slub_8c_afd48052e3ef598fba00fa793d7e24ea8}\label{slub_8c_afd48052e3ef598fba00fa793d7e24ea8}} 
+\index{slub.c@{slub.c}!remove\_full@{remove\_full}}
+\index{remove\_full@{remove\_full}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{remove\_full()}{remove\_full()}}
+{\footnotesize\ttfamily static void remove\+\_\+full (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 158
+\mbox{\Hypertarget{slub_8c_a1dfa0f56af84124d63c17a1f1cdd7234}\label{slub_8c_a1dfa0f56af84124d63c17a1f1cdd7234}} 
+\index{slub.c@{slub.c}!remove\_partial@{remove\_partial}}
+\index{remove\_partial@{remove\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{remove\_partial()}{remove\_partial()}}
+{\footnotesize\ttfamily static void remove\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}} $\ast$}]{n,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 159
+Here is the caller graph for this function\+:
+% FIG 160
+\mbox{\Hypertarget{slub_8c_afda2494495ef20eb9cdc7c71fdd2c98c}\label{slub_8c_afda2494495ef20eb9cdc7c71fdd2c98c}} 
+\index{slub.c@{slub.c}!set\_cpu\_partial@{set\_cpu\_partial}}
+\index{set\_cpu\_partial@{set\_cpu\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{set\_cpu\_partial()}{set\_cpu\_partial()}}
+{\footnotesize\ttfamily static void set\+\_\+cpu\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 161
+Here is the caller graph for this function\+:
+% FIG 162
+\mbox{\Hypertarget{slub_8c_aeba21275322f596f4c4796705bc2c4e2}\label{slub_8c_aeba21275322f596f4c4796705bc2c4e2}} 
+\index{slub.c@{slub.c}!set\_freepointer@{set\_freepointer}}
+\index{set\_freepointer@{set\_freepointer}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{set\_freepointer()}{set\_freepointer()}}
+{\footnotesize\ttfamily static void set\+\_\+freepointer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{object,  }\item[{void $\ast$}]{fp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 163
+Here is the caller graph for this function\+:
+% FIG 164
+\mbox{\Hypertarget{slub_8c_aab9028920bccb241f9eea1b27d621b81}\label{slub_8c_aab9028920bccb241f9eea1b27d621b81}} 
+\index{slub.c@{slub.c}!set\_min\_partial@{set\_min\_partial}}
+\index{set\_min\_partial@{set\_min\_partial}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{set\_min\_partial()}{set\_min\_partial()}}
+{\footnotesize\ttfamily static void set\+\_\+min\+\_\+partial (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{unsigned long}]{min }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 165
+\mbox{\Hypertarget{slub_8c_a19d9e3346973404544bc7c0a79f1728b}\label{slub_8c_a19d9e3346973404544bc7c0a79f1728b}} 
+\index{slub.c@{slub.c}!setup\_object@{setup\_object}}
+\index{setup\_object@{setup\_object}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{setup\_object()}{setup\_object()}}
+{\footnotesize\ttfamily static void$\ast$ setup\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 166
+Here is the caller graph for this function\+:
+% FIG 167
+\mbox{\Hypertarget{slub_8c_a3d48bad559409c4f1c750a8f6bbbda7b}\label{slub_8c_a3d48bad559409c4f1c750a8f6bbbda7b}} 
+\index{slub.c@{slub.c}!setup\_object\_debug@{setup\_object\_debug}}
+\index{setup\_object\_debug@{setup\_object\_debug}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{setup\_object\_debug()}{setup\_object\_debug()}}
+{\footnotesize\ttfamily static void setup\+\_\+object\+\_\+debug (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 168
+\mbox{\Hypertarget{slub_8c_aedd872592c3e2b01b78d612d4f3f4840}\label{slub_8c_aedd872592c3e2b01b78d612d4f3f4840}} 
+\index{slub.c@{slub.c}!setup\_page\_debug@{setup\_page\_debug}}
+\index{setup\_page\_debug@{setup\_page\_debug}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{setup\_page\_debug()}{setup\_page\_debug()}}
+{\footnotesize\ttfamily static void setup\+\_\+page\+\_\+debug (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 169
+\mbox{\Hypertarget{slub_8c_adb8ec6c1ea8fcdf106258f1a055bc5b0}\label{slub_8c_adb8ec6c1ea8fcdf106258f1a055bc5b0}} 
+\index{slub.c@{slub.c}!setup\_slub\_max\_order@{setup\_slub\_max\_order}}
+\index{setup\_slub\_max\_order@{setup\_slub\_max\_order}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{setup\_slub\_max\_order()}{setup\_slub\_max\_order()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} setup\+\_\+slub\+\_\+max\+\_\+order (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 170
+\mbox{\Hypertarget{slub_8c_a15dbf4af9b6efc9f05b5dc5866404137}\label{slub_8c_a15dbf4af9b6efc9f05b5dc5866404137}} 
+\index{slub.c@{slub.c}!setup\_slub\_min\_objects@{setup\_slub\_min\_objects}}
+\index{setup\_slub\_min\_objects@{setup\_slub\_min\_objects}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{setup\_slub\_min\_objects()}{setup\_slub\_min\_objects()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} setup\+\_\+slub\+\_\+min\+\_\+objects (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 171
+\mbox{\Hypertarget{slub_8c_ad3298c5deb164b66fb70481124a9ef7d}\label{slub_8c_ad3298c5deb164b66fb70481124a9ef7d}} 
+\index{slub.c@{slub.c}!setup\_slub\_min\_order@{setup\_slub\_min\_order}}
+\index{setup\_slub\_min\_order@{setup\_slub\_min\_order}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{setup\_slub\_min\_order()}{setup\_slub\_min\_order()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} setup\+\_\+slub\+\_\+min\+\_\+order (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 172
+\mbox{\Hypertarget{slub_8c_a1694fd8a6ec73d6f61f3ea9cb42794f9}\label{slub_8c_a1694fd8a6ec73d6f61f3ea9cb42794f9}} 
+\index{slub.c@{slub.c}!shuffle\_freelist@{shuffle\_freelist}}
+\index{shuffle\_freelist@{shuffle\_freelist}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{shuffle\_freelist()}{shuffle\_freelist()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} shuffle\+\_\+freelist (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 173
+\mbox{\Hypertarget{slub_8c_a4ad5f5354a9558a936752f4c421bed98}\label{slub_8c_a4ad5f5354a9558a936752f4c421bed98}} 
+\index{slub.c@{slub.c}!slab\_alloc@{slab\_alloc}}
+\index{slab\_alloc@{slab\_alloc}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_alloc()}{slab\_alloc()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void$\ast$ slab\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags,  }\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{orig\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 174
+Here is the caller graph for this function\+:
+% FIG 175
+\mbox{\Hypertarget{slub_8c_a548b3c05854cd7185b80f81af8047988}\label{slub_8c_a548b3c05854cd7185b80f81af8047988}} 
+\index{slub.c@{slub.c}!slab\_alloc\_node@{slab\_alloc\_node}}
+\index{slab\_alloc\_node@{slab\_alloc\_node}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_alloc\_node()}{slab\_alloc\_node()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void$\ast$ slab\+\_\+alloc\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{orig\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 176
+Here is the caller graph for this function\+:
+% FIG 177
+\mbox{\Hypertarget{slub_8c_a4b28cc8b3a27cf165dcea0ebfaf00b55}\label{slub_8c_a4b28cc8b3a27cf165dcea0ebfaf00b55}} 
+\index{slub.c@{slub.c}!slab\_free@{slab\_free}}
+\index{slab\_free@{slab\_free}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_free()}{slab\_free()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void slab\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{head,  }\item[{void $\ast$}]{tail,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cnt,  }\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 178
+Here is the caller graph for this function\+:
+% FIG 179
+\mbox{\Hypertarget{slub_8c_a8c649b81e03c2e44c6c1ab007cdd2842}\label{slub_8c_a8c649b81e03c2e44c6c1ab007cdd2842}} 
+\index{slub.c@{slub.c}!slab\_free\_freelist\_hook@{slab\_free\_freelist\_hook}}
+\index{slab\_free\_freelist\_hook@{slab\_free\_freelist\_hook}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_free\_freelist\_hook()}{slab\_free\_freelist\_hook()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} slab\+\_\+free\+\_\+freelist\+\_\+hook (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$$\ast$}]{head,  }\item[{void $\ast$$\ast$}]{tail,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{cnt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 180
+Here is the caller graph for this function\+:
+% FIG 181
+\mbox{\Hypertarget{slub_8c_adacf5c834460b203b8d7634d84fdecd2}\label{slub_8c_adacf5c834460b203b8d7634d84fdecd2}} 
+\index{slub.c@{slub.c}!slab\_free\_hook@{slab\_free\_hook}}
+\index{slab\_free\_hook@{slab\_free\_hook}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_free\_hook()}{slab\_free\_hook()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} slab\+\_\+free\+\_\+hook (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{void $\ast$}]{x,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{init }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 182
+Here is the caller graph for this function\+:
+% FIG 183
+\mbox{\Hypertarget{slub_8c_a86e18d35c29cba67fe995e41ff635e14}\label{slub_8c_a86e18d35c29cba67fe995e41ff635e14}} 
+\index{slub.c@{slub.c}!slab\_lock@{slab\_lock}}
+\index{slab\_lock@{slab\_lock}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_lock()}{slab\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void slab\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{unsigned long $\ast$}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 184
+Here is the caller graph for this function\+:
+% FIG 185
+\mbox{\Hypertarget{slub_8c_a43e2c5ac4bcf0f24a089acc40dc9e065}\label{slub_8c_a43e2c5ac4bcf0f24a089acc40dc9e065}} 
+\index{slub.c@{slub.c}!slab\_mem\_going\_offline\_callback@{slab\_mem\_going\_offline\_callback}}
+\index{slab\_mem\_going\_offline\_callback@{slab\_mem\_going\_offline\_callback}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_mem\_going\_offline\_callback()}{slab\_mem\_going\_offline\_callback()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slab\+\_\+mem\+\_\+going\+\_\+offline\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 186
+Here is the caller graph for this function\+:
+% FIG 187
+\mbox{\Hypertarget{slub_8c_a1e62b49b0bbb0dd691d3be39efc5531a}\label{slub_8c_a1e62b49b0bbb0dd691d3be39efc5531a}} 
+\index{slub.c@{slub.c}!slab\_mem\_going\_online\_callback@{slab\_mem\_going\_online\_callback}}
+\index{slab\_mem\_going\_online\_callback@{slab\_mem\_going\_online\_callback}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_mem\_going\_online\_callback()}{slab\_mem\_going\_online\_callback()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slab\+\_\+mem\+\_\+going\+\_\+online\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 188
+Here is the caller graph for this function\+:
+% FIG 189
+\mbox{\Hypertarget{slub_8c_ad250429e510e18a7955432a16fb18b48}\label{slub_8c_ad250429e510e18a7955432a16fb18b48}} 
+\index{slub.c@{slub.c}!slab\_mem\_offline\_callback@{slab\_mem\_offline\_callback}}
+\index{slab\_mem\_offline\_callback@{slab\_mem\_offline\_callback}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_mem\_offline\_callback()}{slab\_mem\_offline\_callback()}}
+{\footnotesize\ttfamily static void slab\+\_\+mem\+\_\+offline\+\_\+callback (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 190
+Here is the caller graph for this function\+:
+% FIG 191
+\mbox{\Hypertarget{slub_8c_af04b112f6055304915a6e113dfd715b8}\label{slub_8c_af04b112f6055304915a6e113dfd715b8}} 
+\index{slub.c@{slub.c}!slab\_memory\_callback@{slab\_memory\_callback}}
+\index{slab\_memory\_callback@{slab\_memory\_callback}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_memory\_callback()}{slab\_memory\_callback()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slab\+\_\+memory\+\_\+callback (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{self,  }\item[{unsigned long}]{action,  }\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 192
+Here is the caller graph for this function\+:
+% FIG 193
+\mbox{\Hypertarget{slub_8c_aa247056209a320eb940eae7f1a8e1796}\label{slub_8c_aa247056209a320eb940eae7f1a8e1796}} 
+\index{slub.c@{slub.c}!slab\_order@{slab\_order}}
+\index{slab\_order@{slab\_order}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_order()}{slab\_order()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slab\+\_\+order (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{min\+\_\+objects,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{max\+\_\+order,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{fract\+\_\+leftover }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 194
+Here is the caller graph for this function\+:
+% FIG 195
+\mbox{\Hypertarget{slub_8c_a1d60d1c6d26274c4794f5a80a8f09091}\label{slub_8c_a1d60d1c6d26274c4794f5a80a8f09091}} 
+\index{slub.c@{slub.c}!slab\_out\_of\_memory@{slab\_out\_of\_memory}}
+\index{slab\_out\_of\_memory@{slab\_out\_of\_memory}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_out\_of\_memory()}{slab\_out\_of\_memory()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void slab\+\_\+out\+\_\+of\+\_\+memory (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfpflags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 196
+Here is the caller graph for this function\+:
+% FIG 197
+\mbox{\Hypertarget{slub_8c_a43159f747cdb91e0d98d948c0bfb32dc}\label{slub_8c_a43159f747cdb91e0d98d948c0bfb32dc}} 
+\index{slub.c@{slub.c}!slab\_pad\_check@{slab\_pad\_check}}
+\index{slab\_pad\_check@{slab\_pad\_check}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_pad\_check()}{slab\_pad\_check()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slab\+\_\+pad\+\_\+check (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 198
+\mbox{\Hypertarget{slub_8c_a543005938fd42973facc5f9c589cfcfb}\label{slub_8c_a543005938fd42973facc5f9c589cfcfb}} 
+\index{slub.c@{slub.c}!slab\_unlock@{slab\_unlock}}
+\index{slab\_unlock@{slab\_unlock}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_unlock()}{slab\_unlock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void slab\+\_\+unlock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{unsigned long $\ast$}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 199
+Here is the caller graph for this function\+:
+% FIG 200
+\mbox{\Hypertarget{slub_8c_a345fca574eb2b9f67196c44c91fbe9d2}\label{slub_8c_a345fca574eb2b9f67196c44c91fbe9d2}} 
+\index{slub.c@{slub.c}!slabs\_node@{slabs\_node}}
+\index{slabs\_node@{slabs\_node}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slabs\_node()}{slabs\_node()}}
+{\footnotesize\ttfamily static unsigned long slabs\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 201
+\mbox{\Hypertarget{slub_8c_a64feb43129de4b0a147251bb67a19c44}\label{slub_8c_a64feb43129de4b0a147251bb67a19c44}} 
+\index{slub.c@{slub.c}!slub\_cpu\_dead@{slub\_cpu\_dead}}
+\index{slub\_cpu\_dead@{slub\_cpu\_dead}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slub\_cpu\_dead()}{slub\_cpu\_dead()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slub\+\_\+cpu\+\_\+dead (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 202
+Here is the caller graph for this function\+:
+% FIG 203
+\mbox{\Hypertarget{slub_8c_a1d52440ec65fe67a7ce93cfe4bed3fb7}\label{slub_8c_a1d52440ec65fe67a7ce93cfe4bed3fb7}} 
+\index{slub.c@{slub.c}!stat@{stat}}
+\index{stat@{stat}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{stat()}{stat()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{structstat}{stat}} (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{slub__def_8h_a941fceda51e3eafd88dec169928b92a3}{stat\+\_\+item}}}]{si }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 204
+\mbox{\Hypertarget{slub_8c_af1991a22dd0d730221c437321d85ac8b}\label{slub_8c_af1991a22dd0d730221c437321d85ac8b}} 
+\index{slub.c@{slub.c}!sysfs\_slab\_add@{sysfs\_slab\_add}}
+\index{sysfs\_slab\_add@{sysfs\_slab\_add}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{sysfs\_slab\_add()}{sysfs\_slab\_add()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sysfs\+\_\+slab\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 205
+\mbox{\Hypertarget{slub_8c_a80b9e5cfbe90d66432a00fd6205a4718}\label{slub_8c_a80b9e5cfbe90d66432a00fd6205a4718}} 
+\index{slub.c@{slub.c}!sysfs\_slab\_alias@{sysfs\_slab\_alias}}
+\index{sysfs\_slab\_alias@{sysfs\_slab\_alias}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{sysfs\_slab\_alias()}{sysfs\_slab\_alias()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sysfs\+\_\+slab\+\_\+alias (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{const char $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 206
+\mbox{\Hypertarget{slub_8c_a6c815e400bdf131dd99755ee3fd65e6b}\label{slub_8c_a6c815e400bdf131dd99755ee3fd65e6b}} 
+\index{slub.c@{slub.c}!unfreeze\_partials@{unfreeze\_partials}}
+\index{unfreeze\_partials@{unfreeze\_partials}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{unfreeze\_partials()}{unfreeze\_partials()}}
+{\footnotesize\ttfamily static void unfreeze\+\_\+partials (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 207
+\mbox{\Hypertarget{slub_8c_a81e4623fb6064eb05b2258e7b66b541f}\label{slub_8c_a81e4623fb6064eb05b2258e7b66b541f}} 
+\index{slub.c@{slub.c}!unfreeze\_partials\_cpu@{unfreeze\_partials\_cpu}}
+\index{unfreeze\_partials\_cpu@{unfreeze\_partials\_cpu}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{unfreeze\_partials\_cpu()}{unfreeze\_partials\_cpu()}}
+{\footnotesize\ttfamily static void unfreeze\+\_\+partials\+\_\+cpu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structkmem__cache__cpu}{kmem\+\_\+cache\+\_\+cpu}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 208
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{slub_8c_a240147a57c155d813c374cfbbbe23749}\label{slub_8c_a240147a57c155d813c374cfbbbe23749}} 
+\index{slub.c@{slub.c}!kmem\_cache\_node@{kmem\_cache\_node}}
+\index{kmem\_cache\_node@{kmem\_cache\_node}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{kmem\_cache\_node}{kmem\_cache\_node}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ \mbox{\hyperlink{structkmem__cache__node}{kmem\+\_\+cache\+\_\+node}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{slub_8c_a604db76f01c9a9e75d592875f9334855}\label{slub_8c_a604db76f01c9a9e75d592875f9334855}} 
+\index{slub.c@{slub.c}!slab\_memory\_callback\_nb@{slab\_memory\_callback\_nb}}
+\index{slab\_memory\_callback\_nb@{slab\_memory\_callback\_nb}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_memory\_callback\_nb}{slab\_memory\_callback\_nb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} slab\+\_\+memory\+\_\+callback\+\_\+nb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .notifier\_call = \mbox{\hyperlink{slub_8c_af04b112f6055304915a6e113dfd715b8}{slab\_memory\_callback}},}
+\DoxyCodeLine{    .priority = \mbox{\hyperlink{linux_2memory_8h_aba8e0fea48462a43bd9190ea9726d95f}{SLAB\_CALLBACK\_PRI}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{slub_8c_ad947a95b9d253fbda2de5498d588e477}\label{slub_8c_ad947a95b9d253fbda2de5498d588e477}} 
+\index{slub.c@{slub.c}!slab\_nodes@{slab\_nodes}}
+\index{slab\_nodes@{slab\_nodes}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slab\_nodes}{slab\_nodes}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structnodemask__t}{nodemask\+\_\+t}} slab\+\_\+nodes\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{slub_8c_a0bf9cdcb88038885d0b04e40b991856d}\label{slub_8c_a0bf9cdcb88038885d0b04e40b991856d}} 
+\index{slub.c@{slub.c}!slub\_max\_order@{slub\_max\_order}}
+\index{slub\_max\_order@{slub\_max\_order}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slub\_max\_order}{slub\_max\_order}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slub\+\_\+max\+\_\+order = \mbox{\hyperlink{include_2linux_2mmzone_8h_a243a5537279d199adcb7cd9eb0efda25}{P\+A\+G\+E\+\_\+\+A\+L\+L\+O\+C\+\_\+\+C\+O\+S\+T\+L\+Y\+\_\+\+O\+R\+D\+ER}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{slub_8c_aaa769a374d8ee254144a752743ab9cca}\label{slub_8c_aaa769a374d8ee254144a752743ab9cca}} 
+\index{slub.c@{slub.c}!slub\_min\_objects@{slub\_min\_objects}}
+\index{slub\_min\_objects@{slub\_min\_objects}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slub\_min\_objects}{slub\_min\_objects}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slub\+\_\+min\+\_\+objects\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{slub_8c_a5705d128d180eef828b566f4171bc6c2}\label{slub_8c_a5705d128d180eef828b566f4171bc6c2}} 
+\index{slub.c@{slub.c}!slub\_min\_order@{slub\_min\_order}}
+\index{slub\_min\_order@{slub\_min\_order}!slub.c@{slub.c}}
+\doxysubsubsection{\texorpdfstring{slub\_min\_order}{slub\_min\_order}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} slub\+\_\+min\+\_\+order\hspace{0.3cm}{\ttfamily [static]}}
+

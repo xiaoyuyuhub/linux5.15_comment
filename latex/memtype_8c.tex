@@ -1,0 +1,644 @@
+\hypertarget{memtype_8c}{}\doxysection{arch/x86/mm/pat/memtype.c File Reference}
+\label{memtype_8c}\index{arch/x86/mm/pat/memtype.c@{arch/x86/mm/pat/memtype.c}}
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memblock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ioport.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pfn\+\_\+t.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rbtree.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cacheflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/processor.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/x86\+\_\+init.\+h$>$}\newline
+{\ttfamily \#include $<$asm/fcntl.\+h$>$}\newline
+{\ttfamily \#include $<$asm/e820/api.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mtrr.\+h$>$}\newline
+{\ttfamily \#include $<$asm/page.\+h$>$}\newline
+{\ttfamily \#include $<$asm/msr.\+h$>$}\newline
+{\ttfamily \#include $<$asm/memtype.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}memtype.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}../mm\+\_\+internal.\+h\char`\"{}}\newline
+Include dependency graph for memtype.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structpagerange__state}{pagerange\+\_\+state}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{memtype_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}\char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{memtype_8c_a6d2b5cfe8611ae29d65ffddb38b6d340}{CM}}(\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})~(\+\_\+\+P\+A\+G\+E\+\_\+\+C\+A\+C\+H\+E\+\_\+\+M\+O\+D\+E\+\_\+ \#\# \mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+\#define \mbox{\hyperlink{memtype_8c_adb8d226ece017b1f87df263904e87edf}{P\+AT}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}},  \mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}})~((\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}})P\+A\+T\+\_\+ \#\# \mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}} $<$$<$ ((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})$\ast$8))
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \{ \newline
+\mbox{\hyperlink{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a9772eef6201e36a1416291b6b0a18687}{P\+A\+T\+\_\+\+UC}} = 0, 
+\mbox{\hyperlink{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a8d03dac4c670e2c78145f325f5837ad9}{P\+A\+T\+\_\+\+WC}} = 1, 
+\mbox{\hyperlink{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a800e37bcb65577898b341e0cd1d4d459}{P\+A\+T\+\_\+\+WT}} = 4, 
+\mbox{\hyperlink{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14ab4e62073ace637e682252a9e781a8fec}{P\+A\+T\+\_\+\+WP}} = 5, 
+\newline
+\mbox{\hyperlink{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a2e18a7504fba5bc70d6a84fcd0e2b056}{P\+A\+T\+\_\+\+WB}} = 6, 
+\mbox{\hyperlink{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a2c82bb7324d60205b9a731ea62bfca8e}{P\+A\+T\+\_\+\+U\+C\+\_\+\+M\+I\+N\+US}} = 7
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{memtype_8c_a5db6e52fe55863212097f204c860598c}{pat\+\_\+disable}} (const char $\ast$msg\+\_\+reason)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{memtype_8c_a05a79bbcfcd3075058dc26b5742e2d01}{nopat}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{memtype_8c_a8ac70cbc97df1241b3cabf7866e71876}{early\+\_\+param}} (\char`\"{}nopat\char`\"{}, nopat)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{memtype_8c_aaf3e69edca8d51e77782ae4f470000f3}{pat\+\_\+enabled}} (void)
+\item 
+\mbox{\hyperlink{memtype_8c_ae5a28b831ef3c2ffe005ef9fb51aa61d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memtype_8c_aaf3e69edca8d51e77782ae4f470000f3}{pat\+\_\+enabled}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{memtype_8c_a901363672f65414ee47a34bb6b40871a}{pat\+\_\+debug\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{memtype_8c_aa4467cd52e4ee46914299ce5f36b31b6}{\+\_\+\+\_\+setup}} (\char`\"{}debugpat\char`\"{}, pat\+\_\+debug\+\_\+setup)
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} \mbox{\hyperlink{memtype_8c_ad85c827c069e0a87ff0f081e8f02efc0}{get\+\_\+page\+\_\+memtype}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$pg)
+\item 
+static void \mbox{\hyperlink{memtype_8c_a5b2404835c5439e0e5d5bc0d8ab6d575}{set\+\_\+page\+\_\+memtype}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$pg, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} \mbox{\hyperlink{structmemtype}{memtype}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} \mbox{\hyperlink{memtype_8c_a56b0aa699e3f6a7007e09b373363547f}{pat\+\_\+get\+\_\+cache\+\_\+mode}} (unsigned pat\+\_\+val, char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\item 
+static void \mbox{\hyperlink{memtype_8c_a0b95f87dcb114de4816382d1fd8af364}{\+\_\+\+\_\+init\+\_\+cache\+\_\+modes}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{nl80211_8h_a62bd3ba8f7a8eaddb5f28c05950e0e73}{pat}})
+\item 
+static void \mbox{\hyperlink{memtype_8c_a414980441f24043a9e5ce9434d47e183}{pat\+\_\+bp\+\_\+init}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{nl80211_8h_a62bd3ba8f7a8eaddb5f28c05950e0e73}{pat}})
+\item 
+static void \mbox{\hyperlink{memtype_8c_a4340ce20a3a53727629c0f3cde54e438}{pat\+\_\+ap\+\_\+init}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{nl80211_8h_a62bd3ba8f7a8eaddb5f28c05950e0e73}{pat}})
+\item 
+void \mbox{\hyperlink{memtype_8c_a19325a177225b172b688107f46a1c137}{init\+\_\+cache\+\_\+modes}} (void)
+\item 
+void \mbox{\hyperlink{memtype_8c_a47c20183b33fb580ab98e6dafcf008d8}{pat\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{memtype_8c_aaa5781492958ecfbce89a1f365d30c13}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (memtype\+\_\+lock)
+\item 
+static unsigned long \mbox{\hyperlink{memtype_8c_a19034a308256a2817833c5f70d0aee16}{pat\+\_\+x\+\_\+mtrr\+\_\+type}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} req\+\_\+type)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_a9a9d886f6e9f6558b0ef450328e05195}{pagerange\+\_\+is\+\_\+ram\+\_\+callback}} (unsigned long initial\+\_\+pfn, unsigned long total\+\_\+nr\+\_\+pages, void $\ast$arg)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_ac6ca69fa4b5d40009eeefb8ad4982eae}{pat\+\_\+pagerange\+\_\+is\+\_\+ram}} (\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_ad0f65e22c800205aa17e06fe2f9f741b}{reserve\+\_\+ram\+\_\+pages\+\_\+type}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} req\+\_\+type, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} $\ast$new\+\_\+type)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_aedc287cce72f63b35cc67088677fb052}{free\+\_\+ram\+\_\+pages\+\_\+type}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{memtype_8c_aca979527dd9775c58ba7fc0131fd73db}{sanitize\+\_\+phys}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{structaddress}{address}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_a18f8c2dcc23355f7db322532866afc20}{memtype\+\_\+reserve}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} req\+\_\+type, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} $\ast$new\+\_\+type)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_ae3c745b324ac75a829d56d610670c4b6}{memtype\+\_\+free}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} \mbox{\hyperlink{memtype_8c_acf97c7247ba05462a48d95613d1dd897}{lookup\+\_\+memtype}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} paddr)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{memtype_8c_a507d1d2fbb0fbfd635760a60f5310b4d}{pat\+\_\+pfn\+\_\+immune\+\_\+to\+\_\+uc\+\_\+mtrr}} (unsigned long pfn)
+\item 
+\mbox{\hyperlink{memtype_8c_aec1eec593515484efbfccc9daed135f0}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memtype_8c_a507d1d2fbb0fbfd635760a60f5310b4d}{pat\+\_\+pfn\+\_\+immune\+\_\+to\+\_\+uc\+\_\+mtrr}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_a73f9a6bf5af33441fa8f0531b336e121}{memtype\+\_\+reserve\+\_\+io}} (\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} $\ast$\mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+void \mbox{\hyperlink{memtype_8c_a96c475f06a00f42e7ee44dc52f9b2d06}{memtype\+\_\+free\+\_\+io}} (\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{memtype_8c_a6650bc8ab61ff520763c6e4d7cd09408}{phys\+\_\+mem\+\_\+access\+\_\+prot}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, unsigned long pfn, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} vma\+\_\+prot)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_a34a5b44eef7f5fe3f67176b2efd6efd1}{range\+\_\+is\+\_\+allowed}} (unsigned long pfn, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_abcbe2cb06f3403f9ded9de3152b53f0b}{phys\+\_\+mem\+\_\+access\+\_\+prot\+\_\+allowed}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, unsigned long pfn, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$vma\+\_\+prot)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_ac338a8318f02fb87c8100f73ad4aaedd}{memtype\+\_\+kernel\+\_\+map\+\_\+sync}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} pcm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_a314d2632240565a8a3a13675a7f6b1fe}{reserve\+\_\+pfn\+\_\+range}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} paddr, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$vma\+\_\+prot, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} strict\+\_\+prot)
+\item 
+static void \mbox{\hyperlink{memtype_8c_a7687aca2c92cd21f49deb2b5d72c2815}{free\+\_\+pfn\+\_\+range}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} paddr, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_ad795042dcb7381f0b535188bb295c45b}{track\+\_\+pfn\+\_\+copy}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_adf5a988a36317cc1b5cbc01ca3666902}{track\+\_\+pfn\+\_\+remap}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}}, unsigned long pfn, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+void \mbox{\hyperlink{memtype_8c_a23dce812661c5fc5fc592ec5c38c5b4e}{track\+\_\+pfn\+\_\+insert}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}}, \mbox{\hyperlink{structpfn__t}{pfn\+\_\+t}} pfn)
+\item 
+void \mbox{\hyperlink{memtype_8c_aa03b71d355e8613271f8e86b50f1ca29}{untrack\+\_\+pfn}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long pfn, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+void \mbox{\hyperlink{memtype_8c_a118e2f724c45decadcef96cb4ef6c7e4}{untrack\+\_\+pfn\+\_\+moved}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}})
+\item 
+\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{memtype_8c_a80f4e55133d4447b6431ed38fb9a2a46}{pgprot\+\_\+writecombine}} (\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}})
+\item 
+\mbox{\hyperlink{memtype_8c_a9c38b6fa90f7f0d700045cec17026da3}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memtype_8c_a80f4e55133d4447b6431ed38fb9a2a46}{pgprot\+\_\+writecombine}})
+\item 
+\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{memtype_8c_a9843bad2a93777e124c836d459973a10}{pgprot\+\_\+writethrough}} (\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}})
+\item 
+\mbox{\hyperlink{memtype_8c_a5e613436487d7a034814ed22c8928aa7}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{memtype_8c_a9843bad2a93777e124c836d459973a10}{pgprot\+\_\+writethrough}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{memtype_8c_aada22ca2e40dfd5a92211f30dd2b291d}{pat\+\_\+bp\+\_\+initialized}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{memtype_8c_af68b77c77714cf227fb3a821854d97a0}{pat\+\_\+disabled}} = !\mbox{\hyperlink{pq_8h_a7cba8af7b38381ef613e1dc587d12005}{I\+S\+\_\+\+E\+N\+A\+B\+L\+ED}}(\mbox{\hyperlink{autoconf_8h_af701d3d68262e3c6de1f4a2813f86e9b}{C\+O\+N\+F\+I\+G\+\_\+\+X86\+\_\+\+P\+AT}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{memtype_8c_a1eab77498273f98640d568a63bbb09d5}{pat\+\_\+bp\+\_\+enabled}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{memtype_8c_ae2749412f6468b08af9e6c191420a05f}{pat\+\_\+cm\+\_\+initialized}}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{memtype_8c_a3ba550cdedb1be4e4bc3d74796e6b1aa}{pat\+\_\+debug\+\_\+enable}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{memtype_8c_a6d2b5cfe8611ae29d65ffddb38b6d340}\label{memtype_8c_a6d2b5cfe8611ae29d65ffddb38b6d340}} 
+\index{memtype.c@{memtype.c}!CM@{CM}}
+\index{CM@{CM}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{CM}{CM}}
+{\footnotesize\ttfamily \#define CM(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}} }\end{DoxyParamCaption})~(\+\_\+\+P\+A\+G\+E\+\_\+\+C\+A\+C\+H\+E\+\_\+\+M\+O\+D\+E\+\_\+ \#\# \mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})}
+
+\mbox{\Hypertarget{memtype_8c_adb8d226ece017b1f87df263904e87edf}\label{memtype_8c_adb8d226ece017b1f87df263904e87edf}} 
+\index{memtype.c@{memtype.c}!PAT@{PAT}}
+\index{PAT@{PAT}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{PAT}{PAT}}
+{\footnotesize\ttfamily \#define P\+AT(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}},  }\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}} }\end{DoxyParamCaption})~((\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}})P\+A\+T\+\_\+ \#\# \mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}} $<$$<$ ((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})$\ast$8))}
+
+\mbox{\Hypertarget{memtype_8c_a1f8c165bf4196327bc3abff648276d92}\label{memtype_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{memtype.c@{memtype.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}\char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14}\label{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14}} 
+\doxysubsubsection{\texorpdfstring{anonymous enum}{anonymous enum}}
+{\footnotesize\ttfamily anonymous \mbox{\hyperlink{interfaceenum}{enum}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PAT\_UC@{PAT\_UC}!memtype.c@{memtype.c}}\index{memtype.c@{memtype.c}!PAT\_UC@{PAT\_UC}}}\mbox{\Hypertarget{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a9772eef6201e36a1416291b6b0a18687}\label{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a9772eef6201e36a1416291b6b0a18687}} 
+P\+A\+T\+\_\+\+UC&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PAT\_WC@{PAT\_WC}!memtype.c@{memtype.c}}\index{memtype.c@{memtype.c}!PAT\_WC@{PAT\_WC}}}\mbox{\Hypertarget{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a8d03dac4c670e2c78145f325f5837ad9}\label{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a8d03dac4c670e2c78145f325f5837ad9}} 
+P\+A\+T\+\_\+\+WC&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PAT\_WT@{PAT\_WT}!memtype.c@{memtype.c}}\index{memtype.c@{memtype.c}!PAT\_WT@{PAT\_WT}}}\mbox{\Hypertarget{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a800e37bcb65577898b341e0cd1d4d459}\label{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a800e37bcb65577898b341e0cd1d4d459}} 
+P\+A\+T\+\_\+\+WT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PAT\_WP@{PAT\_WP}!memtype.c@{memtype.c}}\index{memtype.c@{memtype.c}!PAT\_WP@{PAT\_WP}}}\mbox{\Hypertarget{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14ab4e62073ace637e682252a9e781a8fec}\label{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14ab4e62073ace637e682252a9e781a8fec}} 
+P\+A\+T\+\_\+\+WP&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PAT\_WB@{PAT\_WB}!memtype.c@{memtype.c}}\index{memtype.c@{memtype.c}!PAT\_WB@{PAT\_WB}}}\mbox{\Hypertarget{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a2e18a7504fba5bc70d6a84fcd0e2b056}\label{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a2e18a7504fba5bc70d6a84fcd0e2b056}} 
+P\+A\+T\+\_\+\+WB&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PAT\_UC\_MINUS@{PAT\_UC\_MINUS}!memtype.c@{memtype.c}}\index{memtype.c@{memtype.c}!PAT\_UC\_MINUS@{PAT\_UC\_MINUS}}}\mbox{\Hypertarget{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a2c82bb7324d60205b9a731ea62bfca8e}\label{memtype_8c_a1b48d1aa881b840082d6eaa9741fba14a2c82bb7324d60205b9a731ea62bfca8e}} 
+P\+A\+T\+\_\+\+U\+C\+\_\+\+M\+I\+N\+US&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{memtype_8c_a0b95f87dcb114de4816382d1fd8af364}\label{memtype_8c_a0b95f87dcb114de4816382d1fd8af364}} 
+\index{memtype.c@{memtype.c}!\_\_init\_cache\_modes@{\_\_init\_cache\_modes}}
+\index{\_\_init\_cache\_modes@{\_\_init\_cache\_modes}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{\_\_init\_cache\_modes()}{\_\_init\_cache\_modes()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+init\+\_\+cache\+\_\+modes (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{pat }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{memtype_8c_aa4467cd52e4ee46914299ce5f36b31b6}\label{memtype_8c_aa4467cd52e4ee46914299ce5f36b31b6}} 
+\index{memtype.c@{memtype.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}debugpat\char`\"{}}]{,  }\item[{\mbox{\hyperlink{memtype_8c_a901363672f65414ee47a34bb6b40871a}{pat\+\_\+debug\+\_\+setup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memtype_8c_aaa5781492958ecfbce89a1f365d30c13}\label{memtype_8c_aaa5781492958ecfbce89a1f365d30c13}} 
+\index{memtype.c@{memtype.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{memtype\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{memtype_8c_a8ac70cbc97df1241b3cabf7866e71876}\label{memtype_8c_a8ac70cbc97df1241b3cabf7866e71876}} 
+\index{memtype.c@{memtype.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}nopat\char`\"{}}]{,  }\item[{\mbox{\hyperlink{memtype_8c_a05a79bbcfcd3075058dc26b5742e2d01}{nopat}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memtype_8c_ae5a28b831ef3c2ffe005ef9fb51aa61d}\label{memtype_8c_ae5a28b831ef3c2ffe005ef9fb51aa61d}} 
+\index{memtype.c@{memtype.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memtype_8c_aaf3e69edca8d51e77782ae4f470000f3}{pat\+\_\+enabled}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memtype_8c_aec1eec593515484efbfccc9daed135f0}\label{memtype_8c_aec1eec593515484efbfccc9daed135f0}} 
+\index{memtype.c@{memtype.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memtype_8c_a507d1d2fbb0fbfd635760a60f5310b4d}{pat\+\_\+pfn\+\_\+immune\+\_\+to\+\_\+uc\+\_\+mtrr}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memtype_8c_a9c38b6fa90f7f0d700045cec17026da3}\label{memtype_8c_a9c38b6fa90f7f0d700045cec17026da3}} 
+\index{memtype.c@{memtype.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memtype_8c_a80f4e55133d4447b6431ed38fb9a2a46}{pgprot\+\_\+writecombine}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memtype_8c_a5e613436487d7a034814ed22c8928aa7}\label{memtype_8c_a5e613436487d7a034814ed22c8928aa7}} 
+\index{memtype.c@{memtype.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/4]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{memtype_8c_a9843bad2a93777e124c836d459973a10}{pgprot\+\_\+writethrough}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{memtype_8c_a7687aca2c92cd21f49deb2b5d72c2815}\label{memtype_8c_a7687aca2c92cd21f49deb2b5d72c2815}} 
+\index{memtype.c@{memtype.c}!free\_pfn\_range@{free\_pfn\_range}}
+\index{free\_pfn\_range@{free\_pfn\_range}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{free\_pfn\_range()}{free\_pfn\_range()}}
+{\footnotesize\ttfamily static void free\+\_\+pfn\+\_\+range (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{paddr,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{memtype_8c_aedc287cce72f63b35cc67088677fb052}\label{memtype_8c_aedc287cce72f63b35cc67088677fb052}} 
+\index{memtype.c@{memtype.c}!free\_ram\_pages\_type@{free\_ram\_pages\_type}}
+\index{free\_ram\_pages\_type@{free\_ram\_pages\_type}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{free\_ram\_pages\_type()}{free\_ram\_pages\_type()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} free\+\_\+ram\+\_\+pages\+\_\+type (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{start,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{memtype_8c_ad85c827c069e0a87ff0f081e8f02efc0}\label{memtype_8c_ad85c827c069e0a87ff0f081e8f02efc0}} 
+\index{memtype.c@{memtype.c}!get\_page\_memtype@{get\_page\_memtype}}
+\index{get\_page\_memtype@{get\_page\_memtype}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{get\_page\_memtype()}{get\_page\_memtype()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} get\+\_\+page\+\_\+memtype (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{pg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{memtype_8c_a19325a177225b172b688107f46a1c137}\label{memtype_8c_a19325a177225b172b688107f46a1c137}} 
+\index{memtype.c@{memtype.c}!init\_cache\_modes@{init\_cache\_modes}}
+\index{init\_cache\_modes@{init\_cache\_modes}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{init\_cache\_modes()}{init\_cache\_modes()}}
+{\footnotesize\ttfamily void init\+\_\+cache\+\_\+modes (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{memtype_8c_acf97c7247ba05462a48d95613d1dd897}\label{memtype_8c_acf97c7247ba05462a48d95613d1dd897}} 
+\index{memtype.c@{memtype.c}!lookup\_memtype@{lookup\_memtype}}
+\index{lookup\_memtype@{lookup\_memtype}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{lookup\_memtype()}{lookup\_memtype()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} lookup\+\_\+memtype (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{paddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+lookup\+\_\+memtype -\/ Looks up the memory type for a physical address @paddr\+: physical address of which memory type needs to be looked up
+
+Only to be called when P\+AT is enabled
+
+Returns \+\_\+\+P\+A\+G\+E\+\_\+\+C\+A\+C\+H\+E\+\_\+\+M\+O\+D\+E\+\_\+\+WB, \+\_\+\+P\+A\+G\+E\+\_\+\+C\+A\+C\+H\+E\+\_\+\+M\+O\+D\+E\+\_\+\+WC, \+\_\+\+P\+A\+G\+E\+\_\+\+C\+A\+C\+H\+E\+\_\+\+M\+O\+D\+E\+\_\+\+U\+C\+\_\+\+M\+I\+N\+US or \+\_\+\+P\+A\+G\+E\+\_\+\+C\+A\+C\+H\+E\+\_\+\+M\+O\+D\+E\+\_\+\+WT. Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{memtype_8c_ae3c745b324ac75a829d56d610670c4b6}\label{memtype_8c_ae3c745b324ac75a829d56d610670c4b6}} 
+\index{memtype.c@{memtype.c}!memtype\_free@{memtype\_free}}
+\index{memtype\_free@{memtype\_free}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{memtype\_free()}{memtype\_free()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memtype\+\_\+free (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{start,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{end }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{memtype_8c_a96c475f06a00f42e7ee44dc52f9b2d06}\label{memtype_8c_a96c475f06a00f42e7ee44dc52f9b2d06}} 
+\index{memtype.c@{memtype.c}!memtype\_free\_io@{memtype\_free\_io}}
+\index{memtype\_free\_io@{memtype\_free\_io}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{memtype\_free\_io()}{memtype\_free\_io()}}
+{\footnotesize\ttfamily void memtype\+\_\+free\+\_\+io (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}}}]{start,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}}}]{end }\end{DoxyParamCaption})}
+
+memtype\+\_\+free\+\_\+io -\/ Release a memory type mapping for a region of memory @start\+: start (physical address) of the region @end\+: end (physical address) of the region Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{memtype_8c_ac338a8318f02fb87c8100f73ad4aaedd}\label{memtype_8c_ac338a8318f02fb87c8100f73ad4aaedd}} 
+\index{memtype.c@{memtype.c}!memtype\_kernel\_map\_sync@{memtype\_kernel\_map\_sync}}
+\index{memtype\_kernel\_map\_sync@{memtype\_kernel\_map\_sync}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{memtype\_kernel\_map\_sync()}{memtype\_kernel\_map\_sync()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memtype\+\_\+kernel\+\_\+map\+\_\+sync (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{base,  }\item[{unsigned long}]{size,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}}}]{pcm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{memtype_8c_a18f8c2dcc23355f7db322532866afc20}\label{memtype_8c_a18f8c2dcc23355f7db322532866afc20}} 
+\index{memtype.c@{memtype.c}!memtype\_reserve@{memtype\_reserve}}
+\index{memtype\_reserve@{memtype\_reserve}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{memtype\_reserve()}{memtype\_reserve()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memtype\+\_\+reserve (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{start,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{end,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}}}]{req\+\_\+type,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} $\ast$}]{new\+\_\+type }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{memtype_8c_a73f9a6bf5af33441fa8f0531b336e121}\label{memtype_8c_a73f9a6bf5af33441fa8f0531b336e121}} 
+\index{memtype.c@{memtype.c}!memtype\_reserve\_io@{memtype\_reserve\_io}}
+\index{memtype\_reserve\_io@{memtype\_reserve\_io}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{memtype\_reserve\_io()}{memtype\_reserve\_io()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memtype\+\_\+reserve\+\_\+io (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}}}]{start,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}}}]{end,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} $\ast$}]{type }\end{DoxyParamCaption})}
+
+memtype\+\_\+reserve\+\_\+io -\/ Request a memory type mapping for a region of memory @start\+: start (physical address) of the region @end\+: end (physical address) of the region @type\+: A pointer to memtype, with requested type. On success, requested or any other compatible type that was available for the region is returned
+
+On success, returns 0 On failure, returns non-\/zero Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{memtype_8c_a05a79bbcfcd3075058dc26b5742e2d01}\label{memtype_8c_a05a79bbcfcd3075058dc26b5742e2d01}} 
+\index{memtype.c@{memtype.c}!nopat@{nopat}}
+\index{nopat@{nopat}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{nopat()}{nopat()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} nopat (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{memtype_8c_a9a9d886f6e9f6558b0ef450328e05195}\label{memtype_8c_a9a9d886f6e9f6558b0ef450328e05195}} 
+\index{memtype.c@{memtype.c}!pagerange\_is\_ram\_callback@{pagerange\_is\_ram\_callback}}
+\index{pagerange\_is\_ram\_callback@{pagerange\_is\_ram\_callback}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pagerange\_is\_ram\_callback()}{pagerange\_is\_ram\_callback()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pagerange\+\_\+is\+\_\+ram\+\_\+callback (\begin{DoxyParamCaption}\item[{unsigned long}]{initial\+\_\+pfn,  }\item[{unsigned long}]{total\+\_\+nr\+\_\+pages,  }\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{memtype_8c_a4340ce20a3a53727629c0f3cde54e438}\label{memtype_8c_a4340ce20a3a53727629c0f3cde54e438}} 
+\index{memtype.c@{memtype.c}!pat\_ap\_init@{pat\_ap\_init}}
+\index{pat\_ap\_init@{pat\_ap\_init}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_ap\_init()}{pat\_ap\_init()}}
+{\footnotesize\ttfamily static void pat\+\_\+ap\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{pat }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{memtype_8c_a414980441f24043a9e5ce9434d47e183}\label{memtype_8c_a414980441f24043a9e5ce9434d47e183}} 
+\index{memtype.c@{memtype.c}!pat\_bp\_init@{pat\_bp\_init}}
+\index{pat\_bp\_init@{pat\_bp\_init}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_bp\_init()}{pat\_bp\_init()}}
+{\footnotesize\ttfamily static void pat\+\_\+bp\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{pat }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{memtype_8c_a901363672f65414ee47a34bb6b40871a}\label{memtype_8c_a901363672f65414ee47a34bb6b40871a}} 
+\index{memtype.c@{memtype.c}!pat\_debug\_setup@{pat\_debug\_setup}}
+\index{pat\_debug\_setup@{pat\_debug\_setup}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_debug\_setup()}{pat\_debug\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pat\+\_\+debug\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{memtype_8c_a5db6e52fe55863212097f204c860598c}\label{memtype_8c_a5db6e52fe55863212097f204c860598c}} 
+\index{memtype.c@{memtype.c}!pat\_disable@{pat\_disable}}
+\index{pat\_disable@{pat\_disable}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_disable()}{pat\_disable()}}
+{\footnotesize\ttfamily void pat\+\_\+disable (\begin{DoxyParamCaption}\item[{const char $\ast$}]{msg\+\_\+reason }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{memtype_8c_aaf3e69edca8d51e77782ae4f470000f3}\label{memtype_8c_aaf3e69edca8d51e77782ae4f470000f3}} 
+\index{memtype.c@{memtype.c}!pat\_enabled@{pat\_enabled}}
+\index{pat\_enabled@{pat\_enabled}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_enabled()}{pat\_enabled()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pat\+\_\+enabled (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{memtype_8c_a56b0aa699e3f6a7007e09b373363547f}\label{memtype_8c_a56b0aa699e3f6a7007e09b373363547f}} 
+\index{memtype.c@{memtype.c}!pat\_get\_cache\_mode@{pat\_get\_cache\_mode}}
+\index{pat\_get\_cache\_mode@{pat\_get\_cache\_mode}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_get\_cache\_mode()}{pat\_get\_cache\_mode()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} pat\+\_\+get\+\_\+cache\+\_\+mode (\begin{DoxyParamCaption}\item[{unsigned}]{pat\+\_\+val,  }\item[{char $\ast$}]{msg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{memtype_8c_a47c20183b33fb580ab98e6dafcf008d8}\label{memtype_8c_a47c20183b33fb580ab98e6dafcf008d8}} 
+\index{memtype.c@{memtype.c}!pat\_init@{pat\_init}}
+\index{pat\_init@{pat\_init}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_init()}{pat\_init()}}
+{\footnotesize\ttfamily void pat\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+pat\+\_\+init -\/ Initialize the P\+AT M\+SR and P\+AT table on the current C\+PU
+
+This function initializes P\+AT M\+SR and P\+AT table with an O\+S-\/defined value to enable additional cache attributes, WC, WT and WP.
+
+This function must be called on all C\+P\+Us using the specific sequence of operations defined in Intel S\+DM. \mbox{\hyperlink{kernel_2cpu_2mtrr_2mtrr_8c_a3d02fea7aca38686c4fe0b9eb338c4fc}{mtrr\+\_\+rendezvous\+\_\+handler()}} provides this procedure for P\+AT. Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{memtype_8c_ac6ca69fa4b5d40009eeefb8ad4982eae}\label{memtype_8c_ac6ca69fa4b5d40009eeefb8ad4982eae}} 
+\index{memtype.c@{memtype.c}!pat\_pagerange\_is\_ram@{pat\_pagerange\_is\_ram}}
+\index{pat\_pagerange\_is\_ram@{pat\_pagerange\_is\_ram}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_pagerange\_is\_ram()}{pat\_pagerange\_is\_ram()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pat\+\_\+pagerange\+\_\+is\+\_\+ram (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}}}]{start,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a089d9fd5c6154f98c10c4f81f0d0f82e}{resource\+\_\+size\+\_\+t}}}]{end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{memtype_8c_a507d1d2fbb0fbfd635760a60f5310b4d}\label{memtype_8c_a507d1d2fbb0fbfd635760a60f5310b4d}} 
+\index{memtype.c@{memtype.c}!pat\_pfn\_immune\_to\_uc\_mtrr@{pat\_pfn\_immune\_to\_uc\_mtrr}}
+\index{pat\_pfn\_immune\_to\_uc\_mtrr@{pat\_pfn\_immune\_to\_uc\_mtrr}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_pfn\_immune\_to\_uc\_mtrr()}{pat\_pfn\_immune\_to\_uc\_mtrr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pat\+\_\+pfn\+\_\+immune\+\_\+to\+\_\+uc\+\_\+mtrr (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn }\end{DoxyParamCaption})}
+
+pat\+\_\+pfn\+\_\+immune\+\_\+to\+\_\+uc\+\_\+mtrr -\/ Check whether the P\+AT memory type of @pfn cannot be overridden by UC M\+T\+RR memory type.
+
+Only to be called when P\+AT is enabled.
+
+Returns true, if the P\+AT memory type of @pfn is UC, U\+C-\/, or WC. Returns false in other cases. Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{memtype_8c_a19034a308256a2817833c5f70d0aee16}\label{memtype_8c_a19034a308256a2817833c5f70d0aee16}} 
+\index{memtype.c@{memtype.c}!pat\_x\_mtrr\_type@{pat\_x\_mtrr\_type}}
+\index{pat\_x\_mtrr\_type@{pat\_x\_mtrr\_type}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_x\_mtrr\_type()}{pat\_x\_mtrr\_type()}}
+{\footnotesize\ttfamily static unsigned long pat\+\_\+x\+\_\+mtrr\+\_\+type (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{start,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{end,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}}}]{req\+\_\+type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{memtype_8c_a80f4e55133d4447b6431ed38fb9a2a46}\label{memtype_8c_a80f4e55133d4447b6431ed38fb9a2a46}} 
+\index{memtype.c@{memtype.c}!pgprot\_writecombine@{pgprot\_writecombine}}
+\index{pgprot\_writecombine@{pgprot\_writecombine}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pgprot\_writecombine()}{pgprot\_writecombine()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} pgprot\+\_\+writecombine (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{memtype_8c_a9843bad2a93777e124c836d459973a10}\label{memtype_8c_a9843bad2a93777e124c836d459973a10}} 
+\index{memtype.c@{memtype.c}!pgprot\_writethrough@{pgprot\_writethrough}}
+\index{pgprot\_writethrough@{pgprot\_writethrough}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pgprot\_writethrough()}{pgprot\_writethrough()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} pgprot\+\_\+writethrough (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{memtype_8c_a6650bc8ab61ff520763c6e4d7cd09408}\label{memtype_8c_a6650bc8ab61ff520763c6e4d7cd09408}} 
+\index{memtype.c@{memtype.c}!phys\_mem\_access\_prot@{phys\_mem\_access\_prot}}
+\index{phys\_mem\_access\_prot@{phys\_mem\_access\_prot}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{phys\_mem\_access\_prot()}{phys\_mem\_access\_prot()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} phys\+\_\+mem\+\_\+access\+\_\+prot (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{unsigned long}]{pfn,  }\item[{unsigned long}]{size,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{vma\+\_\+prot }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{memtype_8c_abcbe2cb06f3403f9ded9de3152b53f0b}\label{memtype_8c_abcbe2cb06f3403f9ded9de3152b53f0b}} 
+\index{memtype.c@{memtype.c}!phys\_mem\_access\_prot\_allowed@{phys\_mem\_access\_prot\_allowed}}
+\index{phys\_mem\_access\_prot\_allowed@{phys\_mem\_access\_prot\_allowed}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{phys\_mem\_access\_prot\_allowed()}{phys\_mem\_access\_prot\_allowed()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} phys\+\_\+mem\+\_\+access\+\_\+prot\+\_\+allowed (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{unsigned long}]{pfn,  }\item[{unsigned long}]{size,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$}]{vma\+\_\+prot }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{memtype_8c_a34a5b44eef7f5fe3f67176b2efd6efd1}\label{memtype_8c_a34a5b44eef7f5fe3f67176b2efd6efd1}} 
+\index{memtype.c@{memtype.c}!range\_is\_allowed@{range\_is\_allowed}}
+\index{range\_is\_allowed@{range\_is\_allowed}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{range\_is\_allowed()}{range\_is\_allowed()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} range\+\_\+is\+\_\+allowed (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{memtype_8c_a314d2632240565a8a3a13675a7f6b1fe}\label{memtype_8c_a314d2632240565a8a3a13675a7f6b1fe}} 
+\index{memtype.c@{memtype.c}!reserve\_pfn\_range@{reserve\_pfn\_range}}
+\index{reserve\_pfn\_range@{reserve\_pfn\_range}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{reserve\_pfn\_range()}{reserve\_pfn\_range()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} reserve\+\_\+pfn\+\_\+range (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{paddr,  }\item[{unsigned long}]{size,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$}]{vma\+\_\+prot,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{strict\+\_\+prot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{memtype_8c_ad0f65e22c800205aa17e06fe2f9f741b}\label{memtype_8c_ad0f65e22c800205aa17e06fe2f9f741b}} 
+\index{memtype.c@{memtype.c}!reserve\_ram\_pages\_type@{reserve\_ram\_pages\_type}}
+\index{reserve\_ram\_pages\_type@{reserve\_ram\_pages\_type}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{reserve\_ram\_pages\_type()}{reserve\_ram\_pages\_type()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} reserve\+\_\+ram\+\_\+pages\+\_\+type (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{start,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{end,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}}}]{req\+\_\+type,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}} $\ast$}]{new\+\_\+type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{memtype_8c_aca979527dd9775c58ba7fc0131fd73db}\label{memtype_8c_aca979527dd9775c58ba7fc0131fd73db}} 
+\index{memtype.c@{memtype.c}!sanitize\_phys@{sanitize\_phys}}
+\index{sanitize\_phys@{sanitize\_phys}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{sanitize\_phys()}{sanitize\_phys()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} sanitize\+\_\+phys (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{address }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{memtype_8c_a5b2404835c5439e0e5d5bc0d8ab6d575}\label{memtype_8c_a5b2404835c5439e0e5d5bc0d8ab6d575}} 
+\index{memtype.c@{memtype.c}!set\_page\_memtype@{set\_page\_memtype}}
+\index{set\_page\_memtype@{set\_page\_memtype}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{set\_page\_memtype()}{set\_page\_memtype()}}
+{\footnotesize\ttfamily static void set\+\_\+page\+\_\+memtype (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{pg,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{pgtable__types_8h_a4da068c3a9cfd5b23b6d1afe8fe1cefe}{page\+\_\+cache\+\_\+mode}}}]{memtype }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{memtype_8c_ad795042dcb7381f0b535188bb295c45b}\label{memtype_8c_ad795042dcb7381f0b535188bb295c45b}} 
+\index{memtype.c@{memtype.c}!track\_pfn\_copy@{track\_pfn\_copy}}
+\index{track\_pfn\_copy@{track\_pfn\_copy}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{track\_pfn\_copy()}{track\_pfn\_copy()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} track\+\_\+pfn\+\_\+copy (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{memtype_8c_a23dce812661c5fc5fc592ec5c38c5b4e}\label{memtype_8c_a23dce812661c5fc5fc592ec5c38c5b4e}} 
+\index{memtype.c@{memtype.c}!track\_pfn\_insert@{track\_pfn\_insert}}
+\index{track\_pfn\_insert@{track\_pfn\_insert}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{track\_pfn\_insert()}{track\_pfn\_insert()}}
+{\footnotesize\ttfamily void track\+\_\+pfn\+\_\+insert (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$}]{prot,  }\item[{\mbox{\hyperlink{structpfn__t}{pfn\+\_\+t}}}]{pfn }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{memtype_8c_adf5a988a36317cc1b5cbc01ca3666902}\label{memtype_8c_adf5a988a36317cc1b5cbc01ca3666902}} 
+\index{memtype.c@{memtype.c}!track\_pfn\_remap@{track\_pfn\_remap}}
+\index{track\_pfn\_remap@{track\_pfn\_remap}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{track\_pfn\_remap()}{track\_pfn\_remap()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} track\+\_\+pfn\+\_\+remap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} $\ast$}]{prot,  }\item[{unsigned long}]{pfn,  }\item[{unsigned long}]{addr,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{memtype_8c_aa03b71d355e8613271f8e86b50f1ca29}\label{memtype_8c_aa03b71d355e8613271f8e86b50f1ca29}} 
+\index{memtype.c@{memtype.c}!untrack\_pfn@{untrack\_pfn}}
+\index{untrack\_pfn@{untrack\_pfn}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{untrack\_pfn()}{untrack\_pfn()}}
+{\footnotesize\ttfamily void untrack\+\_\+pfn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{pfn,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{memtype_8c_a118e2f724c45decadcef96cb4ef6c7e4}\label{memtype_8c_a118e2f724c45decadcef96cb4ef6c7e4}} 
+\index{memtype.c@{memtype.c}!untrack\_pfn\_moved@{untrack\_pfn\_moved}}
+\index{untrack\_pfn\_moved@{untrack\_pfn\_moved}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{untrack\_pfn\_moved()}{untrack\_pfn\_moved()}}
+{\footnotesize\ttfamily void untrack\+\_\+pfn\+\_\+moved (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 59
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{memtype_8c_a1eab77498273f98640d568a63bbb09d5}\label{memtype_8c_a1eab77498273f98640d568a63bbb09d5}} 
+\index{memtype.c@{memtype.c}!pat\_bp\_enabled@{pat\_bp\_enabled}}
+\index{pat\_bp\_enabled@{pat\_bp\_enabled}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_bp\_enabled}{pat\_bp\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} pat\+\_\+bp\+\_\+enabled\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{memtype_8c_aada22ca2e40dfd5a92211f30dd2b291d}\label{memtype_8c_aada22ca2e40dfd5a92211f30dd2b291d}} 
+\index{memtype.c@{memtype.c}!pat\_bp\_initialized@{pat\_bp\_initialized}}
+\index{pat\_bp\_initialized@{pat\_bp\_initialized}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_bp\_initialized}{pat\_bp\_initialized}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} pat\+\_\+bp\+\_\+initialized\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{memtype_8c_ae2749412f6468b08af9e6c191420a05f}\label{memtype_8c_ae2749412f6468b08af9e6c191420a05f}} 
+\index{memtype.c@{memtype.c}!pat\_cm\_initialized@{pat\_cm\_initialized}}
+\index{pat\_cm\_initialized@{pat\_cm\_initialized}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_cm\_initialized}{pat\_cm\_initialized}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} pat\+\_\+cm\+\_\+initialized\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{memtype_8c_a3ba550cdedb1be4e4bc3d74796e6b1aa}\label{memtype_8c_a3ba550cdedb1be4e4bc3d74796e6b1aa}} 
+\index{memtype.c@{memtype.c}!pat\_debug\_enable@{pat\_debug\_enable}}
+\index{pat\_debug\_enable@{pat\_debug\_enable}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_debug\_enable}{pat\_debug\_enable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pat\+\_\+debug\+\_\+enable}
+
+\mbox{\Hypertarget{memtype_8c_af68b77c77714cf227fb3a821854d97a0}\label{memtype_8c_af68b77c77714cf227fb3a821854d97a0}} 
+\index{memtype.c@{memtype.c}!pat\_disabled@{pat\_disabled}}
+\index{pat\_disabled@{pat\_disabled}!memtype.c@{memtype.c}}
+\doxysubsubsection{\texorpdfstring{pat\_disabled}{pat\_disabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} pat\+\_\+disabled = !\mbox{\hyperlink{pq_8h_a7cba8af7b38381ef613e1dc587d12005}{I\+S\+\_\+\+E\+N\+A\+B\+L\+ED}}(\mbox{\hyperlink{autoconf_8h_af701d3d68262e3c6de1f4a2813f86e9b}{C\+O\+N\+F\+I\+G\+\_\+\+X86\+\_\+\+P\+AT}})\hspace{0.3cm}{\ttfamily [static]}}
+

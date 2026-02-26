@@ -1,0 +1,303 @@
+\hypertarget{idt_8c}{}\doxysection{arch/x86/kernel/idt.c File Reference}
+\label{idt_8c}\index{arch/x86/kernel/idt.c@{arch/x86/kernel/idt.c}}
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu\+\_\+entry\+\_\+area.\+h$>$}\newline
+{\ttfamily \#include $<$asm/set\+\_\+memory.\+h$>$}\newline
+{\ttfamily \#include $<$asm/traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/proto.\+h$>$}\newline
+{\ttfamily \#include $<$asm/desc.\+h$>$}\newline
+{\ttfamily \#include $<$asm/hw\+\_\+irq.\+h$>$}\newline
+Include dependency graph for idt.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{idt_8c_a5e113c5759ef82d9272d22587a658c3a}{D\+P\+L0}}~0x0
+\item 
+\#define \mbox{\hyperlink{idt_8c_a67c9eca6104c71c3ce2723898b156c69}{D\+P\+L3}}~0x3
+\item 
+\#define \mbox{\hyperlink{idt_8c_aefb292255f0accd755634b16ca571744}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK}}~0
+\item 
+\#define \mbox{\hyperlink{idt_8c_a2dd69fdde6d7102649ab8c14d2b8937e}{G}}(\+\_\+vector,  \+\_\+addr,  \+\_\+ist,  \+\_\+type,  \+\_\+dpl,  \+\_\+segment)
+\item 
+\#define \mbox{\hyperlink{idt_8c_abbcbeb4989124a1153dacfa41cdee233}{I\+N\+TG}}(\+\_\+vector,  \+\_\+addr)~\mbox{\hyperlink{ec_8c_aed9ea78689ecce0b7264c02c7f8a9a54}{G}}(\+\_\+vector, \+\_\+addr, \mbox{\hyperlink{idt_8c_aefb292255f0accd755634b16ca571744}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK}}, \mbox{\hyperlink{desc__defs_8h_a0e96acf73ec595679ffcca6fecc4d705a75e8149782d451806c9e46e1a20fd93e}{G\+A\+T\+E\+\_\+\+I\+N\+T\+E\+R\+R\+U\+PT}}, \mbox{\hyperlink{idt_8c_a5e113c5759ef82d9272d22587a658c3a}{D\+P\+L0}}, \mbox{\hyperlink{include_2asm_2segment_8h_abf3fbaf61f4344f54836169e10498bbb}{\+\_\+\+\_\+\+K\+E\+R\+N\+E\+L\+\_\+\+CS}})
+\item 
+\#define \mbox{\hyperlink{idt_8c_a5c7604c38bd9a308e2fed086fa0fe88e}{S\+Y\+SG}}(\+\_\+vector,  \+\_\+addr)~\mbox{\hyperlink{ec_8c_aed9ea78689ecce0b7264c02c7f8a9a54}{G}}(\+\_\+vector, \+\_\+addr, \mbox{\hyperlink{idt_8c_aefb292255f0accd755634b16ca571744}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK}}, \mbox{\hyperlink{desc__defs_8h_a0e96acf73ec595679ffcca6fecc4d705a75e8149782d451806c9e46e1a20fd93e}{G\+A\+T\+E\+\_\+\+I\+N\+T\+E\+R\+R\+U\+PT}}, \mbox{\hyperlink{idt_8c_a67c9eca6104c71c3ce2723898b156c69}{D\+P\+L3}}, \mbox{\hyperlink{include_2asm_2segment_8h_abf3fbaf61f4344f54836169e10498bbb}{\+\_\+\+\_\+\+K\+E\+R\+N\+E\+L\+\_\+\+CS}})
+\item 
+\#define \mbox{\hyperlink{idt_8c_a7be4df8cc2264604894a64048b2f38fc}{I\+S\+TG}}(\+\_\+vector,  \+\_\+addr,  \+\_\+ist)~\mbox{\hyperlink{idt_8c_abbcbeb4989124a1153dacfa41cdee233}{I\+N\+TG}}(\+\_\+vector, \+\_\+addr)
+\item 
+\#define \mbox{\hyperlink{idt_8c_a747ff7fe6501b4d1079becc7b91b71a2}{T\+S\+KG}}(\+\_\+vector,  \+\_\+gdt)~\mbox{\hyperlink{ec_8c_aed9ea78689ecce0b7264c02c7f8a9a54}{G}}(\+\_\+vector, \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}, \mbox{\hyperlink{idt_8c_aefb292255f0accd755634b16ca571744}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK}}, \mbox{\hyperlink{desc__defs_8h_a0e96acf73ec595679ffcca6fecc4d705ae20aa23dd5aede12580433cb55751b91}{G\+A\+T\+E\+\_\+\+T\+A\+SK}}, \mbox{\hyperlink{idt_8c_a5e113c5759ef82d9272d22587a658c3a}{D\+P\+L0}}, \+\_\+gdt $<$$<$ 3)
+\item 
+\#define \mbox{\hyperlink{idt_8c_a4316ee34c1a6bee8748ddab19729abe4}{I\+D\+T\+\_\+\+T\+A\+B\+L\+E\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{include_2asm_2segment_8h_a2a59a505aa55f15c152f30f811fbd310}{I\+D\+T\+\_\+\+E\+N\+T\+R\+I\+ES}} $\ast$ \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(\mbox{\hyperlink{desc__defs_8h_acbc46b4fa3548304b9148f5fed4c10ee}{gate\+\_\+desc}}))
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{idt_8c_a1ddc8d98da34c105cd9a047484a7f218}{load\+\_\+current\+\_\+idt}} (void)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void \mbox{\hyperlink{idt_8c_a3147e30d244476eae4c9b35bd5ed3667}{idt\+\_\+setup\+\_\+from\+\_\+table}} (\mbox{\hyperlink{desc__defs_8h_acbc46b4fa3548304b9148f5fed4c10ee}{gate\+\_\+desc}} $\ast$\mbox{\hyperlink{suspend__64_8h_af63d7e35cbe05247ce876bbe0e0bea6e}{idt}}, const struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{btrfs__tree_8h_a4642872714ac3d4af9513c89509e1ab4}{sys}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void \mbox{\hyperlink{idt_8c_a5030431e16a367b6f5a88167700b7122}{set\+\_\+intr\+\_\+gate}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} n, const void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{idt_8c_ac6bb1dcbdb3b274ccf78ba6713ef9993}{idt\+\_\+setup\+\_\+early\+\_\+traps}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{idt_8c_ac91b339a4591b15ad65b1574f9dfe93c}{idt\+\_\+setup\+\_\+traps}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{idt_8c_a1f5f3c4b5f9f39043d680a36e93fda9f}{idt\+\_\+map\+\_\+in\+\_\+cea}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{idt_8c_a993df778517413d73fc5dc759fb761ca}{idt\+\_\+setup\+\_\+apic\+\_\+and\+\_\+irq\+\_\+gates}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{idt_8c_ac5a6918cc1b8b534119768d20a62f1ac}{idt\+\_\+setup\+\_\+early\+\_\+handler}} (void)
+\item 
+void \mbox{\hyperlink{idt_8c_a8b711edc0ed15da073994cae52c4ff2c}{idt\+\_\+invalidate}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{idt_8c_abd427d3234b029d4d27cb26f2c2772c7}{alloc\+\_\+intr\+\_\+gate}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} n, const void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} idt\+\_\+setup\+\_\+done \mbox{\hyperlink{idt_8c_ada75e0fa604b0b96d195f69df8459e4f}{\+\_\+\+\_\+initdata}}
+\item 
+static const \mbox{\hyperlink{test__scanf_8c_a4c36b224b39d66b23ea539dd33251a52}{\+\_\+\+\_\+initconst}} struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} \mbox{\hyperlink{idt_8c_a44ef50a5519f5cae086c0f1d476f1b8d}{early\+\_\+idts}} \mbox{[}$\,$\mbox{]}
+\item 
+static const \mbox{\hyperlink{test__scanf_8c_a4c36b224b39d66b23ea539dd33251a52}{\+\_\+\+\_\+initconst}} struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} \mbox{\hyperlink{idt_8c_a0c83c429314708784c8458cb9b8d551b}{def\+\_\+idts}} \mbox{[}$\,$\mbox{]}
+\item 
+static const \mbox{\hyperlink{test__scanf_8c_a4c36b224b39d66b23ea539dd33251a52}{\+\_\+\+\_\+initconst}} struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} \mbox{\hyperlink{idt_8c_a510d8985fba5ce5196539ed91686f5aa}{apic\+\_\+idts}} \mbox{[}$\,$\mbox{]}
+\item 
+static \mbox{\hyperlink{desc__defs_8h_acbc46b4fa3548304b9148f5fed4c10ee}{gate\+\_\+desc}} idt\+\_\+table\mbox{[}\mbox{\hyperlink{include_2asm_2segment_8h_a2a59a505aa55f15c152f30f811fbd310}{I\+D\+T\+\_\+\+E\+N\+T\+R\+I\+ES}}\mbox{]} \mbox{\hyperlink{idt_8c_a2e08eff3cf734d8ddf69c6b41588cef9}{\+\_\+\+\_\+page\+\_\+aligned\+\_\+bss}}
+\item 
+static struct \mbox{\hyperlink{structdesc__ptr}{desc\+\_\+ptr}} idt\+\_\+descr \mbox{\hyperlink{idt_8c_a073ad407264718f4139e9b8a9af87a39}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{idt_8c_aefb292255f0accd755634b16ca571744}\label{idt_8c_aefb292255f0accd755634b16ca571744}} 
+\index{idt.c@{idt.c}!DEFAULT\_STACK@{DEFAULT\_STACK}}
+\index{DEFAULT\_STACK@{DEFAULT\_STACK}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_STACK}{DEFAULT\_STACK}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK~0}
+
+\mbox{\Hypertarget{idt_8c_a5e113c5759ef82d9272d22587a658c3a}\label{idt_8c_a5e113c5759ef82d9272d22587a658c3a}} 
+\index{idt.c@{idt.c}!DPL0@{DPL0}}
+\index{DPL0@{DPL0}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{DPL0}{DPL0}}
+{\footnotesize\ttfamily \#define D\+P\+L0~0x0}
+
+\mbox{\Hypertarget{idt_8c_a67c9eca6104c71c3ce2723898b156c69}\label{idt_8c_a67c9eca6104c71c3ce2723898b156c69}} 
+\index{idt.c@{idt.c}!DPL3@{DPL3}}
+\index{DPL3@{DPL3}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{DPL3}{DPL3}}
+{\footnotesize\ttfamily \#define D\+P\+L3~0x3}
+
+\mbox{\Hypertarget{idt_8c_a2dd69fdde6d7102649ab8c14d2b8937e}\label{idt_8c_a2dd69fdde6d7102649ab8c14d2b8937e}} 
+\index{idt.c@{idt.c}!G@{G}}
+\index{G@{G}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{G}{G}}
+{\footnotesize\ttfamily \#define G(\begin{DoxyParamCaption}\item[{}]{\+\_\+vector,  }\item[{}]{\+\_\+addr,  }\item[{}]{\+\_\+ist,  }\item[{}]{\+\_\+type,  }\item[{}]{\+\_\+dpl,  }\item[{}]{\+\_\+segment }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \{                       \(\backslash\)}
+\DoxyCodeLine{        .vector     = \_vector,      \(\backslash\)}
+\DoxyCodeLine{        .bits.ist   = \_ist,         \(\backslash\)}
+\DoxyCodeLine{        .bits.type  = \_type,        \(\backslash\)}
+\DoxyCodeLine{        .bits.dpl   = \_dpl,         \(\backslash\)}
+\DoxyCodeLine{        .bits.p     = 1,            \(\backslash\)}
+\DoxyCodeLine{        .addr       = \_addr,        \(\backslash\)}
+\DoxyCodeLine{        .segment    = \_segment,     \(\backslash\)}
+\DoxyCodeLine{    \}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{idt_8c_a4316ee34c1a6bee8748ddab19729abe4}\label{idt_8c_a4316ee34c1a6bee8748ddab19729abe4}} 
+\index{idt.c@{idt.c}!IDT\_TABLE\_SIZE@{IDT\_TABLE\_SIZE}}
+\index{IDT\_TABLE\_SIZE@{IDT\_TABLE\_SIZE}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{IDT\_TABLE\_SIZE}{IDT\_TABLE\_SIZE}}
+{\footnotesize\ttfamily \#define I\+D\+T\+\_\+\+T\+A\+B\+L\+E\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{include_2asm_2segment_8h_a2a59a505aa55f15c152f30f811fbd310}{I\+D\+T\+\_\+\+E\+N\+T\+R\+I\+ES}} $\ast$ \mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(\mbox{\hyperlink{desc__defs_8h_acbc46b4fa3548304b9148f5fed4c10ee}{gate\+\_\+desc}}))}
+
+\mbox{\Hypertarget{idt_8c_abbcbeb4989124a1153dacfa41cdee233}\label{idt_8c_abbcbeb4989124a1153dacfa41cdee233}} 
+\index{idt.c@{idt.c}!INTG@{INTG}}
+\index{INTG@{INTG}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{INTG}{INTG}}
+{\footnotesize\ttfamily \#define I\+N\+TG(\begin{DoxyParamCaption}\item[{}]{\+\_\+vector,  }\item[{}]{\+\_\+addr }\end{DoxyParamCaption})~\mbox{\hyperlink{ec_8c_aed9ea78689ecce0b7264c02c7f8a9a54}{G}}(\+\_\+vector, \+\_\+addr, \mbox{\hyperlink{idt_8c_aefb292255f0accd755634b16ca571744}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK}}, \mbox{\hyperlink{desc__defs_8h_a0e96acf73ec595679ffcca6fecc4d705a75e8149782d451806c9e46e1a20fd93e}{G\+A\+T\+E\+\_\+\+I\+N\+T\+E\+R\+R\+U\+PT}}, \mbox{\hyperlink{idt_8c_a5e113c5759ef82d9272d22587a658c3a}{D\+P\+L0}}, \mbox{\hyperlink{include_2asm_2segment_8h_abf3fbaf61f4344f54836169e10498bbb}{\+\_\+\+\_\+\+K\+E\+R\+N\+E\+L\+\_\+\+CS}})}
+
+\mbox{\Hypertarget{idt_8c_a7be4df8cc2264604894a64048b2f38fc}\label{idt_8c_a7be4df8cc2264604894a64048b2f38fc}} 
+\index{idt.c@{idt.c}!ISTG@{ISTG}}
+\index{ISTG@{ISTG}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{ISTG}{ISTG}}
+{\footnotesize\ttfamily \#define I\+S\+TG(\begin{DoxyParamCaption}\item[{}]{\+\_\+vector,  }\item[{}]{\+\_\+addr,  }\item[{}]{\+\_\+ist }\end{DoxyParamCaption})~\mbox{\hyperlink{idt_8c_abbcbeb4989124a1153dacfa41cdee233}{I\+N\+TG}}(\+\_\+vector, \+\_\+addr)}
+
+\mbox{\Hypertarget{idt_8c_a5c7604c38bd9a308e2fed086fa0fe88e}\label{idt_8c_a5c7604c38bd9a308e2fed086fa0fe88e}} 
+\index{idt.c@{idt.c}!SYSG@{SYSG}}
+\index{SYSG@{SYSG}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{SYSG}{SYSG}}
+{\footnotesize\ttfamily \#define S\+Y\+SG(\begin{DoxyParamCaption}\item[{}]{\+\_\+vector,  }\item[{}]{\+\_\+addr }\end{DoxyParamCaption})~\mbox{\hyperlink{ec_8c_aed9ea78689ecce0b7264c02c7f8a9a54}{G}}(\+\_\+vector, \+\_\+addr, \mbox{\hyperlink{idt_8c_aefb292255f0accd755634b16ca571744}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK}}, \mbox{\hyperlink{desc__defs_8h_a0e96acf73ec595679ffcca6fecc4d705a75e8149782d451806c9e46e1a20fd93e}{G\+A\+T\+E\+\_\+\+I\+N\+T\+E\+R\+R\+U\+PT}}, \mbox{\hyperlink{idt_8c_a67c9eca6104c71c3ce2723898b156c69}{D\+P\+L3}}, \mbox{\hyperlink{include_2asm_2segment_8h_abf3fbaf61f4344f54836169e10498bbb}{\+\_\+\+\_\+\+K\+E\+R\+N\+E\+L\+\_\+\+CS}})}
+
+\mbox{\Hypertarget{idt_8c_a747ff7fe6501b4d1079becc7b91b71a2}\label{idt_8c_a747ff7fe6501b4d1079becc7b91b71a2}} 
+\index{idt.c@{idt.c}!TSKG@{TSKG}}
+\index{TSKG@{TSKG}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{TSKG}{TSKG}}
+{\footnotesize\ttfamily \#define T\+S\+KG(\begin{DoxyParamCaption}\item[{}]{\+\_\+vector,  }\item[{}]{\+\_\+gdt }\end{DoxyParamCaption})~\mbox{\hyperlink{ec_8c_aed9ea78689ecce0b7264c02c7f8a9a54}{G}}(\+\_\+vector, \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}, \mbox{\hyperlink{idt_8c_aefb292255f0accd755634b16ca571744}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+T\+A\+CK}}, \mbox{\hyperlink{desc__defs_8h_a0e96acf73ec595679ffcca6fecc4d705ae20aa23dd5aede12580433cb55751b91}{G\+A\+T\+E\+\_\+\+T\+A\+SK}}, \mbox{\hyperlink{idt_8c_a5e113c5759ef82d9272d22587a658c3a}{D\+P\+L0}}, \+\_\+gdt $<$$<$ 3)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{idt_8c_abd427d3234b029d4d27cb26f2c2772c7}\label{idt_8c_abd427d3234b029d4d27cb26f2c2772c7}} 
+\index{idt.c@{idt.c}!alloc\_intr\_gate@{alloc\_intr\_gate}}
+\index{alloc\_intr\_gate@{alloc\_intr\_gate}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_intr\_gate()}{alloc\_intr\_gate()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} alloc\+\_\+intr\+\_\+gate (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{n,  }\item[{const void $\ast$}]{addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{idt_8c_a8b711edc0ed15da073994cae52c4ff2c}\label{idt_8c_a8b711edc0ed15da073994cae52c4ff2c}} 
+\index{idt.c@{idt.c}!idt\_invalidate@{idt\_invalidate}}
+\index{idt\_invalidate@{idt\_invalidate}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{idt\_invalidate()}{idt\_invalidate()}}
+{\footnotesize\ttfamily void idt\+\_\+invalidate (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+idt\+\_\+invalidate -\/ Invalidate interrupt descriptor table Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{idt_8c_a1f5f3c4b5f9f39043d680a36e93fda9f}\label{idt_8c_a1f5f3c4b5f9f39043d680a36e93fda9f}} 
+\index{idt.c@{idt.c}!idt\_map\_in\_cea@{idt\_map\_in\_cea}}
+\index{idt\_map\_in\_cea@{idt\_map\_in\_cea}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{idt\_map\_in\_cea()}{idt\_map\_in\_cea()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} idt\+\_\+map\+\_\+in\+\_\+cea (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{idt_8c_a993df778517413d73fc5dc759fb761ca}\label{idt_8c_a993df778517413d73fc5dc759fb761ca}} 
+\index{idt.c@{idt.c}!idt\_setup\_apic\_and\_irq\_gates@{idt\_setup\_apic\_and\_irq\_gates}}
+\index{idt\_setup\_apic\_and\_irq\_gates@{idt\_setup\_apic\_and\_irq\_gates}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{idt\_setup\_apic\_and\_irq\_gates()}{idt\_setup\_apic\_and\_irq\_gates()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} idt\+\_\+setup\+\_\+apic\+\_\+and\+\_\+irq\+\_\+gates (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+idt\+\_\+setup\+\_\+apic\+\_\+and\+\_\+irq\+\_\+gates -\/ Setup A\+P\+I\+C/\+S\+MP and normal interrupt gates Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{idt_8c_ac5a6918cc1b8b534119768d20a62f1ac}\label{idt_8c_ac5a6918cc1b8b534119768d20a62f1ac}} 
+\index{idt.c@{idt.c}!idt\_setup\_early\_handler@{idt\_setup\_early\_handler}}
+\index{idt\_setup\_early\_handler@{idt\_setup\_early\_handler}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{idt\_setup\_early\_handler()}{idt\_setup\_early\_handler()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} idt\+\_\+setup\+\_\+early\+\_\+handler (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+idt\+\_\+setup\+\_\+early\+\_\+handler -\/ Initializes the idt table with early handlers Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{idt_8c_ac6bb1dcbdb3b274ccf78ba6713ef9993}\label{idt_8c_ac6bb1dcbdb3b274ccf78ba6713ef9993}} 
+\index{idt.c@{idt.c}!idt\_setup\_early\_traps@{idt\_setup\_early\_traps}}
+\index{idt\_setup\_early\_traps@{idt\_setup\_early\_traps}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{idt\_setup\_early\_traps()}{idt\_setup\_early\_traps()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} idt\+\_\+setup\+\_\+early\+\_\+traps (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+idt\+\_\+setup\+\_\+early\+\_\+traps -\/ Initialize the idt table with early traps
+
+On X8664 these traps do not use interrupt stacks as they can\textquotesingle{}t work before \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a560ad8614ae03841a10b489f4370bc51}{cpu\+\_\+init()}} is invoked and sets up T\+SS. \mbox{\hyperlink{classThe}{The}} I\+ST variants are installed after that. Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{idt_8c_a3147e30d244476eae4c9b35bd5ed3667}\label{idt_8c_a3147e30d244476eae4c9b35bd5ed3667}} 
+\index{idt.c@{idt.c}!idt\_setup\_from\_table@{idt\_setup\_from\_table}}
+\index{idt\_setup\_from\_table@{idt\_setup\_from\_table}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{idt\_setup\_from\_table()}{idt\_setup\_from\_table()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void idt\+\_\+setup\+\_\+from\+\_\+table (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{desc__defs_8h_acbc46b4fa3548304b9148f5fed4c10ee}{gate\+\_\+desc}} $\ast$}]{idt,  }\item[{const struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} $\ast$}]{t,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{sys }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{idt_8c_ac91b339a4591b15ad65b1574f9dfe93c}\label{idt_8c_ac91b339a4591b15ad65b1574f9dfe93c}} 
+\index{idt.c@{idt.c}!idt\_setup\_traps@{idt\_setup\_traps}}
+\index{idt\_setup\_traps@{idt\_setup\_traps}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{idt\_setup\_traps()}{idt\_setup\_traps()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} idt\+\_\+setup\+\_\+traps (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+idt\+\_\+setup\+\_\+traps -\/ Initialize the idt table with default traps Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{idt_8c_a1ddc8d98da34c105cd9a047484a7f218}\label{idt_8c_a1ddc8d98da34c105cd9a047484a7f218}} 
+\index{idt.c@{idt.c}!load\_current\_idt@{load\_current\_idt}}
+\index{load\_current\_idt@{load\_current\_idt}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{load\_current\_idt()}{load\_current\_idt()}}
+{\footnotesize\ttfamily void load\+\_\+current\+\_\+idt (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{idt_8c_a5030431e16a367b6f5a88167700b7122}\label{idt_8c_a5030431e16a367b6f5a88167700b7122}} 
+\index{idt.c@{idt.c}!set\_intr\_gate@{set\_intr\_gate}}
+\index{set\_intr\_gate@{set\_intr\_gate}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{set\_intr\_gate()}{set\_intr\_gate()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void set\+\_\+intr\+\_\+gate (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{n,  }\item[{const void $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{idt_8c_ada75e0fa604b0b96d195f69df8459e4f}\label{idt_8c_ada75e0fa604b0b96d195f69df8459e4f}} 
+\index{idt.c@{idt.c}!\_\_initdata@{\_\_initdata}}
+\index{\_\_initdata@{\_\_initdata}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initdata}{\_\_initdata}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} idt\+\_\+setup\+\_\+done \+\_\+\+\_\+initdata\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{idt_8c_a2e08eff3cf734d8ddf69c6b41588cef9}\label{idt_8c_a2e08eff3cf734d8ddf69c6b41588cef9}} 
+\index{idt.c@{idt.c}!\_\_page\_aligned\_bss@{\_\_page\_aligned\_bss}}
+\index{\_\_page\_aligned\_bss@{\_\_page\_aligned\_bss}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{\_\_page\_aligned\_bss}{\_\_page\_aligned\_bss}}
+{\footnotesize\ttfamily \mbox{\hyperlink{desc__defs_8h_acbc46b4fa3548304b9148f5fed4c10ee}{gate\+\_\+desc}} idt\+\_\+table \mbox{[}\mbox{\hyperlink{include_2asm_2segment_8h_a2a59a505aa55f15c152f30f811fbd310}{I\+D\+T\+\_\+\+E\+N\+T\+R\+I\+ES}}\mbox{]} \+\_\+\+\_\+page\+\_\+aligned\+\_\+bss\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{idt_8c_a073ad407264718f4139e9b8a9af87a39}\label{idt_8c_a073ad407264718f4139e9b8a9af87a39}} 
+\index{idt.c@{idt.c}!\_\_ro\_after\_init@{\_\_ro\_after\_init}}
+\index{\_\_ro\_after\_init@{\_\_ro\_after\_init}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ro\_after\_init}{\_\_ro\_after\_init}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdesc__ptr}{desc\+\_\+ptr}} idt\+\_\+descr \+\_\+\+\_\+ro\+\_\+after\+\_\+init\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .size       = \mbox{\hyperlink{idt_8c_a4316ee34c1a6bee8748ddab19729abe4}{IDT\_TABLE\_SIZE}} -\/ 1,}
+\DoxyCodeLine{    .address    = (\textcolor{keywordtype}{unsigned} long) idt\_table,}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{idt_8c_a510d8985fba5ce5196539ed91686f5aa}\label{idt_8c_a510d8985fba5ce5196539ed91686f5aa}} 
+\index{idt.c@{idt.c}!apic\_idts@{apic\_idts}}
+\index{apic\_idts@{apic\_idts}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{apic\_idts}{apic\_idts}}
+{\footnotesize\ttfamily const \mbox{\hyperlink{test__scanf_8c_a4c36b224b39d66b23ea539dd33251a52}{\+\_\+\+\_\+initconst}} struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} apic\+\_\+idts\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{idt_8c_a0c83c429314708784c8458cb9b8d551b}\label{idt_8c_a0c83c429314708784c8458cb9b8d551b}} 
+\index{idt.c@{idt.c}!def\_idts@{def\_idts}}
+\index{def\_idts@{def\_idts}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{def\_idts}{def\_idts}}
+{\footnotesize\ttfamily const \mbox{\hyperlink{test__scanf_8c_a4c36b224b39d66b23ea539dd33251a52}{\+\_\+\+\_\+initconst}} struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} def\+\_\+idts\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{idt_8c_a44ef50a5519f5cae086c0f1d476f1b8d}\label{idt_8c_a44ef50a5519f5cae086c0f1d476f1b8d}} 
+\index{idt.c@{idt.c}!early\_idts@{early\_idts}}
+\index{early\_idts@{early\_idts}!idt.c@{idt.c}}
+\doxysubsubsection{\texorpdfstring{early\_idts}{early\_idts}}
+{\footnotesize\ttfamily const \mbox{\hyperlink{test__scanf_8c_a4c36b224b39d66b23ea539dd33251a52}{\+\_\+\+\_\+initconst}} struct \mbox{\hyperlink{structidt__data}{idt\+\_\+data}} early\+\_\+idts\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{idt_8c_abbcbeb4989124a1153dacfa41cdee233}{INTG}}(\mbox{\hyperlink{trapnr_8h_addd0cc446d7c7c57f18a8a4511c0220a}{X86\_TRAP\_DB}},        asm\_exc\_debug),}
+\DoxyCodeLine{    \mbox{\hyperlink{idt_8c_a5c7604c38bd9a308e2fed086fa0fe88e}{SYSG}}(\mbox{\hyperlink{trapnr_8h_ac09359134ecf9b5c58f8a7c63bf79ef5}{X86\_TRAP\_BP}},        asm\_exc\_int3),}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

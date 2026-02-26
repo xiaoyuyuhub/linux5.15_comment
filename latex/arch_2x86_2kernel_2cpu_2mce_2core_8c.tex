@@ -1,0 +1,1894 @@
+\hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c}{}\doxysection{arch/x86/kernel/cpu/mce/core.c File Reference}
+\label{arch_2x86_2kernel_2cpu_2mce_2core_8c}\index{arch/x86/kernel/cpu/mce/core.c@{arch/x86/kernel/cpu/mce/core.c}}
+{\ttfamily \#include $<$linux/thread\+\_\+info.\+h$>$}\newline
+{\ttfamily \#include $<$linux/capability.\+h$>$}\newline
+{\ttfamily \#include $<$linux/miscdevice.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ratelimit.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kobject.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kdebug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/device.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscore\+\_\+ops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ctype.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sysfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kmod.\+h$>$}\newline
+{\ttfamily \#include $<$linux/poll.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ras.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irq\+\_\+work.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/set\+\_\+memory.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sync\+\_\+core.\+h$>$}\newline
+{\ttfamily \#include $<$linux/task\+\_\+work.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hardirq.\+h$>$}\newline
+{\ttfamily \#include $<$asm/intel-\/family.\+h$>$}\newline
+{\ttfamily \#include $<$asm/processor.\+h$>$}\newline
+{\ttfamily \#include $<$asm/traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mce.\+h$>$}\newline
+{\ttfamily \#include $<$asm/msr.\+h$>$}\newline
+{\ttfamily \#include $<$asm/reboot.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}internal.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$trace/events/mce.\+h$>$}\newline
+Include dependency graph for core.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structmce__bank}{mce\+\_\+bank}}
+\item 
+struct \mbox{\hyperlink{structmce__bank__dev}{mce\+\_\+bank\+\_\+dev}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a40473b47b4871fa538a0fa131f94e774}{C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}}
+\item 
+\#define \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_afc6323ef1df3746fc14920e51e91c878}{S\+P\+I\+N\+U\+N\+IT}}~100	/$\ast$ 100ns $\ast$/
+\item 
+\#define \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_adebdb90fc1c27afd04491b82e4f6c300}{A\+T\+T\+R\+\_\+\+L\+EN}}~16
+\item 
+\#define \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aef6bbba792b7789da097bd89fb00764d}{P\+A\+N\+I\+C\+\_\+\+T\+I\+M\+E\+O\+UT}}~5 /$\ast$ 5 \mbox{\hyperlink{scsi__netlink__fc_8h_af1c6681ed3b417b3480d3aa84122df75}{seconds}} $\ast$/
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab70f27bcad913f9118226f804be5af2c}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (mce\+\_\+sysfs\+\_\+mutex)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2990c7e6c2c8914ee190d516a4b13c4f}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned, mce\+\_\+exception\+\_\+count)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aec29cfe0f70477e83de7d765b369c15e}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+R\+E\+A\+D\+\_\+\+M\+O\+S\+T\+LY}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, mce\+\_\+num\+\_\+banks)
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a99ade61b6ed40aaeeff010a373e7fb7c}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+R\+E\+A\+D\+\_\+\+M\+O\+S\+T\+LY}} (struct \mbox{\hyperlink{structmce__bank}{mce\+\_\+bank}}\mbox{[}\mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_a2a2a32e2f45de684118ecc081d49a3d0}{M\+A\+X\+\_\+\+N\+R\+\_\+\+B\+A\+N\+KS}}\mbox{]}, mce\+\_\+banks\+\_\+array)
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aff41e73635927be62dd6158692e5aea3}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structmce}{mce}}, mces\+\_\+seen)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8f76865d3fa198cea5043d19fdd0d979}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (mce\+\_\+banks\+\_\+t, mce\+\_\+poll\+\_\+banks)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae5a9b198df528fdb9a2b4f261cf41947}{B\+L\+O\+C\+K\+I\+N\+G\+\_\+\+N\+O\+T\+I\+F\+I\+E\+R\+\_\+\+H\+E\+AD}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_a3a432ad393cc8942fade2577a5e6b514}{x86\+\_\+mce\+\_\+decoder\+\_\+chain}})
+\item 
+noinstr void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae2554c6c65fef25d829816a0b4e82942}{mce\+\_\+setup}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa7fe5f0125a4a811ad0bd43cce4997fb}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structmce}{mce}}, injectm)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa3f254601bfa0517d2a4a3d6e20add72}{E\+X\+P\+O\+R\+T\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (injectm)
+\item 
+void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_addd6f9931b5d2f32c5fa737d392abc32}{mce\+\_\+log}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a16140daa85e81145af63abc1d3ab5837}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_addd6f9931b5d2f32c5fa737d392abc32}{mce\+\_\+log}})
+\item 
+void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad696c41a583330d8f756c8a6a1e9c1b5}{mce\+\_\+register\+\_\+decode\+\_\+chain}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$nb)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae720b62ff3db5a5298e117f4b72b94bc}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad696c41a583330d8f756c8a6a1e9c1b5}{mce\+\_\+register\+\_\+decode\+\_\+chain}})
+\item 
+void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3913be788499f70bb0a0b8e0f25ba322}{mce\+\_\+unregister\+\_\+decode\+\_\+chain}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$nb)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3dd0ab14a6aab83078e489ad28e0d871}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3913be788499f70bb0a0b8e0f25ba322}{mce\+\_\+unregister\+\_\+decode\+\_\+chain}})
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a39e7f70fa7b113e08ed2f66568303bd9}{ctl\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4cfb35b2cd6b911393f109a3bd70e485}{status\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_afb923fa9afd220167df0f99d7aeea21c}{addr\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab10849be392ae80754279dbfc3205b21}{misc\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a48c5d57a72fa766a1fa2ce12930e1af0}{smca\+\_\+ctl\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a390240fc8da1c95e3f7e71a68adeb619}{smca\+\_\+status\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8d60b9a8ff99dd07ddf466c6f2e462c5}{smca\+\_\+addr\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a78c3affcb3fd75db564584478fe45152}{smca\+\_\+misc\+\_\+reg}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4502de12ca2985d87b63b90321f4fe2d}{\+\_\+\+\_\+print\+\_\+mce}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8e68a5038e08c63d92c8c4c7cdc7eab2}{print\+\_\+mce}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6aca7f0a1e7b83c6aa5ce46f30940b53}{wait\+\_\+for\+\_\+panic}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9fd165d4ce9ddd1f902029e1a4cd22fd}{mce\+\_\+panic}} (const char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}}, struct \mbox{\hyperlink{structmce}{mce}} $\ast$final, char $\ast$\mbox{\hyperlink{single_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aeeb7ab3b25bb47297b3979ecd8a49090}{msr\+\_\+to\+\_\+offset}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{structmsr}{msr}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5aeade5b5baa98465ed7c494febb32f}{ex\+\_\+handler\+\_\+rdmsr\+\_\+fault}} (const struct \mbox{\hyperlink{structexception__table__entry}{exception\+\_\+table\+\_\+entry}} $\ast$fixup, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trapnr, unsigned long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}}, unsigned long \mbox{\hyperlink{idxd_8h_a899f8503a0a1aa2881780f0d20fd3709}{fault\+\_\+addr}})
+\item 
+static noinstr \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aee7e4caed3e7a269ddd2caff88a2d155}{mce\+\_\+rdmsrl}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{structmsr}{msr}})
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a351e0a491db8a924be0367e4c1b6c8c8}{ex\+\_\+handler\+\_\+wrmsr\+\_\+fault}} (const struct \mbox{\hyperlink{structexception__table__entry}{exception\+\_\+table\+\_\+entry}} $\ast$fixup, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trapnr, unsigned long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}}, unsigned long \mbox{\hyperlink{idxd_8h_a899f8503a0a1aa2881780f0d20fd3709}{fault\+\_\+addr}})
+\item 
+static noinstr void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2498023e700b670819e9a44a5e357f6b}{mce\+\_\+wrmsrl}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{structmsr}{msr}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} v)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0d2ff15dac015a7846c4e2dab34ae322}{mce\+\_\+gather\+\_\+info}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a37c9825022bb2704338b95a9af4ed6c0}{mce\+\_\+available}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab3a32c528759cd79d87b984899c9f730}{mce\+\_\+schedule\+\_\+work}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a814e8085386eaf3eb872e7e6b984e8e9}{mce\+\_\+irq\+\_\+work\+\_\+cb}} (struct \mbox{\hyperlink{structirq__work}{irq\+\_\+work}} $\ast$entry)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a50b85c389b79c6aafe11cb29df7cceb1}{mce\+\_\+usable\+\_\+address}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ace939ec4d4bbbea0784b268633c42aee}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a50b85c389b79c6aafe11cb29df7cceb1}{mce\+\_\+usable\+\_\+address}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a085a8a5bea2e30f7631c144ea4e5afe8}{mce\+\_\+is\+\_\+memory\+\_\+error}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a528d062efd7892f1f4c240ee95ebb70e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a085a8a5bea2e30f7631c144ea4e5afe8}{mce\+\_\+is\+\_\+memory\+\_\+error}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a54d1bb3994c0e2709ed60478c8712845}{whole\+\_\+page}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a021a6d8ea74cf9d9a0d1b85a24bf42a2}{mce\+\_\+is\+\_\+correctable}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3b13993aec6cf676ad230ae5ff81f2b8}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a021a6d8ea74cf9d9a0d1b85a24bf42a2}{mce\+\_\+is\+\_\+correctable}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a68ac0264ae60b0564b71d5e48b7a0db0}{mce\+\_\+early\+\_\+notifier}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$nb, unsigned long \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad947a0e0c21cb1f82bff9ba0d191ff2f}{uc\+\_\+decode\+\_\+notifier}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$nb, unsigned long \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab22ef37f765a603cc3e4c46ba9aa39be}{mce\+\_\+default\+\_\+notifier}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$nb, unsigned long \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae94bd83c18ddb7c675205ae9b721a386}{mce\+\_\+read\+\_\+aux}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_afba7ce66671f31904a8b9b39750a87e3}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned, mce\+\_\+poll\+\_\+count)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a6962bcd40124021f3f2b9bdd146861}{machine\+\_\+check\+\_\+poll}} (\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_aae99450d841dc095aa82ddcb8abd41da}{mcp\+\_\+flags}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, mce\+\_\+banks\+\_\+t $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0c5f2b0b0a3795f20ce4f4055fcde6ea}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a6962bcd40124021f3f2b9bdd146861}{machine\+\_\+check\+\_\+poll}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac5405dbaebe44d1ae6ce9e0d469e82a8}{mce\+\_\+no\+\_\+way\+\_\+out}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, char $\ast$$\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}}, unsigned long $\ast$validp, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a289b22b93059c7c8d7db0cb66036a0ae}{mce\+\_\+timed\+\_\+out}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}}, const char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aae794be657ca39ed68e7a8a5dd937b96}{mce\+\_\+reign}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6b674ab2e45f29f340f9c53af7ce459e}{mce\+\_\+start}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$no\+\_\+way\+\_\+out)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4706e581ace31436954c3a7c53ef3799}{mce\+\_\+end}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} order)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_adeaf7036bb838390d14d9f913d5adc75}{mce\+\_\+clear\+\_\+state}} (unsigned long $\ast$toclear)
+\item 
+static noinstr \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac4ac238af7db5a215a86d652de6b0f10}{mce\+\_\+check\+\_\+crashing\+\_\+cpu}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a546a482a8debea61f9113f6b893785e1}{\+\_\+\+\_\+mc\+\_\+scan\+\_\+banks}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, struct \mbox{\hyperlink{structmce}{mce}} $\ast$final, unsigned long $\ast$toclear, unsigned long $\ast$valid\+\_\+banks, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} no\+\_\+way\+\_\+out, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$worst)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a60103a257519ddb6554366c416fee2}{kill\+\_\+me\+\_\+now}} (struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$ch)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_afa62c6aa3a677f31d1fc74f1419817b6}{kill\+\_\+me\+\_\+maybe}} (struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$cb)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9befe7e47252191079f00e309b2ef5af}{queue\+\_\+task\+\_\+work}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kill\+\_\+current\+\_\+task)
+\item 
+noinstr void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7f23a406025eb14384288215550274d9}{do\+\_\+machine\+\_\+check}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5600983bcc3324b6d9d65d7241a4c404}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7f23a406025eb14384288215550274d9}{do\+\_\+machine\+\_\+check}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2601bce571ed122f848164f1d8a89304}{memory\+\_\+failure}} (unsigned long pfn, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6e7f25ee1d3f2e09e05a00a511c3de41}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned long, mce\+\_\+next\+\_\+interval)
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7a2353f3da7d44af1e97f93911be1dec}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}}, mce\+\_\+timer)
+\item 
+static unsigned long \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a861d5b3df5531a5f3030c41bbb856f46}{mce\+\_\+adjust\+\_\+timer\+\_\+default}} (unsigned long interval)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9cad48955972c98d6475425cca5e1e74}{\+\_\+\+\_\+start\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}}, unsigned long interval)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae96e6443ec34a6b5a105b23aeeafe083}{mce\+\_\+timer\+\_\+fn}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae386e12946abff60c7872dbf62039f3d}{mce\+\_\+timer\+\_\+kick}} (unsigned long interval)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad86554094e8891fe9960e1485662168e}{mce\+\_\+timer\+\_\+delete\+\_\+all}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a283bc4450250b943e85c427644fad323}{mce\+\_\+notify\+\_\+irq}} (void)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac9cd8b8fe6052d7ad04a9e080f16845b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a283bc4450250b943e85c427644fad323}{mce\+\_\+notify\+\_\+irq}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a27a59841464bbdae30e72223cc53dc34}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+mce\+\_\+banks\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2ae67158d12441fea1291d1eeaf9f61d}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+cap\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1a41cb0e2753113dab42cbab21e40de8}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+generic}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0193a0ca08ddb8f3d952f2ab7a73bdb1}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+clear\+\_\+banks}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a115f7588cb29eede5528714bd521e0fa}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+check\+\_\+banks}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8af2a8321330acf9428c8a1b2f7bffc}{quirk\+\_\+sandybridge\+\_\+ifu}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a83f33201a686c9833ba12f735e3f4853}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+apply\+\_\+quirks}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a54ca80498209e0d0d865702a10f36325}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+ancient\+\_\+init}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a921a7ff7bceed940911f16afec99c732}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+early}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae167a3396fe3347b04b835de75816f6b}{mce\+\_\+centaur\+\_\+feature\+\_\+init}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3c44935385d05d901f496c8312e95fd7}{mce\+\_\+zhaoxin\+\_\+feature\+\_\+init}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8d010978f556bc7c1c71d69ac6ebd88}{mce\+\_\+zhaoxin\+\_\+feature\+\_\+clear}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad72374cd49f4772128bac76c3782b71a}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+vendor}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2171ad082723ae0ea6832ac6c637e131}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+clear\+\_\+vendor}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a167fc04549fc8d1a5a3dba444fae9b18}{mce\+\_\+start\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1c52f1ef6a2cd98a7170a3e1e2043f70}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+setup\+\_\+timer}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ade22b56259c1e64f1bb58de3ad7ef19f}{\+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+timer}} (void)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a15bd1d042625f4628e82065fbb523b3d}{filter\+\_\+mce}} (struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}})
+\item 
+static noinstr void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c2280433310d29ccf4a20647181a92}{unexpected\+\_\+machine\+\_\+check}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae9dc7d20d8ba9044af2cc5044d107d82}{exc\+\_\+machine\+\_\+check\+\_\+kernel}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a953778af47021fbf97125f32f29b4d3d}{exc\+\_\+machine\+\_\+check\+\_\+user}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aedc323397425579bda435bc65515d9a6}{D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW}} (exc\+\_\+machine\+\_\+check)
+\item 
+void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac84abc5b60779754637b33b5d4b60243}{mcheck\+\_\+cpu\+\_\+init}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af59d15bba55fa9c4fa91bd3e22aa0f4b}{mcheck\+\_\+cpu\+\_\+clear}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aca5531fcfc0f027dc540afa2950623f5}{\+\_\+\+\_\+mce\+\_\+disable\+\_\+bank}} (void $\ast$arg)
+\item 
+void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a981cd022016bb259ab6670a1ef175f11}{mce\+\_\+disable\+\_\+bank}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a79cf3f8405c0fb72ce7c2dfd5040d8f1}{mcheck\+\_\+enable}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a35825edd812b4e17720fbb4100e9c76d}{\+\_\+\+\_\+setup}} (\char`\"{}mce\char`\"{}, mcheck\+\_\+enable)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aeb2b45eea64e0c3aee93c1af4148b95c}{mcheck\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9211987a85256917cdffde2819a1a864}{mce\+\_\+disable\+\_\+error\+\_\+reporting}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3d900d1b4d3eea36d608cd56ae28a827}{vendor\+\_\+disable\+\_\+error\+\_\+reporting}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a87564222a3ce61c2670177850f65a6d5}{mce\+\_\+syscore\+\_\+suspend}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a016972705fafdbba06c17ce8e6942a7f}{mce\+\_\+syscore\+\_\+shutdown}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_abc8facd52704ff0aaf63c10e4a15d62c}{mce\+\_\+syscore\+\_\+resume}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a07fb5ba3dbbcfc1f4bcc8d1581243bef}{mce\+\_\+cpu\+\_\+restart}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a56fac535bf5ccc7b827e7050e946179d}{mce\+\_\+restart}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1ed5f3ad36a185fd07646ecf00a39047}{mce\+\_\+disable\+\_\+cmci}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a49d678e65c54f149740187226f6bb796}{mce\+\_\+enable\+\_\+ce}} (void $\ast$all)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac98d25cf7df3c52c74762df9353e6aba}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$, mce\+\_\+device)
+\item 
+static struct \mbox{\hyperlink{structmce__bank__dev}{mce\+\_\+bank\+\_\+dev}} $\ast$ \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a43ddeb3c796dc463ebbf1572b1b0ca77}{attr\+\_\+to\+\_\+bank}} (struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac2f09e1252cab416de41df841a22cc66}{show\+\_\+bank}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a13d038901611cda267705cfdf0439fa0}{set\+\_\+bank}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af12592acbdc676cf6e08231216944cda}{set\+\_\+ignore\+\_\+ce}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af0db8f9c9e4e85de2c18cbcebe00ac4b}{set\+\_\+cmci\+\_\+disabled}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a513480c916902fa8df21da7c9222bd32}{store\+\_\+int\+\_\+with\+\_\+restart}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5ea048f8a5dbef3c8c1570bb6c13ccfb}{D\+E\+V\+I\+C\+E\+\_\+\+I\+N\+T\+\_\+\+A\+T\+TR}} (tolerant, 0644, mca\+\_\+cfg.\+tolerant)
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7fc1856c369a2901e1c935f23ea3c0b3}{D\+E\+V\+I\+C\+E\+\_\+\+I\+N\+T\+\_\+\+A\+T\+TR}} (monarch\+\_\+timeout, 0644, mca\+\_\+cfg.\+monarch\+\_\+timeout)
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a80813b754f38a7589965f92579e06c23}{D\+E\+V\+I\+C\+E\+\_\+\+B\+O\+O\+L\+\_\+\+A\+T\+TR}} (dont\+\_\+log\+\_\+ce, 0644, mca\+\_\+cfg.\+dont\+\_\+log\+\_\+ce)
+\item 
+static \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa9c3b2e1b16310b0d4ecf04beeced5cd}{D\+E\+V\+I\+C\+E\+\_\+\+B\+O\+O\+L\+\_\+\+A\+T\+TR}} (print\+\_\+all, 0644, mca\+\_\+cfg.\+print\+\_\+all)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aaddc2ae3eb9ce6a16aeb77f242e3d61c}{mce\+\_\+device\+\_\+release}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a63820988da5cf1a8edaed2e44c5a6571}{mce\+\_\+device\+\_\+create}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a41d16b5df85c91bde8d4d455186dce5c}{mce\+\_\+device\+\_\+remove}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ada268d1728b8c26f78641e30036047f1}{mce\+\_\+disable\+\_\+cpu}} (void)
+\item 
+static void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7ebea5eccec4b10c96d6574febc1177f}{mce\+\_\+reenable\+\_\+cpu}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac792fda453b5495ee74aa403a035facc}{mce\+\_\+cpu\+\_\+dead}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c0d6821604f1999dd9eff0f0c5fb7c}{mce\+\_\+cpu\+\_\+online}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae7d5e8bf134c0c4e20bf4f4360d48af3}{mce\+\_\+cpu\+\_\+pre\+\_\+down}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7df77d49391eb7d0af79fee6c1faee3c}{mce\+\_\+init\+\_\+banks}} (void)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a578b1f63e4be29b8fdd4589c77a46a0d}{mcheck\+\_\+init\+\_\+device}} (void)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a36578ea52ad7ba81c8e63599ef250295}{device\+\_\+initcall\+\_\+sync}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a578b1f63e4be29b8fdd4589c77a46a0d}{mcheck\+\_\+init\+\_\+device}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8be0d7391583c5c29d3ac46ef66c021}{mcheck\+\_\+disable}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af877874d4d43b45b71d02afb885849d9}{\+\_\+\+\_\+setup}} (\char`\"{}nomce\char`\"{}, mcheck\+\_\+disable)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af6815422a1e5bf9996a01b654bcef9cd}{mcheck\+\_\+debugfs\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a59efc022f45ee9a68c446f8271e119f4}{mcheck\+\_\+late\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab952c684abe592c921e8e9c6004f2397}{late\+\_\+initcall}} (\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a59efc022f45ee9a68c446f8271e119f4}{mcheck\+\_\+late\+\_\+init}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structmce__bank__dev}{mce\+\_\+bank\+\_\+dev}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae28811c20c35ad3adfc931a6abb470a4}{mce\+\_\+bank\+\_\+devs}} \mbox{[}\mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_a2a2a32e2f45de684118ecc081d49a3d0}{M\+A\+X\+\_\+\+N\+R\+\_\+\+B\+A\+N\+KS}}\mbox{]}
+\item 
+struct \mbox{\hyperlink{structmce__vendor__flags}{mce\+\_\+vendor\+\_\+flags}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_a1c31bdae88d08ad55c39dcfdde1c37dd}{mce\+\_\+flags}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a76fbe154e47cdd434a2c787c6581f47c}{\+\_\+\+\_\+read\+\_\+mostly}}
+\item 
+static unsigned long \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a98dba8e8dca42ad7a31d9586acd39f6b}{mce\+\_\+need\+\_\+notify}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5f46a26bfbf510ac0ce55c2888a940e}{cpu\+\_\+missing}}
+\item 
+mce\+\_\+banks\+\_\+t \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9314aca1024febb01c6b6a797b8c5263}{mce\+\_\+banks\+\_\+ce\+\_\+disabled}}
+\item 
+static struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a81e4906810e81a60d2b10d5cb348aac4}{mce\+\_\+work}}
+\item 
+static struct \mbox{\hyperlink{structirq__work}{irq\+\_\+work}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a762528b0b8e1e77310058d7a1f5414a8}{mce\+\_\+irq\+\_\+work}}
+\item 
+static void($\ast$ \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9bf22cc9e121e58911692ab61eadeaca}{quirk\+\_\+no\+\_\+way\+\_\+out}} )(\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+struct \mbox{\hyperlink{structmca__msr__regs}{mca\+\_\+msr\+\_\+regs}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9bca4de4e4f1c953e603bdc31a181932}{msr\+\_\+ops}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6bad1eae5356e652b8209b333088d2c4}{mce\+\_\+panicked}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_affd86d60d542030a01c23c6dc9104cd7}{fake\+\_\+panic}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9716896903ae5fe4e83186e5a0835b7c}{mce\+\_\+fake\+\_\+panicked}}
+\item 
+static struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6538438ac477a01e8704206d54cf808f}{early\+\_\+nb}}
+\item 
+static struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3b4bf733f940bac7cb5f194f224cc2a6}{mce\+\_\+uc\+\_\+nb}}
+\item 
+static struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a501dcc17e2c867d2436c37df999d8e25}{mce\+\_\+default\+\_\+nb}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a77d17b0d3a93fb3fc58568b8e81fdafb}{mce\+\_\+executing}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae52f950884a6c0c261f1f5236855b911}{mce\+\_\+callin}}
+\item 
+static \mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad9ad3363cc0331e8f5e2e318a0306b66}{mce\+\_\+missing\+\_\+cpus}} = \mbox{\hyperlink{include_2linux_2cpumask_8h_a78d865e7043dce5503ced50441386302}{C\+P\+U\+\_\+\+M\+A\+S\+K\+\_\+\+A\+LL}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a44de3cc10bd0dfc33a7f3b5c9adb58f4}{global\+\_\+nwo}}
+\item 
+static unsigned long \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2b442afd9a8de311d4a4ae1e37e435ac}{check\+\_\+interval}} = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_aaeeee0777ee89b0224445a2e7636a9b0}{I\+N\+I\+T\+I\+A\+L\+\_\+\+C\+H\+E\+C\+K\+\_\+\+I\+N\+T\+E\+R\+V\+AL}}
+\item 
+static unsigned long($\ast$ \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7e12afac9ac2585e85ab3bde5468fb3e}{mce\+\_\+adjust\+\_\+timer}} )(unsigned long interval) = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a861d5b3df5531a5f3030c41bbb856f46}{mce\+\_\+adjust\+\_\+timer\+\_\+default}}
+\item 
+void($\ast$ \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7510e28d2b3afc151c97f7a2cb4156fe}{machine\+\_\+check\+\_\+vector}} )(struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$) = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c2280433310d29ccf4a20647181a92}{unexpected\+\_\+machine\+\_\+check}}
+\item 
+static struct \mbox{\hyperlink{structsyscore__ops}{syscore\+\_\+ops}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0a6996b0be8fb7181182ba7709df8b3b}{mce\+\_\+syscore\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structbus__type}{bus\+\_\+type}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2fbe9cca986c0e494180b6c17c91e239}{mce\+\_\+subsys}}
+\item 
+static struct \mbox{\hyperlink{structdev__ext__attribute}{dev\+\_\+ext\+\_\+attribute}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_acb8fdc4dedfd4c4233e210d35a552746}{dev\+\_\+attr\+\_\+check\+\_\+interval}}
+\item 
+static struct \mbox{\hyperlink{structdev__ext__attribute}{dev\+\_\+ext\+\_\+attribute}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6b9f7f2d9e70cb01ed59545b8acfe6cc}{dev\+\_\+attr\+\_\+ignore\+\_\+ce}}
+\item 
+static struct \mbox{\hyperlink{structdev__ext__attribute}{dev\+\_\+ext\+\_\+attribute}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aab3c270abeaf9060933183a6b05feda9}{dev\+\_\+attr\+\_\+cmci\+\_\+disabled}}
+\item 
+static struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$ \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5dd46f07ecf3f3fb7701e5b51f943d3}{mce\+\_\+device\+\_\+attrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static \mbox{\hyperlink{include_2linux_2cpumask_8h_abc33c8ce63d9c12aee03049dad459fb0}{cpumask\+\_\+var\+\_\+t}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a11f1265ee08e0f956a15cbcf7a1ea1f8}{mce\+\_\+device\+\_\+initialized}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_adebdb90fc1c27afd04491b82e4f6c300}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_adebdb90fc1c27afd04491b82e4f6c300}} 
+\index{core.c@{core.c}!ATTR\_LEN@{ATTR\_LEN}}
+\index{ATTR\_LEN@{ATTR\_LEN}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{ATTR\_LEN}{ATTR\_LEN}}
+{\footnotesize\ttfamily \#define A\+T\+T\+R\+\_\+\+L\+EN~16}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a40473b47b4871fa538a0fa131f94e774}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a40473b47b4871fa538a0fa131f94e774}} 
+\index{core.c@{core.c}!CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}}
+\index{CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{CREATE\_TRACE\_POINTS}{CREATE\_TRACE\_POINTS}}
+{\footnotesize\ttfamily \#define C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aef6bbba792b7789da097bd89fb00764d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aef6bbba792b7789da097bd89fb00764d}} 
+\index{core.c@{core.c}!PANIC\_TIMEOUT@{PANIC\_TIMEOUT}}
+\index{PANIC\_TIMEOUT@{PANIC\_TIMEOUT}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{PANIC\_TIMEOUT}{PANIC\_TIMEOUT}}
+{\footnotesize\ttfamily \#define P\+A\+N\+I\+C\+\_\+\+T\+I\+M\+E\+O\+UT~5 /$\ast$ 5 \mbox{\hyperlink{scsi__netlink__fc_8h_af1c6681ed3b417b3480d3aa84122df75}{seconds}} $\ast$/}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_afc6323ef1df3746fc14920e51e91c878}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_afc6323ef1df3746fc14920e51e91c878}} 
+\index{core.c@{core.c}!SPINUNIT@{SPINUNIT}}
+\index{SPINUNIT@{SPINUNIT}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{SPINUNIT}{SPINUNIT}}
+{\footnotesize\ttfamily \#define S\+P\+I\+N\+U\+N\+IT~100	/$\ast$ 100ns $\ast$/}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a546a482a8debea61f9113f6b893785e1}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a546a482a8debea61f9113f6b893785e1}} 
+\index{core.c@{core.c}!\_\_mc\_scan\_banks@{\_\_mc\_scan\_banks}}
+\index{\_\_mc\_scan\_banks@{\_\_mc\_scan\_banks}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mc\_scan\_banks()}{\_\_mc\_scan\_banks()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mc\+\_\+scan\+\_\+banks (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{final,  }\item[{unsigned long $\ast$}]{toclear,  }\item[{unsigned long $\ast$}]{valid\+\_\+banks,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{no\+\_\+way\+\_\+out,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{worst }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aca5531fcfc0f027dc540afa2950623f5}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aca5531fcfc0f027dc540afa2950623f5}} 
+\index{core.c@{core.c}!\_\_mce\_disable\_bank@{\_\_mce\_disable\_bank}}
+\index{\_\_mce\_disable\_bank@{\_\_mce\_disable\_bank}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mce\_disable\_bank()}{\_\_mce\_disable\_bank()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mce\+\_\+disable\+\_\+bank (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a54ca80498209e0d0d865702a10f36325}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a54ca80498209e0d0d865702a10f36325}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_ancient\_init@{\_\_mcheck\_cpu\_ancient\_init}}
+\index{\_\_mcheck\_cpu\_ancient\_init@{\_\_mcheck\_cpu\_ancient\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_ancient\_init()}{\_\_mcheck\_cpu\_ancient\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+ancient\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a83f33201a686c9833ba12f735e3f4853}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a83f33201a686c9833ba12f735e3f4853}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_apply\_quirks@{\_\_mcheck\_cpu\_apply\_quirks}}
+\index{\_\_mcheck\_cpu\_apply\_quirks@{\_\_mcheck\_cpu\_apply\_quirks}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_apply\_quirks()}{\_\_mcheck\_cpu\_apply\_quirks()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+apply\+\_\+quirks (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2ae67158d12441fea1291d1eeaf9f61d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2ae67158d12441fea1291d1eeaf9f61d}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_cap\_init@{\_\_mcheck\_cpu\_cap\_init}}
+\index{\_\_mcheck\_cpu\_cap\_init@{\_\_mcheck\_cpu\_cap\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_cap\_init()}{\_\_mcheck\_cpu\_cap\_init()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+cap\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a115f7588cb29eede5528714bd521e0fa}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a115f7588cb29eede5528714bd521e0fa}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_check\_banks@{\_\_mcheck\_cpu\_check\_banks}}
+\index{\_\_mcheck\_cpu\_check\_banks@{\_\_mcheck\_cpu\_check\_banks}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_check\_banks()}{\_\_mcheck\_cpu\_check\_banks()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+check\+\_\+banks (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2171ad082723ae0ea6832ac6c637e131}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2171ad082723ae0ea6832ac6c637e131}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_clear\_vendor@{\_\_mcheck\_cpu\_clear\_vendor}}
+\index{\_\_mcheck\_cpu\_clear\_vendor@{\_\_mcheck\_cpu\_clear\_vendor}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_clear\_vendor()}{\_\_mcheck\_cpu\_clear\_vendor()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+clear\+\_\+vendor (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0193a0ca08ddb8f3d952f2ab7a73bdb1}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0193a0ca08ddb8f3d952f2ab7a73bdb1}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_init\_clear\_banks@{\_\_mcheck\_cpu\_init\_clear\_banks}}
+\index{\_\_mcheck\_cpu\_init\_clear\_banks@{\_\_mcheck\_cpu\_init\_clear\_banks}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_init\_clear\_banks()}{\_\_mcheck\_cpu\_init\_clear\_banks()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+clear\+\_\+banks (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a921a7ff7bceed940911f16afec99c732}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a921a7ff7bceed940911f16afec99c732}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_init\_early@{\_\_mcheck\_cpu\_init\_early}}
+\index{\_\_mcheck\_cpu\_init\_early@{\_\_mcheck\_cpu\_init\_early}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_init\_early()}{\_\_mcheck\_cpu\_init\_early()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+early (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1a41cb0e2753113dab42cbab21e40de8}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1a41cb0e2753113dab42cbab21e40de8}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_init\_generic@{\_\_mcheck\_cpu\_init\_generic}}
+\index{\_\_mcheck\_cpu\_init\_generic@{\_\_mcheck\_cpu\_init\_generic}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_init\_generic()}{\_\_mcheck\_cpu\_init\_generic()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+generic (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ade22b56259c1e64f1bb58de3ad7ef19f}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ade22b56259c1e64f1bb58de3ad7ef19f}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_init\_timer@{\_\_mcheck\_cpu\_init\_timer}}
+\index{\_\_mcheck\_cpu\_init\_timer@{\_\_mcheck\_cpu\_init\_timer}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_init\_timer()}{\_\_mcheck\_cpu\_init\_timer()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+timer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad72374cd49f4772128bac76c3782b71a}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad72374cd49f4772128bac76c3782b71a}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_init\_vendor@{\_\_mcheck\_cpu\_init\_vendor}}
+\index{\_\_mcheck\_cpu\_init\_vendor@{\_\_mcheck\_cpu\_init\_vendor}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_init\_vendor()}{\_\_mcheck\_cpu\_init\_vendor()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+init\+\_\+vendor (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a27a59841464bbdae30e72223cc53dc34}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a27a59841464bbdae30e72223cc53dc34}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_mce\_banks\_init@{\_\_mcheck\_cpu\_mce\_banks\_init}}
+\index{\_\_mcheck\_cpu\_mce\_banks\_init@{\_\_mcheck\_cpu\_mce\_banks\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_mce\_banks\_init()}{\_\_mcheck\_cpu\_mce\_banks\_init()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+mce\+\_\+banks\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1c52f1ef6a2cd98a7170a3e1e2043f70}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1c52f1ef6a2cd98a7170a3e1e2043f70}} 
+\index{core.c@{core.c}!\_\_mcheck\_cpu\_setup\_timer@{\_\_mcheck\_cpu\_setup\_timer}}
+\index{\_\_mcheck\_cpu\_setup\_timer@{\_\_mcheck\_cpu\_setup\_timer}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mcheck\_cpu\_setup\_timer()}{\_\_mcheck\_cpu\_setup\_timer()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+mcheck\+\_\+cpu\+\_\+setup\+\_\+timer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4502de12ca2985d87b63b90321f4fe2d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4502de12ca2985d87b63b90321f4fe2d}} 
+\index{core.c@{core.c}!\_\_print\_mce@{\_\_print\_mce}}
+\index{\_\_print\_mce@{\_\_print\_mce}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_print\_mce()}{\_\_print\_mce()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+print\+\_\+mce (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a35825edd812b4e17720fbb4100e9c76d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a35825edd812b4e17720fbb4100e9c76d}} 
+\index{core.c@{core.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}mce\char`\"{}}]{,  }\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a79cf3f8405c0fb72ce7c2dfd5040d8f1}{mcheck\+\_\+enable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af877874d4d43b45b71d02afb885849d9}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af877874d4d43b45b71d02afb885849d9}} 
+\index{core.c@{core.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}nomce\char`\"{}}]{,  }\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8be0d7391583c5c29d3ac46ef66c021}{mcheck\+\_\+disable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9cad48955972c98d6475425cca5e1e74}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9cad48955972c98d6475425cca5e1e74}} 
+\index{core.c@{core.c}!\_\_start\_timer@{\_\_start\_timer}}
+\index{\_\_start\_timer@{\_\_start\_timer}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_start\_timer()}{\_\_start\_timer()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+start\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{t,  }\item[{unsigned long}]{interval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_afb923fa9afd220167df0f99d7aeea21c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_afb923fa9afd220167df0f99d7aeea21c}} 
+\index{core.c@{core.c}!addr\_reg@{addr\_reg}}
+\index{addr\_reg@{addr\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{addr\_reg()}{addr\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} addr\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a43ddeb3c796dc463ebbf1572b1b0ca77}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a43ddeb3c796dc463ebbf1572b1b0ca77}} 
+\index{core.c@{core.c}!attr\_to\_bank@{attr\_to\_bank}}
+\index{attr\_to\_bank@{attr\_to\_bank}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{attr\_to\_bank()}{attr\_to\_bank()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structmce__bank__dev}{mce\+\_\+bank\+\_\+dev}}$\ast$ attr\+\_\+to\+\_\+bank (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae5a9b198df528fdb9a2b4f261cf41947}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae5a9b198df528fdb9a2b4f261cf41947}} 
+\index{core.c@{core.c}!BLOCKING\_NOTIFIER\_HEAD@{BLOCKING\_NOTIFIER\_HEAD}}
+\index{BLOCKING\_NOTIFIER\_HEAD@{BLOCKING\_NOTIFIER\_HEAD}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{BLOCKING\_NOTIFIER\_HEAD()}{BLOCKING\_NOTIFIER\_HEAD()}}
+{\footnotesize\ttfamily B\+L\+O\+C\+K\+I\+N\+G\+\_\+\+N\+O\+T\+I\+F\+I\+E\+R\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_a3a432ad393cc8942fade2577a5e6b514}{x86\+\_\+mce\+\_\+decoder\+\_\+chain}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a39e7f70fa7b113e08ed2f66568303bd9}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a39e7f70fa7b113e08ed2f66568303bd9}} 
+\index{core.c@{core.c}!ctl\_reg@{ctl\_reg}}
+\index{ctl\_reg@{ctl\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{ctl\_reg()}{ctl\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} ctl\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aedc323397425579bda435bc65515d9a6}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aedc323397425579bda435bc65515d9a6}} 
+\index{core.c@{core.c}!DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}}
+\index{DEFINE\_IDTENTRY\_RAW@{DEFINE\_IDTENTRY\_RAW}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_IDTENTRY\_RAW()}{DEFINE\_IDTENTRY\_RAW()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+I\+D\+T\+E\+N\+T\+R\+Y\+\_\+\+R\+AW (\begin{DoxyParamCaption}\item[{exc\+\_\+machine\+\_\+check}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab70f27bcad913f9118226f804be5af2c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab70f27bcad913f9118226f804be5af2c}} 
+\index{core.c@{core.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{mce\+\_\+sysfs\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8f76865d3fa198cea5043d19fdd0d979}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8f76865d3fa198cea5043d19fdd0d979}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [1/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{mce\+\_\+banks\+\_\+t}]{,  }\item[{mce\+\_\+poll\+\_\+banks}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac98d25cf7df3c52c74762df9353e6aba}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac98d25cf7df3c52c74762df9353e6aba}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [2/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{,  }\item[{mce\+\_\+device}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa7fe5f0125a4a811ad0bd43cce4997fb}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa7fe5f0125a4a811ad0bd43cce4997fb}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [3/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}}}]{,  }\item[{injectm}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aff41e73635927be62dd6158692e5aea3}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aff41e73635927be62dd6158692e5aea3}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [4/8]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}}}]{,  }\item[{mces\+\_\+seen}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7a2353f3da7d44af1e97f93911be1dec}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7a2353f3da7d44af1e97f93911be1dec}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [5/8]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}}}]{,  }\item[{mce\+\_\+timer}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6e7f25ee1d3f2e09e05a00a511c3de41}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6e7f25ee1d3f2e09e05a00a511c3de41}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [6/8]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned long}]{,  }\item[{mce\+\_\+next\+\_\+interval}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2990c7e6c2c8914ee190d516a4b13c4f}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2990c7e6c2c8914ee190d516a4b13c4f}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [7/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned}]{,  }\item[{mce\+\_\+exception\+\_\+count}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_afba7ce66671f31904a8b9b39750a87e3}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_afba7ce66671f31904a8b9b39750a87e3}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [8/8]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned}]{,  }\item[{mce\+\_\+poll\+\_\+count}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a99ade61b6ed40aaeeff010a373e7fb7c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a99ade61b6ed40aaeeff010a373e7fb7c}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU\_READ\_MOSTLY@{DEFINE\_PER\_CPU\_READ\_MOSTLY}}
+\index{DEFINE\_PER\_CPU\_READ\_MOSTLY@{DEFINE\_PER\_CPU\_READ\_MOSTLY}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU\_READ\_MOSTLY()}{DEFINE\_PER\_CPU\_READ\_MOSTLY()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+R\+E\+A\+D\+\_\+\+M\+O\+S\+T\+LY (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce__bank}{mce\+\_\+bank}}}]{\mbox{[}\+M\+A\+X\+\_\+\+N\+R\+\_\+\+B\+A\+N\+K\+S\mbox{]},  }\item[{mce\+\_\+banks\+\_\+array}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aec29cfe0f70477e83de7d765b369c15e}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aec29cfe0f70477e83de7d765b369c15e}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU\_READ\_MOSTLY@{DEFINE\_PER\_CPU\_READ\_MOSTLY}}
+\index{DEFINE\_PER\_CPU\_READ\_MOSTLY@{DEFINE\_PER\_CPU\_READ\_MOSTLY}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU\_READ\_MOSTLY()}{DEFINE\_PER\_CPU\_READ\_MOSTLY()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+R\+E\+A\+D\+\_\+\+M\+O\+S\+T\+LY (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{mce\+\_\+num\+\_\+banks}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a80813b754f38a7589965f92579e06c23}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a80813b754f38a7589965f92579e06c23}} 
+\index{core.c@{core.c}!DEVICE\_BOOL\_ATTR@{DEVICE\_BOOL\_ATTR}}
+\index{DEVICE\_BOOL\_ATTR@{DEVICE\_BOOL\_ATTR}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_BOOL\_ATTR()}{DEVICE\_BOOL\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+B\+O\+O\+L\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{dont\+\_\+log\+\_\+ce}]{,  }\item[{0644}]{,  }\item[{mca\+\_\+cfg.}]{dont\+\_\+log\+\_\+ce }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa9c3b2e1b16310b0d4ecf04beeced5cd}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa9c3b2e1b16310b0d4ecf04beeced5cd}} 
+\index{core.c@{core.c}!DEVICE\_BOOL\_ATTR@{DEVICE\_BOOL\_ATTR}}
+\index{DEVICE\_BOOL\_ATTR@{DEVICE\_BOOL\_ATTR}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_BOOL\_ATTR()}{DEVICE\_BOOL\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+B\+O\+O\+L\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{print\+\_\+all}]{,  }\item[{0644}]{,  }\item[{mca\+\_\+cfg.}]{print\+\_\+all }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a36578ea52ad7ba81c8e63599ef250295}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a36578ea52ad7ba81c8e63599ef250295}} 
+\index{core.c@{core.c}!device\_initcall\_sync@{device\_initcall\_sync}}
+\index{device\_initcall\_sync@{device\_initcall\_sync}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{device\_initcall\_sync()}{device\_initcall\_sync()}}
+{\footnotesize\ttfamily device\+\_\+initcall\+\_\+sync (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a578b1f63e4be29b8fdd4589c77a46a0d}{mcheck\+\_\+init\+\_\+device}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7fc1856c369a2901e1c935f23ea3c0b3}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7fc1856c369a2901e1c935f23ea3c0b3}} 
+\index{core.c@{core.c}!DEVICE\_INT\_ATTR@{DEVICE\_INT\_ATTR}}
+\index{DEVICE\_INT\_ATTR@{DEVICE\_INT\_ATTR}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_INT\_ATTR()}{DEVICE\_INT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+I\+N\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{monarch\+\_\+timeout}]{,  }\item[{0644}]{,  }\item[{mca\+\_\+cfg.}]{monarch\+\_\+timeout }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5ea048f8a5dbef3c8c1570bb6c13ccfb}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5ea048f8a5dbef3c8c1570bb6c13ccfb}} 
+\index{core.c@{core.c}!DEVICE\_INT\_ATTR@{DEVICE\_INT\_ATTR}}
+\index{DEVICE\_INT\_ATTR@{DEVICE\_INT\_ATTR}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_INT\_ATTR()}{DEVICE\_INT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+I\+N\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{tolerant}]{,  }\item[{0644}]{,  }\item[{mca\+\_\+cfg.}]{tolerant }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7f23a406025eb14384288215550274d9}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7f23a406025eb14384288215550274d9}} 
+\index{core.c@{core.c}!do\_machine\_check@{do\_machine\_check}}
+\index{do\_machine\_check@{do\_machine\_check}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{do\_machine\_check()}{do\_machine\_check()}}
+{\footnotesize\ttfamily noinstr void do\+\_\+machine\+\_\+check (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5aeade5b5baa98465ed7c494febb32f}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5aeade5b5baa98465ed7c494febb32f}} 
+\index{core.c@{core.c}!ex\_handler\_rdmsr\_fault@{ex\_handler\_rdmsr\_fault}}
+\index{ex\_handler\_rdmsr\_fault@{ex\_handler\_rdmsr\_fault}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{ex\_handler\_rdmsr\_fault()}{ex\_handler\_rdmsr\_fault()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} ex\+\_\+handler\+\_\+rdmsr\+\_\+fault (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structexception__table__entry}{exception\+\_\+table\+\_\+entry}} $\ast$}]{fixup,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trapnr,  }\item[{unsigned long}]{error\+\_\+code,  }\item[{unsigned long}]{fault\+\_\+addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a351e0a491db8a924be0367e4c1b6c8c8}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a351e0a491db8a924be0367e4c1b6c8c8}} 
+\index{core.c@{core.c}!ex\_handler\_wrmsr\_fault@{ex\_handler\_wrmsr\_fault}}
+\index{ex\_handler\_wrmsr\_fault@{ex\_handler\_wrmsr\_fault}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{ex\_handler\_wrmsr\_fault()}{ex\_handler\_wrmsr\_fault()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} ex\+\_\+handler\+\_\+wrmsr\+\_\+fault (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structexception__table__entry}{exception\+\_\+table\+\_\+entry}} $\ast$}]{fixup,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trapnr,  }\item[{unsigned long}]{error\+\_\+code,  }\item[{unsigned long}]{fault\+\_\+addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae9dc7d20d8ba9044af2cc5044d107d82}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae9dc7d20d8ba9044af2cc5044d107d82}} 
+\index{core.c@{core.c}!exc\_machine\_check\_kernel@{exc\_machine\_check\_kernel}}
+\index{exc\_machine\_check\_kernel@{exc\_machine\_check\_kernel}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{exc\_machine\_check\_kernel()}{exc\_machine\_check\_kernel()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void exc\+\_\+machine\+\_\+check\+\_\+kernel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a953778af47021fbf97125f32f29b4d3d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a953778af47021fbf97125f32f29b4d3d}} 
+\index{core.c@{core.c}!exc\_machine\_check\_user@{exc\_machine\_check\_user}}
+\index{exc\_machine\_check\_user@{exc\_machine\_check\_user}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{exc\_machine\_check\_user()}{exc\_machine\_check\_user()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void exc\+\_\+machine\+\_\+check\+\_\+user (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa3f254601bfa0517d2a4a3d6e20add72}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aa3f254601bfa0517d2a4a3d6e20add72}} 
+\index{core.c@{core.c}!EXPORT\_PER\_CPU\_SYMBOL\_GPL@{EXPORT\_PER\_CPU\_SYMBOL\_GPL}}
+\index{EXPORT\_PER\_CPU\_SYMBOL\_GPL@{EXPORT\_PER\_CPU\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_PER\_CPU\_SYMBOL\_GPL()}{EXPORT\_PER\_CPU\_SYMBOL\_GPL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{injectm}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5600983bcc3324b6d9d65d7241a4c404}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5600983bcc3324b6d9d65d7241a4c404}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7f23a406025eb14384288215550274d9}{do\+\_\+machine\+\_\+check}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0c5f2b0b0a3795f20ce4f4055fcde6ea}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0c5f2b0b0a3795f20ce4f4055fcde6ea}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a6962bcd40124021f3f2b9bdd146861}{machine\+\_\+check\+\_\+poll}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3b13993aec6cf676ad230ae5ff81f2b8}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3b13993aec6cf676ad230ae5ff81f2b8}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a021a6d8ea74cf9d9a0d1b85a24bf42a2}{mce\+\_\+is\+\_\+correctable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a528d062efd7892f1f4c240ee95ebb70e}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a528d062efd7892f1f4c240ee95ebb70e}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a085a8a5bea2e30f7631c144ea4e5afe8}{mce\+\_\+is\+\_\+memory\+\_\+error}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a16140daa85e81145af63abc1d3ab5837}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a16140daa85e81145af63abc1d3ab5837}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_addd6f9931b5d2f32c5fa737d392abc32}{mce\+\_\+log}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac9cd8b8fe6052d7ad04a9e080f16845b}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac9cd8b8fe6052d7ad04a9e080f16845b}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a283bc4450250b943e85c427644fad323}{mce\+\_\+notify\+\_\+irq}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae720b62ff3db5a5298e117f4b72b94bc}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae720b62ff3db5a5298e117f4b72b94bc}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad696c41a583330d8f756c8a6a1e9c1b5}{mce\+\_\+register\+\_\+decode\+\_\+chain}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3dd0ab14a6aab83078e489ad28e0d871}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3dd0ab14a6aab83078e489ad28e0d871}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3913be788499f70bb0a0b8e0f25ba322}{mce\+\_\+unregister\+\_\+decode\+\_\+chain}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ace939ec4d4bbbea0784b268633c42aee}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ace939ec4d4bbbea0784b268633c42aee}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a50b85c389b79c6aafe11cb29df7cceb1}{mce\+\_\+usable\+\_\+address}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a15bd1d042625f4628e82065fbb523b3d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a15bd1d042625f4628e82065fbb523b3d}} 
+\index{core.c@{core.c}!filter\_mce@{filter\_mce}}
+\index{filter\_mce@{filter\_mce}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{filter\_mce()}{filter\_mce()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} filter\+\_\+mce (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_afa62c6aa3a677f31d1fc74f1419817b6}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_afa62c6aa3a677f31d1fc74f1419817b6}} 
+\index{core.c@{core.c}!kill\_me\_maybe@{kill\_me\_maybe}}
+\index{kill\_me\_maybe@{kill\_me\_maybe}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kill\_me\_maybe()}{kill\_me\_maybe()}}
+{\footnotesize\ttfamily static void kill\+\_\+me\+\_\+maybe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$}]{cb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a60103a257519ddb6554366c416fee2}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a60103a257519ddb6554366c416fee2}} 
+\index{core.c@{core.c}!kill\_me\_now@{kill\_me\_now}}
+\index{kill\_me\_now@{kill\_me\_now}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kill\_me\_now()}{kill\_me\_now()}}
+{\footnotesize\ttfamily static void kill\+\_\+me\+\_\+now (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$}]{ch }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab952c684abe592c921e8e9c6004f2397}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab952c684abe592c921e8e9c6004f2397}} 
+\index{core.c@{core.c}!late\_initcall@{late\_initcall}}
+\index{late\_initcall@{late\_initcall}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall()}{late\_initcall()}}
+{\footnotesize\ttfamily late\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a59efc022f45ee9a68c446f8271e119f4}{mcheck\+\_\+late\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a6962bcd40124021f3f2b9bdd146861}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a5a6962bcd40124021f3f2b9bdd146861}} 
+\index{core.c@{core.c}!machine\_check\_poll@{machine\_check\_poll}}
+\index{machine\_check\_poll@{machine\_check\_poll}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{machine\_check\_poll()}{machine\_check\_poll()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} machine\+\_\+check\+\_\+poll (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_aae99450d841dc095aa82ddcb8abd41da}{mcp\+\_\+flags}}}]{flags,  }\item[{mce\+\_\+banks\+\_\+t $\ast$}]{b }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a861d5b3df5531a5f3030c41bbb856f46}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a861d5b3df5531a5f3030c41bbb856f46}} 
+\index{core.c@{core.c}!mce\_adjust\_timer\_default@{mce\_adjust\_timer\_default}}
+\index{mce\_adjust\_timer\_default@{mce\_adjust\_timer\_default}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_adjust\_timer\_default()}{mce\_adjust\_timer\_default()}}
+{\footnotesize\ttfamily static unsigned long mce\+\_\+adjust\+\_\+timer\+\_\+default (\begin{DoxyParamCaption}\item[{unsigned long}]{interval }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a37c9825022bb2704338b95a9af4ed6c0}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a37c9825022bb2704338b95a9af4ed6c0}} 
+\index{core.c@{core.c}!mce\_available@{mce\_available}}
+\index{mce\_available@{mce\_available}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_available()}{mce\_available()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+available (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae167a3396fe3347b04b835de75816f6b}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae167a3396fe3347b04b835de75816f6b}} 
+\index{core.c@{core.c}!mce\_centaur\_feature\_init@{mce\_centaur\_feature\_init}}
+\index{mce\_centaur\_feature\_init@{mce\_centaur\_feature\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_centaur\_feature\_init()}{mce\_centaur\_feature\_init()}}
+{\footnotesize\ttfamily static void mce\+\_\+centaur\+\_\+feature\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac4ac238af7db5a215a86d652de6b0f10}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac4ac238af7db5a215a86d652de6b0f10}} 
+\index{core.c@{core.c}!mce\_check\_crashing\_cpu@{mce\_check\_crashing\_cpu}}
+\index{mce\_check\_crashing\_cpu@{mce\_check\_crashing\_cpu}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_check\_crashing\_cpu()}{mce\_check\_crashing\_cpu()}}
+{\footnotesize\ttfamily static noinstr \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} mce\+\_\+check\+\_\+crashing\+\_\+cpu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_adeaf7036bb838390d14d9f913d5adc75}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_adeaf7036bb838390d14d9f913d5adc75}} 
+\index{core.c@{core.c}!mce\_clear\_state@{mce\_clear\_state}}
+\index{mce\_clear\_state@{mce\_clear\_state}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_clear\_state()}{mce\_clear\_state()}}
+{\footnotesize\ttfamily static void mce\+\_\+clear\+\_\+state (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{toclear }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac792fda453b5495ee74aa403a035facc}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac792fda453b5495ee74aa403a035facc}} 
+\index{core.c@{core.c}!mce\_cpu\_dead@{mce\_cpu\_dead}}
+\index{mce\_cpu\_dead@{mce\_cpu\_dead}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_cpu\_dead()}{mce\_cpu\_dead()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+cpu\+\_\+dead (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c0d6821604f1999dd9eff0f0c5fb7c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c0d6821604f1999dd9eff0f0c5fb7c}} 
+\index{core.c@{core.c}!mce\_cpu\_online@{mce\_cpu\_online}}
+\index{mce\_cpu\_online@{mce\_cpu\_online}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_cpu\_online()}{mce\_cpu\_online()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+cpu\+\_\+online (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae7d5e8bf134c0c4e20bf4f4360d48af3}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae7d5e8bf134c0c4e20bf4f4360d48af3}} 
+\index{core.c@{core.c}!mce\_cpu\_pre\_down@{mce\_cpu\_pre\_down}}
+\index{mce\_cpu\_pre\_down@{mce\_cpu\_pre\_down}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_cpu\_pre\_down()}{mce\_cpu\_pre\_down()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+cpu\+\_\+pre\+\_\+down (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a07fb5ba3dbbcfc1f4bcc8d1581243bef}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a07fb5ba3dbbcfc1f4bcc8d1581243bef}} 
+\index{core.c@{core.c}!mce\_cpu\_restart@{mce\_cpu\_restart}}
+\index{mce\_cpu\_restart@{mce\_cpu\_restart}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_cpu\_restart()}{mce\_cpu\_restart()}}
+{\footnotesize\ttfamily static void mce\+\_\+cpu\+\_\+restart (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab22ef37f765a603cc3e4c46ba9aa39be}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab22ef37f765a603cc3e4c46ba9aa39be}} 
+\index{core.c@{core.c}!mce\_default\_notifier@{mce\_default\_notifier}}
+\index{mce\_default\_notifier@{mce\_default\_notifier}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_default\_notifier()}{mce\_default\_notifier()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+default\+\_\+notifier (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{nb,  }\item[{unsigned long}]{val,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a63820988da5cf1a8edaed2e44c5a6571}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a63820988da5cf1a8edaed2e44c5a6571}} 
+\index{core.c@{core.c}!mce\_device\_create@{mce\_device\_create}}
+\index{mce\_device\_create@{mce\_device\_create}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_device\_create()}{mce\_device\_create()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+device\+\_\+create (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aaddc2ae3eb9ce6a16aeb77f242e3d61c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aaddc2ae3eb9ce6a16aeb77f242e3d61c}} 
+\index{core.c@{core.c}!mce\_device\_release@{mce\_device\_release}}
+\index{mce\_device\_release@{mce\_device\_release}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_device\_release()}{mce\_device\_release()}}
+{\footnotesize\ttfamily static void mce\+\_\+device\+\_\+release (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a41d16b5df85c91bde8d4d455186dce5c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a41d16b5df85c91bde8d4d455186dce5c}} 
+\index{core.c@{core.c}!mce\_device\_remove@{mce\_device\_remove}}
+\index{mce\_device\_remove@{mce\_device\_remove}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_device\_remove()}{mce\_device\_remove()}}
+{\footnotesize\ttfamily static void mce\+\_\+device\+\_\+remove (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a981cd022016bb259ab6670a1ef175f11}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a981cd022016bb259ab6670a1ef175f11}} 
+\index{core.c@{core.c}!mce\_disable\_bank@{mce\_disable\_bank}}
+\index{mce\_disable\_bank@{mce\_disable\_bank}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_disable\_bank()}{mce\_disable\_bank()}}
+{\footnotesize\ttfamily void mce\+\_\+disable\+\_\+bank (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1ed5f3ad36a185fd07646ecf00a39047}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a1ed5f3ad36a185fd07646ecf00a39047}} 
+\index{core.c@{core.c}!mce\_disable\_cmci@{mce\_disable\_cmci}}
+\index{mce\_disable\_cmci@{mce\_disable\_cmci}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_disable\_cmci()}{mce\_disable\_cmci()}}
+{\footnotesize\ttfamily static void mce\+\_\+disable\+\_\+cmci (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ada268d1728b8c26f78641e30036047f1}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ada268d1728b8c26f78641e30036047f1}} 
+\index{core.c@{core.c}!mce\_disable\_cpu@{mce\_disable\_cpu}}
+\index{mce\_disable\_cpu@{mce\_disable\_cpu}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_disable\_cpu()}{mce\_disable\_cpu()}}
+{\footnotesize\ttfamily static void mce\+\_\+disable\+\_\+cpu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9211987a85256917cdffde2819a1a864}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9211987a85256917cdffde2819a1a864}} 
+\index{core.c@{core.c}!mce\_disable\_error\_reporting@{mce\_disable\_error\_reporting}}
+\index{mce\_disable\_error\_reporting@{mce\_disable\_error\_reporting}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_disable\_error\_reporting()}{mce\_disable\_error\_reporting()}}
+{\footnotesize\ttfamily static void mce\+\_\+disable\+\_\+error\+\_\+reporting (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a68ac0264ae60b0564b71d5e48b7a0db0}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a68ac0264ae60b0564b71d5e48b7a0db0}} 
+\index{core.c@{core.c}!mce\_early\_notifier@{mce\_early\_notifier}}
+\index{mce\_early\_notifier@{mce\_early\_notifier}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_early\_notifier()}{mce\_early\_notifier()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+early\+\_\+notifier (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{nb,  }\item[{unsigned long}]{val,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a49d678e65c54f149740187226f6bb796}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a49d678e65c54f149740187226f6bb796}} 
+\index{core.c@{core.c}!mce\_enable\_ce@{mce\_enable\_ce}}
+\index{mce\_enable\_ce@{mce\_enable\_ce}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_enable\_ce()}{mce\_enable\_ce()}}
+{\footnotesize\ttfamily static void mce\+\_\+enable\+\_\+ce (\begin{DoxyParamCaption}\item[{void $\ast$}]{all }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 80
+Here is the caller graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4706e581ace31436954c3a7c53ef3799}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4706e581ace31436954c3a7c53ef3799}} 
+\index{core.c@{core.c}!mce\_end@{mce\_end}}
+\index{mce\_end@{mce\_end}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_end()}{mce\_end()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+end (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{order }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0d2ff15dac015a7846c4e2dab34ae322}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0d2ff15dac015a7846c4e2dab34ae322}} 
+\index{core.c@{core.c}!mce\_gather\_info@{mce\_gather\_info}}
+\index{mce\_gather\_info@{mce\_gather\_info}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_gather\_info()}{mce\_gather\_info()}}
+{\footnotesize\ttfamily static void mce\+\_\+gather\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7df77d49391eb7d0af79fee6c1faee3c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7df77d49391eb7d0af79fee6c1faee3c}} 
+\index{core.c@{core.c}!mce\_init\_banks@{mce\_init\_banks}}
+\index{mce\_init\_banks@{mce\_init\_banks}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_init\_banks()}{mce\_init\_banks()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} void mce\+\_\+init\+\_\+banks (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a814e8085386eaf3eb872e7e6b984e8e9}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a814e8085386eaf3eb872e7e6b984e8e9}} 
+\index{core.c@{core.c}!mce\_irq\_work\_cb@{mce\_irq\_work\_cb}}
+\index{mce\_irq\_work\_cb@{mce\_irq\_work\_cb}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_irq\_work\_cb()}{mce\_irq\_work\_cb()}}
+{\footnotesize\ttfamily static void mce\+\_\+irq\+\_\+work\+\_\+cb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__work}{irq\+\_\+work}} $\ast$}]{entry }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a021a6d8ea74cf9d9a0d1b85a24bf42a2}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a021a6d8ea74cf9d9a0d1b85a24bf42a2}} 
+\index{core.c@{core.c}!mce\_is\_correctable@{mce\_is\_correctable}}
+\index{mce\_is\_correctable@{mce\_is\_correctable}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_is\_correctable()}{mce\_is\_correctable()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} mce\+\_\+is\+\_\+correctable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a085a8a5bea2e30f7631c144ea4e5afe8}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a085a8a5bea2e30f7631c144ea4e5afe8}} 
+\index{core.c@{core.c}!mce\_is\_memory\_error@{mce\_is\_memory\_error}}
+\index{mce\_is\_memory\_error@{mce\_is\_memory\_error}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_is\_memory\_error()}{mce\_is\_memory\_error()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} mce\+\_\+is\+\_\+memory\+\_\+error (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_addd6f9931b5d2f32c5fa737d392abc32}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_addd6f9931b5d2f32c5fa737d392abc32}} 
+\index{core.c@{core.c}!mce\_log@{mce\_log}}
+\index{mce\_log@{mce\_log}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_log()}{mce\_log()}}
+{\footnotesize\ttfamily void mce\+\_\+log (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 91
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac5405dbaebe44d1ae6ce9e0d469e82a8}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac5405dbaebe44d1ae6ce9e0d469e82a8}} 
+\index{core.c@{core.c}!mce\_no\_way\_out@{mce\_no\_way\_out}}
+\index{mce\_no\_way\_out@{mce\_no\_way\_out}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_no\_way\_out()}{mce\_no\_way\_out()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+no\+\_\+way\+\_\+out (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m,  }\item[{char $\ast$$\ast$}]{msg,  }\item[{unsigned long $\ast$}]{validp,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 93
+Here is the caller graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a283bc4450250b943e85c427644fad323}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a283bc4450250b943e85c427644fad323}} 
+\index{core.c@{core.c}!mce\_notify\_irq@{mce\_notify\_irq}}
+\index{mce\_notify\_irq@{mce\_notify\_irq}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_notify\_irq()}{mce\_notify\_irq()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+notify\+\_\+irq (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 95
+Here is the caller graph for this function\+:
+% FIG 96
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9fd165d4ce9ddd1f902029e1a4cd22fd}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9fd165d4ce9ddd1f902029e1a4cd22fd}} 
+\index{core.c@{core.c}!mce\_panic@{mce\_panic}}
+\index{mce\_panic@{mce\_panic}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_panic()}{mce\_panic()}}
+{\footnotesize\ttfamily static void mce\+\_\+panic (\begin{DoxyParamCaption}\item[{const char $\ast$}]{msg,  }\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{final,  }\item[{char $\ast$}]{exp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 97
+Here is the caller graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aee7e4caed3e7a269ddd2caff88a2d155}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aee7e4caed3e7a269ddd2caff88a2d155}} 
+\index{core.c@{core.c}!mce\_rdmsrl@{mce\_rdmsrl}}
+\index{mce\_rdmsrl@{mce\_rdmsrl}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_rdmsrl()}{mce\_rdmsrl()}}
+{\footnotesize\ttfamily static noinstr \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} mce\+\_\+rdmsrl (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{msr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 99
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae94bd83c18ddb7c675205ae9b721a386}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae94bd83c18ddb7c675205ae9b721a386}} 
+\index{core.c@{core.c}!mce\_read\_aux@{mce\_read\_aux}}
+\index{mce\_read\_aux@{mce\_read\_aux}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_read\_aux()}{mce\_read\_aux()}}
+{\footnotesize\ttfamily static void mce\+\_\+read\+\_\+aux (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{i }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 101
+Here is the caller graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7ebea5eccec4b10c96d6574febc1177f}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7ebea5eccec4b10c96d6574febc1177f}} 
+\index{core.c@{core.c}!mce\_reenable\_cpu@{mce\_reenable\_cpu}}
+\index{mce\_reenable\_cpu@{mce\_reenable\_cpu}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_reenable\_cpu()}{mce\_reenable\_cpu()}}
+{\footnotesize\ttfamily static void mce\+\_\+reenable\+\_\+cpu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 103
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad696c41a583330d8f756c8a6a1e9c1b5}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad696c41a583330d8f756c8a6a1e9c1b5}} 
+\index{core.c@{core.c}!mce\_register\_decode\_chain@{mce\_register\_decode\_chain}}
+\index{mce\_register\_decode\_chain@{mce\_register\_decode\_chain}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_register\_decode\_chain()}{mce\_register\_decode\_chain()}}
+{\footnotesize\ttfamily void mce\+\_\+register\+\_\+decode\+\_\+chain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{nb }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 105
+Here is the caller graph for this function\+:
+% FIG 106
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aae794be657ca39ed68e7a8a5dd937b96}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aae794be657ca39ed68e7a8a5dd937b96}} 
+\index{core.c@{core.c}!mce\_reign@{mce\_reign}}
+\index{mce\_reign@{mce\_reign}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_reign()}{mce\_reign()}}
+{\footnotesize\ttfamily static void mce\+\_\+reign (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 107
+Here is the caller graph for this function\+:
+% FIG 108
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a56fac535bf5ccc7b827e7050e946179d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a56fac535bf5ccc7b827e7050e946179d}} 
+\index{core.c@{core.c}!mce\_restart@{mce\_restart}}
+\index{mce\_restart@{mce\_restart}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_restart()}{mce\_restart()}}
+{\footnotesize\ttfamily static void mce\+\_\+restart (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 109
+Here is the caller graph for this function\+:
+% FIG 110
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab3a32c528759cd79d87b984899c9f730}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab3a32c528759cd79d87b984899c9f730}} 
+\index{core.c@{core.c}!mce\_schedule\_work@{mce\_schedule\_work}}
+\index{mce\_schedule\_work@{mce\_schedule\_work}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_schedule\_work()}{mce\_schedule\_work()}}
+{\footnotesize\ttfamily static void mce\+\_\+schedule\+\_\+work (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 111
+Here is the caller graph for this function\+:
+% FIG 112
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae2554c6c65fef25d829816a0b4e82942}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae2554c6c65fef25d829816a0b4e82942}} 
+\index{core.c@{core.c}!mce\_setup@{mce\_setup}}
+\index{mce\_setup@{mce\_setup}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_setup()}{mce\_setup()}}
+{\footnotesize\ttfamily noinstr void mce\+\_\+setup (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 113
+Here is the caller graph for this function\+:
+% FIG 114
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6b674ab2e45f29f340f9c53af7ce459e}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6b674ab2e45f29f340f9c53af7ce459e}} 
+\index{core.c@{core.c}!mce\_start@{mce\_start}}
+\index{mce\_start@{mce\_start}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_start()}{mce\_start()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+start (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{no\+\_\+way\+\_\+out }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 115
+Here is the caller graph for this function\+:
+% FIG 116
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a167fc04549fc8d1a5a3dba444fae9b18}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a167fc04549fc8d1a5a3dba444fae9b18}} 
+\index{core.c@{core.c}!mce\_start\_timer@{mce\_start\_timer}}
+\index{mce\_start\_timer@{mce\_start\_timer}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_start\_timer()}{mce\_start\_timer()}}
+{\footnotesize\ttfamily static void mce\+\_\+start\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 117
+Here is the caller graph for this function\+:
+% FIG 118
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_abc8facd52704ff0aaf63c10e4a15d62c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_abc8facd52704ff0aaf63c10e4a15d62c}} 
+\index{core.c@{core.c}!mce\_syscore\_resume@{mce\_syscore\_resume}}
+\index{mce\_syscore\_resume@{mce\_syscore\_resume}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_syscore\_resume()}{mce\_syscore\_resume()}}
+{\footnotesize\ttfamily static void mce\+\_\+syscore\+\_\+resume (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a016972705fafdbba06c17ce8e6942a7f}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a016972705fafdbba06c17ce8e6942a7f}} 
+\index{core.c@{core.c}!mce\_syscore\_shutdown@{mce\_syscore\_shutdown}}
+\index{mce\_syscore\_shutdown@{mce\_syscore\_shutdown}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_syscore\_shutdown()}{mce\_syscore\_shutdown()}}
+{\footnotesize\ttfamily static void mce\+\_\+syscore\+\_\+shutdown (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 120
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a87564222a3ce61c2670177850f65a6d5}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a87564222a3ce61c2670177850f65a6d5}} 
+\index{core.c@{core.c}!mce\_syscore\_suspend@{mce\_syscore\_suspend}}
+\index{mce\_syscore\_suspend@{mce\_syscore\_suspend}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_syscore\_suspend()}{mce\_syscore\_suspend()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+syscore\+\_\+suspend (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a289b22b93059c7c8d7db0cb66036a0ae}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a289b22b93059c7c8d7db0cb66036a0ae}} 
+\index{core.c@{core.c}!mce\_timed\_out@{mce\_timed\_out}}
+\index{mce\_timed\_out@{mce\_timed\_out}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_timed\_out()}{mce\_timed\_out()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+timed\+\_\+out (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{t,  }\item[{const char $\ast$}]{msg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 122
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad86554094e8891fe9960e1485662168e}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad86554094e8891fe9960e1485662168e}} 
+\index{core.c@{core.c}!mce\_timer\_delete\_all@{mce\_timer\_delete\_all}}
+\index{mce\_timer\_delete\_all@{mce\_timer\_delete\_all}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_timer\_delete\_all()}{mce\_timer\_delete\_all()}}
+{\footnotesize\ttfamily static void mce\+\_\+timer\+\_\+delete\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 124
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae96e6443ec34a6b5a105b23aeeafe083}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae96e6443ec34a6b5a105b23aeeafe083}} 
+\index{core.c@{core.c}!mce\_timer\_fn@{mce\_timer\_fn}}
+\index{mce\_timer\_fn@{mce\_timer\_fn}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_timer\_fn()}{mce\_timer\_fn()}}
+{\footnotesize\ttfamily static void mce\+\_\+timer\+\_\+fn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 125
+Here is the caller graph for this function\+:
+% FIG 126
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae386e12946abff60c7872dbf62039f3d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae386e12946abff60c7872dbf62039f3d}} 
+\index{core.c@{core.c}!mce\_timer\_kick@{mce\_timer\_kick}}
+\index{mce\_timer\_kick@{mce\_timer\_kick}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_timer\_kick()}{mce\_timer\_kick()}}
+{\footnotesize\ttfamily void mce\+\_\+timer\+\_\+kick (\begin{DoxyParamCaption}\item[{unsigned long}]{interval }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 127
+Here is the caller graph for this function\+:
+% FIG 128
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3913be788499f70bb0a0b8e0f25ba322}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3913be788499f70bb0a0b8e0f25ba322}} 
+\index{core.c@{core.c}!mce\_unregister\_decode\_chain@{mce\_unregister\_decode\_chain}}
+\index{mce\_unregister\_decode\_chain@{mce\_unregister\_decode\_chain}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_unregister\_decode\_chain()}{mce\_unregister\_decode\_chain()}}
+{\footnotesize\ttfamily void mce\+\_\+unregister\+\_\+decode\+\_\+chain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{nb }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 129
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a50b85c389b79c6aafe11cb29df7cceb1}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a50b85c389b79c6aafe11cb29df7cceb1}} 
+\index{core.c@{core.c}!mce\_usable\_address@{mce\_usable\_address}}
+\index{mce\_usable\_address@{mce\_usable\_address}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_usable\_address()}{mce\_usable\_address()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mce\+\_\+usable\+\_\+address (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 130
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2498023e700b670819e9a44a5e357f6b}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2498023e700b670819e9a44a5e357f6b}} 
+\index{core.c@{core.c}!mce\_wrmsrl@{mce\_wrmsrl}}
+\index{mce\_wrmsrl@{mce\_wrmsrl}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_wrmsrl()}{mce\_wrmsrl()}}
+{\footnotesize\ttfamily static noinstr void mce\+\_\+wrmsrl (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{msr,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 131
+Here is the caller graph for this function\+:
+% FIG 132
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8d010978f556bc7c1c71d69ac6ebd88}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8d010978f556bc7c1c71d69ac6ebd88}} 
+\index{core.c@{core.c}!mce\_zhaoxin\_feature\_clear@{mce\_zhaoxin\_feature\_clear}}
+\index{mce\_zhaoxin\_feature\_clear@{mce\_zhaoxin\_feature\_clear}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_zhaoxin\_feature\_clear()}{mce\_zhaoxin\_feature\_clear()}}
+{\footnotesize\ttfamily static void mce\+\_\+zhaoxin\+\_\+feature\+\_\+clear (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 133
+Here is the caller graph for this function\+:
+% FIG 134
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3c44935385d05d901f496c8312e95fd7}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3c44935385d05d901f496c8312e95fd7}} 
+\index{core.c@{core.c}!mce\_zhaoxin\_feature\_init@{mce\_zhaoxin\_feature\_init}}
+\index{mce\_zhaoxin\_feature\_init@{mce\_zhaoxin\_feature\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_zhaoxin\_feature\_init()}{mce\_zhaoxin\_feature\_init()}}
+{\footnotesize\ttfamily static void mce\+\_\+zhaoxin\+\_\+feature\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 135
+Here is the caller graph for this function\+:
+% FIG 136
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af59d15bba55fa9c4fa91bd3e22aa0f4b}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af59d15bba55fa9c4fa91bd3e22aa0f4b}} 
+\index{core.c@{core.c}!mcheck\_cpu\_clear@{mcheck\_cpu\_clear}}
+\index{mcheck\_cpu\_clear@{mcheck\_cpu\_clear}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_cpu\_clear()}{mcheck\_cpu\_clear()}}
+{\footnotesize\ttfamily void mcheck\+\_\+cpu\+\_\+clear (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 137
+Here is the caller graph for this function\+:
+% FIG 138
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac84abc5b60779754637b33b5d4b60243}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac84abc5b60779754637b33b5d4b60243}} 
+\index{core.c@{core.c}!mcheck\_cpu\_init@{mcheck\_cpu\_init}}
+\index{mcheck\_cpu\_init@{mcheck\_cpu\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_cpu\_init()}{mcheck\_cpu\_init()}}
+{\footnotesize\ttfamily void mcheck\+\_\+cpu\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 139
+Here is the caller graph for this function\+:
+% FIG 140
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af6815422a1e5bf9996a01b654bcef9cd}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af6815422a1e5bf9996a01b654bcef9cd}} 
+\index{core.c@{core.c}!mcheck\_debugfs\_init@{mcheck\_debugfs\_init}}
+\index{mcheck\_debugfs\_init@{mcheck\_debugfs\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_debugfs\_init()}{mcheck\_debugfs\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mcheck\+\_\+debugfs\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 141
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8be0d7391583c5c29d3ac46ef66c021}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8be0d7391583c5c29d3ac46ef66c021}} 
+\index{core.c@{core.c}!mcheck\_disable@{mcheck\_disable}}
+\index{mcheck\_disable@{mcheck\_disable}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_disable()}{mcheck\_disable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mcheck\+\_\+disable (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a79cf3f8405c0fb72ce7c2dfd5040d8f1}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a79cf3f8405c0fb72ce7c2dfd5040d8f1}} 
+\index{core.c@{core.c}!mcheck\_enable@{mcheck\_enable}}
+\index{mcheck\_enable@{mcheck\_enable}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_enable()}{mcheck\_enable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mcheck\+\_\+enable (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 142
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aeb2b45eea64e0c3aee93c1af4148b95c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aeb2b45eea64e0c3aee93c1af4148b95c}} 
+\index{core.c@{core.c}!mcheck\_init@{mcheck\_init}}
+\index{mcheck\_init@{mcheck\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_init()}{mcheck\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mcheck\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 143
+Here is the caller graph for this function\+:
+% FIG 144
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a578b1f63e4be29b8fdd4589c77a46a0d}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a578b1f63e4be29b8fdd4589c77a46a0d}} 
+\index{core.c@{core.c}!mcheck\_init\_device@{mcheck\_init\_device}}
+\index{mcheck\_init\_device@{mcheck\_init\_device}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_init\_device()}{mcheck\_init\_device()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mcheck\+\_\+init\+\_\+device (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 145
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a59efc022f45ee9a68c446f8271e119f4}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a59efc022f45ee9a68c446f8271e119f4}} 
+\index{core.c@{core.c}!mcheck\_late\_init@{mcheck\_late\_init}}
+\index{mcheck\_late\_init@{mcheck\_late\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mcheck\_late\_init()}{mcheck\_late\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mcheck\+\_\+late\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 146
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2601bce571ed122f848164f1d8a89304}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2601bce571ed122f848164f1d8a89304}} 
+\index{core.c@{core.c}!memory\_failure@{memory\_failure}}
+\index{memory\_failure@{memory\_failure}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{memory\_failure()}{memory\_failure()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memory\+\_\+failure (\begin{DoxyParamCaption}\item[{unsigned long}]{pfn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 147
+Here is the caller graph for this function\+:
+% FIG 148
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab10849be392ae80754279dbfc3205b21}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab10849be392ae80754279dbfc3205b21}} 
+\index{core.c@{core.c}!misc\_reg@{misc\_reg}}
+\index{misc\_reg@{misc\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{misc\_reg()}{misc\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} misc\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aeeb7ab3b25bb47297b3979ecd8a49090}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aeeb7ab3b25bb47297b3979ecd8a49090}} 
+\index{core.c@{core.c}!msr\_to\_offset@{msr\_to\_offset}}
+\index{msr\_to\_offset@{msr\_to\_offset}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{msr\_to\_offset()}{msr\_to\_offset()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} msr\+\_\+to\+\_\+offset (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{msr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 149
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8e68a5038e08c63d92c8c4c7cdc7eab2}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8e68a5038e08c63d92c8c4c7cdc7eab2}} 
+\index{core.c@{core.c}!print\_mce@{print\_mce}}
+\index{print\_mce@{print\_mce}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{print\_mce()}{print\_mce()}}
+{\footnotesize\ttfamily static void print\+\_\+mce (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 150
+Here is the caller graph for this function\+:
+% FIG 151
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9befe7e47252191079f00e309b2ef5af}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9befe7e47252191079f00e309b2ef5af}} 
+\index{core.c@{core.c}!queue\_task\_work@{queue\_task\_work}}
+\index{queue\_task\_work@{queue\_task\_work}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{queue\_task\_work()}{queue\_task\_work()}}
+{\footnotesize\ttfamily static void queue\+\_\+task\+\_\+work (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m,  }\item[{char $\ast$}]{msg,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{kill\+\_\+current\+\_\+task }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 152
+Here is the caller graph for this function\+:
+% FIG 153
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8af2a8321330acf9428c8a1b2f7bffc}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af8af2a8321330acf9428c8a1b2f7bffc}} 
+\index{core.c@{core.c}!quirk\_sandybridge\_ifu@{quirk\_sandybridge\_ifu}}
+\index{quirk\_sandybridge\_ifu@{quirk\_sandybridge\_ifu}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{quirk\_sandybridge\_ifu()}{quirk\_sandybridge\_ifu()}}
+{\footnotesize\ttfamily static void quirk\+\_\+sandybridge\+\_\+ifu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank,  }\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 154
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a13d038901611cda267705cfdf0439fa0}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a13d038901611cda267705cfdf0439fa0}} 
+\index{core.c@{core.c}!set\_bank@{set\_bank}}
+\index{set\_bank@{set\_bank}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{set\_bank()}{set\_bank()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} set\+\_\+bank (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 155
+Here is the caller graph for this function\+:
+% FIG 156
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af0db8f9c9e4e85de2c18cbcebe00ac4b}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af0db8f9c9e4e85de2c18cbcebe00ac4b}} 
+\index{core.c@{core.c}!set\_cmci\_disabled@{set\_cmci\_disabled}}
+\index{set\_cmci\_disabled@{set\_cmci\_disabled}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{set\_cmci\_disabled()}{set\_cmci\_disabled()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} set\+\_\+cmci\+\_\+disabled (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 157
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_af12592acbdc676cf6e08231216944cda}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_af12592acbdc676cf6e08231216944cda}} 
+\index{core.c@{core.c}!set\_ignore\_ce@{set\_ignore\_ce}}
+\index{set\_ignore\_ce@{set\_ignore\_ce}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{set\_ignore\_ce()}{set\_ignore\_ce()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} set\+\_\+ignore\+\_\+ce (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 158
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac2f09e1252cab416de41df841a22cc66}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ac2f09e1252cab416de41df841a22cc66}} 
+\index{core.c@{core.c}!show\_bank@{show\_bank}}
+\index{show\_bank@{show\_bank}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{show\_bank()}{show\_bank()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} show\+\_\+bank (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 159
+Here is the caller graph for this function\+:
+% FIG 160
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8d60b9a8ff99dd07ddf466c6f2e462c5}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a8d60b9a8ff99dd07ddf466c6f2e462c5}} 
+\index{core.c@{core.c}!smca\_addr\_reg@{smca\_addr\_reg}}
+\index{smca\_addr\_reg@{smca\_addr\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{smca\_addr\_reg()}{smca\_addr\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} smca\+\_\+addr\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 161
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a48c5d57a72fa766a1fa2ce12930e1af0}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a48c5d57a72fa766a1fa2ce12930e1af0}} 
+\index{core.c@{core.c}!smca\_ctl\_reg@{smca\_ctl\_reg}}
+\index{smca\_ctl\_reg@{smca\_ctl\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{smca\_ctl\_reg()}{smca\_ctl\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} smca\+\_\+ctl\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 162
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a78c3affcb3fd75db564584478fe45152}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a78c3affcb3fd75db564584478fe45152}} 
+\index{core.c@{core.c}!smca\_misc\_reg@{smca\_misc\_reg}}
+\index{smca\_misc\_reg@{smca\_misc\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{smca\_misc\_reg()}{smca\_misc\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} smca\+\_\+misc\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 163
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a390240fc8da1c95e3f7e71a68adeb619}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a390240fc8da1c95e3f7e71a68adeb619}} 
+\index{core.c@{core.c}!smca\_status\_reg@{smca\_status\_reg}}
+\index{smca\_status\_reg@{smca\_status\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{smca\_status\_reg()}{smca\_status\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} smca\+\_\+status\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 164
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4cfb35b2cd6b911393f109a3bd70e485}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4cfb35b2cd6b911393f109a3bd70e485}} 
+\index{core.c@{core.c}!status\_reg@{status\_reg}}
+\index{status\_reg@{status\_reg}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{status\_reg()}{status\_reg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} status\+\_\+reg (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bank }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a513480c916902fa8df21da7c9222bd32}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a513480c916902fa8df21da7c9222bd32}} 
+\index{core.c@{core.c}!store\_int\_with\_restart@{store\_int\_with\_restart}}
+\index{store\_int\_with\_restart@{store\_int\_with\_restart}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{store\_int\_with\_restart()}{store\_int\_with\_restart()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} store\+\_\+int\+\_\+with\+\_\+restart (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{s,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 165
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad947a0e0c21cb1f82bff9ba0d191ff2f}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad947a0e0c21cb1f82bff9ba0d191ff2f}} 
+\index{core.c@{core.c}!uc\_decode\_notifier@{uc\_decode\_notifier}}
+\index{uc\_decode\_notifier@{uc\_decode\_notifier}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{uc\_decode\_notifier()}{uc\_decode\_notifier()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uc\+\_\+decode\+\_\+notifier (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{nb,  }\item[{unsigned long}]{val,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 166
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c2280433310d29ccf4a20647181a92}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c2280433310d29ccf4a20647181a92}} 
+\index{core.c@{core.c}!unexpected\_machine\_check@{unexpected\_machine\_check}}
+\index{unexpected\_machine\_check@{unexpected\_machine\_check}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{unexpected\_machine\_check()}{unexpected\_machine\_check()}}
+{\footnotesize\ttfamily static noinstr void unexpected\+\_\+machine\+\_\+check (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3d900d1b4d3eea36d608cd56ae28a827}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3d900d1b4d3eea36d608cd56ae28a827}} 
+\index{core.c@{core.c}!vendor\_disable\_error\_reporting@{vendor\_disable\_error\_reporting}}
+\index{vendor\_disable\_error\_reporting@{vendor\_disable\_error\_reporting}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{vendor\_disable\_error\_reporting()}{vendor\_disable\_error\_reporting()}}
+{\footnotesize\ttfamily static void vendor\+\_\+disable\+\_\+error\+\_\+reporting (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 167
+Here is the caller graph for this function\+:
+% FIG 168
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6aca7f0a1e7b83c6aa5ce46f30940b53}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6aca7f0a1e7b83c6aa5ce46f30940b53}} 
+\index{core.c@{core.c}!wait\_for\_panic@{wait\_for\_panic}}
+\index{wait\_for\_panic@{wait\_for\_panic}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{wait\_for\_panic()}{wait\_for\_panic()}}
+{\footnotesize\ttfamily static void wait\+\_\+for\+\_\+panic (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 169
+Here is the caller graph for this function\+:
+% FIG 170
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a54d1bb3994c0e2709ed60478c8712845}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a54d1bb3994c0e2709ed60478c8712845}} 
+\index{core.c@{core.c}!whole\_page@{whole\_page}}
+\index{whole\_page@{whole\_page}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{whole\_page()}{whole\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} whole\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmce}{mce}} $\ast$}]{m }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 171
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a76fbe154e47cdd434a2c787c6581f47c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a76fbe154e47cdd434a2c787c6581f47c}} 
+\index{core.c@{core.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmca__config}{mca\+\_\+config}} \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_a9a9a51fcb2394350a7160884d1f18c5d}{mca\+\_\+cfg}} \+\_\+\+\_\+read\+\_\+mostly}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .bootlog  = -\/1,}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    .tolerant = 1,}
+\DoxyCodeLine{    .monarch\_timeout = -\/1}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2b442afd9a8de311d4a4ae1e37e435ac}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2b442afd9a8de311d4a4ae1e37e435ac}} 
+\index{core.c@{core.c}!check\_interval@{check\_interval}}
+\index{check\_interval@{check\_interval}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{check\_interval}{check\_interval}}
+{\footnotesize\ttfamily unsigned long check\+\_\+interval = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_aaeeee0777ee89b0224445a2e7636a9b0}{I\+N\+I\+T\+I\+A\+L\+\_\+\+C\+H\+E\+C\+K\+\_\+\+I\+N\+T\+E\+R\+V\+AL}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5f46a26bfbf510ac0ce55c2888a940e}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5f46a26bfbf510ac0ce55c2888a940e}} 
+\index{core.c@{core.c}!cpu\_missing@{cpu\_missing}}
+\index{cpu\_missing@{cpu\_missing}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{cpu\_missing}{cpu\_missing}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} cpu\+\_\+missing\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_acb8fdc4dedfd4c4233e210d35a552746}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_acb8fdc4dedfd4c4233e210d35a552746}} 
+\index{core.c@{core.c}!dev\_attr\_check\_interval@{dev\_attr\_check\_interval}}
+\index{dev\_attr\_check\_interval@{dev\_attr\_check\_interval}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{dev\_attr\_check\_interval}{dev\_attr\_check\_interval}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdev__ext__attribute}{dev\+\_\+ext\+\_\+attribute}} dev\+\_\+attr\+\_\+check\+\_\+interval\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{sysfs_8h_afea83f0adf2905a4737f103d7327f947}{\_\_ATTR}}(\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2b442afd9a8de311d4a4ae1e37e435ac}{check\_interval}}, 0644, \mbox{\hyperlink{include_2linux_2device_8h_a15636948c70c024d195547533a35b73f}{device\_show\_int}}, \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a513480c916902fa8df21da7c9222bd32}{store\_int\_with\_restart}}),}
+\DoxyCodeLine{    \&\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2b442afd9a8de311d4a4ae1e37e435ac}{check\_interval}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_aab3c270abeaf9060933183a6b05feda9}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_aab3c270abeaf9060933183a6b05feda9}} 
+\index{core.c@{core.c}!dev\_attr\_cmci\_disabled@{dev\_attr\_cmci\_disabled}}
+\index{dev\_attr\_cmci\_disabled@{dev\_attr\_cmci\_disabled}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{dev\_attr\_cmci\_disabled}{dev\_attr\_cmci\_disabled}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdev__ext__attribute}{dev\+\_\+ext\+\_\+attribute}} dev\+\_\+attr\+\_\+cmci\+\_\+disabled\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{sysfs_8h_afea83f0adf2905a4737f103d7327f947}{\_\_ATTR}}(cmci\_disabled, 0644, \mbox{\hyperlink{include_2linux_2device_8h_a9bf4d64cd7fe708d5fbeaed10ce1c532}{device\_show\_bool}}, \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af0db8f9c9e4e85de2c18cbcebe00ac4b}{set\_cmci\_disabled}}),}
+\DoxyCodeLine{    \&\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_a9a9a51fcb2394350a7160884d1f18c5d}{mca\_cfg}}.\mbox{\hyperlink{structmca__config_a7dfab1327b42dc3c1b2138546fd9f041}{cmci\_disabled}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6b9f7f2d9e70cb01ed59545b8acfe6cc}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6b9f7f2d9e70cb01ed59545b8acfe6cc}} 
+\index{core.c@{core.c}!dev\_attr\_ignore\_ce@{dev\_attr\_ignore\_ce}}
+\index{dev\_attr\_ignore\_ce@{dev\_attr\_ignore\_ce}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{dev\_attr\_ignore\_ce}{dev\_attr\_ignore\_ce}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdev__ext__attribute}{dev\+\_\+ext\+\_\+attribute}} dev\+\_\+attr\+\_\+ignore\+\_\+ce\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{sysfs_8h_afea83f0adf2905a4737f103d7327f947}{\_\_ATTR}}(ignore\_ce, 0644, \mbox{\hyperlink{include_2linux_2device_8h_a9bf4d64cd7fe708d5fbeaed10ce1c532}{device\_show\_bool}}, \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_af12592acbdc676cf6e08231216944cda}{set\_ignore\_ce}}),}
+\DoxyCodeLine{    \&\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2internal_8h_a9a9a51fcb2394350a7160884d1f18c5d}{mca\_cfg}}.\mbox{\hyperlink{structmca__config_a7ee7875e918d3d2fa2c5658393196430}{ignore\_ce}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6538438ac477a01e8704206d54cf808f}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6538438ac477a01e8704206d54cf808f}} 
+\index{core.c@{core.c}!early\_nb@{early\_nb}}
+\index{early\_nb@{early\_nb}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{early\_nb}{early\_nb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} early\+\_\+nb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .notifier\_call  = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a68ac0264ae60b0564b71d5e48b7a0db0}{mce\_early\_notifier}},}
+\DoxyCodeLine{    .priority   = \mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_aa839250ae160aa8549f29db6bf6f486fa207ea523b266b7073cf4db27fca63ea3}{MCE\_PRIO\_EARLY}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_affd86d60d542030a01c23c6dc9104cd7}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_affd86d60d542030a01c23c6dc9104cd7}} 
+\index{core.c@{core.c}!fake\_panic@{fake\_panic}}
+\index{fake\_panic@{fake\_panic}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{fake\_panic}{fake\_panic}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fake\+\_\+panic\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a44de3cc10bd0dfc33a7f3b5c9adb58f4}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a44de3cc10bd0dfc33a7f3b5c9adb58f4}} 
+\index{core.c@{core.c}!global\_nwo@{global\_nwo}}
+\index{global\_nwo@{global\_nwo}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{global\_nwo}{global\_nwo}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} global\+\_\+nwo\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7510e28d2b3afc151c97f7a2cb4156fe}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7510e28d2b3afc151c97f7a2cb4156fe}} 
+\index{core.c@{core.c}!machine\_check\_vector@{machine\_check\_vector}}
+\index{machine\_check\_vector@{machine\_check\_vector}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{machine\_check\_vector}{machine\_check\_vector}}
+{\footnotesize\ttfamily void($\ast$ machine\+\_\+check\+\_\+vector) (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$) = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a75c2280433310d29ccf4a20647181a92}{unexpected\+\_\+machine\+\_\+check}}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7e12afac9ac2585e85ab3bde5468fb3e}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a7e12afac9ac2585e85ab3bde5468fb3e}} 
+\index{core.c@{core.c}!mce\_adjust\_timer@{mce\_adjust\_timer}}
+\index{mce\_adjust\_timer@{mce\_adjust\_timer}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_adjust\_timer}{mce\_adjust\_timer}}
+{\footnotesize\ttfamily unsigned long($\ast$ mce\+\_\+adjust\+\_\+timer) (unsigned long interval) = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a861d5b3df5531a5f3030c41bbb856f46}{mce\+\_\+adjust\+\_\+timer\+\_\+default}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae28811c20c35ad3adfc931a6abb470a4}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae28811c20c35ad3adfc931a6abb470a4}} 
+\index{core.c@{core.c}!mce\_bank\_devs@{mce\_bank\_devs}}
+\index{mce\_bank\_devs@{mce\_bank\_devs}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_bank\_devs}{mce\_bank\_devs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmce__bank__dev}{mce\+\_\+bank\+\_\+dev}} mce\+\_\+bank\+\_\+devs\mbox{[}\mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_a2a2a32e2f45de684118ecc081d49a3d0}{M\+A\+X\+\_\+\+N\+R\+\_\+\+B\+A\+N\+KS}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9314aca1024febb01c6b6a797b8c5263}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9314aca1024febb01c6b6a797b8c5263}} 
+\index{core.c@{core.c}!mce\_banks\_ce\_disabled@{mce\_banks\_ce\_disabled}}
+\index{mce\_banks\_ce\_disabled@{mce\_banks\_ce\_disabled}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_banks\_ce\_disabled}{mce\_banks\_ce\_disabled}}
+{\footnotesize\ttfamily mce\+\_\+banks\+\_\+t mce\+\_\+banks\+\_\+ce\+\_\+disabled}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae52f950884a6c0c261f1f5236855b911}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ae52f950884a6c0c261f1f5236855b911}} 
+\index{core.c@{core.c}!mce\_callin@{mce\_callin}}
+\index{mce\_callin@{mce\_callin}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_callin}{mce\_callin}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} mce\+\_\+callin\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a501dcc17e2c867d2436c37df999d8e25}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a501dcc17e2c867d2436c37df999d8e25}} 
+\index{core.c@{core.c}!mce\_default\_nb@{mce\_default\_nb}}
+\index{mce\_default\_nb@{mce\_default\_nb}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_default\_nb}{mce\_default\_nb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} mce\+\_\+default\+\_\+nb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .notifier\_call  = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab22ef37f765a603cc3e4c46ba9aa39be}{mce\_default\_notifier}},}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    .priority   = \mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_aa839250ae160aa8549f29db6bf6f486fa27238c94faf504c729826f2cefabe819}{MCE\_PRIO\_LOWEST}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5dd46f07ecf3f3fb7701e5b51f943d3}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab5dd46f07ecf3f3fb7701e5b51f943d3}} 
+\index{core.c@{core.c}!mce\_device\_attrs@{mce\_device\_attrs}}
+\index{mce\_device\_attrs@{mce\_device\_attrs}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_device\_attrs}{mce\_device\_attrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}}$\ast$ mce\+\_\+device\+\_\+attrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&dev\_attr\_tolerant.attr,}
+\DoxyCodeLine{    \&\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_acb8fdc4dedfd4c4233e210d35a552746}{dev\_attr\_check\_interval}}.\mbox{\hyperlink{structdev__ext__attribute_a40001e42653a4fdad8c40ead47257a3e}{attr}},}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \&dev\_attr\_monarch\_timeout.\mbox{\hyperlink{structdevice__attribute_aac6191089794a6ef0b41d9580a712e9b}{attr}},}
+\DoxyCodeLine{    \&dev\_attr\_dont\_log\_ce.attr,}
+\DoxyCodeLine{    \&dev\_attr\_print\_all.attr,}
+\DoxyCodeLine{    \&\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6b9f7f2d9e70cb01ed59545b8acfe6cc}{dev\_attr\_ignore\_ce}}.\mbox{\hyperlink{structdev__ext__attribute_a40001e42653a4fdad8c40ead47257a3e}{attr}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_aab3c270abeaf9060933183a6b05feda9}{dev\_attr\_cmci\_disabled}}.\mbox{\hyperlink{structdev__ext__attribute_a40001e42653a4fdad8c40ead47257a3e}{attr}},}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a11f1265ee08e0f956a15cbcf7a1ea1f8}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a11f1265ee08e0f956a15cbcf7a1ea1f8}} 
+\index{core.c@{core.c}!mce\_device\_initialized@{mce\_device\_initialized}}
+\index{mce\_device\_initialized@{mce\_device\_initialized}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_device\_initialized}{mce\_device\_initialized}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2cpumask_8h_abc33c8ce63d9c12aee03049dad459fb0}{cpumask\+\_\+var\+\_\+t}} mce\+\_\+device\+\_\+initialized\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a77d17b0d3a93fb3fc58568b8e81fdafb}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a77d17b0d3a93fb3fc58568b8e81fdafb}} 
+\index{core.c@{core.c}!mce\_executing@{mce\_executing}}
+\index{mce\_executing@{mce\_executing}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_executing}{mce\_executing}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} mce\+\_\+executing\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9716896903ae5fe4e83186e5a0835b7c}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9716896903ae5fe4e83186e5a0835b7c}} 
+\index{core.c@{core.c}!mce\_fake\_panicked@{mce\_fake\_panicked}}
+\index{mce\_fake\_panicked@{mce\_fake\_panicked}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_fake\_panicked}{mce\_fake\_panicked}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} mce\+\_\+fake\+\_\+panicked\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a762528b0b8e1e77310058d7a1f5414a8}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a762528b0b8e1e77310058d7a1f5414a8}} 
+\index{core.c@{core.c}!mce\_irq\_work@{mce\_irq\_work}}
+\index{mce\_irq\_work@{mce\_irq\_work}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_irq\_work}{mce\_irq\_work}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structirq__work}{irq\+\_\+work}} mce\+\_\+irq\+\_\+work\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad9ad3363cc0331e8f5e2e318a0306b66}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad9ad3363cc0331e8f5e2e318a0306b66}} 
+\index{core.c@{core.c}!mce\_missing\_cpus@{mce\_missing\_cpus}}
+\index{mce\_missing\_cpus@{mce\_missing\_cpus}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_missing\_cpus}{mce\_missing\_cpus}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}} mce\+\_\+missing\+\_\+cpus = \mbox{\hyperlink{include_2linux_2cpumask_8h_a78d865e7043dce5503ced50441386302}{C\+P\+U\+\_\+\+M\+A\+S\+K\+\_\+\+A\+LL}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a98dba8e8dca42ad7a31d9586acd39f6b}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a98dba8e8dca42ad7a31d9586acd39f6b}} 
+\index{core.c@{core.c}!mce\_need\_notify@{mce\_need\_notify}}
+\index{mce\_need\_notify@{mce\_need\_notify}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_need\_notify}{mce\_need\_notify}}
+{\footnotesize\ttfamily unsigned long mce\+\_\+need\+\_\+notify\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6bad1eae5356e652b8209b333088d2c4}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a6bad1eae5356e652b8209b333088d2c4}} 
+\index{core.c@{core.c}!mce\_panicked@{mce\_panicked}}
+\index{mce\_panicked@{mce\_panicked}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_panicked}{mce\_panicked}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} mce\+\_\+panicked\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2fbe9cca986c0e494180b6c17c91e239}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a2fbe9cca986c0e494180b6c17c91e239}} 
+\index{core.c@{core.c}!mce\_subsys@{mce\_subsys}}
+\index{mce\_subsys@{mce\_subsys}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_subsys}{mce\_subsys}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structbus__type}{bus\+\_\+type}} mce\+\_\+subsys\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"machinecheck"},}
+\DoxyCodeLine{    .dev\_name   = \textcolor{stringliteral}{"machinecheck"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0a6996b0be8fb7181182ba7709df8b3b}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a0a6996b0be8fb7181182ba7709df8b3b}} 
+\index{core.c@{core.c}!mce\_syscore\_ops@{mce\_syscore\_ops}}
+\index{mce\_syscore\_ops@{mce\_syscore\_ops}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_syscore\_ops}{mce\_syscore\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsyscore__ops}{syscore\+\_\+ops}} mce\+\_\+syscore\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .suspend    = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a87564222a3ce61c2670177850f65a6d5}{mce\_syscore\_suspend}},}
+\DoxyCodeLine{    .shutdown   = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a016972705fafdbba06c17ce8e6942a7f}{mce\_syscore\_shutdown}},}
+\DoxyCodeLine{    .resume     = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_abc8facd52704ff0aaf63c10e4a15d62c}{mce\_syscore\_resume}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3b4bf733f940bac7cb5f194f224cc2a6}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a3b4bf733f940bac7cb5f194f224cc2a6}} 
+\index{core.c@{core.c}!mce\_uc\_nb@{mce\_uc\_nb}}
+\index{mce\_uc\_nb@{mce\_uc\_nb}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_uc\_nb}{mce\_uc\_nb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} mce\+\_\+uc\+\_\+nb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .notifier\_call  = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ad947a0e0c21cb1f82bff9ba0d191ff2f}{uc\_decode\_notifier}},}
+\DoxyCodeLine{    .priority   = \mbox{\hyperlink{arch_2x86_2include_2asm_2mce_8h_aa839250ae160aa8549f29db6bf6f486fa95588e3a9ff9cc6ee1bd6383f6efa0a6}{MCE\_PRIO\_UC}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a81e4906810e81a60d2b10d5cb348aac4}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a81e4906810e81a60d2b10d5cb348aac4}} 
+\index{core.c@{core.c}!mce\_work@{mce\_work}}
+\index{mce\_work@{mce\_work}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{mce\_work}{mce\_work}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} mce\+\_\+work\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9bca4de4e4f1c953e603bdc31a181932}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9bca4de4e4f1c953e603bdc31a181932}} 
+\index{core.c@{core.c}!msr\_ops@{msr\_ops}}
+\index{msr\_ops@{msr\_ops}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{msr\_ops}{msr\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmca__msr__regs}{mca\+\_\+msr\+\_\+regs}} msr\+\_\+ops}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .ctl    = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a39e7f70fa7b113e08ed2f66568303bd9}{ctl\_reg}},}
+\DoxyCodeLine{    .status = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_a4cfb35b2cd6b911393f109a3bd70e485}{status\_reg}},}
+\DoxyCodeLine{    .addr   = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_afb923fa9afd220167df0f99d7aeea21c}{addr\_reg}},}
+\DoxyCodeLine{    .misc   = \mbox{\hyperlink{arch_2x86_2kernel_2cpu_2mce_2core_8c_ab10849be392ae80754279dbfc3205b21}{misc\_reg}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9bf22cc9e121e58911692ab61eadeaca}\label{arch_2x86_2kernel_2cpu_2mce_2core_8c_a9bf22cc9e121e58911692ab61eadeaca}} 
+\index{core.c@{core.c}!quirk\_no\_way\_out@{quirk\_no\_way\_out}}
+\index{quirk\_no\_way\_out@{quirk\_no\_way\_out}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{quirk\_no\_way\_out}{quirk\_no\_way\_out}}
+{\footnotesize\ttfamily void($\ast$ quirk\+\_\+no\+\_\+way\+\_\+out) (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bank, struct \mbox{\hyperlink{structmce}{mce}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})\hspace{0.3cm}{\ttfamily [static]}}
+

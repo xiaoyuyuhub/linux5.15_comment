@@ -1,0 +1,1679 @@
+\hypertarget{lockdep_8c}{}\doxysection{kernel/locking/lockdep.c File Reference}
+\label{lockdep_8c}\index{kernel/locking/lockdep.c@{kernel/locking/lockdep.c}}
+{\ttfamily \#include $<$linux/mutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/clock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/proc\+\_\+fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kallsyms.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stacktrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debug\+\_\+locks.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irqflags.\+h$>$}\newline
+{\ttfamily \#include $<$linux/utsname.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hash.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ftrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stringify.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitmap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/gfp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/random.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jhash.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kprobes.\+h$>$}\newline
+{\ttfamily \#include $<$linux/lockdep.\+h$>$}\newline
+{\ttfamily \#include $<$asm/sections.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}lockdep\+\_\+internals.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$trace/events/lock.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}lockdep\+\_\+states.\+h\char`\"{}}\newline
+Include dependency graph for lockdep.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}}
+\item 
+struct \mbox{\hyperlink{structdelayed__free}{delayed\+\_\+free}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a56541f4e0cb639d25b7e5d743f3b7665}{D\+I\+S\+A\+B\+L\+E\+\_\+\+B\+R\+A\+N\+C\+H\+\_\+\+P\+R\+O\+F\+I\+L\+I\+NG}}
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a40473b47b4871fa538a0fa131f94e774}{C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}}
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_ac290752d766d8b654c000cd47c905175}{prove\+\_\+locking}}~0
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a792d43e4689127d7223c1603396b25cd}{lock\+\_\+stat}}~0
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a54fb50a8186f9895c1496c6e7e44ae32}{K\+E\+Y\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}~(M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+Y\+S\+\_\+\+B\+I\+TS -\/ 1)
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a9e5bcbfff13cafe4db6d8fd0960b8dfb}{K\+E\+Y\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{lockdep_8c_a54fb50a8186f9895c1496c6e7e44ae32}{K\+E\+Y\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a1624bb9519c9ae15647235153943fa93}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}~(M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+Y\+S\+\_\+\+B\+I\+TS -\/ 1)
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a94e34980ed658e7fba401d08dde42fdd}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{lockdep_8c_a1624bb9519c9ae15647235153943fa93}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a5e2a57f68e500ff9f2eee46f1d6c079c}{\+\_\+\+\_\+classhashfn}}(\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})~hash\+\_\+long((unsigned long)\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, \mbox{\hyperlink{lockdep_8c_a1624bb9519c9ae15647235153943fa93}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a112206a4ab31713b0115cdd3f6f154e3}{classhashentry}}(\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})~(\mbox{\hyperlink{lockdep_8c_a303b20c90b59cd082fbf78c1dcd12f4c}{classhash\+\_\+table}} + \mbox{\hyperlink{lockdep_8c_a5e2a57f68e500ff9f2eee46f1d6c079c}{\+\_\+\+\_\+classhashfn}}((\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})))
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a8e8d4f4a7801682a268c96ea8f6b7a32}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}~(\mbox{\hyperlink{lockdep__internals_8h_a40d3ed9019e3cf95c08ef8c0e198486b}{M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+C\+H\+A\+I\+N\+S\+\_\+\+B\+I\+TS}}-\/1)
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a350dee49d3bd7452d7c57a13b18c80a4}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{lockdep_8c_a8e8d4f4a7801682a268c96ea8f6b7a32}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_addb8fe385fb75b23bd89b75e472b717d}{\+\_\+\+\_\+chainhashfn}}(\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}})~hash\+\_\+long(\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}}, \mbox{\hyperlink{lockdep_8c_a8e8d4f4a7801682a268c96ea8f6b7a32}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a86c652b97d771f669e1ef5ef7b3d7259}{chainhashentry}}(\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}})~(\mbox{\hyperlink{lockdep_8c_aa39b2ab379815c9ce582092c4075e424}{chainhash\+\_\+table}} + \mbox{\hyperlink{lockdep_8c_addb8fe385fb75b23bd89b75e472b717d}{\+\_\+\+\_\+chainhashfn}}((\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}})))
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a42f8c497a1968074f38bf5055c650dca}{V\+E\+R\+B\+O\+SE}}~0
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a0f9841b37b5a8668ccff6eaa2ba42a94}{V\+E\+R\+Y\+\_\+\+V\+E\+R\+B\+O\+SE}}~0
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_ab47c933b1596f3e2517fd4bf26a9031a}{H\+A\+R\+D\+I\+R\+Q\+\_\+\+V\+E\+R\+B\+O\+SE}}~0
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_aee1ba1114600dfe05757ad4ab088df73}{S\+O\+F\+T\+I\+R\+Q\+\_\+\+V\+E\+R\+B\+O\+SE}}~0
+\item 
+\#define \mbox{\hyperlink{lockdep_8c_a7ced61059e6605423c856f7aa589f349}{L\+O\+C\+K\+D\+E\+P\+\_\+\+S\+T\+A\+TE}}(\+\_\+\+\_\+\+S\+T\+A\+TE)
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{lockdep_8c_a4306414271a1e3a9e885b6a1cf8fa321}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, lockdep\+\_\+recursion)
+\item 
+\mbox{\hyperlink{lockdep_8c_a5a3804199b9861f15c580f46a474f8cc}{E\+X\+P\+O\+R\+T\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (lockdep\+\_\+recursion)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_a03b4ff24486d05a735fa5046e8d7d460}{lockdep\+\_\+enabled}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_abcd219096db541d296485ae7116daf14}{lockdep\+\_\+lock}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a7632d7906fd710980eaf1cbbcdfdd9b8}{lockdep\+\_\+unlock}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_af0b3cfe675efb3c78d2115cd7bcea6f5}{lockdep\+\_\+assert\+\_\+locked}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_aa9eb967e2be30ef5104623c3e3f9cf8a}{graph\+\_\+lock}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a64af1ab31216b005720baf2429651be3}{graph\+\_\+unlock}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_af7af9824adf47296c2337b96e7ea5280}{debug\+\_\+locks\+\_\+off\+\_\+graph\+\_\+unlock}} (void)
+\item 
+static \mbox{\hyperlink{lockdep_8c_acd206c5b9a75564f23031e5ed812bca5}{D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP}} (list\+\_\+entries\+\_\+in\+\_\+use, \mbox{\hyperlink{lockdep__internals_8h_a3c3a387c7eda3ff700239171e122fc16}{M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+E\+N\+T\+R\+I\+ES}})
+\item 
+static \mbox{\hyperlink{lockdep_8c_a0129d041317a3d5179cdb683732c81f4}{D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP}} (lock\+\_\+classes\+\_\+in\+\_\+use, M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+YS)
+\item 
+static struct lock\+\_\+class $\ast$ \mbox{\hyperlink{lockdep_8c_ad12e6a8185d51aa55a05b77a66f61447}{hlock\+\_\+class}} (struct held\+\_\+lock $\ast$hlock)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_af2bbe35876d807470423e6c1607222fe}{lock\+\_\+release\+\_\+holdtime}} (struct held\+\_\+lock $\ast$hlock)
+\item 
+\mbox{\hyperlink{lockdep_8c_ae0f06f7f6b5f2ab5e0fbf88d90006dc3}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (\mbox{\hyperlink{lockdep__internals_8h_a150d20fac6c40d77d3d8168430e77c3c}{all\+\_\+lock\+\_\+classes}})
+\item 
+static \mbox{\hyperlink{lockdep_8c_a966b2546be2619f86c19d136e577220d}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (free\+\_\+lock\+\_\+classes)
+\item 
+static \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{lockdep_8c_a6e3add449b4ce8ff538cff3f0066284f}{hlock\+\_\+id}} (struct held\+\_\+lock $\ast$hlock)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_ae2ad9df54c7d4949b776760547a0f5ab}{chain\+\_\+hlock\+\_\+class\+\_\+idx}} (\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{lockdep_8c_a6e3add449b4ce8ff538cff3f0066284f}{hlock\+\_\+id}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{lockdep_8c_a3d178be006623e2fff5b24678ac91132}{iterate\+\_\+chain\+\_\+key}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_aaa4af741ae0734a5a2de784b9e0055f7}{lockdep\+\_\+init\+\_\+task}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{lockdep_8c_a568e42aec2a2f73e080a843568a4b8e0}{lockdep\+\_\+recursion\+\_\+inc}} (void)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{lockdep_8c_a143fde806f0357b65df85fcd28b9fa8e}{lockdep\+\_\+recursion\+\_\+finish}} (void)
+\item 
+void \mbox{\hyperlink{lockdep_8c_a93f18702cccad39f024c813a309b56a6}{lockdep\+\_\+set\+\_\+selftest\+\_\+task}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} (struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a72fe1bc206556cf08761d9c9c3f746ee}{print\+\_\+lockdep\+\_\+off}} (const char $\ast$bug\+\_\+msg)
+\item 
+const char $\ast$ \mbox{\hyperlink{lockdep_8c_a42b7ef5334eb879eb6c4b7038c991671}{\+\_\+\+\_\+get\+\_\+key\+\_\+name}} (const struct lockdep\+\_\+subclass\+\_\+key $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static unsigned long \mbox{\hyperlink{lockdep_8c_ae8d9bdec8fcb220f976114c32a14e05a}{lock\+\_\+flag}} (\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{lockdep__internals_8h_a729d350793d569d1e00d026fd5a18303}{lock\+\_\+usage\+\_\+bit}} bit)
+\item 
+static char \mbox{\hyperlink{lockdep_8c_a458c5058c8c6db832e9f46393067dff0}{get\+\_\+usage\+\_\+char}} (struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{lockdep__internals_8h_a729d350793d569d1e00d026fd5a18303}{lock\+\_\+usage\+\_\+bit}} bit)
+\item 
+void \mbox{\hyperlink{lockdep_8c_a896fe14892152485487f367223d9b1d6}{get\+\_\+usage\+\_\+chars}} (struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}}, char \mbox{\hyperlink{relocs__common_8c_ad96d407a911fbb914fa8e4cfbf2faf0f}{usage}}\mbox{[}\mbox{\hyperlink{lockdep__internals_8h_ad7b616d9ac7f8a20b45baf4ca044ffc0}{L\+O\+C\+K\+\_\+\+U\+S\+A\+G\+E\+\_\+\+C\+H\+A\+RS}}\mbox{]})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a83d2023a2c475a1939e34026fb583ae3}{\+\_\+\+\_\+print\+\_\+lock\+\_\+name}} (struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a3fc8b44e751c025370968000b8634c32}{print\+\_\+lock\+\_\+name}} (struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_adbd78754766f74072dd3977b43799234}{print\+\_\+lockdep\+\_\+cache}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a9d0b08fbe7c82302a801cf85a007a5b6}{print\+\_\+lock}} (struct held\+\_\+lock $\ast$hlock)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ae4c2e31e12a57194e6e1108b5b22504c}{lockdep\+\_\+print\+\_\+held\+\_\+locks}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_adaadc2dc4b8321f14b1115d81a271a4f}{print\+\_\+kernel\+\_\+ident}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a065a369556bb471b2f089f2f15b45e8c}{very\+\_\+verbose}} (struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a8c48334a2e87d8d6ab6867a0cac04ef9}{count\+\_\+matching\+\_\+names}} (struct lock\+\_\+class $\ast$new\+\_\+class)
+\item 
+static noinstr struct lock\+\_\+class $\ast$ \mbox{\hyperlink{lockdep_8c_a676111a4fe2899ea5414b0b869b35bd8}{look\+\_\+up\+\_\+lock\+\_\+class}} (const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_a8e2ad0f036f2106db94483d4331f35ed}{assign\+\_\+lock\+\_\+key}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_afb1b6b5e47175cb71cb3d692ee0d649e}{check\+\_\+data\+\_\+structures}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a73bcabe6171548deaaca24a7138f0cec}{init\+\_\+chain\+\_\+block\+\_\+buckets}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_aced25230d9549fce6fa4432d093cae46}{init\+\_\+data\+\_\+structures\+\_\+once}} (void)
+\item 
+static struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} $\ast$ \mbox{\hyperlink{lockdep_8c_a66002a063eb891acc0d671538e77f004}{keyhashentry}} (const struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a3596b15f8f5f04e911b6f2609c5e2fe6}{lockdep\+\_\+register\+\_\+key}} (struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a9df706befc603f4eee38a7719d36be82}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8h_a30f01c24739338d98774a2558b1931bb}{lockdep\+\_\+register\+\_\+key}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_af8b5a7e4fbba49ece8c4d40e3fb8b812}{is\+\_\+dynamic\+\_\+key}} (const struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+static struct lock\+\_\+class $\ast$ \mbox{\hyperlink{lockdep_8c_a2a937aadc2f16d5c527befa469846c17}{register\+\_\+lock\+\_\+class}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iris_8c_a4b73e33b57ae387dc418906492d5f998}{force}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a3d8daf54932e8eef4b22b9ca3b4c8af3}{validate\+\_\+chain}} (struct task\+\_\+struct $\ast$curr, struct held\+\_\+lock $\ast$hlock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} chain\+\_\+head, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} chain\+\_\+key)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ac3d755c8c02f26f6822d40d2804f5098}{check\+\_\+chain\+\_\+key}} (struct task\+\_\+struct $\ast$curr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a587327937e244279e18ecffa17585e23}{mark\+\_\+usage}} (struct task\+\_\+struct $\ast$curr, struct held\+\_\+lock $\ast$hlock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__list__sort_8c_adb0bb6582d45be588eb8b25a47e9e4ae}{check}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a399e386117ffa60d8e2f45b228cf791c}{task\+\_\+irq\+\_\+context}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a7699bd8405d29193e1bd04b738bcbc06}{separate\+\_\+irq\+\_\+context}} (struct task\+\_\+struct $\ast$curr, struct held\+\_\+lock $\ast$hlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_ab667915ef5817055ea906cff187e40ac}{check\+\_\+wait\+\_\+context}} (struct task\+\_\+struct $\ast$curr, struct held\+\_\+lock $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a71f4d6dca60b47705a0a9cff3332c792}{lockdep\+\_\+init\+\_\+map\+\_\+type}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} inner, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} outer, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} lock\+\_\+type)
+\item 
+\mbox{\hyperlink{lockdep_8c_ac6ff1fe2d2ac5e4102383517f9dff64b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a71f4d6dca60b47705a0a9cff3332c792}{lockdep\+\_\+init\+\_\+map\+\_\+type}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a1055caef5bafefc009db79cb7a6b4666}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a2085476fff299d6d18b672d62b2dcdc1}{\+\_\+\+\_\+lockdep\+\_\+no\+\_\+validate\+\_\+\+\_\+}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ab2a35e2051cfb41673b0397333de48b4}{print\+\_\+lock\+\_\+nested\+\_\+lock\+\_\+not\+\_\+held}} (struct task\+\_\+struct $\ast$curr, struct held\+\_\+lock $\ast$hlock, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_aff3708aa04344576b136068c60eaf027}{\+\_\+\+\_\+lock\+\_\+is\+\_\+held}} (const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ring__buffer__benchmark_8c_a414a71904272e5b5fce01917028fb426}{read}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a5becaa7f0ff0055e5d4fe8c075ad03d3}{\+\_\+\+\_\+lock\+\_\+acquire}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trylock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ring__buffer__benchmark_8c_a414a71904272e5b5fce01917028fb426}{read}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__list__sort_8c_adb0bb6582d45be588eb8b25a47e9e4ae}{check}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hardirqs\+\_\+off, struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$nest\+\_\+lock, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} references, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pin\+\_\+count)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a2d47ef1d0445359bc1ba8078cef141ac}{print\+\_\+unlock\+\_\+imbalance\+\_\+bug}} (struct task\+\_\+struct $\ast$curr, struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+static noinstr \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a9b4574ab6c7fecdfe7ab71e5272516b0}{match\+\_\+held\+\_\+lock}} (const struct held\+\_\+lock $\ast$hlock, const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static struct held\+\_\+lock $\ast$ \mbox{\hyperlink{lockdep_8c_adf151fb0057a33453aefa31a19d31fb0}{find\+\_\+held\+\_\+lock}} (struct task\+\_\+struct $\ast$curr, struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{video_2uvesafb_8h_ab31ec17b09b63d280a8c1dd35b334c5c}{depth}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_aa03ac40b47759c041f1e8734f63850a9}{reacquire\+\_\+held\+\_\+locks}} (struct task\+\_\+struct $\ast$curr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{video_2uvesafb_8h_ab31ec17b09b63d280a8c1dd35b334c5c}{depth}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$merged)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a1aae9aa75cd35c2943dbc2e368d56509}{\+\_\+\+\_\+lock\+\_\+set\+\_\+class}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a9d51f858d5ac759a8686862a2d7f16fe}{\+\_\+\+\_\+lock\+\_\+downgrade}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_ad18dd12f100644d87c6d15bb96006b70}{\+\_\+\+\_\+lock\+\_\+release}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+static struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} \mbox{\hyperlink{lockdep_8c_aad254c79124a70c7838901cff176403d}{\+\_\+\+\_\+lock\+\_\+pin\+\_\+lock}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ac9ab8004c45b5252f3cf868f7c7fcea6}{\+\_\+\+\_\+lock\+\_\+repin\+\_\+lock}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} \mbox{\hyperlink{rados_8h_aae0cf4e805dd1623dbab22319ff75c77}{cookie}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ac7b1b4a2a1c46ee35c6fa06a9dd71bf1}{\+\_\+\+\_\+lock\+\_\+unpin\+\_\+lock}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} \mbox{\hyperlink{rados_8h_aae0cf4e805dd1623dbab22319ff75c77}{cookie}})
+\item 
+static noinstr void \mbox{\hyperlink{lockdep_8c_a47bb780719e860583a2c1c2292544174}{check\+\_\+flags}} (unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_ab2460a3b6f9480939209e9c0a13a3d84}{lock\+\_\+set\+\_\+class}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a2a59779e5b8e245057a6fc6608f243ea}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_ab2460a3b6f9480939209e9c0a13a3d84}{lock\+\_\+set\+\_\+class}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a6c5f4bda98328cb92198660d3e1940be}{lock\+\_\+downgrade}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+\mbox{\hyperlink{lockdep_8c_aef8fe53acaa35db503288fdbee430a95}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a6c5f4bda98328cb92198660d3e1940be}{lock\+\_\+downgrade}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a39b2c6288e1390cdd1e88cde7ff06eb6}{verify\+\_\+lock\+\_\+unused}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, struct held\+\_\+lock $\ast$hlock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_a332b73cbdbf7f7080c4db9bb1e003cef}{lockdep\+\_\+nmi}} (void)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_a6f507c59bcb846a3f78ff7a0dbc093a9}{read\+\_\+lock\+\_\+is\+\_\+recursive}} (void)
+\item 
+\mbox{\hyperlink{lockdep_8c_a4fadbf240e51a3fa50b57fcf4bb8049d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a6f507c59bcb846a3f78ff7a0dbc093a9}{read\+\_\+lock\+\_\+is\+\_\+recursive}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a63fbb4a6900b1a99f896203952e61528}{lock\+\_\+acquire}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subclass, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trylock, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ring__buffer__benchmark_8c_a414a71904272e5b5fce01917028fb426}{read}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__list__sort_8c_adb0bb6582d45be588eb8b25a47e9e4ae}{check}}, struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$nest\+\_\+lock, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+\mbox{\hyperlink{lockdep_8c_aa770dcbbd910353c9ef3a093727e29e8}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a63fbb4a6900b1a99f896203952e61528}{lock\+\_\+acquire}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a088b2b72aa9f1a4dc00fc22bfdc3cd2b}{lock\+\_\+release}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+\mbox{\hyperlink{lockdep_8c_aaf596e1b312ff9d5a1ee46680d5acfbc}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a088b2b72aa9f1a4dc00fc22bfdc3cd2b}{lock\+\_\+release}})
+\item 
+noinstr \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a976ef0b06af07d237a1a5cea9be4b6ed}{lock\+\_\+is\+\_\+held\+\_\+type}} (const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ring__buffer__benchmark_8c_a414a71904272e5b5fce01917028fb426}{read}})
+\item 
+\mbox{\hyperlink{lockdep_8c_aaec07f7f15390c1a4a0021d449de9aab}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a976ef0b06af07d237a1a5cea9be4b6ed}{lock\+\_\+is\+\_\+held\+\_\+type}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a1ac247177dd39287177efbc96289750c}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{lockdep_8c_a976ef0b06af07d237a1a5cea9be4b6ed}{lock\+\_\+is\+\_\+held\+\_\+type}})
+\item 
+struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} \mbox{\hyperlink{lockdep_8c_a667716e8c20d5b4685713e690462b8b7}{lock\+\_\+pin\+\_\+lock}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a473b0d4c48c573409dea8ac36e8fce71}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a667716e8c20d5b4685713e690462b8b7}{lock\+\_\+pin\+\_\+lock}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_aaac869cbfd0656ef59fe4a234dd0d52e}{lock\+\_\+repin\+\_\+lock}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} \mbox{\hyperlink{rados_8h_aae0cf4e805dd1623dbab22319ff75c77}{cookie}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a0318c640c2f5ff61f25f3d91d3237967}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_aaac869cbfd0656ef59fe4a234dd0d52e}{lock\+\_\+repin\+\_\+lock}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a99db9dd5e66ef1500583e0fe8e207ba8}{lock\+\_\+unpin\+\_\+lock}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}}, struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} \mbox{\hyperlink{rados_8h_aae0cf4e805dd1623dbab22319ff75c77}{cookie}})
+\item 
+\mbox{\hyperlink{lockdep_8c_af500849a083dfab83b7ff907bc087b98}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8c_a99db9dd5e66ef1500583e0fe8e207ba8}{lock\+\_\+unpin\+\_\+lock}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a14088b727019440fe9e5c7492bf6c046}{lockdep\+\_\+reset}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a99f9d04c42b13a867e77b3d1a267d510}{remove\+\_\+class\+\_\+from\+\_\+lock\+\_\+chain}} (struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a9f456dd4516f35362391a38ffc505535}{pf}}, struct lock\+\_\+chain $\ast$\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}}, struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ab4ce283930e4f2932d8024416b0777d6}{remove\+\_\+class\+\_\+from\+\_\+lock\+\_\+chains}} (struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a9f456dd4516f35362391a38ffc505535}{pf}}, struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_aff3c32baaf579605ebb4fbd2459740da}{zap\+\_\+class}} (struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a9f456dd4516f35362391a38ffc505535}{pf}}, struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ab5948f4473e2574bd900e6b75f1ed58b}{reinit\+\_\+class}} (struct lock\+\_\+class $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a64aeba38758c681e015857193cabfe30}{within}} (const void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, void $\ast$\mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_a20dc6e457d402e83a128dc5cba91b02d}{inside\+\_\+selftest}} (void)
+\item 
+static struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$ \mbox{\hyperlink{lockdep_8c_a64caac88b6510411fe2819faa55d16d5}{get\+\_\+pending\+\_\+free}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a5e3052d408bb369977c5ec0e64a6de80}{free\+\_\+zapped\+\_\+rcu}} (struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$cb)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a1c0e0575df265414e851bb1ae8bc1636}{call\+\_\+rcu\+\_\+zapped}} (struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a9f456dd4516f35362391a38ffc505535}{pf}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a7a98ee58e492f9ced1b165df1e35a3c4}{\+\_\+\+\_\+free\+\_\+zapped\+\_\+classes}} (struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a9f456dd4516f35362391a38ffc505535}{pf}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ab65f1cc38c69f4de8718c359e17cbc10}{\+\_\+\+\_\+lockdep\+\_\+free\+\_\+key\+\_\+range}} (struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a9f456dd4516f35362391a38ffc505535}{pf}}, void $\ast$\mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_add012c1d3400eac91c03664705578836}{lockdep\+\_\+free\+\_\+key\+\_\+range\+\_\+reg}} (void $\ast$\mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_aeb15d87ee316f16d38ddf01d8aff9444}{lockdep\+\_\+free\+\_\+key\+\_\+range\+\_\+imm}} (void $\ast$\mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a5b2d6455af974cf9beb1fc95d3e732b3}{lockdep\+\_\+free\+\_\+key\+\_\+range}} (void $\ast$\mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{lockdep_8c_ab60fc4147c565cc9366bac19a1856471}{lock\+\_\+class\+\_\+cache\+\_\+is\+\_\+registered}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a1044b2ce9f63050d8f8bd76396ae8013}{\+\_\+\+\_\+lockdep\+\_\+reset\+\_\+lock}} (struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a9f456dd4516f35362391a38ffc505535}{pf}}, struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a51c7398034fa90efc2df5a0039a8675c}{lockdep\+\_\+reset\+\_\+lock\+\_\+reg}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_ab9e28a29317ec4d7ade66b60fd0493ae}{lockdep\+\_\+reset\+\_\+lock\+\_\+imm}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_af9b2db46c87d7512198ad76118888d18}{lockdep\+\_\+reset\+\_\+lock}} (struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a017d66eeafd9f7ad41f28021e712229e}{lockdep\+\_\+unregister\+\_\+key}} (struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a28ac844b97e52f362ddb880b3a79b462}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8h_a73fb2c079ad8296ad1bd21b156114778}{lockdep\+\_\+unregister\+\_\+key}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{lockdep_8c_ad3a44a13f07cdb504e706a86c8ca01c3}{lockdep\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{lockdep_8c_a0b6ce060345890abff216c5e23b83603}{print\+\_\+freed\+\_\+lock\+\_\+bug}} (struct task\+\_\+struct $\ast$curr, const void $\ast$mem\+\_\+from, const void $\ast$mem\+\_\+to, struct held\+\_\+lock $\ast$hlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a4d8d2aa7d81aa3d2f0302c8430cbc75f}{not\+\_\+in\+\_\+range}} (const void $\ast$mem\+\_\+from, unsigned long mem\+\_\+len, const void $\ast$lock\+\_\+from, unsigned long lock\+\_\+len)
+\item 
+void \mbox{\hyperlink{lockdep_8c_a305ab737fd23c754cde6f174ec676818}{debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+freed}} (const void $\ast$mem\+\_\+from, unsigned long mem\+\_\+len)
+\item 
+\mbox{\hyperlink{lockdep_8c_a938aacd93efb33358eadc4c668da7980}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{debug__locks_8h_a530adc481cfb15fcdef8468939bd10dd}{debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+freed}})
+\item 
+static void \mbox{\hyperlink{lockdep_8c_aeb66430950ad62673032b5170268bfc2}{print\+\_\+held\+\_\+locks\+\_\+bug}} (void)
+\item 
+void \mbox{\hyperlink{lockdep_8c_a1a247566aec465ea396eaf9ce0a975a8}{debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+held}} (void)
+\item 
+\mbox{\hyperlink{lockdep_8c_a42d06b9ace6b62feb6a626667dcd30a6}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{debug__locks_8h_ab13ea0ea758001ebfb1fd9cec8d8fb65}{debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+held}})
+\item 
+void \mbox{\hyperlink{lockdep_8c_a419f55850f03fabb5150d15b01e68eb4}{debug\+\_\+show\+\_\+held\+\_\+locks}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a8bda9a5f5f57b97996d40504f333d8e4}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{debug__locks_8h_a2fc7a64074dd11843270e50df9e00afd}{debug\+\_\+show\+\_\+held\+\_\+locks}})
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} void \mbox{\hyperlink{lockdep_8c_aac7b17a9b030b9dd5cfd463bb683076b}{lockdep\+\_\+sys\+\_\+exit}} (void)
+\item 
+void \mbox{\hyperlink{lockdep_8c_a8696ea95b55eae2fcdee66b8f664d56b}{lockdep\+\_\+rcu\+\_\+suspicious}} (const char $\ast$\mbox{\hyperlink{structfile}{file}}, const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2videodev2_8h_a7387fb74af8bab543f8f007513b7c499}{line}}, const char $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+\mbox{\hyperlink{lockdep_8c_a758ef819a5ada470f74e8b60e9fe8744}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{lockdep_8h_a5c5e9d4b6a046a4ebcc272f0005f3a18}{lockdep\+\_\+rcu\+\_\+suspicious}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{structarch__spinlock__t}{arch\+\_\+spinlock\+\_\+t}} \mbox{\hyperlink{lockdep_8c_a94e6dc0b778f9f2e06f77e69f0f9ea80}{\+\_\+\+\_\+lock}} = (\mbox{\hyperlink{structarch__spinlock__t}{arch\+\_\+spinlock\+\_\+t}})\mbox{\hyperlink{spinlock__types__up_8h_a94436bcf1269b573c503859cf34cd7e5}{\+\_\+\+\_\+\+A\+R\+C\+H\+\_\+\+S\+P\+I\+N\+\_\+\+L\+O\+C\+K\+\_\+\+U\+N\+L\+O\+C\+K\+ED}}
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{lockdep_8c_a9cb74ad233d4f886c36b07444f4f831d}{\+\_\+\+\_\+owner}}
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{lockdep_8c_a95a529d13e3e310d9380abb343b53cdc}{lockdep\+\_\+selftest\+\_\+task\+\_\+struct}}
+\item 
+unsigned long \mbox{\hyperlink{lockdep_8c_a892f45e973aad38e08cf9d05ee17aad1}{nr\+\_\+list\+\_\+entries}}
+\item 
+static struct lock\+\_\+list \mbox{\hyperlink{lockdep_8c_a8691ceb6ad72da4bfb86808ee89b8e9f}{list\+\_\+entries}} \mbox{[}\mbox{\hyperlink{lockdep__internals_8h_a3c3a387c7eda3ff700239171e122fc16}{M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+E\+N\+T\+R\+I\+ES}}\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} \mbox{\hyperlink{lockdep_8c_adee2ac35439c859b96c8a85d9d1d16f4}{lock\+\_\+keys\+\_\+hash}} \mbox{[}\mbox{\hyperlink{lockdep_8c_a9e5bcbfff13cafe4db6d8fd0960b8dfb}{K\+E\+Y\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}\mbox{]}
+\item 
+unsigned long \mbox{\hyperlink{lockdep_8c_a808bc92274e9787fea485a1230f17fdc}{nr\+\_\+lock\+\_\+classes}}
+\item 
+unsigned long \mbox{\hyperlink{lockdep_8c_a2f1769f7858c84599b9834887dcabad2}{nr\+\_\+zapped\+\_\+classes}}
+\item 
+static struct lock\+\_\+class \mbox{\hyperlink{lockdep_8c_a9728eb3ba87e34aa50b82b6220cfff71}{lock\+\_\+classes}} \mbox{[}M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+YS\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structdelayed__free}{delayed\+\_\+free}} \mbox{\hyperlink{lockdep_8c_a23921ed1e0491af8a3dee406af14ac82}{delayed\+\_\+free}}
+\item 
+static struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} \mbox{\hyperlink{lockdep_8c_a303b20c90b59cd082fbf78c1dcd12f4c}{classhash\+\_\+table}} \mbox{[}\mbox{\hyperlink{lockdep_8c_a94e34980ed658e7fba401d08dde42fdd}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} \mbox{\hyperlink{lockdep_8c_aa39b2ab379815c9ce582092c4075e424}{chainhash\+\_\+table}} \mbox{[}\mbox{\hyperlink{lockdep_8c_a350dee49d3bd7452d7c57a13b18c80a4}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}\mbox{]}
+\item 
+unsigned long \mbox{\hyperlink{lockdep_8c_a7c41f6b55bd3043860ae6ba4c9fd0833}{nr\+\_\+stack\+\_\+trace\+\_\+entries}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a617e3a8fae78447c7da7608eaf5eaaa7}{nr\+\_\+hardirq\+\_\+chains}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_af2623a6d1e02ae251eb91c4fcbb2454a}{nr\+\_\+softirq\+\_\+chains}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a752ade73e7c622bdb7f5395dd4ec4460}{nr\+\_\+process\+\_\+chains}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{lockdep_8c_a7699797d2b2297126d59d90b2fa60a13}{max\+\_\+lockdep\+\_\+depth}}
+\item 
+struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} \mbox{\hyperlink{lockdep_8c_a2085476fff299d6d18b672d62b2dcdc1}{\+\_\+\+\_\+lockdep\+\_\+no\+\_\+validate\+\_\+\+\_\+}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{lockdep_8c_addb8fe385fb75b23bd89b75e472b717d}\label{lockdep_8c_addb8fe385fb75b23bd89b75e472b717d}} 
+\index{lockdep.c@{lockdep.c}!\_\_chainhashfn@{\_\_chainhashfn}}
+\index{\_\_chainhashfn@{\_\_chainhashfn}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_chainhashfn}{\_\_chainhashfn}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+chainhashfn(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}} }\end{DoxyParamCaption})~hash\+\_\+long(\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}}, \mbox{\hyperlink{lockdep_8c_a8e8d4f4a7801682a268c96ea8f6b7a32}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{lockdep_8c_a5e2a57f68e500ff9f2eee46f1d6c079c}\label{lockdep_8c_a5e2a57f68e500ff9f2eee46f1d6c079c}} 
+\index{lockdep.c@{lockdep.c}!\_\_classhashfn@{\_\_classhashfn}}
+\index{\_\_classhashfn@{\_\_classhashfn}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_classhashfn}{\_\_classhashfn}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+classhashfn(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}} }\end{DoxyParamCaption})~hash\+\_\+long((unsigned long)\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, \mbox{\hyperlink{lockdep_8c_a1624bb9519c9ae15647235153943fa93}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{lockdep_8c_a8e8d4f4a7801682a268c96ea8f6b7a32}\label{lockdep_8c_a8e8d4f4a7801682a268c96ea8f6b7a32}} 
+\index{lockdep.c@{lockdep.c}!CHAINHASH\_BITS@{CHAINHASH\_BITS}}
+\index{CHAINHASH\_BITS@{CHAINHASH\_BITS}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{CHAINHASH\_BITS}{CHAINHASH\_BITS}}
+{\footnotesize\ttfamily \#define C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+B\+I\+TS~(\mbox{\hyperlink{lockdep__internals_8h_a40d3ed9019e3cf95c08ef8c0e198486b}{M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+C\+H\+A\+I\+N\+S\+\_\+\+B\+I\+TS}}-\/1)}
+
+\mbox{\Hypertarget{lockdep_8c_a350dee49d3bd7452d7c57a13b18c80a4}\label{lockdep_8c_a350dee49d3bd7452d7c57a13b18c80a4}} 
+\index{lockdep.c@{lockdep.c}!CHAINHASH\_SIZE@{CHAINHASH\_SIZE}}
+\index{CHAINHASH\_SIZE@{CHAINHASH\_SIZE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{CHAINHASH\_SIZE}{CHAINHASH\_SIZE}}
+{\footnotesize\ttfamily \#define C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+S\+I\+ZE~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{lockdep_8c_a8e8d4f4a7801682a268c96ea8f6b7a32}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{lockdep_8c_a86c652b97d771f669e1ef5ef7b3d7259}\label{lockdep_8c_a86c652b97d771f669e1ef5ef7b3d7259}} 
+\index{lockdep.c@{lockdep.c}!chainhashentry@{chainhashentry}}
+\index{chainhashentry@{chainhashentry}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{chainhashentry}{chainhashentry}}
+{\footnotesize\ttfamily \#define chainhashentry(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{lockdep_8c_aa39b2ab379815c9ce582092c4075e424}{chainhash\+\_\+table}} + \mbox{\hyperlink{lockdep_8c_addb8fe385fb75b23bd89b75e472b717d}{\+\_\+\+\_\+chainhashfn}}((\mbox{\hyperlink{ksm_8c_a6f0b94e02cc0838f0b7e71f04d8cc15b}{chain}})))}
+
+\mbox{\Hypertarget{lockdep_8c_a1624bb9519c9ae15647235153943fa93}\label{lockdep_8c_a1624bb9519c9ae15647235153943fa93}} 
+\index{lockdep.c@{lockdep.c}!CLASSHASH\_BITS@{CLASSHASH\_BITS}}
+\index{CLASSHASH\_BITS@{CLASSHASH\_BITS}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{CLASSHASH\_BITS}{CLASSHASH\_BITS}}
+{\footnotesize\ttfamily \#define C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+B\+I\+TS~(M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+Y\+S\+\_\+\+B\+I\+TS -\/ 1)}
+
+\mbox{\Hypertarget{lockdep_8c_a94e34980ed658e7fba401d08dde42fdd}\label{lockdep_8c_a94e34980ed658e7fba401d08dde42fdd}} 
+\index{lockdep.c@{lockdep.c}!CLASSHASH\_SIZE@{CLASSHASH\_SIZE}}
+\index{CLASSHASH\_SIZE@{CLASSHASH\_SIZE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{CLASSHASH\_SIZE}{CLASSHASH\_SIZE}}
+{\footnotesize\ttfamily \#define C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+S\+I\+ZE~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{lockdep_8c_a1624bb9519c9ae15647235153943fa93}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{lockdep_8c_a112206a4ab31713b0115cdd3f6f154e3}\label{lockdep_8c_a112206a4ab31713b0115cdd3f6f154e3}} 
+\index{lockdep.c@{lockdep.c}!classhashentry@{classhashentry}}
+\index{classhashentry@{classhashentry}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{classhashentry}{classhashentry}}
+{\footnotesize\ttfamily \#define classhashentry(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{lockdep_8c_a303b20c90b59cd082fbf78c1dcd12f4c}{classhash\+\_\+table}} + \mbox{\hyperlink{lockdep_8c_a5e2a57f68e500ff9f2eee46f1d6c079c}{\+\_\+\+\_\+classhashfn}}((\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})))}
+
+\mbox{\Hypertarget{lockdep_8c_a40473b47b4871fa538a0fa131f94e774}\label{lockdep_8c_a40473b47b4871fa538a0fa131f94e774}} 
+\index{lockdep.c@{lockdep.c}!CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}}
+\index{CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{CREATE\_TRACE\_POINTS}{CREATE\_TRACE\_POINTS}}
+{\footnotesize\ttfamily \#define C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}
+
+\mbox{\Hypertarget{lockdep_8c_a56541f4e0cb639d25b7e5d743f3b7665}\label{lockdep_8c_a56541f4e0cb639d25b7e5d743f3b7665}} 
+\index{lockdep.c@{lockdep.c}!DISABLE\_BRANCH\_PROFILING@{DISABLE\_BRANCH\_PROFILING}}
+\index{DISABLE\_BRANCH\_PROFILING@{DISABLE\_BRANCH\_PROFILING}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{DISABLE\_BRANCH\_PROFILING}{DISABLE\_BRANCH\_PROFILING}}
+{\footnotesize\ttfamily \#define D\+I\+S\+A\+B\+L\+E\+\_\+\+B\+R\+A\+N\+C\+H\+\_\+\+P\+R\+O\+F\+I\+L\+I\+NG}
+
+\mbox{\Hypertarget{lockdep_8c_ab47c933b1596f3e2517fd4bf26a9031a}\label{lockdep_8c_ab47c933b1596f3e2517fd4bf26a9031a}} 
+\index{lockdep.c@{lockdep.c}!HARDIRQ\_VERBOSE@{HARDIRQ\_VERBOSE}}
+\index{HARDIRQ\_VERBOSE@{HARDIRQ\_VERBOSE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{HARDIRQ\_VERBOSE}{HARDIRQ\_VERBOSE}}
+{\footnotesize\ttfamily \#define H\+A\+R\+D\+I\+R\+Q\+\_\+\+V\+E\+R\+B\+O\+SE~0}
+
+\mbox{\Hypertarget{lockdep_8c_a54fb50a8186f9895c1496c6e7e44ae32}\label{lockdep_8c_a54fb50a8186f9895c1496c6e7e44ae32}} 
+\index{lockdep.c@{lockdep.c}!KEYHASH\_BITS@{KEYHASH\_BITS}}
+\index{KEYHASH\_BITS@{KEYHASH\_BITS}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{KEYHASH\_BITS}{KEYHASH\_BITS}}
+{\footnotesize\ttfamily \#define K\+E\+Y\+H\+A\+S\+H\+\_\+\+B\+I\+TS~(M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+Y\+S\+\_\+\+B\+I\+TS -\/ 1)}
+
+\mbox{\Hypertarget{lockdep_8c_a9e5bcbfff13cafe4db6d8fd0960b8dfb}\label{lockdep_8c_a9e5bcbfff13cafe4db6d8fd0960b8dfb}} 
+\index{lockdep.c@{lockdep.c}!KEYHASH\_SIZE@{KEYHASH\_SIZE}}
+\index{KEYHASH\_SIZE@{KEYHASH\_SIZE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{KEYHASH\_SIZE}{KEYHASH\_SIZE}}
+{\footnotesize\ttfamily \#define K\+E\+Y\+H\+A\+S\+H\+\_\+\+S\+I\+ZE~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{lockdep_8c_a54fb50a8186f9895c1496c6e7e44ae32}{K\+E\+Y\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{lockdep_8c_a792d43e4689127d7223c1603396b25cd}\label{lockdep_8c_a792d43e4689127d7223c1603396b25cd}} 
+\index{lockdep.c@{lockdep.c}!lock\_stat@{lock\_stat}}
+\index{lock\_stat@{lock\_stat}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_stat}{lock\_stat}}
+{\footnotesize\ttfamily \#define lock\+\_\+stat~0}
+
+\mbox{\Hypertarget{lockdep_8c_a7ced61059e6605423c856f7aa589f349}\label{lockdep_8c_a7ced61059e6605423c856f7aa589f349}} 
+\index{lockdep.c@{lockdep.c}!LOCKDEP\_STATE@{LOCKDEP\_STATE}}
+\index{LOCKDEP\_STATE@{LOCKDEP\_STATE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{LOCKDEP\_STATE}{LOCKDEP\_STATE}}
+{\footnotesize\ttfamily \#define L\+O\+C\+K\+D\+E\+P\+\_\+\+S\+T\+A\+TE(\begin{DoxyParamCaption}\item[{}]{\+\_\+\+\_\+\+S\+T\+A\+TE }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \mbox{\hyperlink{uapi_2linux_2btrfs_8h_a5007a4670f94cefd0ddb14ec6d905521}{usage}}[\mbox{\hyperlink{decode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}}++] = \mbox{\hyperlink{lockdep_8c_a458c5058c8c6db832e9f46393067dff0}{get\_usage\_char}}(\textcolor{keyword}{class}, LOCK\_USED\_IN\_\#\#\_\_STATE); \(\backslash\)}
+\DoxyCodeLine{    usage[\mbox{\hyperlink{decode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}}++] = \mbox{\hyperlink{lockdep_8c_a458c5058c8c6db832e9f46393067dff0}{get\_usage\_char}}(\textcolor{keyword}{class}, LOCK\_USED\_IN\_\#\#\_\_STATE\#\#\_READ);}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{lockdep_8c_ac290752d766d8b654c000cd47c905175}\label{lockdep_8c_ac290752d766d8b654c000cd47c905175}} 
+\index{lockdep.c@{lockdep.c}!prove\_locking@{prove\_locking}}
+\index{prove\_locking@{prove\_locking}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{prove\_locking}{prove\_locking}}
+{\footnotesize\ttfamily \#define prove\+\_\+locking~0}
+
+\mbox{\Hypertarget{lockdep_8c_aee1ba1114600dfe05757ad4ab088df73}\label{lockdep_8c_aee1ba1114600dfe05757ad4ab088df73}} 
+\index{lockdep.c@{lockdep.c}!SOFTIRQ\_VERBOSE@{SOFTIRQ\_VERBOSE}}
+\index{SOFTIRQ\_VERBOSE@{SOFTIRQ\_VERBOSE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{SOFTIRQ\_VERBOSE}{SOFTIRQ\_VERBOSE}}
+{\footnotesize\ttfamily \#define S\+O\+F\+T\+I\+R\+Q\+\_\+\+V\+E\+R\+B\+O\+SE~0}
+
+\mbox{\Hypertarget{lockdep_8c_a42f8c497a1968074f38bf5055c650dca}\label{lockdep_8c_a42f8c497a1968074f38bf5055c650dca}} 
+\index{lockdep.c@{lockdep.c}!VERBOSE@{VERBOSE}}
+\index{VERBOSE@{VERBOSE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{VERBOSE}{VERBOSE}}
+{\footnotesize\ttfamily \#define V\+E\+R\+B\+O\+SE~0}
+
+\mbox{\Hypertarget{lockdep_8c_a0f9841b37b5a8668ccff6eaa2ba42a94}\label{lockdep_8c_a0f9841b37b5a8668ccff6eaa2ba42a94}} 
+\index{lockdep.c@{lockdep.c}!VERY\_VERBOSE@{VERY\_VERBOSE}}
+\index{VERY\_VERBOSE@{VERY\_VERBOSE}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{VERY\_VERBOSE}{VERY\_VERBOSE}}
+{\footnotesize\ttfamily \#define V\+E\+R\+Y\+\_\+\+V\+E\+R\+B\+O\+SE~0}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{lockdep_8c_a7a98ee58e492f9ced1b165df1e35a3c4}\label{lockdep_8c_a7a98ee58e492f9ced1b165df1e35a3c4}} 
+\index{lockdep.c@{lockdep.c}!\_\_free\_zapped\_classes@{\_\_free\_zapped\_classes}}
+\index{\_\_free\_zapped\_classes@{\_\_free\_zapped\_classes}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_free\_zapped\_classes()}{\_\_free\_zapped\_classes()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+free\+\_\+zapped\+\_\+classes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$}]{pf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{lockdep_8c_a42b7ef5334eb879eb6c4b7038c991671}\label{lockdep_8c_a42b7ef5334eb879eb6c4b7038c991671}} 
+\index{lockdep.c@{lockdep.c}!\_\_get\_key\_name@{\_\_get\_key\_name}}
+\index{\_\_get\_key\_name@{\_\_get\_key\_name}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_get\_key\_name()}{\_\_get\_key\_name()}}
+{\footnotesize\ttfamily const char$\ast$ \+\_\+\+\_\+get\+\_\+key\+\_\+name (\begin{DoxyParamCaption}\item[{const struct lockdep\+\_\+subclass\+\_\+key $\ast$}]{key,  }\item[{char $\ast$}]{str }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{lockdep_8c_a5becaa7f0ff0055e5d4fe8c075ad03d3}\label{lockdep_8c_a5becaa7f0ff0055e5d4fe8c075ad03d3}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_acquire@{\_\_lock\_acquire}}
+\index{\_\_lock\_acquire@{\_\_lock\_acquire}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_acquire()}{\_\_lock\_acquire()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+lock\+\_\+acquire (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trylock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{read,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{check,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{hardirqs\+\_\+off,  }\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{nest\+\_\+lock,  }\item[{unsigned long}]{ip,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{references,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pin\+\_\+count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{lockdep_8c_a9d51f858d5ac759a8686862a2d7f16fe}\label{lockdep_8c_a9d51f858d5ac759a8686862a2d7f16fe}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_downgrade@{\_\_lock\_downgrade}}
+\index{\_\_lock\_downgrade@{\_\_lock\_downgrade}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_downgrade()}{\_\_lock\_downgrade()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+lock\+\_\+downgrade (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{lockdep_8c_aff3708aa04344576b136068c60eaf027}\label{lockdep_8c_aff3708aa04344576b136068c60eaf027}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_is\_held@{\_\_lock\_is\_held}}
+\index{\_\_lock\_is\_held@{\_\_lock\_is\_held}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_is\_held()}{\_\_lock\_is\_held()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+lock\+\_\+is\+\_\+held (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{read }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{lockdep_8c_aad254c79124a70c7838901cff176403d}\label{lockdep_8c_aad254c79124a70c7838901cff176403d}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_pin\_lock@{\_\_lock\_pin\_lock}}
+\index{\_\_lock\_pin\_lock@{\_\_lock\_pin\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_pin\_lock()}{\_\_lock\_pin\_lock()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} \+\_\+\+\_\+lock\+\_\+pin\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{lockdep_8c_ad18dd12f100644d87c6d15bb96006b70}\label{lockdep_8c_ad18dd12f100644d87c6d15bb96006b70}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_release@{\_\_lock\_release}}
+\index{\_\_lock\_release@{\_\_lock\_release}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_release()}{\_\_lock\_release()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+lock\+\_\+release (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{lockdep_8c_ac9ab8004c45b5252f3cf868f7c7fcea6}\label{lockdep_8c_ac9ab8004c45b5252f3cf868f7c7fcea6}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_repin\_lock@{\_\_lock\_repin\_lock}}
+\index{\_\_lock\_repin\_lock@{\_\_lock\_repin\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_repin\_lock()}{\_\_lock\_repin\_lock()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+lock\+\_\+repin\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}}}]{cookie }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{lockdep_8c_a1aae9aa75cd35c2943dbc2e368d56509}\label{lockdep_8c_a1aae9aa75cd35c2943dbc2e368d56509}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_set\_class@{\_\_lock\_set\_class}}
+\index{\_\_lock\_set\_class@{\_\_lock\_set\_class}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_set\_class()}{\_\_lock\_set\_class()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+lock\+\_\+set\+\_\+class (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{const char $\ast$}]{name,  }\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{lockdep_8c_ac7b1b4a2a1c46ee35c6fa06a9dd71bf1}\label{lockdep_8c_ac7b1b4a2a1c46ee35c6fa06a9dd71bf1}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock\_unpin\_lock@{\_\_lock\_unpin\_lock}}
+\index{\_\_lock\_unpin\_lock@{\_\_lock\_unpin\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock\_unpin\_lock()}{\_\_lock\_unpin\_lock()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+lock\+\_\+unpin\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}}}]{cookie }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{lockdep_8c_ab65f1cc38c69f4de8718c359e17cbc10}\label{lockdep_8c_ab65f1cc38c69f4de8718c359e17cbc10}} 
+\index{lockdep.c@{lockdep.c}!\_\_lockdep\_free\_key\_range@{\_\_lockdep\_free\_key\_range}}
+\index{\_\_lockdep\_free\_key\_range@{\_\_lockdep\_free\_key\_range}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lockdep\_free\_key\_range()}{\_\_lockdep\_free\_key\_range()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+lockdep\+\_\+free\+\_\+key\+\_\+range (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$}]{pf,  }\item[{void $\ast$}]{start,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{lockdep_8c_a1044b2ce9f63050d8f8bd76396ae8013}\label{lockdep_8c_a1044b2ce9f63050d8f8bd76396ae8013}} 
+\index{lockdep.c@{lockdep.c}!\_\_lockdep\_reset\_lock@{\_\_lockdep\_reset\_lock}}
+\index{\_\_lockdep\_reset\_lock@{\_\_lockdep\_reset\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lockdep\_reset\_lock()}{\_\_lockdep\_reset\_lock()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+lockdep\+\_\+reset\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$}]{pf,  }\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{lockdep_8c_a83d2023a2c475a1939e34026fb583ae3}\label{lockdep_8c_a83d2023a2c475a1939e34026fb583ae3}} 
+\index{lockdep.c@{lockdep.c}!\_\_print\_lock\_name@{\_\_print\_lock\_name}}
+\index{\_\_print\_lock\_name@{\_\_print\_lock\_name}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_print\_lock\_name()}{\_\_print\_lock\_name()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+print\+\_\+lock\+\_\+name (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{lockdep_8c_a8e2ad0f036f2106db94483d4331f35ed}\label{lockdep_8c_a8e2ad0f036f2106db94483d4331f35ed}} 
+\index{lockdep.c@{lockdep.c}!assign\_lock\_key@{assign\_lock\_key}}
+\index{assign\_lock\_key@{assign\_lock\_key}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{assign\_lock\_key()}{assign\_lock\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} assign\+\_\+lock\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{lockdep_8c_a1c0e0575df265414e851bb1ae8bc1636}\label{lockdep_8c_a1c0e0575df265414e851bb1ae8bc1636}} 
+\index{lockdep.c@{lockdep.c}!call\_rcu\_zapped@{call\_rcu\_zapped}}
+\index{call\_rcu\_zapped@{call\_rcu\_zapped}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{call\_rcu\_zapped()}{call\_rcu\_zapped()}}
+{\footnotesize\ttfamily static void call\+\_\+rcu\+\_\+zapped (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$}]{pf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{lockdep_8c_ae2ad9df54c7d4949b776760547a0f5ab}\label{lockdep_8c_ae2ad9df54c7d4949b776760547a0f5ab}} 
+\index{lockdep.c@{lockdep.c}!chain\_hlock\_class\_idx@{chain\_hlock\_class\_idx}}
+\index{chain\_hlock\_class\_idx@{chain\_hlock\_class\_idx}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{chain\_hlock\_class\_idx()}{chain\_hlock\_class\_idx()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} chain\+\_\+hlock\+\_\+class\+\_\+idx (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{hlock\+\_\+id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{lockdep_8c_ac3d755c8c02f26f6822d40d2804f5098}\label{lockdep_8c_ac3d755c8c02f26f6822d40d2804f5098}} 
+\index{lockdep.c@{lockdep.c}!check\_chain\_key@{check\_chain\_key}}
+\index{check\_chain\_key@{check\_chain\_key}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{check\_chain\_key()}{check\_chain\_key()}}
+{\footnotesize\ttfamily static void check\+\_\+chain\+\_\+key (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{lockdep_8c_afb1b6b5e47175cb71cb3d692ee0d649e}\label{lockdep_8c_afb1b6b5e47175cb71cb3d692ee0d649e}} 
+\index{lockdep.c@{lockdep.c}!check\_data\_structures@{check\_data\_structures}}
+\index{check\_data\_structures@{check\_data\_structures}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{check\_data\_structures()}{check\_data\_structures()}}
+{\footnotesize\ttfamily static void check\+\_\+data\+\_\+structures (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{lockdep_8c_a47bb780719e860583a2c1c2292544174}\label{lockdep_8c_a47bb780719e860583a2c1c2292544174}} 
+\index{lockdep.c@{lockdep.c}!check\_flags@{check\_flags}}
+\index{check\_flags@{check\_flags}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{check\_flags()}{check\_flags()}}
+{\footnotesize\ttfamily static noinstr void check\+\_\+flags (\begin{DoxyParamCaption}\item[{unsigned long}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{lockdep_8c_ab667915ef5817055ea906cff187e40ac}\label{lockdep_8c_ab667915ef5817055ea906cff187e40ac}} 
+\index{lockdep.c@{lockdep.c}!check\_wait\_context@{check\_wait\_context}}
+\index{check\_wait\_context@{check\_wait\_context}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{check\_wait\_context()}{check\_wait\_context()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+wait\+\_\+context (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{struct held\+\_\+lock $\ast$}]{next }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{lockdep_8c_a8c48334a2e87d8d6ab6867a0cac04ef9}\label{lockdep_8c_a8c48334a2e87d8d6ab6867a0cac04ef9}} 
+\index{lockdep.c@{lockdep.c}!count\_matching\_names@{count\_matching\_names}}
+\index{count\_matching\_names@{count\_matching\_names}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{count\_matching\_names()}{count\_matching\_names()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} count\+\_\+matching\+\_\+names (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{new\+\_\+class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{lockdep_8c_a305ab737fd23c754cde6f174ec676818}\label{lockdep_8c_a305ab737fd23c754cde6f174ec676818}} 
+\index{lockdep.c@{lockdep.c}!debug\_check\_no\_locks\_freed@{debug\_check\_no\_locks\_freed}}
+\index{debug\_check\_no\_locks\_freed@{debug\_check\_no\_locks\_freed}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{debug\_check\_no\_locks\_freed()}{debug\_check\_no\_locks\_freed()}}
+{\footnotesize\ttfamily void debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+freed (\begin{DoxyParamCaption}\item[{const void $\ast$}]{mem\+\_\+from,  }\item[{unsigned long}]{mem\+\_\+len }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{lockdep_8c_a1a247566aec465ea396eaf9ce0a975a8}\label{lockdep_8c_a1a247566aec465ea396eaf9ce0a975a8}} 
+\index{lockdep.c@{lockdep.c}!debug\_check\_no\_locks\_held@{debug\_check\_no\_locks\_held}}
+\index{debug\_check\_no\_locks\_held@{debug\_check\_no\_locks\_held}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{debug\_check\_no\_locks\_held()}{debug\_check\_no\_locks\_held()}}
+{\footnotesize\ttfamily void debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+held (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{lockdep_8c_af7af9824adf47296c2337b96e7ea5280}\label{lockdep_8c_af7af9824adf47296c2337b96e7ea5280}} 
+\index{lockdep.c@{lockdep.c}!debug\_locks\_off\_graph\_unlock@{debug\_locks\_off\_graph\_unlock}}
+\index{debug\_locks\_off\_graph\_unlock@{debug\_locks\_off\_graph\_unlock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{debug\_locks\_off\_graph\_unlock()}{debug\_locks\_off\_graph\_unlock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} debug\+\_\+locks\+\_\+off\+\_\+graph\+\_\+unlock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{lockdep_8c_a419f55850f03fabb5150d15b01e68eb4}\label{lockdep_8c_a419f55850f03fabb5150d15b01e68eb4}} 
+\index{lockdep.c@{lockdep.c}!debug\_show\_held\_locks@{debug\_show\_held\_locks}}
+\index{debug\_show\_held\_locks@{debug\_show\_held\_locks}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{debug\_show\_held\_locks()}{debug\_show\_held\_locks()}}
+{\footnotesize\ttfamily void debug\+\_\+show\+\_\+held\+\_\+locks (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{lockdep_8c_acd206c5b9a75564f23031e5ed812bca5}\label{lockdep_8c_acd206c5b9a75564f23031e5ed812bca5}} 
+\index{lockdep.c@{lockdep.c}!DECLARE\_BITMAP@{DECLARE\_BITMAP}}
+\index{DECLARE\_BITMAP@{DECLARE\_BITMAP}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_BITMAP()}{DECLARE\_BITMAP()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP (\begin{DoxyParamCaption}\item[{list\+\_\+entries\+\_\+in\+\_\+use}]{,  }\item[{\mbox{\hyperlink{lockdep__internals_8h_a3c3a387c7eda3ff700239171e122fc16}{M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+E\+N\+T\+R\+I\+ES}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a0129d041317a3d5179cdb683732c81f4}\label{lockdep_8c_a0129d041317a3d5179cdb683732c81f4}} 
+\index{lockdep.c@{lockdep.c}!DECLARE\_BITMAP@{DECLARE\_BITMAP}}
+\index{DECLARE\_BITMAP@{DECLARE\_BITMAP}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_BITMAP()}{DECLARE\_BITMAP()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+B\+I\+T\+M\+AP (\begin{DoxyParamCaption}\item[{lock\+\_\+classes\+\_\+in\+\_\+use}]{,  }\item[{M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+YS}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a4306414271a1e3a9e885b6a1cf8fa321}\label{lockdep_8c_a4306414271a1e3a9e885b6a1cf8fa321}} 
+\index{lockdep.c@{lockdep.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{lockdep\+\_\+recursion}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a5a3804199b9861f15c580f46a474f8cc}\label{lockdep_8c_a5a3804199b9861f15c580f46a474f8cc}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_PER\_CPU\_SYMBOL\_GPL@{EXPORT\_PER\_CPU\_SYMBOL\_GPL}}
+\index{EXPORT\_PER\_CPU\_SYMBOL\_GPL@{EXPORT\_PER\_CPU\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_PER\_CPU\_SYMBOL\_GPL()}{EXPORT\_PER\_CPU\_SYMBOL\_GPL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{lockdep\+\_\+recursion}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a1055caef5bafefc009db79cb7a6b4666}\label{lockdep_8c_a1055caef5bafefc009db79cb7a6b4666}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a2085476fff299d6d18b672d62b2dcdc1}{\+\_\+\+\_\+lockdep\+\_\+no\+\_\+validate\+\_\+\+\_\+}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a938aacd93efb33358eadc4c668da7980}\label{lockdep_8c_a938aacd93efb33358eadc4c668da7980}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{debug__locks_8h_a530adc481cfb15fcdef8468939bd10dd}{debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+freed}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a42d06b9ace6b62feb6a626667dcd30a6}\label{lockdep_8c_a42d06b9ace6b62feb6a626667dcd30a6}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{debug__locks_8h_ab13ea0ea758001ebfb1fd9cec8d8fb65}{debug\+\_\+check\+\_\+no\+\_\+locks\+\_\+held}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a8bda9a5f5f57b97996d40504f333d8e4}\label{lockdep_8c_a8bda9a5f5f57b97996d40504f333d8e4}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{debug__locks_8h_a2fc7a64074dd11843270e50df9e00afd}{debug\+\_\+show\+\_\+held\+\_\+locks}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_aa770dcbbd910353c9ef3a093727e29e8}\label{lockdep_8c_aa770dcbbd910353c9ef3a093727e29e8}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a63fbb4a6900b1a99f896203952e61528}{lock\+\_\+acquire}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_aef8fe53acaa35db503288fdbee430a95}\label{lockdep_8c_aef8fe53acaa35db503288fdbee430a95}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a6c5f4bda98328cb92198660d3e1940be}{lock\+\_\+downgrade}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_aaec07f7f15390c1a4a0021d449de9aab}\label{lockdep_8c_aaec07f7f15390c1a4a0021d449de9aab}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a976ef0b06af07d237a1a5cea9be4b6ed}{lock\+\_\+is\+\_\+held\+\_\+type}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a473b0d4c48c573409dea8ac36e8fce71}\label{lockdep_8c_a473b0d4c48c573409dea8ac36e8fce71}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a667716e8c20d5b4685713e690462b8b7}{lock\+\_\+pin\+\_\+lock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_aaf596e1b312ff9d5a1ee46680d5acfbc}\label{lockdep_8c_aaf596e1b312ff9d5a1ee46680d5acfbc}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a088b2b72aa9f1a4dc00fc22bfdc3cd2b}{lock\+\_\+release}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a0318c640c2f5ff61f25f3d91d3237967}\label{lockdep_8c_a0318c640c2f5ff61f25f3d91d3237967}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_aaac869cbfd0656ef59fe4a234dd0d52e}{lock\+\_\+repin\+\_\+lock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a2a59779e5b8e245057a6fc6608f243ea}\label{lockdep_8c_a2a59779e5b8e245057a6fc6608f243ea}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [11/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_ab2460a3b6f9480939209e9c0a13a3d84}{lock\+\_\+set\+\_\+class}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_af500849a083dfab83b7ff907bc087b98}\label{lockdep_8c_af500849a083dfab83b7ff907bc087b98}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [12/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a99db9dd5e66ef1500583e0fe8e207ba8}{lock\+\_\+unpin\+\_\+lock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_ac6ff1fe2d2ac5e4102383517f9dff64b}\label{lockdep_8c_ac6ff1fe2d2ac5e4102383517f9dff64b}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [13/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a71f4d6dca60b47705a0a9cff3332c792}{lockdep\+\_\+init\+\_\+map\+\_\+type}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a758ef819a5ada470f74e8b60e9fe8744}\label{lockdep_8c_a758ef819a5ada470f74e8b60e9fe8744}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [14/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8h_a5c5e9d4b6a046a4ebcc272f0005f3a18}{lockdep\+\_\+rcu\+\_\+suspicious}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a9df706befc603f4eee38a7719d36be82}\label{lockdep_8c_a9df706befc603f4eee38a7719d36be82}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [15/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8h_a30f01c24739338d98774a2558b1931bb}{lockdep\+\_\+register\+\_\+key}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a28ac844b97e52f362ddb880b3a79b462}\label{lockdep_8c_a28ac844b97e52f362ddb880b3a79b462}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [16/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8h_a73fb2c079ad8296ad1bd21b156114778}{lockdep\+\_\+unregister\+\_\+key}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a4fadbf240e51a3fa50b57fcf4bb8049d}\label{lockdep_8c_a4fadbf240e51a3fa50b57fcf4bb8049d}} 
+\index{lockdep.c@{lockdep.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [17/17]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a6f507c59bcb846a3f78ff7a0dbc093a9}{read\+\_\+lock\+\_\+is\+\_\+recursive}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_adf151fb0057a33453aefa31a19d31fb0}\label{lockdep_8c_adf151fb0057a33453aefa31a19d31fb0}} 
+\index{lockdep.c@{lockdep.c}!find\_held\_lock@{find\_held\_lock}}
+\index{find\_held\_lock@{find\_held\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{find\_held\_lock()}{find\_held\_lock()}}
+{\footnotesize\ttfamily static struct held\+\_\+lock$\ast$ find\+\_\+held\+\_\+lock (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{depth,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{lockdep_8c_a5e3052d408bb369977c5ec0e64a6de80}\label{lockdep_8c_a5e3052d408bb369977c5ec0e64a6de80}} 
+\index{lockdep.c@{lockdep.c}!free\_zapped\_rcu@{free\_zapped\_rcu}}
+\index{free\_zapped\_rcu@{free\_zapped\_rcu}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{free\_zapped\_rcu()}{free\_zapped\_rcu()}}
+{\footnotesize\ttfamily static void free\+\_\+zapped\+\_\+rcu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$}]{cb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{lockdep_8c_a64caac88b6510411fe2819faa55d16d5}\label{lockdep_8c_a64caac88b6510411fe2819faa55d16d5}} 
+\index{lockdep.c@{lockdep.c}!get\_pending\_free@{get\_pending\_free}}
+\index{get\_pending\_free@{get\_pending\_free}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{get\_pending\_free()}{get\_pending\_free()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}}$\ast$ get\+\_\+pending\+\_\+free (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{lockdep_8c_a458c5058c8c6db832e9f46393067dff0}\label{lockdep_8c_a458c5058c8c6db832e9f46393067dff0}} 
+\index{lockdep.c@{lockdep.c}!get\_usage\_char@{get\_usage\_char}}
+\index{get\_usage\_char@{get\_usage\_char}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{get\_usage\_char()}{get\_usage\_char()}}
+{\footnotesize\ttfamily static char get\+\_\+usage\+\_\+char (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{class,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{lockdep__internals_8h_a729d350793d569d1e00d026fd5a18303}{lock\+\_\+usage\+\_\+bit}}}]{bit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{lockdep_8c_a896fe14892152485487f367223d9b1d6}\label{lockdep_8c_a896fe14892152485487f367223d9b1d6}} 
+\index{lockdep.c@{lockdep.c}!get\_usage\_chars@{get\_usage\_chars}}
+\index{get\_usage\_chars@{get\_usage\_chars}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{get\_usage\_chars()}{get\_usage\_chars()}}
+{\footnotesize\ttfamily void get\+\_\+usage\+\_\+chars (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{class,  }\item[{char}]{usage\mbox{[}\+L\+O\+C\+K\+\_\+\+U\+S\+A\+G\+E\+\_\+\+C\+H\+A\+R\+S\mbox{]} }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{lockdep_8c_aa9eb967e2be30ef5104623c3e3f9cf8a}\label{lockdep_8c_aa9eb967e2be30ef5104623c3e3f9cf8a}} 
+\index{lockdep.c@{lockdep.c}!graph\_lock@{graph\_lock}}
+\index{graph\_lock@{graph\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{graph\_lock()}{graph\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} graph\+\_\+lock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{lockdep_8c_a64af1ab31216b005720baf2429651be3}\label{lockdep_8c_a64af1ab31216b005720baf2429651be3}} 
+\index{lockdep.c@{lockdep.c}!graph\_unlock@{graph\_unlock}}
+\index{graph\_unlock@{graph\_unlock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{graph\_unlock()}{graph\_unlock()}}
+{\footnotesize\ttfamily static void graph\+\_\+unlock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{lockdep_8c_ad12e6a8185d51aa55a05b77a66f61447}\label{lockdep_8c_ad12e6a8185d51aa55a05b77a66f61447}} 
+\index{lockdep.c@{lockdep.c}!hlock\_class@{hlock\_class}}
+\index{hlock\_class@{hlock\_class}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{hlock\_class()}{hlock\_class()}}
+{\footnotesize\ttfamily static struct lock\+\_\+class$\ast$ hlock\+\_\+class (\begin{DoxyParamCaption}\item[{struct held\+\_\+lock $\ast$}]{hlock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{lockdep_8c_a6e3add449b4ce8ff538cff3f0066284f}\label{lockdep_8c_a6e3add449b4ce8ff538cff3f0066284f}} 
+\index{lockdep.c@{lockdep.c}!hlock\_id@{hlock\_id}}
+\index{hlock\_id@{hlock\_id}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{hlock\_id()}{hlock\_id()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} hlock\+\_\+id (\begin{DoxyParamCaption}\item[{struct held\+\_\+lock $\ast$}]{hlock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{lockdep_8c_a73bcabe6171548deaaca24a7138f0cec}\label{lockdep_8c_a73bcabe6171548deaaca24a7138f0cec}} 
+\index{lockdep.c@{lockdep.c}!init\_chain\_block\_buckets@{init\_chain\_block\_buckets}}
+\index{init\_chain\_block\_buckets@{init\_chain\_block\_buckets}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{init\_chain\_block\_buckets()}{init\_chain\_block\_buckets()}}
+{\footnotesize\ttfamily static void init\+\_\+chain\+\_\+block\+\_\+buckets (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{lockdep_8c_aced25230d9549fce6fa4432d093cae46}\label{lockdep_8c_aced25230d9549fce6fa4432d093cae46}} 
+\index{lockdep.c@{lockdep.c}!init\_data\_structures\_once@{init\_data\_structures\_once}}
+\index{init\_data\_structures\_once@{init\_data\_structures\_once}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{init\_data\_structures\_once()}{init\_data\_structures\_once()}}
+{\footnotesize\ttfamily static void init\+\_\+data\+\_\+structures\+\_\+once (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{lockdep_8c_a20dc6e457d402e83a128dc5cba91b02d}\label{lockdep_8c_a20dc6e457d402e83a128dc5cba91b02d}} 
+\index{lockdep.c@{lockdep.c}!inside\_selftest@{inside\_selftest}}
+\index{inside\_selftest@{inside\_selftest}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{inside\_selftest()}{inside\_selftest()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} inside\+\_\+selftest (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{lockdep_8c_af8b5a7e4fbba49ece8c4d40e3fb8b812}\label{lockdep_8c_af8b5a7e4fbba49ece8c4d40e3fb8b812}} 
+\index{lockdep.c@{lockdep.c}!is\_dynamic\_key@{is\_dynamic\_key}}
+\index{is\_dynamic\_key@{is\_dynamic\_key}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{is\_dynamic\_key()}{is\_dynamic\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+dynamic\+\_\+key (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{lockdep_8c_a3d178be006623e2fff5b24678ac91132}\label{lockdep_8c_a3d178be006623e2fff5b24678ac91132}} 
+\index{lockdep.c@{lockdep.c}!iterate\_chain\_key@{iterate\_chain\_key}}
+\index{iterate\_chain\_key@{iterate\_chain\_key}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{iterate\_chain\_key()}{iterate\_chain\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} iterate\+\_\+chain\+\_\+key (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{key,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{lockdep_8c_a66002a063eb891acc0d671538e77f004}\label{lockdep_8c_a66002a063eb891acc0d671538e77f004}} 
+\index{lockdep.c@{lockdep.c}!keyhashentry@{keyhashentry}}
+\index{keyhashentry@{keyhashentry}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{keyhashentry()}{keyhashentry()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}}$\ast$ keyhashentry (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{lockdep_8c_ae0f06f7f6b5f2ab5e0fbf88d90006dc3}\label{lockdep_8c_ae0f06f7f6b5f2ab5e0fbf88d90006dc3}} 
+\index{lockdep.c@{lockdep.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep__internals_8h_a150d20fac6c40d77d3d8168430e77c3c}{all\+\_\+lock\+\_\+classes}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a966b2546be2619f86c19d136e577220d}\label{lockdep_8c_a966b2546be2619f86c19d136e577220d}} 
+\index{lockdep.c@{lockdep.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{free\+\_\+lock\+\_\+classes}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a63fbb4a6900b1a99f896203952e61528}\label{lockdep_8c_a63fbb4a6900b1a99f896203952e61528}} 
+\index{lockdep.c@{lockdep.c}!lock\_acquire@{lock\_acquire}}
+\index{lock\_acquire@{lock\_acquire}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_acquire()}{lock\_acquire()}}
+{\footnotesize\ttfamily void lock\+\_\+acquire (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trylock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{read,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{check,  }\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{nest\+\_\+lock,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{lockdep_8c_ab60fc4147c565cc9366bac19a1856471}\label{lockdep_8c_ab60fc4147c565cc9366bac19a1856471}} 
+\index{lockdep.c@{lockdep.c}!lock\_class\_cache\_is\_registered@{lock\_class\_cache\_is\_registered}}
+\index{lock\_class\_cache\_is\_registered@{lock\_class\_cache\_is\_registered}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_class\_cache\_is\_registered()}{lock\_class\_cache\_is\_registered()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} lock\+\_\+class\+\_\+cache\+\_\+is\+\_\+registered (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{lockdep_8c_a6c5f4bda98328cb92198660d3e1940be}\label{lockdep_8c_a6c5f4bda98328cb92198660d3e1940be}} 
+\index{lockdep.c@{lockdep.c}!lock\_downgrade@{lock\_downgrade}}
+\index{lock\_downgrade@{lock\_downgrade}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_downgrade()}{lock\_downgrade()}}
+{\footnotesize\ttfamily void lock\+\_\+downgrade (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{lockdep_8c_ae8d9bdec8fcb220f976114c32a14e05a}\label{lockdep_8c_ae8d9bdec8fcb220f976114c32a14e05a}} 
+\index{lockdep.c@{lockdep.c}!lock\_flag@{lock\_flag}}
+\index{lock\_flag@{lock\_flag}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_flag()}{lock\_flag()}}
+{\footnotesize\ttfamily static unsigned long lock\+\_\+flag (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{lockdep__internals_8h_a729d350793d569d1e00d026fd5a18303}{lock\+\_\+usage\+\_\+bit}}}]{bit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{lockdep_8c_a976ef0b06af07d237a1a5cea9be4b6ed}\label{lockdep_8c_a976ef0b06af07d237a1a5cea9be4b6ed}} 
+\index{lockdep.c@{lockdep.c}!lock\_is\_held\_type@{lock\_is\_held\_type}}
+\index{lock\_is\_held\_type@{lock\_is\_held\_type}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_is\_held\_type()}{lock\_is\_held\_type()}}
+{\footnotesize\ttfamily noinstr \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lock\+\_\+is\+\_\+held\+\_\+type (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{read }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{lockdep_8c_a667716e8c20d5b4685713e690462b8b7}\label{lockdep_8c_a667716e8c20d5b4685713e690462b8b7}} 
+\index{lockdep.c@{lockdep.c}!lock\_pin\_lock@{lock\_pin\_lock}}
+\index{lock\_pin\_lock@{lock\_pin\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_pin\_lock()}{lock\_pin\_lock()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}} lock\+\_\+pin\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{lockdep_8c_a088b2b72aa9f1a4dc00fc22bfdc3cd2b}\label{lockdep_8c_a088b2b72aa9f1a4dc00fc22bfdc3cd2b}} 
+\index{lockdep.c@{lockdep.c}!lock\_release@{lock\_release}}
+\index{lock\_release@{lock\_release}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_release()}{lock\_release()}}
+{\footnotesize\ttfamily void lock\+\_\+release (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{lockdep_8c_af2bbe35876d807470423e6c1607222fe}\label{lockdep_8c_af2bbe35876d807470423e6c1607222fe}} 
+\index{lockdep.c@{lockdep.c}!lock\_release\_holdtime@{lock\_release\_holdtime}}
+\index{lock\_release\_holdtime@{lock\_release\_holdtime}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_release\_holdtime()}{lock\_release\_holdtime()}}
+{\footnotesize\ttfamily static void lock\+\_\+release\+\_\+holdtime (\begin{DoxyParamCaption}\item[{struct held\+\_\+lock $\ast$}]{hlock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{lockdep_8c_aaac869cbfd0656ef59fe4a234dd0d52e}\label{lockdep_8c_aaac869cbfd0656ef59fe4a234dd0d52e}} 
+\index{lockdep.c@{lockdep.c}!lock\_repin\_lock@{lock\_repin\_lock}}
+\index{lock\_repin\_lock@{lock\_repin\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_repin\_lock()}{lock\_repin\_lock()}}
+{\footnotesize\ttfamily void lock\+\_\+repin\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}}}]{cookie }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{lockdep_8c_ab2460a3b6f9480939209e9c0a13a3d84}\label{lockdep_8c_ab2460a3b6f9480939209e9c0a13a3d84}} 
+\index{lockdep.c@{lockdep.c}!lock\_set\_class@{lock\_set\_class}}
+\index{lock\_set\_class@{lock\_set\_class}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_set\_class()}{lock\_set\_class()}}
+{\footnotesize\ttfamily void lock\+\_\+set\+\_\+class (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{const char $\ast$}]{name,  }\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{lockdep_8c_a99db9dd5e66ef1500583e0fe8e207ba8}\label{lockdep_8c_a99db9dd5e66ef1500583e0fe8e207ba8}} 
+\index{lockdep.c@{lockdep.c}!lock\_unpin\_lock@{lock\_unpin\_lock}}
+\index{lock\_unpin\_lock@{lock\_unpin\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_unpin\_lock()}{lock\_unpin\_lock()}}
+{\footnotesize\ttfamily void lock\+\_\+unpin\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{struct \mbox{\hyperlink{structpin__cookie}{pin\+\_\+cookie}}}]{cookie }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{lockdep_8c_af0b3cfe675efb3c78d2115cd7bcea6f5}\label{lockdep_8c_af0b3cfe675efb3c78d2115cd7bcea6f5}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_assert\_locked@{lockdep\_assert\_locked}}
+\index{lockdep\_assert\_locked@{lockdep\_assert\_locked}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_assert\_locked()}{lockdep\_assert\_locked()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} lockdep\+\_\+assert\+\_\+locked (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a03b4ff24486d05a735fa5046e8d7d460}\label{lockdep_8c_a03b4ff24486d05a735fa5046e8d7d460}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_enabled@{lockdep\_enabled}}
+\index{lockdep\_enabled@{lockdep\_enabled}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_enabled()}{lockdep\_enabled()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} lockdep\+\_\+enabled (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{lockdep_8c_a5b2d6455af974cf9beb1fc95d3e732b3}\label{lockdep_8c_a5b2d6455af974cf9beb1fc95d3e732b3}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_free\_key\_range@{lockdep\_free\_key\_range}}
+\index{lockdep\_free\_key\_range@{lockdep\_free\_key\_range}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_free\_key\_range()}{lockdep\_free\_key\_range()}}
+{\footnotesize\ttfamily void lockdep\+\_\+free\+\_\+key\+\_\+range (\begin{DoxyParamCaption}\item[{void $\ast$}]{start,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 85
+Here is the caller graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{lockdep_8c_aeb15d87ee316f16d38ddf01d8aff9444}\label{lockdep_8c_aeb15d87ee316f16d38ddf01d8aff9444}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_free\_key\_range\_imm@{lockdep\_free\_key\_range\_imm}}
+\index{lockdep\_free\_key\_range\_imm@{lockdep\_free\_key\_range\_imm}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_free\_key\_range\_imm()}{lockdep\_free\_key\_range\_imm()}}
+{\footnotesize\ttfamily static void lockdep\+\_\+free\+\_\+key\+\_\+range\+\_\+imm (\begin{DoxyParamCaption}\item[{void $\ast$}]{start,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 87
+Here is the caller graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{lockdep_8c_add012c1d3400eac91c03664705578836}\label{lockdep_8c_add012c1d3400eac91c03664705578836}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_free\_key\_range\_reg@{lockdep\_free\_key\_range\_reg}}
+\index{lockdep\_free\_key\_range\_reg@{lockdep\_free\_key\_range\_reg}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_free\_key\_range\_reg()}{lockdep\_free\_key\_range\_reg()}}
+{\footnotesize\ttfamily static void lockdep\+\_\+free\+\_\+key\+\_\+range\+\_\+reg (\begin{DoxyParamCaption}\item[{void $\ast$}]{start,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 89
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{lockdep_8c_ad3a44a13f07cdb504e706a86c8ca01c3}\label{lockdep_8c_ad3a44a13f07cdb504e706a86c8ca01c3}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_init@{lockdep\_init}}
+\index{lockdep\_init@{lockdep\_init}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_init()}{lockdep\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} lockdep\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{lockdep_8c_a71f4d6dca60b47705a0a9cff3332c792}\label{lockdep_8c_a71f4d6dca60b47705a0a9cff3332c792}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_init\_map\_type@{lockdep\_init\_map\_type}}
+\index{lockdep\_init\_map\_type@{lockdep\_init\_map\_type}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_init\_map\_type()}{lockdep\_init\_map\_type()}}
+{\footnotesize\ttfamily void lockdep\+\_\+init\+\_\+map\+\_\+type (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{const char $\ast$}]{name,  }\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{inner,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{outer,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{lock\+\_\+type }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{lockdep_8c_aaa4af741ae0734a5a2de784b9e0055f7}\label{lockdep_8c_aaa4af741ae0734a5a2de784b9e0055f7}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_init\_task@{lockdep\_init\_task}}
+\index{lockdep\_init\_task@{lockdep\_init\_task}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_init\_task()}{lockdep\_init\_task()}}
+{\footnotesize\ttfamily void lockdep\+\_\+init\+\_\+task (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{lockdep_8c_abcd219096db541d296485ae7116daf14}\label{lockdep_8c_abcd219096db541d296485ae7116daf14}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_lock@{lockdep\_lock}}
+\index{lockdep\_lock@{lockdep\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_lock()}{lockdep\_lock()}}
+{\footnotesize\ttfamily static void lockdep\+\_\+lock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{lockdep_8c_a332b73cbdbf7f7080c4db9bb1e003cef}\label{lockdep_8c_a332b73cbdbf7f7080c4db9bb1e003cef}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_nmi@{lockdep\_nmi}}
+\index{lockdep\_nmi@{lockdep\_nmi}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_nmi()}{lockdep\_nmi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} lockdep\+\_\+nmi (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{lockdep_8c_ae4c2e31e12a57194e6e1108b5b22504c}\label{lockdep_8c_ae4c2e31e12a57194e6e1108b5b22504c}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_print\_held\_locks@{lockdep\_print\_held\_locks}}
+\index{lockdep\_print\_held\_locks@{lockdep\_print\_held\_locks}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_print\_held\_locks()}{lockdep\_print\_held\_locks()}}
+{\footnotesize\ttfamily static void lockdep\+\_\+print\+\_\+held\+\_\+locks (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{lockdep_8c_a8696ea95b55eae2fcdee66b8f664d56b}\label{lockdep_8c_a8696ea95b55eae2fcdee66b8f664d56b}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_rcu\_suspicious@{lockdep\_rcu\_suspicious}}
+\index{lockdep\_rcu\_suspicious@{lockdep\_rcu\_suspicious}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_rcu\_suspicious()}{lockdep\_rcu\_suspicious()}}
+{\footnotesize\ttfamily void lockdep\+\_\+rcu\+\_\+suspicious (\begin{DoxyParamCaption}\item[{const char $\ast$}]{file,  }\item[{const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{line,  }\item[{const char $\ast$}]{s }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{lockdep_8c_a143fde806f0357b65df85fcd28b9fa8e}\label{lockdep_8c_a143fde806f0357b65df85fcd28b9fa8e}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_recursion\_finish@{lockdep\_recursion\_finish}}
+\index{lockdep\_recursion\_finish@{lockdep\_recursion\_finish}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_recursion\_finish()}{lockdep\_recursion\_finish()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void lockdep\+\_\+recursion\+\_\+finish (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{lockdep_8c_a568e42aec2a2f73e080a843568a4b8e0}\label{lockdep_8c_a568e42aec2a2f73e080a843568a4b8e0}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_recursion\_inc@{lockdep\_recursion\_inc}}
+\index{lockdep\_recursion\_inc@{lockdep\_recursion\_inc}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_recursion\_inc()}{lockdep\_recursion\_inc()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void lockdep\+\_\+recursion\+\_\+inc (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{lockdep_8c_a3596b15f8f5f04e911b6f2609c5e2fe6}\label{lockdep_8c_a3596b15f8f5f04e911b6f2609c5e2fe6}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_register\_key@{lockdep\_register\_key}}
+\index{lockdep\_register\_key@{lockdep\_register\_key}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_register\_key()}{lockdep\_register\_key()}}
+{\footnotesize\ttfamily void lockdep\+\_\+register\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 101
+Here is the caller graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{lockdep_8c_a14088b727019440fe9e5c7492bf6c046}\label{lockdep_8c_a14088b727019440fe9e5c7492bf6c046}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_reset@{lockdep\_reset}}
+\index{lockdep\_reset@{lockdep\_reset}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_reset()}{lockdep\_reset()}}
+{\footnotesize\ttfamily void lockdep\+\_\+reset (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 103
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{lockdep_8c_af9b2db46c87d7512198ad76118888d18}\label{lockdep_8c_af9b2db46c87d7512198ad76118888d18}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_reset\_lock@{lockdep\_reset\_lock}}
+\index{lockdep\_reset\_lock@{lockdep\_reset\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_reset\_lock()}{lockdep\_reset\_lock()}}
+{\footnotesize\ttfamily void lockdep\+\_\+reset\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{lockdep_8c_ab9e28a29317ec4d7ade66b60fd0493ae}\label{lockdep_8c_ab9e28a29317ec4d7ade66b60fd0493ae}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_reset\_lock\_imm@{lockdep\_reset\_lock\_imm}}
+\index{lockdep\_reset\_lock\_imm@{lockdep\_reset\_lock\_imm}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_reset\_lock\_imm()}{lockdep\_reset\_lock\_imm()}}
+{\footnotesize\ttfamily static void lockdep\+\_\+reset\+\_\+lock\+\_\+imm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{lockdep_8c_a51c7398034fa90efc2df5a0039a8675c}\label{lockdep_8c_a51c7398034fa90efc2df5a0039a8675c}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_reset\_lock\_reg@{lockdep\_reset\_lock\_reg}}
+\index{lockdep\_reset\_lock\_reg@{lockdep\_reset\_lock\_reg}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_reset\_lock\_reg()}{lockdep\_reset\_lock\_reg()}}
+{\footnotesize\ttfamily static void lockdep\+\_\+reset\+\_\+lock\+\_\+reg (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{lockdep_8c_a93f18702cccad39f024c813a309b56a6}\label{lockdep_8c_a93f18702cccad39f024c813a309b56a6}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_set\_selftest\_task@{lockdep\_set\_selftest\_task}}
+\index{lockdep\_set\_selftest\_task@{lockdep\_set\_selftest\_task}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_set\_selftest\_task()}{lockdep\_set\_selftest\_task()}}
+{\footnotesize\ttfamily void lockdep\+\_\+set\+\_\+selftest\+\_\+task (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 110
+\mbox{\Hypertarget{lockdep_8c_aac7b17a9b030b9dd5cfd463bb683076b}\label{lockdep_8c_aac7b17a9b030b9dd5cfd463bb683076b}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_sys\_exit@{lockdep\_sys\_exit}}
+\index{lockdep\_sys\_exit@{lockdep\_sys\_exit}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_sys\_exit()}{lockdep\_sys\_exit()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} void lockdep\+\_\+sys\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 111
+Here is the caller graph for this function\+:
+% FIG 112
+\mbox{\Hypertarget{lockdep_8c_a7632d7906fd710980eaf1cbbcdfdd9b8}\label{lockdep_8c_a7632d7906fd710980eaf1cbbcdfdd9b8}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_unlock@{lockdep\_unlock}}
+\index{lockdep\_unlock@{lockdep\_unlock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_unlock()}{lockdep\_unlock()}}
+{\footnotesize\ttfamily static void lockdep\+\_\+unlock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{lockdep_8c_a017d66eeafd9f7ad41f28021e712229e}\label{lockdep_8c_a017d66eeafd9f7ad41f28021e712229e}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_unregister\_key@{lockdep\_unregister\_key}}
+\index{lockdep\_unregister\_key@{lockdep\_unregister\_key}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_unregister\_key()}{lockdep\_unregister\_key()}}
+{\footnotesize\ttfamily void lockdep\+\_\+unregister\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 114
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{lockdep_8c_a676111a4fe2899ea5414b0b869b35bd8}\label{lockdep_8c_a676111a4fe2899ea5414b0b869b35bd8}} 
+\index{lockdep.c@{lockdep.c}!look\_up\_lock\_class@{look\_up\_lock\_class}}
+\index{look\_up\_lock\_class@{look\_up\_lock\_class}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{look\_up\_lock\_class()}{look\_up\_lock\_class()}}
+{\footnotesize\ttfamily static noinstr struct lock\+\_\+class$\ast$ look\+\_\+up\+\_\+lock\+\_\+class (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 116
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{lockdep_8c_a587327937e244279e18ecffa17585e23}\label{lockdep_8c_a587327937e244279e18ecffa17585e23}} 
+\index{lockdep.c@{lockdep.c}!mark\_usage@{mark\_usage}}
+\index{mark\_usage@{mark\_usage}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{mark\_usage()}{mark\_usage()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mark\+\_\+usage (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{struct held\+\_\+lock $\ast$}]{hlock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{check }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 118
+\mbox{\Hypertarget{lockdep_8c_a9b4574ab6c7fecdfe7ab71e5272516b0}\label{lockdep_8c_a9b4574ab6c7fecdfe7ab71e5272516b0}} 
+\index{lockdep.c@{lockdep.c}!match\_held\_lock@{match\_held\_lock}}
+\index{match\_held\_lock@{match\_held\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{match\_held\_lock()}{match\_held\_lock()}}
+{\footnotesize\ttfamily static noinstr \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} match\+\_\+held\+\_\+lock (\begin{DoxyParamCaption}\item[{const struct held\+\_\+lock $\ast$}]{hlock,  }\item[{const struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 119
+Here is the caller graph for this function\+:
+% FIG 120
+\mbox{\Hypertarget{lockdep_8c_a1ac247177dd39287177efbc96289750c}\label{lockdep_8c_a1ac247177dd39287177efbc96289750c}} 
+\index{lockdep.c@{lockdep.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a976ef0b06af07d237a1a5cea9be4b6ed}{lock\+\_\+is\+\_\+held\+\_\+type}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a4d8d2aa7d81aa3d2f0302c8430cbc75f}\label{lockdep_8c_a4d8d2aa7d81aa3d2f0302c8430cbc75f}} 
+\index{lockdep.c@{lockdep.c}!not\_in\_range@{not\_in\_range}}
+\index{not\_in\_range@{not\_in\_range}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{not\_in\_range()}{not\_in\_range()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} not\+\_\+in\+\_\+range (\begin{DoxyParamCaption}\item[{const void $\ast$}]{mem\+\_\+from,  }\item[{unsigned long}]{mem\+\_\+len,  }\item[{const void $\ast$}]{lock\+\_\+from,  }\item[{unsigned long}]{lock\+\_\+len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{lockdep_8c_a0b6ce060345890abff216c5e23b83603}\label{lockdep_8c_a0b6ce060345890abff216c5e23b83603}} 
+\index{lockdep.c@{lockdep.c}!print\_freed\_lock\_bug@{print\_freed\_lock\_bug}}
+\index{print\_freed\_lock\_bug@{print\_freed\_lock\_bug}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_freed\_lock\_bug()}{print\_freed\_lock\_bug()}}
+{\footnotesize\ttfamily static void print\+\_\+freed\+\_\+lock\+\_\+bug (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{const void $\ast$}]{mem\+\_\+from,  }\item[{const void $\ast$}]{mem\+\_\+to,  }\item[{struct held\+\_\+lock $\ast$}]{hlock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 122
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{lockdep_8c_aeb66430950ad62673032b5170268bfc2}\label{lockdep_8c_aeb66430950ad62673032b5170268bfc2}} 
+\index{lockdep.c@{lockdep.c}!print\_held\_locks\_bug@{print\_held\_locks\_bug}}
+\index{print\_held\_locks\_bug@{print\_held\_locks\_bug}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_held\_locks\_bug()}{print\_held\_locks\_bug()}}
+{\footnotesize\ttfamily static void print\+\_\+held\+\_\+locks\+\_\+bug (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 124
+Here is the caller graph for this function\+:
+% FIG 125
+\mbox{\Hypertarget{lockdep_8c_adaadc2dc4b8321f14b1115d81a271a4f}\label{lockdep_8c_adaadc2dc4b8321f14b1115d81a271a4f}} 
+\index{lockdep.c@{lockdep.c}!print\_kernel\_ident@{print\_kernel\_ident}}
+\index{print\_kernel\_ident@{print\_kernel\_ident}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_kernel\_ident()}{print\_kernel\_ident()}}
+{\footnotesize\ttfamily static void print\+\_\+kernel\+\_\+ident (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 126
+Here is the caller graph for this function\+:
+% FIG 127
+\mbox{\Hypertarget{lockdep_8c_a9d0b08fbe7c82302a801cf85a007a5b6}\label{lockdep_8c_a9d0b08fbe7c82302a801cf85a007a5b6}} 
+\index{lockdep.c@{lockdep.c}!print\_lock@{print\_lock}}
+\index{print\_lock@{print\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_lock()}{print\_lock()}}
+{\footnotesize\ttfamily static void print\+\_\+lock (\begin{DoxyParamCaption}\item[{struct held\+\_\+lock $\ast$}]{hlock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 128
+Here is the caller graph for this function\+:
+% FIG 129
+\mbox{\Hypertarget{lockdep_8c_a3fc8b44e751c025370968000b8634c32}\label{lockdep_8c_a3fc8b44e751c025370968000b8634c32}} 
+\index{lockdep.c@{lockdep.c}!print\_lock\_name@{print\_lock\_name}}
+\index{print\_lock\_name@{print\_lock\_name}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_lock\_name()}{print\_lock\_name()}}
+{\footnotesize\ttfamily static void print\+\_\+lock\+\_\+name (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 130
+Here is the caller graph for this function\+:
+% FIG 131
+\mbox{\Hypertarget{lockdep_8c_ab2a35e2051cfb41673b0397333de48b4}\label{lockdep_8c_ab2a35e2051cfb41673b0397333de48b4}} 
+\index{lockdep.c@{lockdep.c}!print\_lock\_nested\_lock\_not\_held@{print\_lock\_nested\_lock\_not\_held}}
+\index{print\_lock\_nested\_lock\_not\_held@{print\_lock\_nested\_lock\_not\_held}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_lock\_nested\_lock\_not\_held()}{print\_lock\_nested\_lock\_not\_held()}}
+{\footnotesize\ttfamily static void print\+\_\+lock\+\_\+nested\+\_\+lock\+\_\+not\+\_\+held (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{struct held\+\_\+lock $\ast$}]{hlock,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 132
+Here is the caller graph for this function\+:
+% FIG 133
+\mbox{\Hypertarget{lockdep_8c_adbd78754766f74072dd3977b43799234}\label{lockdep_8c_adbd78754766f74072dd3977b43799234}} 
+\index{lockdep.c@{lockdep.c}!print\_lockdep\_cache@{print\_lockdep\_cache}}
+\index{print\_lockdep\_cache@{print\_lockdep\_cache}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_lockdep\_cache()}{print\_lockdep\_cache()}}
+{\footnotesize\ttfamily static void print\+\_\+lockdep\+\_\+cache (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 134
+Here is the caller graph for this function\+:
+% FIG 135
+\mbox{\Hypertarget{lockdep_8c_a72fe1bc206556cf08761d9c9c3f746ee}\label{lockdep_8c_a72fe1bc206556cf08761d9c9c3f746ee}} 
+\index{lockdep.c@{lockdep.c}!print\_lockdep\_off@{print\_lockdep\_off}}
+\index{print\_lockdep\_off@{print\_lockdep\_off}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_lockdep\_off()}{print\_lockdep\_off()}}
+{\footnotesize\ttfamily static void print\+\_\+lockdep\+\_\+off (\begin{DoxyParamCaption}\item[{const char $\ast$}]{bug\+\_\+msg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 136
+\mbox{\Hypertarget{lockdep_8c_a2d47ef1d0445359bc1ba8078cef141ac}\label{lockdep_8c_a2d47ef1d0445359bc1ba8078cef141ac}} 
+\index{lockdep.c@{lockdep.c}!print\_unlock\_imbalance\_bug@{print\_unlock\_imbalance\_bug}}
+\index{print\_unlock\_imbalance\_bug@{print\_unlock\_imbalance\_bug}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{print\_unlock\_imbalance\_bug()}{print\_unlock\_imbalance\_bug()}}
+{\footnotesize\ttfamily static void print\+\_\+unlock\+\_\+imbalance\+\_\+bug (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned long}]{ip }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 137
+Here is the caller graph for this function\+:
+% FIG 138
+\mbox{\Hypertarget{lockdep_8c_aa03ac40b47759c041f1e8734f63850a9}\label{lockdep_8c_aa03ac40b47759c041f1e8734f63850a9}} 
+\index{lockdep.c@{lockdep.c}!reacquire\_held\_locks@{reacquire\_held\_locks}}
+\index{reacquire\_held\_locks@{reacquire\_held\_locks}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{reacquire\_held\_locks()}{reacquire\_held\_locks()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} reacquire\+\_\+held\+\_\+locks (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{depth,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{merged }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 139
+Here is the caller graph for this function\+:
+% FIG 140
+\mbox{\Hypertarget{lockdep_8c_a6f507c59bcb846a3f78ff7a0dbc093a9}\label{lockdep_8c_a6f507c59bcb846a3f78ff7a0dbc093a9}} 
+\index{lockdep.c@{lockdep.c}!read\_lock\_is\_recursive@{read\_lock\_is\_recursive}}
+\index{read\_lock\_is\_recursive@{read\_lock\_is\_recursive}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{read\_lock\_is\_recursive()}{read\_lock\_is\_recursive()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} read\+\_\+lock\+\_\+is\+\_\+recursive (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{lockdep_8c_a2a937aadc2f16d5c527befa469846c17}\label{lockdep_8c_a2a937aadc2f16d5c527befa469846c17}} 
+\index{lockdep.c@{lockdep.c}!register\_lock\_class@{register\_lock\_class}}
+\index{register\_lock\_class@{register\_lock\_class}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{register\_lock\_class()}{register\_lock\_class()}}
+{\footnotesize\ttfamily static struct lock\+\_\+class$\ast$ register\+\_\+lock\+\_\+class (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{force }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 141
+Here is the caller graph for this function\+:
+% FIG 142
+\mbox{\Hypertarget{lockdep_8c_ab5948f4473e2574bd900e6b75f1ed58b}\label{lockdep_8c_ab5948f4473e2574bd900e6b75f1ed58b}} 
+\index{lockdep.c@{lockdep.c}!reinit\_class@{reinit\_class}}
+\index{reinit\_class@{reinit\_class}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{reinit\_class()}{reinit\_class()}}
+{\footnotesize\ttfamily static void reinit\+\_\+class (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 143
+Here is the caller graph for this function\+:
+% FIG 144
+\mbox{\Hypertarget{lockdep_8c_a99f9d04c42b13a867e77b3d1a267d510}\label{lockdep_8c_a99f9d04c42b13a867e77b3d1a267d510}} 
+\index{lockdep.c@{lockdep.c}!remove\_class\_from\_lock\_chain@{remove\_class\_from\_lock\_chain}}
+\index{remove\_class\_from\_lock\_chain@{remove\_class\_from\_lock\_chain}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{remove\_class\_from\_lock\_chain()}{remove\_class\_from\_lock\_chain()}}
+{\footnotesize\ttfamily static void remove\+\_\+class\+\_\+from\+\_\+lock\+\_\+chain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$}]{pf,  }\item[{struct lock\+\_\+chain $\ast$}]{chain,  }\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 145
+Here is the caller graph for this function\+:
+% FIG 146
+\mbox{\Hypertarget{lockdep_8c_ab4ce283930e4f2932d8024416b0777d6}\label{lockdep_8c_ab4ce283930e4f2932d8024416b0777d6}} 
+\index{lockdep.c@{lockdep.c}!remove\_class\_from\_lock\_chains@{remove\_class\_from\_lock\_chains}}
+\index{remove\_class\_from\_lock\_chains@{remove\_class\_from\_lock\_chains}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{remove\_class\_from\_lock\_chains()}{remove\_class\_from\_lock\_chains()}}
+{\footnotesize\ttfamily static void remove\+\_\+class\+\_\+from\+\_\+lock\+\_\+chains (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$}]{pf,  }\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 147
+Here is the caller graph for this function\+:
+% FIG 148
+\mbox{\Hypertarget{lockdep_8c_a7699bd8405d29193e1bd04b738bcbc06}\label{lockdep_8c_a7699bd8405d29193e1bd04b738bcbc06}} 
+\index{lockdep.c@{lockdep.c}!separate\_irq\_context@{separate\_irq\_context}}
+\index{separate\_irq\_context@{separate\_irq\_context}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{separate\_irq\_context()}{separate\_irq\_context()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} separate\+\_\+irq\+\_\+context (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{struct held\+\_\+lock $\ast$}]{hlock }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 149
+\mbox{\Hypertarget{lockdep_8c_a399e386117ffa60d8e2f45b228cf791c}\label{lockdep_8c_a399e386117ffa60d8e2f45b228cf791c}} 
+\index{lockdep.c@{lockdep.c}!task\_irq\_context@{task\_irq\_context}}
+\index{task\_irq\_context@{task\_irq\_context}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{task\_irq\_context()}{task\_irq\_context()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} task\+\_\+irq\+\_\+context (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 150
+\mbox{\Hypertarget{lockdep_8c_a3d8daf54932e8eef4b22b9ca3b4c8af3}\label{lockdep_8c_a3d8daf54932e8eef4b22b9ca3b4c8af3}} 
+\index{lockdep.c@{lockdep.c}!validate\_chain@{validate\_chain}}
+\index{validate\_chain@{validate\_chain}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{validate\_chain()}{validate\_chain()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} validate\+\_\+chain (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{curr,  }\item[{struct held\+\_\+lock $\ast$}]{hlock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{chain\+\_\+head,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{chain\+\_\+key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 151
+\mbox{\Hypertarget{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}\label{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}} 
+\index{lockdep.c@{lockdep.c}!verbose@{verbose}}
+\index{verbose@{verbose}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{verbose()}{verbose()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} verbose (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 152
+\mbox{\Hypertarget{lockdep_8c_a39b2c6288e1390cdd1e88cde7ff06eb6}\label{lockdep_8c_a39b2c6288e1390cdd1e88cde7ff06eb6}} 
+\index{lockdep.c@{lockdep.c}!verify\_lock\_unused@{verify\_lock\_unused}}
+\index{verify\_lock\_unused@{verify\_lock\_unused}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{verify\_lock\_unused()}{verify\_lock\_unused()}}
+{\footnotesize\ttfamily static void verify\+\_\+lock\+\_\+unused (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlockdep__map}{lockdep\+\_\+map}} $\ast$}]{lock,  }\item[{struct held\+\_\+lock $\ast$}]{hlock,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subclass }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 153
+Here is the caller graph for this function\+:
+% FIG 154
+\mbox{\Hypertarget{lockdep_8c_a065a369556bb471b2f089f2f15b45e8c}\label{lockdep_8c_a065a369556bb471b2f089f2f15b45e8c}} 
+\index{lockdep.c@{lockdep.c}!very\_verbose@{very\_verbose}}
+\index{very\_verbose@{very\_verbose}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{very\_verbose()}{very\_verbose()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} very\+\_\+verbose (\begin{DoxyParamCaption}\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 155
+\mbox{\Hypertarget{lockdep_8c_a64aeba38758c681e015857193cabfe30}\label{lockdep_8c_a64aeba38758c681e015857193cabfe30}} 
+\index{lockdep.c@{lockdep.c}!within@{within}}
+\index{within@{within}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{within()}{within()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} within (\begin{DoxyParamCaption}\item[{const void $\ast$}]{addr,  }\item[{void $\ast$}]{start,  }\item[{unsigned long}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 156
+\mbox{\Hypertarget{lockdep_8c_aff3c32baaf579605ebb4fbd2459740da}\label{lockdep_8c_aff3c32baaf579605ebb4fbd2459740da}} 
+\index{lockdep.c@{lockdep.c}!zap\_class@{zap\_class}}
+\index{zap\_class@{zap\_class}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{zap\_class()}{zap\_class()}}
+{\footnotesize\ttfamily static void zap\+\_\+class (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpending__free}{pending\+\_\+free}} $\ast$}]{pf,  }\item[{struct lock\+\_\+class $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 157
+Here is the caller graph for this function\+:
+% FIG 158
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{lockdep_8c_a94e6dc0b778f9f2e06f77e69f0f9ea80}\label{lockdep_8c_a94e6dc0b778f9f2e06f77e69f0f9ea80}} 
+\index{lockdep.c@{lockdep.c}!\_\_lock@{\_\_lock}}
+\index{\_\_lock@{\_\_lock}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lock}{\_\_lock}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structarch__spinlock__t}{arch\+\_\+spinlock\+\_\+t}} \+\_\+\+\_\+lock = (\mbox{\hyperlink{structarch__spinlock__t}{arch\+\_\+spinlock\+\_\+t}})\mbox{\hyperlink{spinlock__types__up_8h_a94436bcf1269b573c503859cf34cd7e5}{\+\_\+\+\_\+\+A\+R\+C\+H\+\_\+\+S\+P\+I\+N\+\_\+\+L\+O\+C\+K\+\_\+\+U\+N\+L\+O\+C\+K\+ED}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a2085476fff299d6d18b672d62b2dcdc1}\label{lockdep_8c_a2085476fff299d6d18b672d62b2dcdc1}} 
+\index{lockdep.c@{lockdep.c}!\_\_lockdep\_no\_validate\_\_@{\_\_lockdep\_no\_validate\_\_}}
+\index{\_\_lockdep\_no\_validate\_\_@{\_\_lockdep\_no\_validate\_\_}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_lockdep\_no\_validate\_\_}{\_\_lockdep\_no\_validate\_\_}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} \+\_\+\+\_\+lockdep\+\_\+no\+\_\+validate\+\_\+\+\_\+}
+
+\mbox{\Hypertarget{lockdep_8c_a9cb74ad233d4f886c36b07444f4f831d}\label{lockdep_8c_a9cb74ad233d4f886c36b07444f4f831d}} 
+\index{lockdep.c@{lockdep.c}!\_\_owner@{\_\_owner}}
+\index{\_\_owner@{\_\_owner}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{\_\_owner}{\_\_owner}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$ \+\_\+\+\_\+owner\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_aa39b2ab379815c9ce582092c4075e424}\label{lockdep_8c_aa39b2ab379815c9ce582092c4075e424}} 
+\index{lockdep.c@{lockdep.c}!chainhash\_table@{chainhash\_table}}
+\index{chainhash\_table@{chainhash\_table}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{chainhash\_table}{chainhash\_table}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} chainhash\+\_\+table\mbox{[}\mbox{\hyperlink{lockdep_8c_a350dee49d3bd7452d7c57a13b18c80a4}{C\+H\+A\+I\+N\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a303b20c90b59cd082fbf78c1dcd12f4c}\label{lockdep_8c_a303b20c90b59cd082fbf78c1dcd12f4c}} 
+\index{lockdep.c@{lockdep.c}!classhash\_table@{classhash\_table}}
+\index{classhash\_table@{classhash\_table}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{classhash\_table}{classhash\_table}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} classhash\+\_\+table\mbox{[}\mbox{\hyperlink{lockdep_8c_a94e34980ed658e7fba401d08dde42fdd}{C\+L\+A\+S\+S\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a23921ed1e0491af8a3dee406af14ac82}\label{lockdep_8c_a23921ed1e0491af8a3dee406af14ac82}} 
+\index{lockdep.c@{lockdep.c}!delayed\_free@{delayed\_free}}
+\index{delayed\_free@{delayed\_free}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{delayed\_free}{delayed\_free}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdelayed__free}{delayed\+\_\+free}} \mbox{\hyperlink{structdelayed__free}{delayed\+\_\+free}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a8691ceb6ad72da4bfb86808ee89b8e9f}\label{lockdep_8c_a8691ceb6ad72da4bfb86808ee89b8e9f}} 
+\index{lockdep.c@{lockdep.c}!list\_entries@{list\_entries}}
+\index{list\_entries@{list\_entries}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{list\_entries}{list\_entries}}
+{\footnotesize\ttfamily struct lock\+\_\+list list\+\_\+entries\mbox{[}\mbox{\hyperlink{lockdep__internals_8h_a3c3a387c7eda3ff700239171e122fc16}{M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+E\+N\+T\+R\+I\+ES}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a9728eb3ba87e34aa50b82b6220cfff71}\label{lockdep_8c_a9728eb3ba87e34aa50b82b6220cfff71}} 
+\index{lockdep.c@{lockdep.c}!lock\_classes@{lock\_classes}}
+\index{lock\_classes@{lock\_classes}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_classes}{lock\_classes}}
+{\footnotesize\ttfamily struct lock\+\_\+class lock\+\_\+classes\mbox{[}M\+A\+X\+\_\+\+L\+O\+C\+K\+D\+E\+P\+\_\+\+K\+E\+YS\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_adee2ac35439c859b96c8a85d9d1d16f4}\label{lockdep_8c_adee2ac35439c859b96c8a85d9d1d16f4}} 
+\index{lockdep.c@{lockdep.c}!lock\_keys\_hash@{lock\_keys\_hash}}
+\index{lock\_keys\_hash@{lock\_keys\_hash}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lock\_keys\_hash}{lock\_keys\_hash}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} lock\+\_\+keys\+\_\+hash\mbox{[}\mbox{\hyperlink{lockdep_8c_a9e5bcbfff13cafe4db6d8fd0960b8dfb}{K\+E\+Y\+H\+A\+S\+H\+\_\+\+S\+I\+ZE}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a95a529d13e3e310d9380abb343b53cdc}\label{lockdep_8c_a95a529d13e3e310d9380abb343b53cdc}} 
+\index{lockdep.c@{lockdep.c}!lockdep\_selftest\_task\_struct@{lockdep\_selftest\_task\_struct}}
+\index{lockdep\_selftest\_task\_struct@{lockdep\_selftest\_task\_struct}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{lockdep\_selftest\_task\_struct}{lockdep\_selftest\_task\_struct}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$ lockdep\+\_\+selftest\+\_\+task\+\_\+struct\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{lockdep_8c_a7699797d2b2297126d59d90b2fa60a13}\label{lockdep_8c_a7699797d2b2297126d59d90b2fa60a13}} 
+\index{lockdep.c@{lockdep.c}!max\_lockdep\_depth@{max\_lockdep\_depth}}
+\index{max\_lockdep\_depth@{max\_lockdep\_depth}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{max\_lockdep\_depth}{max\_lockdep\_depth}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+lockdep\+\_\+depth}
+
+\mbox{\Hypertarget{lockdep_8c_a617e3a8fae78447c7da7608eaf5eaaa7}\label{lockdep_8c_a617e3a8fae78447c7da7608eaf5eaaa7}} 
+\index{lockdep.c@{lockdep.c}!nr\_hardirq\_chains@{nr\_hardirq\_chains}}
+\index{nr\_hardirq\_chains@{nr\_hardirq\_chains}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{nr\_hardirq\_chains}{nr\_hardirq\_chains}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+hardirq\+\_\+chains}
+
+\mbox{\Hypertarget{lockdep_8c_a892f45e973aad38e08cf9d05ee17aad1}\label{lockdep_8c_a892f45e973aad38e08cf9d05ee17aad1}} 
+\index{lockdep.c@{lockdep.c}!nr\_list\_entries@{nr\_list\_entries}}
+\index{nr\_list\_entries@{nr\_list\_entries}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{nr\_list\_entries}{nr\_list\_entries}}
+{\footnotesize\ttfamily unsigned long nr\+\_\+list\+\_\+entries}
+
+\mbox{\Hypertarget{lockdep_8c_a808bc92274e9787fea485a1230f17fdc}\label{lockdep_8c_a808bc92274e9787fea485a1230f17fdc}} 
+\index{lockdep.c@{lockdep.c}!nr\_lock\_classes@{nr\_lock\_classes}}
+\index{nr\_lock\_classes@{nr\_lock\_classes}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{nr\_lock\_classes}{nr\_lock\_classes}}
+{\footnotesize\ttfamily unsigned long nr\+\_\+lock\+\_\+classes}
+
+\mbox{\Hypertarget{lockdep_8c_a752ade73e7c622bdb7f5395dd4ec4460}\label{lockdep_8c_a752ade73e7c622bdb7f5395dd4ec4460}} 
+\index{lockdep.c@{lockdep.c}!nr\_process\_chains@{nr\_process\_chains}}
+\index{nr\_process\_chains@{nr\_process\_chains}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{nr\_process\_chains}{nr\_process\_chains}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+process\+\_\+chains}
+
+\mbox{\Hypertarget{lockdep_8c_af2623a6d1e02ae251eb91c4fcbb2454a}\label{lockdep_8c_af2623a6d1e02ae251eb91c4fcbb2454a}} 
+\index{lockdep.c@{lockdep.c}!nr\_softirq\_chains@{nr\_softirq\_chains}}
+\index{nr\_softirq\_chains@{nr\_softirq\_chains}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{nr\_softirq\_chains}{nr\_softirq\_chains}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+softirq\+\_\+chains}
+
+\mbox{\Hypertarget{lockdep_8c_a7c41f6b55bd3043860ae6ba4c9fd0833}\label{lockdep_8c_a7c41f6b55bd3043860ae6ba4c9fd0833}} 
+\index{lockdep.c@{lockdep.c}!nr\_stack\_trace\_entries@{nr\_stack\_trace\_entries}}
+\index{nr\_stack\_trace\_entries@{nr\_stack\_trace\_entries}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{nr\_stack\_trace\_entries}{nr\_stack\_trace\_entries}}
+{\footnotesize\ttfamily unsigned long nr\+\_\+stack\+\_\+trace\+\_\+entries}
+
+\mbox{\Hypertarget{lockdep_8c_a2f1769f7858c84599b9834887dcabad2}\label{lockdep_8c_a2f1769f7858c84599b9834887dcabad2}} 
+\index{lockdep.c@{lockdep.c}!nr\_zapped\_classes@{nr\_zapped\_classes}}
+\index{nr\_zapped\_classes@{nr\_zapped\_classes}!lockdep.c@{lockdep.c}}
+\doxysubsubsection{\texorpdfstring{nr\_zapped\_classes}{nr\_zapped\_classes}}
+{\footnotesize\ttfamily unsigned long nr\+\_\+zapped\+\_\+classes}
+

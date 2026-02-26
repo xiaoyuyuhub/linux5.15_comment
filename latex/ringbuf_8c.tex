@@ -1,0 +1,433 @@
+\hypertarget{ringbuf_8c}{}\doxysection{kernel/bpf/ringbuf.c File Reference}
+\label{ringbuf_8c}\index{kernel/bpf/ringbuf.c@{kernel/bpf/ringbuf.c}}
+{\ttfamily \#include $<$linux/bpf.\+h$>$}\newline
+{\ttfamily \#include $<$linux/btf.\+h$>$}\newline
+{\ttfamily \#include $<$linux/err.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irq\+\_\+work.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/filter.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/wait.\+h$>$}\newline
+{\ttfamily \#include $<$linux/poll.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kmemleak.\+h$>$}\newline
+{\ttfamily \#include $<$uapi/linux/btf.\+h$>$}\newline
+Include dependency graph for ringbuf.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}}
+\item 
+struct \mbox{\hyperlink{structbpf__ringbuf__map}{bpf\+\_\+ringbuf\+\_\+map}}
+\item 
+struct \mbox{\hyperlink{structbpf__ringbuf__hdr}{bpf\+\_\+ringbuf\+\_\+hdr}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{ringbuf_8c_a644ed52dbf9a0e24fb52fdde0c2f870c}{R\+I\+N\+G\+B\+U\+F\+\_\+\+C\+R\+E\+A\+T\+E\+\_\+\+F\+L\+A\+G\+\_\+\+M\+A\+SK}}~(\mbox{\hyperlink{uapi_2linux_2bpf_8h_afce6c77a80cdd1d483218ad70e7a534cacb8403c5af59302abf7241a8b1666b8b}{B\+P\+F\+\_\+\+F\+\_\+\+N\+U\+M\+A\+\_\+\+N\+O\+DE}})
+\item 
+\#define \mbox{\hyperlink{ringbuf_8c_af60614145750093686af0442a08f33d8}{R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+G\+O\+FF}}~(\mbox{\hyperlink{linux_2stddef_8h_a276e8a32e0bbf024aadd9420b8f2d3b3}{offsetof}}(struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}}, consumer\+\_\+pos) $>$$>$ \mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}})
+\item 
+\#define \mbox{\hyperlink{ringbuf_8c_afc107676efd27bd1d938d0a024fbba25}{R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+O\+S\+\_\+\+P\+A\+G\+ES}}~2
+\item 
+\#define \mbox{\hyperlink{ringbuf_8c_ad3fb4e4239d7ded3fa39eeb3d444c418}{R\+I\+N\+G\+B\+U\+F\+\_\+\+M\+A\+X\+\_\+\+R\+E\+C\+O\+R\+D\+\_\+\+SZ}}~(\mbox{\hyperlink{vdso_2limits_8h_ac998ea02fbd821fc123d60445ce76f38}{U\+I\+N\+T\+\_\+\+M\+AX}}/4)
+\item 
+\#define \mbox{\hyperlink{ringbuf_8c_aef6f4cedd9e80b1df768f71258533b14}{R\+I\+N\+G\+B\+U\+F\+\_\+\+M\+A\+X\+\_\+\+D\+A\+T\+A\+\_\+\+SZ}}~(((1\mbox{\hyperlink{vdso_2const_8h_ae7289206560e57188eb393096c91e575}{U\+LL}} $<$$<$ 24) -\/ \mbox{\hyperlink{ringbuf_8c_afc107676efd27bd1d938d0a024fbba25}{R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+O\+S\+\_\+\+P\+A\+G\+ES}} -\/ \mbox{\hyperlink{ringbuf_8c_af60614145750093686af0442a08f33d8}{R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+G\+O\+FF}}) $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$ \mbox{\hyperlink{ringbuf_8c_a25749a6c7509206a8257f987e5950f5c}{bpf\+\_\+ringbuf\+\_\+area\+\_\+alloc}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} data\+\_\+sz, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2bpf_8h_a6b7e1f3380f21d215897cb810496d3f1}{numa\+\_\+node}})
+\item 
+static void \mbox{\hyperlink{ringbuf_8c_a211c444598d56fc782ff0f5884dd391a}{bpf\+\_\+ringbuf\+\_\+notify}} (struct \mbox{\hyperlink{structirq__work}{irq\+\_\+work}} $\ast$work)
+\item 
+static struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$ \mbox{\hyperlink{ringbuf_8c_a4ebd731fa2695ff311289c4f790d87a4}{bpf\+\_\+ringbuf\+\_\+alloc}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} data\+\_\+sz, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2bpf_8h_a6b7e1f3380f21d215897cb810496d3f1}{numa\+\_\+node}})
+\item 
+static struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$ \mbox{\hyperlink{ringbuf_8c_a519c06388b5e2f46cdf93c871d4e8e58}{ringbuf\+\_\+map\+\_\+alloc}} (union \mbox{\hyperlink{unionbpf__attr}{bpf\+\_\+attr}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}})
+\item 
+static void \mbox{\hyperlink{ringbuf_8c_a90aea572d244186dfb19ac0951833062}{bpf\+\_\+ringbuf\+\_\+free}} (struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$rb)
+\item 
+static void \mbox{\hyperlink{ringbuf_8c_a0675e6d58e96ce23c9624e2ffed770d0}{ringbuf\+\_\+map\+\_\+free}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}})
+\item 
+static void $\ast$ \mbox{\hyperlink{ringbuf_8c_ad1b925ba0f497d13a9663dbcf999189d}{ringbuf\+\_\+map\+\_\+lookup\+\_\+elem}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ringbuf_8c_a27262ad885b23940ccfaf9922d3563c9}{ringbuf\+\_\+map\+\_\+update\+\_\+elem}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, void $\ast$\mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ringbuf_8c_a8e3f313a05e615a2799162044bbe1847}{ringbuf\+\_\+map\+\_\+delete\+\_\+elem}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ringbuf_8c_aff65fd657fe814f489d248971517a529}{ringbuf\+\_\+map\+\_\+get\+\_\+next\+\_\+key}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, void $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_adc827457fe44d6dfc6350af2707b34d1}{next\+\_\+key}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ringbuf_8c_a2e60ca80fc66e4e66986fed1e8b79698}{ringbuf\+\_\+map\+\_\+mmap}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}})
+\item 
+static unsigned long \mbox{\hyperlink{ringbuf_8c_add9a71fe40a6949528167937b78aa71f}{ringbuf\+\_\+avail\+\_\+data\+\_\+sz}} (struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$rb)
+\item 
+static \mbox{\hyperlink{include_2uapi_2linux_2types_8h_a5fd99f90a96467cc608d4f842deb22c8}{\+\_\+\+\_\+poll\+\_\+t}} \mbox{\hyperlink{ringbuf_8c_a8c1c14a061bdfd4d646c3c053b667d67}{ringbuf\+\_\+map\+\_\+poll}} (struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, struct \mbox{\hyperlink{structpoll__table__struct}{poll\+\_\+table\+\_\+struct}} $\ast$pts)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{ringbuf_8c_a8ebaadc82cf919e909c48095109b1d3a}{bpf\+\_\+ringbuf\+\_\+rec\+\_\+pg\+\_\+off}} (struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$rb, struct \mbox{\hyperlink{structbpf__ringbuf__hdr}{bpf\+\_\+ringbuf\+\_\+hdr}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a03d027064deda6a5e430972264102b3e}{hdr}})
+\item 
+static struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$ \mbox{\hyperlink{ringbuf_8c_a39613e9541765ea8fbd51b4bd1bff832}{bpf\+\_\+ringbuf\+\_\+restore\+\_\+from\+\_\+rec}} (struct \mbox{\hyperlink{structbpf__ringbuf__hdr}{bpf\+\_\+ringbuf\+\_\+hdr}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a03d027064deda6a5e430972264102b3e}{hdr}})
+\item 
+static void $\ast$ \mbox{\hyperlink{ringbuf_8c_a7b96e7bd5605672a09feea0ac3074a97}{\+\_\+\+\_\+bpf\+\_\+ringbuf\+\_\+reserve}} (struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$rb, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\mbox{\hyperlink{ringbuf_8c_a218ee02c7a18f895eea82f6a4177bd07}{B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+3}} (bpf\+\_\+ringbuf\+\_\+reserve, struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$, \mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}, \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}, \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{ringbuf_8c_a5816efcd7c97606f8f77d8040546492a}{bpf\+\_\+ringbuf\+\_\+commit}} (void $\ast$sample, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{blkif_8h_afb5f7ace6fc04535c817582b1a6eb830}{discard}})
+\item 
+\mbox{\hyperlink{ringbuf_8c_a4c854c381c6a0521f596b58f011e80c8}{B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+2}} (bpf\+\_\+ringbuf\+\_\+submit, void $\ast$, sample, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}, \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{ringbuf_8c_a8bf18cdb66581681822d7235af114485}{B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+2}} (bpf\+\_\+ringbuf\+\_\+discard, void $\ast$, sample, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}, \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{ringbuf_8c_a493c32a01c707da4bad1ac7c338e9183}{B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+4}} (bpf\+\_\+ringbuf\+\_\+output, struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$, \mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, void $\ast$, \mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}, \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}, \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{ringbuf_8c_ac5d3e162b35e63d64848f756d8c93eca}{B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+2}} (bpf\+\_\+ringbuf\+\_\+query, struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$, \mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}, \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ringbuf_8c_ae96f692a7803fb4d6d3999ed48b9ef5f}{ringbuf\+\_\+map\+\_\+btf\+\_\+id}}
+\item 
+const struct \mbox{\hyperlink{structbpf__map__ops}{bpf\+\_\+map\+\_\+ops}} \mbox{\hyperlink{ringbuf_8c_a68816b665c098d7898d4f10dcadbf112}{ringbuf\+\_\+map\+\_\+ops}}
+\item 
+const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} \mbox{\hyperlink{ringbuf_8c_a39e65f5f4f2ab4142de67f080f4429a4}{bpf\+\_\+ringbuf\+\_\+reserve\+\_\+proto}}
+\item 
+const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} \mbox{\hyperlink{ringbuf_8c_ac141e6ecb790a806ae45bd9871bca833}{bpf\+\_\+ringbuf\+\_\+submit\+\_\+proto}}
+\item 
+const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} \mbox{\hyperlink{ringbuf_8c_a438efea2a29153db16661dc0b87572db}{bpf\+\_\+ringbuf\+\_\+discard\+\_\+proto}}
+\item 
+const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} \mbox{\hyperlink{ringbuf_8c_ac791e4de889408159d143a73510a23c6}{bpf\+\_\+ringbuf\+\_\+output\+\_\+proto}}
+\item 
+const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} \mbox{\hyperlink{ringbuf_8c_ac18d0a596e0b03f4b883c36606f45174}{bpf\+\_\+ringbuf\+\_\+query\+\_\+proto}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{ringbuf_8c_a644ed52dbf9a0e24fb52fdde0c2f870c}\label{ringbuf_8c_a644ed52dbf9a0e24fb52fdde0c2f870c}} 
+\index{ringbuf.c@{ringbuf.c}!RINGBUF\_CREATE\_FLAG\_MASK@{RINGBUF\_CREATE\_FLAG\_MASK}}
+\index{RINGBUF\_CREATE\_FLAG\_MASK@{RINGBUF\_CREATE\_FLAG\_MASK}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{RINGBUF\_CREATE\_FLAG\_MASK}{RINGBUF\_CREATE\_FLAG\_MASK}}
+{\footnotesize\ttfamily \#define R\+I\+N\+G\+B\+U\+F\+\_\+\+C\+R\+E\+A\+T\+E\+\_\+\+F\+L\+A\+G\+\_\+\+M\+A\+SK~(\mbox{\hyperlink{uapi_2linux_2bpf_8h_afce6c77a80cdd1d483218ad70e7a534cacb8403c5af59302abf7241a8b1666b8b}{B\+P\+F\+\_\+\+F\+\_\+\+N\+U\+M\+A\+\_\+\+N\+O\+DE}})}
+
+\mbox{\Hypertarget{ringbuf_8c_aef6f4cedd9e80b1df768f71258533b14}\label{ringbuf_8c_aef6f4cedd9e80b1df768f71258533b14}} 
+\index{ringbuf.c@{ringbuf.c}!RINGBUF\_MAX\_DATA\_SZ@{RINGBUF\_MAX\_DATA\_SZ}}
+\index{RINGBUF\_MAX\_DATA\_SZ@{RINGBUF\_MAX\_DATA\_SZ}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{RINGBUF\_MAX\_DATA\_SZ}{RINGBUF\_MAX\_DATA\_SZ}}
+{\footnotesize\ttfamily \#define R\+I\+N\+G\+B\+U\+F\+\_\+\+M\+A\+X\+\_\+\+D\+A\+T\+A\+\_\+\+SZ~(((1\mbox{\hyperlink{vdso_2const_8h_ae7289206560e57188eb393096c91e575}{U\+LL}} $<$$<$ 24) -\/ \mbox{\hyperlink{ringbuf_8c_afc107676efd27bd1d938d0a024fbba25}{R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+O\+S\+\_\+\+P\+A\+G\+ES}} -\/ \mbox{\hyperlink{ringbuf_8c_af60614145750093686af0442a08f33d8}{R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+G\+O\+FF}}) $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})}
+
+\mbox{\Hypertarget{ringbuf_8c_ad3fb4e4239d7ded3fa39eeb3d444c418}\label{ringbuf_8c_ad3fb4e4239d7ded3fa39eeb3d444c418}} 
+\index{ringbuf.c@{ringbuf.c}!RINGBUF\_MAX\_RECORD\_SZ@{RINGBUF\_MAX\_RECORD\_SZ}}
+\index{RINGBUF\_MAX\_RECORD\_SZ@{RINGBUF\_MAX\_RECORD\_SZ}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{RINGBUF\_MAX\_RECORD\_SZ}{RINGBUF\_MAX\_RECORD\_SZ}}
+{\footnotesize\ttfamily \#define R\+I\+N\+G\+B\+U\+F\+\_\+\+M\+A\+X\+\_\+\+R\+E\+C\+O\+R\+D\+\_\+\+SZ~(\mbox{\hyperlink{vdso_2limits_8h_ac998ea02fbd821fc123d60445ce76f38}{U\+I\+N\+T\+\_\+\+M\+AX}}/4)}
+
+\mbox{\Hypertarget{ringbuf_8c_af60614145750093686af0442a08f33d8}\label{ringbuf_8c_af60614145750093686af0442a08f33d8}} 
+\index{ringbuf.c@{ringbuf.c}!RINGBUF\_PGOFF@{RINGBUF\_PGOFF}}
+\index{RINGBUF\_PGOFF@{RINGBUF\_PGOFF}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{RINGBUF\_PGOFF}{RINGBUF\_PGOFF}}
+{\footnotesize\ttfamily \#define R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+G\+O\+FF~(\mbox{\hyperlink{linux_2stddef_8h_a276e8a32e0bbf024aadd9420b8f2d3b3}{offsetof}}(struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}}, consumer\+\_\+pos) $>$$>$ \mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}})}
+
+\mbox{\Hypertarget{ringbuf_8c_afc107676efd27bd1d938d0a024fbba25}\label{ringbuf_8c_afc107676efd27bd1d938d0a024fbba25}} 
+\index{ringbuf.c@{ringbuf.c}!RINGBUF\_POS\_PAGES@{RINGBUF\_POS\_PAGES}}
+\index{RINGBUF\_POS\_PAGES@{RINGBUF\_POS\_PAGES}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{RINGBUF\_POS\_PAGES}{RINGBUF\_POS\_PAGES}}
+{\footnotesize\ttfamily \#define R\+I\+N\+G\+B\+U\+F\+\_\+\+P\+O\+S\+\_\+\+P\+A\+G\+ES~2}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{ringbuf_8c_a7b96e7bd5605672a09feea0ac3074a97}\label{ringbuf_8c_a7b96e7bd5605672a09feea0ac3074a97}} 
+\index{ringbuf.c@{ringbuf.c}!\_\_bpf\_ringbuf\_reserve@{\_\_bpf\_ringbuf\_reserve}}
+\index{\_\_bpf\_ringbuf\_reserve@{\_\_bpf\_ringbuf\_reserve}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{\_\_bpf\_ringbuf\_reserve()}{\_\_bpf\_ringbuf\_reserve()}}
+{\footnotesize\ttfamily static void$\ast$ \+\_\+\+\_\+bpf\+\_\+ringbuf\+\_\+reserve (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$}]{rb,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{ringbuf_8c_a8bf18cdb66581681822d7235af114485}\label{ringbuf_8c_a8bf18cdb66581681822d7235af114485}} 
+\index{ringbuf.c@{ringbuf.c}!BPF\_CALL\_2@{BPF\_CALL\_2}}
+\index{BPF\_CALL\_2@{BPF\_CALL\_2}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{BPF\_CALL\_2()}{BPF\_CALL\_2()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+2 (\begin{DoxyParamCaption}\item[{bpf\+\_\+ringbuf\+\_\+discard}]{,  }\item[{void $\ast$}]{,  }\item[{sample}]{,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{,  }\item[{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{ringbuf_8c_ac5d3e162b35e63d64848f756d8c93eca}\label{ringbuf_8c_ac5d3e162b35e63d64848f756d8c93eca}} 
+\index{ringbuf.c@{ringbuf.c}!BPF\_CALL\_2@{BPF\_CALL\_2}}
+\index{BPF\_CALL\_2@{BPF\_CALL\_2}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{BPF\_CALL\_2()}{BPF\_CALL\_2()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+2 (\begin{DoxyParamCaption}\item[{bpf\+\_\+ringbuf\+\_\+query}]{,  }\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{,  }\item[{\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}}]{,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{,  }\item[{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{ringbuf_8c_a4c854c381c6a0521f596b58f011e80c8}\label{ringbuf_8c_a4c854c381c6a0521f596b58f011e80c8}} 
+\index{ringbuf.c@{ringbuf.c}!BPF\_CALL\_2@{BPF\_CALL\_2}}
+\index{BPF\_CALL\_2@{BPF\_CALL\_2}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{BPF\_CALL\_2()}{BPF\_CALL\_2()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+2 (\begin{DoxyParamCaption}\item[{bpf\+\_\+ringbuf\+\_\+submit}]{,  }\item[{void $\ast$}]{,  }\item[{sample}]{,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{,  }\item[{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{ringbuf_8c_a218ee02c7a18f895eea82f6a4177bd07}\label{ringbuf_8c_a218ee02c7a18f895eea82f6a4177bd07}} 
+\index{ringbuf.c@{ringbuf.c}!BPF\_CALL\_3@{BPF\_CALL\_3}}
+\index{BPF\_CALL\_3@{BPF\_CALL\_3}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{BPF\_CALL\_3()}{BPF\_CALL\_3()}}
+{\footnotesize\ttfamily B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+3 (\begin{DoxyParamCaption}\item[{bpf\+\_\+ringbuf\+\_\+reserve}]{,  }\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{,  }\item[{\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}}]{,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{,  }\item[{\mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}}]{,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{,  }\item[{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{ringbuf_8c_a493c32a01c707da4bad1ac7c338e9183}\label{ringbuf_8c_a493c32a01c707da4bad1ac7c338e9183}} 
+\index{ringbuf.c@{ringbuf.c}!BPF\_CALL\_4@{BPF\_CALL\_4}}
+\index{BPF\_CALL\_4@{BPF\_CALL\_4}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{BPF\_CALL\_4()}{BPF\_CALL\_4()}}
+{\footnotesize\ttfamily B\+P\+F\+\_\+\+C\+A\+L\+L\+\_\+4 (\begin{DoxyParamCaption}\item[{bpf\+\_\+ringbuf\+\_\+output}]{,  }\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{,  }\item[{\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}}]{,  }\item[{void $\ast$}]{,  }\item[{\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}}]{,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{,  }\item[{\mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}}]{,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{,  }\item[{\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{ringbuf_8c_a4ebd731fa2695ff311289c4f790d87a4}\label{ringbuf_8c_a4ebd731fa2695ff311289c4f790d87a4}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_alloc@{bpf\_ringbuf\_alloc}}
+\index{bpf\_ringbuf\_alloc@{bpf\_ringbuf\_alloc}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_alloc()}{bpf\_ringbuf\_alloc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}}$\ast$ bpf\+\_\+ringbuf\+\_\+alloc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{data\+\_\+sz,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{numa\+\_\+node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{ringbuf_8c_a25749a6c7509206a8257f987e5950f5c}\label{ringbuf_8c_a25749a6c7509206a8257f987e5950f5c}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_area\_alloc@{bpf\_ringbuf\_area\_alloc}}
+\index{bpf\_ringbuf\_area\_alloc@{bpf\_ringbuf\_area\_alloc}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_area\_alloc()}{bpf\_ringbuf\_area\_alloc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}}$\ast$ bpf\+\_\+ringbuf\+\_\+area\+\_\+alloc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{data\+\_\+sz,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{numa\+\_\+node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{ringbuf_8c_a5816efcd7c97606f8f77d8040546492a}\label{ringbuf_8c_a5816efcd7c97606f8f77d8040546492a}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_commit@{bpf\_ringbuf\_commit}}
+\index{bpf\_ringbuf\_commit@{bpf\_ringbuf\_commit}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_commit()}{bpf\_ringbuf\_commit()}}
+{\footnotesize\ttfamily static void bpf\+\_\+ringbuf\+\_\+commit (\begin{DoxyParamCaption}\item[{void $\ast$}]{sample,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{flags,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{discard }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{ringbuf_8c_a90aea572d244186dfb19ac0951833062}\label{ringbuf_8c_a90aea572d244186dfb19ac0951833062}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_free@{bpf\_ringbuf\_free}}
+\index{bpf\_ringbuf\_free@{bpf\_ringbuf\_free}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_free()}{bpf\_ringbuf\_free()}}
+{\footnotesize\ttfamily static void bpf\+\_\+ringbuf\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$}]{rb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{ringbuf_8c_a211c444598d56fc782ff0f5884dd391a}\label{ringbuf_8c_a211c444598d56fc782ff0f5884dd391a}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_notify@{bpf\_ringbuf\_notify}}
+\index{bpf\_ringbuf\_notify@{bpf\_ringbuf\_notify}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_notify()}{bpf\_ringbuf\_notify()}}
+{\footnotesize\ttfamily static void bpf\+\_\+ringbuf\+\_\+notify (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__work}{irq\+\_\+work}} $\ast$}]{work }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{ringbuf_8c_a8ebaadc82cf919e909c48095109b1d3a}\label{ringbuf_8c_a8ebaadc82cf919e909c48095109b1d3a}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_rec\_pg\_off@{bpf\_ringbuf\_rec\_pg\_off}}
+\index{bpf\_ringbuf\_rec\_pg\_off@{bpf\_ringbuf\_rec\_pg\_off}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_rec\_pg\_off()}{bpf\_ringbuf\_rec\_pg\_off()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} bpf\+\_\+ringbuf\+\_\+rec\+\_\+pg\+\_\+off (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$}]{rb,  }\item[{struct \mbox{\hyperlink{structbpf__ringbuf__hdr}{bpf\+\_\+ringbuf\+\_\+hdr}} $\ast$}]{hdr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{ringbuf_8c_a39613e9541765ea8fbd51b4bd1bff832}\label{ringbuf_8c_a39613e9541765ea8fbd51b4bd1bff832}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_restore\_from\_rec@{bpf\_ringbuf\_restore\_from\_rec}}
+\index{bpf\_ringbuf\_restore\_from\_rec@{bpf\_ringbuf\_restore\_from\_rec}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_restore\_from\_rec()}{bpf\_ringbuf\_restore\_from\_rec()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}}$\ast$ bpf\+\_\+ringbuf\+\_\+restore\+\_\+from\+\_\+rec (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__ringbuf__hdr}{bpf\+\_\+ringbuf\+\_\+hdr}} $\ast$}]{hdr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{ringbuf_8c_add9a71fe40a6949528167937b78aa71f}\label{ringbuf_8c_add9a71fe40a6949528167937b78aa71f}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_avail\_data\_sz@{ringbuf\_avail\_data\_sz}}
+\index{ringbuf\_avail\_data\_sz@{ringbuf\_avail\_data\_sz}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_avail\_data\_sz()}{ringbuf\_avail\_data\_sz()}}
+{\footnotesize\ttfamily static unsigned long ringbuf\+\_\+avail\+\_\+data\+\_\+sz (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__ringbuf}{bpf\+\_\+ringbuf}} $\ast$}]{rb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{ringbuf_8c_a519c06388b5e2f46cdf93c871d4e8e58}\label{ringbuf_8c_a519c06388b5e2f46cdf93c871d4e8e58}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_alloc@{ringbuf\_map\_alloc}}
+\index{ringbuf\_map\_alloc@{ringbuf\_map\_alloc}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_alloc()}{ringbuf\_map\_alloc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}}$\ast$ ringbuf\+\_\+map\+\_\+alloc (\begin{DoxyParamCaption}\item[{union \mbox{\hyperlink{unionbpf__attr}{bpf\+\_\+attr}} $\ast$}]{attr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{ringbuf_8c_a8e3f313a05e615a2799162044bbe1847}\label{ringbuf_8c_a8e3f313a05e615a2799162044bbe1847}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_delete\_elem@{ringbuf\_map\_delete\_elem}}
+\index{ringbuf\_map\_delete\_elem@{ringbuf\_map\_delete\_elem}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_delete\_elem()}{ringbuf\_map\_delete\_elem()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ringbuf\+\_\+map\+\_\+delete\+\_\+elem (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{ringbuf_8c_a0675e6d58e96ce23c9624e2ffed770d0}\label{ringbuf_8c_a0675e6d58e96ce23c9624e2ffed770d0}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_free@{ringbuf\_map\_free}}
+\index{ringbuf\_map\_free@{ringbuf\_map\_free}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_free()}{ringbuf\_map\_free()}}
+{\footnotesize\ttfamily static void ringbuf\+\_\+map\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{ringbuf_8c_aff65fd657fe814f489d248971517a529}\label{ringbuf_8c_aff65fd657fe814f489d248971517a529}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_get\_next\_key@{ringbuf\_map\_get\_next\_key}}
+\index{ringbuf\_map\_get\_next\_key@{ringbuf\_map\_get\_next\_key}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_get\_next\_key()}{ringbuf\_map\_get\_next\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ringbuf\+\_\+map\+\_\+get\+\_\+next\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{key,  }\item[{void $\ast$}]{next\+\_\+key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{ringbuf_8c_ad1b925ba0f497d13a9663dbcf999189d}\label{ringbuf_8c_ad1b925ba0f497d13a9663dbcf999189d}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_lookup\_elem@{ringbuf\_map\_lookup\_elem}}
+\index{ringbuf\_map\_lookup\_elem@{ringbuf\_map\_lookup\_elem}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_lookup\_elem()}{ringbuf\_map\_lookup\_elem()}}
+{\footnotesize\ttfamily static void$\ast$ ringbuf\+\_\+map\+\_\+lookup\+\_\+elem (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{ringbuf_8c_a2e60ca80fc66e4e66986fed1e8b79698}\label{ringbuf_8c_a2e60ca80fc66e4e66986fed1e8b79698}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_mmap@{ringbuf\_map\_mmap}}
+\index{ringbuf\_map\_mmap@{ringbuf\_map\_mmap}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_mmap()}{ringbuf\_map\_mmap()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ringbuf\+\_\+map\+\_\+mmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{ringbuf_8c_a8c1c14a061bdfd4d646c3c053b667d67}\label{ringbuf_8c_a8c1c14a061bdfd4d646c3c053b667d67}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_poll@{ringbuf\_map\_poll}}
+\index{ringbuf\_map\_poll@{ringbuf\_map\_poll}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_poll()}{ringbuf\_map\_poll()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2uapi_2linux_2types_8h_a5fd99f90a96467cc608d4f842deb22c8}{\+\_\+\+\_\+poll\+\_\+t}} ringbuf\+\_\+map\+\_\+poll (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{struct \mbox{\hyperlink{structpoll__table__struct}{poll\+\_\+table\+\_\+struct}} $\ast$}]{pts }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{ringbuf_8c_a27262ad885b23940ccfaf9922d3563c9}\label{ringbuf_8c_a27262ad885b23940ccfaf9922d3563c9}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_update\_elem@{ringbuf\_map\_update\_elem}}
+\index{ringbuf\_map\_update\_elem@{ringbuf\_map\_update\_elem}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_update\_elem()}{ringbuf\_map\_update\_elem()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ringbuf\+\_\+map\+\_\+update\+\_\+elem (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbpf__map}{bpf\+\_\+map}} $\ast$}]{map,  }\item[{void $\ast$}]{key,  }\item[{void $\ast$}]{value,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{ringbuf_8c_a438efea2a29153db16661dc0b87572db}\label{ringbuf_8c_a438efea2a29153db16661dc0b87572db}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_discard\_proto@{bpf\_ringbuf\_discard\_proto}}
+\index{bpf\_ringbuf\_discard\_proto@{bpf\_ringbuf\_discard\_proto}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_discard\_proto}{bpf\_ringbuf\_discard\_proto}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} bpf\+\_\+ringbuf\+\_\+discard\+\_\+proto}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .func       = bpf\_ringbuf\_discard,}
+\DoxyCodeLine{    .ret\_type   = \mbox{\hyperlink{linux_2bpf_8h_ad0b06fb4eaaf497c7581b6a00e3cbb8ea58675c047d50ede01b5ec8cbd10b532e}{RET\_VOID}},}
+\DoxyCodeLine{    .arg1\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa55fef0130803a5872376cce1f4801cf0}{ARG\_PTR\_TO\_ALLOC\_MEM}},}
+\DoxyCodeLine{    .arg2\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa5eaa7a731ec2d5257914db7ad7591596}{ARG\_ANYTHING}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ringbuf_8c_ac791e4de889408159d143a73510a23c6}\label{ringbuf_8c_ac791e4de889408159d143a73510a23c6}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_output\_proto@{bpf\_ringbuf\_output\_proto}}
+\index{bpf\_ringbuf\_output\_proto@{bpf\_ringbuf\_output\_proto}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_output\_proto}{bpf\_ringbuf\_output\_proto}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} bpf\+\_\+ringbuf\+\_\+output\+\_\+proto}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .func       = bpf\_ringbuf\_output,}
+\DoxyCodeLine{    .ret\_type   = \mbox{\hyperlink{linux_2bpf_8h_ad0b06fb4eaaf497c7581b6a00e3cbb8ea90e2d595c5371ecf6cef2ffcdb6587b5}{RET\_INTEGER}},}
+\DoxyCodeLine{    .arg1\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa3895b9f950bb97a2543473e4b7628e10}{ARG\_CONST\_MAP\_PTR}},}
+\DoxyCodeLine{    .arg2\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa283f87722b4ffa5b5f3eb745f8389f69}{ARG\_PTR\_TO\_MEM}},}
+\DoxyCodeLine{    .arg3\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa293a60bb23ed43ad5f25df397904239b}{ARG\_CONST\_SIZE\_OR\_ZERO}},}
+\DoxyCodeLine{    .arg4\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa5eaa7a731ec2d5257914db7ad7591596}{ARG\_ANYTHING}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ringbuf_8c_ac18d0a596e0b03f4b883c36606f45174}\label{ringbuf_8c_ac18d0a596e0b03f4b883c36606f45174}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_query\_proto@{bpf\_ringbuf\_query\_proto}}
+\index{bpf\_ringbuf\_query\_proto@{bpf\_ringbuf\_query\_proto}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_query\_proto}{bpf\_ringbuf\_query\_proto}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} bpf\+\_\+ringbuf\+\_\+query\+\_\+proto}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .func       = bpf\_ringbuf\_query,}
+\DoxyCodeLine{    .ret\_type   = \mbox{\hyperlink{linux_2bpf_8h_ad0b06fb4eaaf497c7581b6a00e3cbb8ea90e2d595c5371ecf6cef2ffcdb6587b5}{RET\_INTEGER}},}
+\DoxyCodeLine{    .arg1\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa3895b9f950bb97a2543473e4b7628e10}{ARG\_CONST\_MAP\_PTR}},}
+\DoxyCodeLine{    .arg2\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa5eaa7a731ec2d5257914db7ad7591596}{ARG\_ANYTHING}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ringbuf_8c_a39e65f5f4f2ab4142de67f080f4429a4}\label{ringbuf_8c_a39e65f5f4f2ab4142de67f080f4429a4}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_reserve\_proto@{bpf\_ringbuf\_reserve\_proto}}
+\index{bpf\_ringbuf\_reserve\_proto@{bpf\_ringbuf\_reserve\_proto}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_reserve\_proto}{bpf\_ringbuf\_reserve\_proto}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} bpf\+\_\+ringbuf\+\_\+reserve\+\_\+proto}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .func       = bpf\_ringbuf\_reserve,}
+\DoxyCodeLine{    .ret\_type   = \mbox{\hyperlink{linux_2bpf_8h_ad0b06fb4eaaf497c7581b6a00e3cbb8ead22ce393168a244198cc0932844dbedc}{RET\_PTR\_TO\_ALLOC\_MEM\_OR\_NULL}},}
+\DoxyCodeLine{    .arg1\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa3895b9f950bb97a2543473e4b7628e10}{ARG\_CONST\_MAP\_PTR}},}
+\DoxyCodeLine{    .arg2\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aaadeac1b55f7baf0699f2711f803938ff}{ARG\_CONST\_ALLOC\_SIZE\_OR\_ZERO}},}
+\DoxyCodeLine{    .arg3\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa5eaa7a731ec2d5257914db7ad7591596}{ARG\_ANYTHING}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ringbuf_8c_ac141e6ecb790a806ae45bd9871bca833}\label{ringbuf_8c_ac141e6ecb790a806ae45bd9871bca833}} 
+\index{ringbuf.c@{ringbuf.c}!bpf\_ringbuf\_submit\_proto@{bpf\_ringbuf\_submit\_proto}}
+\index{bpf\_ringbuf\_submit\_proto@{bpf\_ringbuf\_submit\_proto}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{bpf\_ringbuf\_submit\_proto}{bpf\_ringbuf\_submit\_proto}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structbpf__func__proto}{bpf\+\_\+func\+\_\+proto}} bpf\+\_\+ringbuf\+\_\+submit\+\_\+proto}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .func       = bpf\_ringbuf\_submit,}
+\DoxyCodeLine{    .ret\_type   = \mbox{\hyperlink{linux_2bpf_8h_ad0b06fb4eaaf497c7581b6a00e3cbb8ea58675c047d50ede01b5ec8cbd10b532e}{RET\_VOID}},}
+\DoxyCodeLine{    .arg1\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa55fef0130803a5872376cce1f4801cf0}{ARG\_PTR\_TO\_ALLOC\_MEM}},}
+\DoxyCodeLine{    .arg2\_type  = \mbox{\hyperlink{linux_2bpf_8h_a2047d0923c94d6eed7373b52c9ea859aa5eaa7a731ec2d5257914db7ad7591596}{ARG\_ANYTHING}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ringbuf_8c_ae96f692a7803fb4d6d3999ed48b9ef5f}\label{ringbuf_8c_ae96f692a7803fb4d6d3999ed48b9ef5f}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_btf\_id@{ringbuf\_map\_btf\_id}}
+\index{ringbuf\_map\_btf\_id@{ringbuf\_map\_btf\_id}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_btf\_id}{ringbuf\_map\_btf\_id}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ringbuf\+\_\+map\+\_\+btf\+\_\+id\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{ringbuf_8c_a68816b665c098d7898d4f10dcadbf112}\label{ringbuf_8c_a68816b665c098d7898d4f10dcadbf112}} 
+\index{ringbuf.c@{ringbuf.c}!ringbuf\_map\_ops@{ringbuf\_map\_ops}}
+\index{ringbuf\_map\_ops@{ringbuf\_map\_ops}!ringbuf.c@{ringbuf.c}}
+\doxysubsubsection{\texorpdfstring{ringbuf\_map\_ops}{ringbuf\_map\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structbpf__map__ops}{bpf\+\_\+map\+\_\+ops}} ringbuf\+\_\+map\+\_\+ops}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .map\_meta\_equal = \mbox{\hyperlink{map__in__map_8c_accd183e347d9122f8e60ed918e2afc43}{bpf\_map\_meta\_equal}},}
+\DoxyCodeLine{    .map\_alloc = \mbox{\hyperlink{ringbuf_8c_a519c06388b5e2f46cdf93c871d4e8e58}{ringbuf\_map\_alloc}},}
+\DoxyCodeLine{    .map\_free = \mbox{\hyperlink{ringbuf_8c_a0675e6d58e96ce23c9624e2ffed770d0}{ringbuf\_map\_free}},}
+\DoxyCodeLine{    .map\_mmap = \mbox{\hyperlink{ringbuf_8c_a2e60ca80fc66e4e66986fed1e8b79698}{ringbuf\_map\_mmap}},}
+\DoxyCodeLine{    .map\_poll = \mbox{\hyperlink{ringbuf_8c_a8c1c14a061bdfd4d646c3c053b667d67}{ringbuf\_map\_poll}},}
+\DoxyCodeLine{    .map\_lookup\_elem = \mbox{\hyperlink{ringbuf_8c_ad1b925ba0f497d13a9663dbcf999189d}{ringbuf\_map\_lookup\_elem}},}
+\DoxyCodeLine{    .map\_update\_elem = \mbox{\hyperlink{ringbuf_8c_a27262ad885b23940ccfaf9922d3563c9}{ringbuf\_map\_update\_elem}},}
+\DoxyCodeLine{    .map\_delete\_elem = \mbox{\hyperlink{ringbuf_8c_a8e3f313a05e615a2799162044bbe1847}{ringbuf\_map\_delete\_elem}},}
+\DoxyCodeLine{    .map\_get\_next\_key = \mbox{\hyperlink{ringbuf_8c_aff65fd657fe814f489d248971517a529}{ringbuf\_map\_get\_next\_key}},}
+\DoxyCodeLine{    .map\_btf\_name = \textcolor{stringliteral}{"bpf\_ringbuf\_map"},}
+\DoxyCodeLine{    .map\_btf\_id = \&\mbox{\hyperlink{ringbuf_8c_ae96f692a7803fb4d6d3999ed48b9ef5f}{ringbuf\_map\_btf\_id}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

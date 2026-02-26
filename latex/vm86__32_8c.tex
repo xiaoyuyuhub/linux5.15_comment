@@ -1,0 +1,559 @@
+\hypertarget{vm86__32_8c}{}\doxysection{arch/x86/kernel/vm86\+\_\+32.c File Reference}
+\label{vm86__32_8c}\index{arch/x86/kernel/vm86\_32.c@{arch/x86/kernel/vm86\_32.c}}
+{\ttfamily \#include $<$linux/capability.\+h$>$}\newline
+{\ttfamily \#include $<$linux/errno.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscalls.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task\+\_\+stack.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/signal.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/highmem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ptrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/audit.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stddef.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/security.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/irq.\+h$>$}\newline
+{\ttfamily \#include $<$asm/traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/vm86.\+h$>$}\newline
+{\ttfamily \#include $<$asm/switch\+\_\+to.\+h$>$}\newline
+Include dependency graph for vm86\+\_\+32.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structvm86__irqs}{vm86\+\_\+irqs}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_abec94fb8344df3ac4a374b78a36af839}{AL}}(\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})~(((unsigned char $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$pt.\+ax))\mbox{[}0\mbox{]})
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a7f14e85870368c04a4c774cec20c55cc}{AH}}(\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})~(((unsigned char $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$pt.\+ax))\mbox{[}1\mbox{]})
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a6d3a02744b55dfcb2a9c5bbc8ef711d6}{IP}}(\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})~($\ast$(unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$\mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{pt.\+ip}}))
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a63df6e88107216e400eeac16097d860f}{SP}}(\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})~($\ast$(unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$pt.\+sp))
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_ad7d6f8892d57070a29efb7b514d4d339}{V\+F\+L\+A\+GS}}~($\ast$(unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} $\ast$)\&(\mbox{\hyperlink{include_2asm-generic_2current_8h_a7ccda8a3a0f47702f9fa962899b0a3a1}{current}}-\/$>$thread.\+vm86-\/$>$veflags))
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_aa625b7ba701dee61948f7dbe09a49b1e}{V\+E\+F\+L\+A\+GS}}~(\mbox{\hyperlink{include_2asm-generic_2current_8h_a7ccda8a3a0f47702f9fa962899b0a3a1}{current}}-\/$>$thread.\+vm86-\/$>$veflags)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_afb6784c99b6fc284329f2f3e5b2cf3c4}{set\+\_\+flags}}(X,  \mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}},  \mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}})~((X) = ((X) \& $\sim$(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}})) $\vert$ ((\mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}}) \& (\mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}})))
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a0d931a5261bd83aeaef575b78e31d545}{S\+A\+F\+E\+\_\+\+M\+A\+SK}}~(0x\+D\+D5)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a42fb07edff0bfe02348a1bbd0061be96}{R\+E\+T\+U\+R\+N\+\_\+\+M\+A\+SK}}~(0x\+D\+FF)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\+\_\+byte}}(\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  n)~(((\mbox{\hyperlink{int-l64_8h_ab291f552d5fd4d65ac668d6b2b180919}{\+\_\+\+\_\+u8}} $\ast$)\&\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})\mbox{[}n\mbox{]})
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_aff10d6f5043a19e88a85bc191f92a3cf}{pushb}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  err\+\_\+label)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a2e46a093f63720c0a072256cbf6be58d}{pushw}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  err\+\_\+label)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_adaccf27a597018d940686c8a64794e69}{pushl}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  err\+\_\+label)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a22e9e54566d6cccbf037c6e80c9d6c7f}{popb}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  err\+\_\+label)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_ae146a58076f97feadccd4701a72dc096}{popw}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  err\+\_\+label)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_afd34c0c48789a280325c95170633131c}{popl}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  err\+\_\+label)
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_ac5d9e3cb80be91ea3cceb48dd59981a2}{C\+H\+E\+C\+K\+\_\+\+I\+F\+\_\+\+I\+N\+\_\+\+T\+R\+AP}}
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_a7bf9d053de857069b33d86a033b2b0e4}{V\+M86\+\_\+\+I\+R\+Q\+N\+A\+ME}}~\char`\"{}vm86irq\char`\"{}
+\item 
+\#define \mbox{\hyperlink{vm86__32_8c_af75eff36ff831c4d5af8f1336ee5aa4c}{A\+L\+L\+O\+W\+E\+D\+\_\+\+S\+I\+GS}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{vm86__32_8c_a2f9c27f9ace55b7dd832ed209f1d31f3}{save\+\_\+v86\+\_\+state}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2bpf_8h_a193c8587796a9936bf335c37538ac4d0}{retval}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vm86__32_8c_a9e6e4cbe2e0eeec1d5d6af1017ef222b}{do\+\_\+vm86\+\_\+irq\+\_\+handling}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} subfunction, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irqnumber)
+\item 
+static long \mbox{\hyperlink{vm86__32_8c_a489ea4732ef5d24843216f1a8aa4c672}{do\+\_\+sys\+\_\+vm86}} (struct \mbox{\hyperlink{structvm86plus__struct}{vm86plus\+\_\+struct}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+vm86, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} plus)
+\item 
+\mbox{\hyperlink{vm86__32_8c_a97b8abc1d2952eff3afff85907ba9fe4}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E1}} (vm86old, struct \mbox{\hyperlink{structvm86__struct}{vm86\+\_\+struct}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$, user\+\_\+vm86)
+\item 
+\mbox{\hyperlink{vm86__32_8c_a0f6148c994ed9fe5470e64d0add99c9b}{S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2}} (\mbox{\hyperlink{structvm86}{vm86}}, unsigned long, \mbox{\hyperlink{uapi_2linux_2virtio__net_8h_a0de40fae14654a63d8d1b50cf2874806}{cmd}}, unsigned long, arg)
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_ad5d2ab7311943b654c185c6215f0e6ed}{set\+\_\+\+IF}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_afaeab2390acbd93ec6c86e7a6e401adc}{clear\+\_\+\+IF}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_a7cf5e1c11b631ad06ab8e4907f49a1a5}{clear\+\_\+\+TF}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_ab9e2f4913048d2d1c14827baf0795b33}{clear\+\_\+\+AC}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_a0a404cd51665d4b9e3d08482d3394198}{set\+\_\+vflags\+\_\+long}} (unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_af63d09546e5ab6dd62871b3196c0e8cb}{set\+\_\+vflags\+\_\+short}} (unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static unsigned long \mbox{\hyperlink{vm86__32_8c_aa33792a9daa2de7fef49483ba693f3b1}{get\+\_\+vflags}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vm86__32_8c_a1e1f141be1e517ead6c7820b2c893619}{is\+\_\+revectored}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr, struct \mbox{\hyperlink{structrevectored__struct}{revectored\+\_\+struct}} $\ast$\mbox{\hyperlink{test__printf_8c_af9ea52b89a90b75e76b3d3f86748cef0}{bitmap}})
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_a54f0419ccd3b3fdb73acdcce07f544da}{do\+\_\+int}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}}, unsigned char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ssp, unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} sp)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vm86__32_8c_a2c96abe092a3586fbe200109a664dfdb}{handle\+\_\+vm86\+\_\+trap}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trapno)
+\item 
+void \mbox{\hyperlink{vm86__32_8c_a61d05ed7b6b7c2c24b6c0ab5584529ad}{handle\+\_\+vm86\+\_\+fault}} (struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}})
+\item 
+static \mbox{\hyperlink{vm86__32_8c_af103d239f002ec82c4c96d37d98edb70}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (irqbits\+\_\+lock)
+\item 
+static \mbox{\hyperlink{irqreturn_8h_a08c59433c471f5408cf4e210141871fd}{irqreturn\+\_\+t}} \mbox{\hyperlink{vm86__32_8c_a3dccc8e53642763bc7759cb089def78f}{irq\+\_\+handler}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} intno, void $\ast$dev\+\_\+id)
+\item 
+static void \mbox{\hyperlink{vm86__32_8c_a95abe8e684110d67120f49daab9dd4c2}{free\+\_\+vm86\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irqnumber)
+\item 
+void \mbox{\hyperlink{vm86__32_8c_a24121825abe2ca61d4f090bf7a7fd7d4}{release\+\_\+vm86\+\_\+irqs}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vm86__32_8c_aff5b1cebae53c178263a967979fe118f}{get\+\_\+and\+\_\+reset\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irqnumber)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structvm86__irqs}{vm86\+\_\+irqs}} \mbox{\hyperlink{vm86__32_8c_ab5b4aae6eab23458e4701184a19b3efd}{vm86\+\_\+irqs}} \mbox{[}16\mbox{]}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{vm86__32_8c_ada4084e5cd19a075f4e626062a427f51}{irqbits}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{vm86__32_8c_a7f14e85870368c04a4c774cec20c55cc}\label{vm86__32_8c_a7f14e85870368c04a4c774cec20c55cc}} 
+\index{vm86\_32.c@{vm86\_32.c}!AH@{AH}}
+\index{AH@{AH}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{AH}{AH}}
+{\footnotesize\ttfamily \#define AH(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}} }\end{DoxyParamCaption})~(((unsigned char $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$pt.\+ax))\mbox{[}1\mbox{]})}
+
+\mbox{\Hypertarget{vm86__32_8c_abec94fb8344df3ac4a374b78a36af839}\label{vm86__32_8c_abec94fb8344df3ac4a374b78a36af839}} 
+\index{vm86\_32.c@{vm86\_32.c}!AL@{AL}}
+\index{AL@{AL}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{AL}{AL}}
+{\footnotesize\ttfamily \#define AL(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}} }\end{DoxyParamCaption})~(((unsigned char $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$pt.\+ax))\mbox{[}0\mbox{]})}
+
+\mbox{\Hypertarget{vm86__32_8c_af75eff36ff831c4d5af8f1336ee5aa4c}\label{vm86__32_8c_af75eff36ff831c4d5af8f1336ee5aa4c}} 
+\index{vm86\_32.c@{vm86\_32.c}!ALLOWED\_SIGS@{ALLOWED\_SIGS}}
+\index{ALLOWED\_SIGS@{ALLOWED\_SIGS}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{ALLOWED\_SIGS}{ALLOWED\_SIGS}}
+{\footnotesize\ttfamily \#define A\+L\+L\+O\+W\+E\+D\+\_\+\+S\+I\+GS}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (1 \textcolor{comment}{/* 0 = don't send a signal */} \(\backslash\)}
+\DoxyCodeLine{    | (1 << \mbox{\hyperlink{arch_2x86_2include_2uapi_2asm_2signal_8h_a944a8250e34bfd7991123abd3436d8c0}{SIGUSR1}}) | (1 << \mbox{\hyperlink{arch_2x86_2include_2uapi_2asm_2signal_8h_abaaa61abe503c43481e35e21b0b5a031}{SIGUSR2}}) | (1 << \mbox{\hyperlink{arch_2x86_2include_2uapi_2asm_2signal_8h_a929c5eace94ce2e099c6fa732450ce86}{SIGIO}})  | (1 << \mbox{\hyperlink{arch_2x86_2include_2uapi_2asm_2signal_8h_ad9ff13149e36144a4ea28788948c34dd}{SIGURG}}) \(\backslash\)}
+\DoxyCodeLine{    | (1 << \mbox{\hyperlink{arch_2x86_2include_2uapi_2asm_2signal_8h_a11e925ada5a97c7bbb6b88de8ed543b4}{SIGUNUSED}}))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_ac5d9e3cb80be91ea3cceb48dd59981a2}\label{vm86__32_8c_ac5d9e3cb80be91ea3cceb48dd59981a2}} 
+\index{vm86\_32.c@{vm86\_32.c}!CHECK\_IF\_IN\_TRAP@{CHECK\_IF\_IN\_TRAP}}
+\index{CHECK\_IF\_IN\_TRAP@{CHECK\_IF\_IN\_TRAP}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{CHECK\_IF\_IN\_TRAP}{CHECK\_IF\_IN\_TRAP}}
+{\footnotesize\ttfamily \#define C\+H\+E\+C\+K\+\_\+\+I\+F\+\_\+\+I\+N\+\_\+\+T\+R\+AP}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{if} (vmpi-\/>vm86dbg\_active \&\& vmpi-\/>vm86dbg\_TFpendig) \(\backslash\)}
+\DoxyCodeLine{        newflags |= \mbox{\hyperlink{uapi_2asm_2processor-flags_8h_ade02c441bd317b43d55798a4c4884d57}{X86\_EFLAGS\_TF}}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_a6d3a02744b55dfcb2a9c5bbc8ef711d6}\label{vm86__32_8c_a6d3a02744b55dfcb2a9c5bbc8ef711d6}} 
+\index{vm86\_32.c@{vm86\_32.c}!IP@{IP}}
+\index{IP@{IP}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{IP}{IP}}
+{\footnotesize\ttfamily \#define IP(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}} }\end{DoxyParamCaption})~($\ast$(unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$\mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{pt.\+ip}}))}
+
+\mbox{\Hypertarget{vm86__32_8c_a22e9e54566d6cccbf037c6e80c9d6c7f}\label{vm86__32_8c_a22e9e54566d6cccbf037c6e80c9d6c7f}} 
+\index{vm86\_32.c@{vm86\_32.c}!popb@{popb}}
+\index{popb@{popb}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{popb}{popb}}
+{\footnotesize\ttfamily \#define popb(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  }\item[{}]{err\+\_\+label }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (\{ \(\backslash\)}
+\DoxyCodeLine{        \_\_u8 \_\_res; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_ad551c3948d05c38f91e5dd1a499fdb2d}{get\_user}}(\_\_res, \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr++; \(\backslash\)}
+\DoxyCodeLine{        \_\_res; \(\backslash\)}
+\DoxyCodeLine{    \})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_afd34c0c48789a280325c95170633131c}\label{vm86__32_8c_afd34c0c48789a280325c95170633131c}} 
+\index{vm86\_32.c@{vm86\_32.c}!popl@{popl}}
+\index{popl@{popl}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{popl}{popl}}
+{\footnotesize\ttfamily \#define popl(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  }\item[{}]{err\+\_\+label }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (\{ \(\backslash\)}
+\DoxyCodeLine{        \_\_u32 \_\_res; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_ad551c3948d05c38f91e5dd1a499fdb2d}{get\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_res, 0), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr++; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_ad551c3948d05c38f91e5dd1a499fdb2d}{get\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_res, 1), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr++; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_ad551c3948d05c38f91e5dd1a499fdb2d}{get\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_res, 2), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr++; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_ad551c3948d05c38f91e5dd1a499fdb2d}{get\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_res, 3), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr++; \(\backslash\)}
+\DoxyCodeLine{        \_\_res; \(\backslash\)}
+\DoxyCodeLine{    \})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_ae146a58076f97feadccd4701a72dc096}\label{vm86__32_8c_ae146a58076f97feadccd4701a72dc096}} 
+\index{vm86\_32.c@{vm86\_32.c}!popw@{popw}}
+\index{popw@{popw}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{popw}{popw}}
+{\footnotesize\ttfamily \#define popw(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  }\item[{}]{err\+\_\+label }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (\{ \(\backslash\)}
+\DoxyCodeLine{        \_\_u16 \_\_res; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_ad551c3948d05c38f91e5dd1a499fdb2d}{get\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_res, 0), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr++; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_ad551c3948d05c38f91e5dd1a499fdb2d}{get\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_res, 1), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr++; \(\backslash\)}
+\DoxyCodeLine{        \_\_res; \(\backslash\)}
+\DoxyCodeLine{    \})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_a1f8c165bf4196327bc3abff648276d92}\label{vm86__32_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{vm86\_32.c@{vm86\_32.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{vm86__32_8c_aff10d6f5043a19e88a85bc191f92a3cf}\label{vm86__32_8c_aff10d6f5043a19e88a85bc191f92a3cf}} 
+\index{vm86\_32.c@{vm86\_32.c}!pushb@{pushb}}
+\index{pushb@{pushb}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{pushb}{pushb}}
+{\footnotesize\ttfamily \#define pushb(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  }\item[{}]{\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  }\item[{}]{err\+\_\+label }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{ \(\backslash\)}
+\DoxyCodeLine{        \_\_u8 \_\_val = \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}; \(\backslash\)}
+\DoxyCodeLine{        ptr-\/-\/; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_aff3b549b9bbad948dc8fd29ab1536878}{put\_user}}(\_\_val, \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{    \} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_adaccf27a597018d940686c8a64794e69}\label{vm86__32_8c_adaccf27a597018d940686c8a64794e69}} 
+\index{vm86\_32.c@{vm86\_32.c}!pushl@{pushl}}
+\index{pushl@{pushl}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{pushl}{pushl}}
+{\footnotesize\ttfamily \#define pushl(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  }\item[{}]{\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  }\item[{}]{err\+\_\+label }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{ \(\backslash\)}
+\DoxyCodeLine{        \_\_u32 \_\_val = \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}; \(\backslash\)}
+\DoxyCodeLine{        ptr-\/-\/; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_aff3b549b9bbad948dc8fd29ab1536878}{put\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_val, 3), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr-\/-\/; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_aff3b549b9bbad948dc8fd29ab1536878}{put\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_val, 2), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr-\/-\/; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_aff3b549b9bbad948dc8fd29ab1536878}{put\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_val, 1), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr-\/-\/; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_aff3b549b9bbad948dc8fd29ab1536878}{put\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_val, 0), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{    \} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_a2e46a093f63720c0a072256cbf6be58d}\label{vm86__32_8c_a2e46a093f63720c0a072256cbf6be58d}} 
+\index{vm86\_32.c@{vm86\_32.c}!pushw@{pushw}}
+\index{pushw@{pushw}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{pushw}{pushw}}
+{\footnotesize\ttfamily \#define pushw(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}},  }\item[{}]{\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  }\item[{}]{err\+\_\+label }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{ \(\backslash\)}
+\DoxyCodeLine{        \_\_u16 \_\_val = \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}; \(\backslash\)}
+\DoxyCodeLine{        ptr-\/-\/; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_aff3b549b9bbad948dc8fd29ab1536878}{put\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_val, 1), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{        ptr-\/-\/; \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{arch_2x86_2include_2asm_2uaccess_8h_aff3b549b9bbad948dc8fd29ab1536878}{put\_user}}(\mbox{\hyperlink{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}{val\_byte}}(\_\_val, 0), \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_affb2b44d51b78eb04cb5f01829db0281}{base}} + \mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}) < 0) \(\backslash\)}
+\DoxyCodeLine{            goto err\_label; \(\backslash\)}
+\DoxyCodeLine{    \} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{vm86__32_8c_a42fb07edff0bfe02348a1bbd0061be96}\label{vm86__32_8c_a42fb07edff0bfe02348a1bbd0061be96}} 
+\index{vm86\_32.c@{vm86\_32.c}!RETURN\_MASK@{RETURN\_MASK}}
+\index{RETURN\_MASK@{RETURN\_MASK}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{RETURN\_MASK}{RETURN\_MASK}}
+{\footnotesize\ttfamily \#define R\+E\+T\+U\+R\+N\+\_\+\+M\+A\+SK~(0x\+D\+FF)}
+
+\mbox{\Hypertarget{vm86__32_8c_a0d931a5261bd83aeaef575b78e31d545}\label{vm86__32_8c_a0d931a5261bd83aeaef575b78e31d545}} 
+\index{vm86\_32.c@{vm86\_32.c}!SAFE\_MASK@{SAFE\_MASK}}
+\index{SAFE\_MASK@{SAFE\_MASK}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{SAFE\_MASK}{SAFE\_MASK}}
+{\footnotesize\ttfamily \#define S\+A\+F\+E\+\_\+\+M\+A\+SK~(0x\+D\+D5)}
+
+\mbox{\Hypertarget{vm86__32_8c_afb6784c99b6fc284329f2f3e5b2cf3c4}\label{vm86__32_8c_afb6784c99b6fc284329f2f3e5b2cf3c4}} 
+\index{vm86\_32.c@{vm86\_32.c}!set\_flags@{set\_flags}}
+\index{set\_flags@{set\_flags}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{set\_flags}{set\_flags}}
+{\footnotesize\ttfamily \#define set\+\_\+flags(\begin{DoxyParamCaption}\item[{}]{X,  }\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}} }\end{DoxyParamCaption})~((X) = ((X) \& $\sim$(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}})) $\vert$ ((\mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}}) \& (\mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}})))}
+
+\mbox{\Hypertarget{vm86__32_8c_a63df6e88107216e400eeac16097d860f}\label{vm86__32_8c_a63df6e88107216e400eeac16097d860f}} 
+\index{vm86\_32.c@{vm86\_32.c}!SP@{SP}}
+\index{SP@{SP}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{SP}{SP}}
+{\footnotesize\ttfamily \#define SP(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}} }\end{DoxyParamCaption})~($\ast$(unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} $\ast$)\&((\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})-\/$>$pt.\+sp))}
+
+\mbox{\Hypertarget{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}\label{vm86__32_8c_a24d6ab77b707160ae6c57301661b5b78}} 
+\index{vm86\_32.c@{vm86\_32.c}!val\_byte@{val\_byte}}
+\index{val\_byte@{val\_byte}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{val\_byte}{val\_byte}}
+{\footnotesize\ttfamily \#define val\+\_\+byte(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}},  }\item[{}]{n }\end{DoxyParamCaption})~(((\mbox{\hyperlink{int-l64_8h_ab291f552d5fd4d65ac668d6b2b180919}{\+\_\+\+\_\+u8}} $\ast$)\&\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})\mbox{[}n\mbox{]})}
+
+\mbox{\Hypertarget{vm86__32_8c_aa625b7ba701dee61948f7dbe09a49b1e}\label{vm86__32_8c_aa625b7ba701dee61948f7dbe09a49b1e}} 
+\index{vm86\_32.c@{vm86\_32.c}!VEFLAGS@{VEFLAGS}}
+\index{VEFLAGS@{VEFLAGS}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{VEFLAGS}{VEFLAGS}}
+{\footnotesize\ttfamily \#define V\+E\+F\+L\+A\+GS~(\mbox{\hyperlink{include_2asm-generic_2current_8h_a7ccda8a3a0f47702f9fa962899b0a3a1}{current}}-\/$>$thread.\+vm86-\/$>$veflags)}
+
+\mbox{\Hypertarget{vm86__32_8c_ad7d6f8892d57070a29efb7b514d4d339}\label{vm86__32_8c_ad7d6f8892d57070a29efb7b514d4d339}} 
+\index{vm86\_32.c@{vm86\_32.c}!VFLAGS@{VFLAGS}}
+\index{VFLAGS@{VFLAGS}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{VFLAGS}{VFLAGS}}
+{\footnotesize\ttfamily \#define V\+F\+L\+A\+GS~($\ast$(unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} $\ast$)\&(\mbox{\hyperlink{include_2asm-generic_2current_8h_a7ccda8a3a0f47702f9fa962899b0a3a1}{current}}-\/$>$thread.\+vm86-\/$>$veflags))}
+
+\mbox{\Hypertarget{vm86__32_8c_a7bf9d053de857069b33d86a033b2b0e4}\label{vm86__32_8c_a7bf9d053de857069b33d86a033b2b0e4}} 
+\index{vm86\_32.c@{vm86\_32.c}!VM86\_IRQNAME@{VM86\_IRQNAME}}
+\index{VM86\_IRQNAME@{VM86\_IRQNAME}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{VM86\_IRQNAME}{VM86\_IRQNAME}}
+{\footnotesize\ttfamily \#define V\+M86\+\_\+\+I\+R\+Q\+N\+A\+ME~\char`\"{}vm86irq\char`\"{}}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{vm86__32_8c_ab9e2f4913048d2d1c14827baf0795b33}\label{vm86__32_8c_ab9e2f4913048d2d1c14827baf0795b33}} 
+\index{vm86\_32.c@{vm86\_32.c}!clear\_AC@{clear\_AC}}
+\index{clear\_AC@{clear\_AC}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{clear\_AC()}{clear\_AC()}}
+{\footnotesize\ttfamily static void clear\+\_\+\+AC (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{vm86__32_8c_afaeab2390acbd93ec6c86e7a6e401adc}\label{vm86__32_8c_afaeab2390acbd93ec6c86e7a6e401adc}} 
+\index{vm86\_32.c@{vm86\_32.c}!clear\_IF@{clear\_IF}}
+\index{clear\_IF@{clear\_IF}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{clear\_IF()}{clear\_IF()}}
+{\footnotesize\ttfamily static void clear\+\_\+\+IF (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{vm86__32_8c_a7cf5e1c11b631ad06ab8e4907f49a1a5}\label{vm86__32_8c_a7cf5e1c11b631ad06ab8e4907f49a1a5}} 
+\index{vm86\_32.c@{vm86\_32.c}!clear\_TF@{clear\_TF}}
+\index{clear\_TF@{clear\_TF}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{clear\_TF()}{clear\_TF()}}
+{\footnotesize\ttfamily static void clear\+\_\+\+TF (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{vm86__32_8c_af103d239f002ec82c4c96d37d98edb70}\label{vm86__32_8c_af103d239f002ec82c4c96d37d98edb70}} 
+\index{vm86\_32.c@{vm86\_32.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{irqbits\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{vm86__32_8c_a54f0419ccd3b3fdb73acdcce07f544da}\label{vm86__32_8c_a54f0419ccd3b3fdb73acdcce07f544da}} 
+\index{vm86\_32.c@{vm86\_32.c}!do\_int@{do\_int}}
+\index{do\_int@{do\_int}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{do\_int()}{do\_int()}}
+{\footnotesize\ttfamily static void do\+\_\+int (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{i,  }\item[{unsigned char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ssp,  }\item[{unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}}}]{sp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{vm86__32_8c_a489ea4732ef5d24843216f1a8aa4c672}\label{vm86__32_8c_a489ea4732ef5d24843216f1a8aa4c672}} 
+\index{vm86\_32.c@{vm86\_32.c}!do\_sys\_vm86@{do\_sys\_vm86}}
+\index{do\_sys\_vm86@{do\_sys\_vm86}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{do\_sys\_vm86()}{do\_sys\_vm86()}}
+{\footnotesize\ttfamily static long do\+\_\+sys\+\_\+vm86 (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm86plus__struct}{vm86plus\+\_\+struct}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+vm86,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{plus }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{vm86__32_8c_a9e6e4cbe2e0eeec1d5d6af1017ef222b}\label{vm86__32_8c_a9e6e4cbe2e0eeec1d5d6af1017ef222b}} 
+\index{vm86\_32.c@{vm86\_32.c}!do\_vm86\_irq\_handling@{do\_vm86\_irq\_handling}}
+\index{do\_vm86\_irq\_handling@{do\_vm86\_irq\_handling}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{do\_vm86\_irq\_handling()}{do\_vm86\_irq\_handling()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} do\+\_\+vm86\+\_\+irq\+\_\+handling (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{subfunction,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irqnumber }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{vm86__32_8c_a95abe8e684110d67120f49daab9dd4c2}\label{vm86__32_8c_a95abe8e684110d67120f49daab9dd4c2}} 
+\index{vm86\_32.c@{vm86\_32.c}!free\_vm86\_irq@{free\_vm86\_irq}}
+\index{free\_vm86\_irq@{free\_vm86\_irq}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{free\_vm86\_irq()}{free\_vm86\_irq()}}
+{\footnotesize\ttfamily static void free\+\_\+vm86\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irqnumber }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{vm86__32_8c_aff5b1cebae53c178263a967979fe118f}\label{vm86__32_8c_aff5b1cebae53c178263a967979fe118f}} 
+\index{vm86\_32.c@{vm86\_32.c}!get\_and\_reset\_irq@{get\_and\_reset\_irq}}
+\index{get\_and\_reset\_irq@{get\_and\_reset\_irq}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{get\_and\_reset\_irq()}{get\_and\_reset\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+and\+\_\+reset\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irqnumber }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{vm86__32_8c_aa33792a9daa2de7fef49483ba693f3b1}\label{vm86__32_8c_aa33792a9daa2de7fef49483ba693f3b1}} 
+\index{vm86\_32.c@{vm86\_32.c}!get\_vflags@{get\_vflags}}
+\index{get\_vflags@{get\_vflags}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{get\_vflags()}{get\_vflags()}}
+{\footnotesize\ttfamily static unsigned long get\+\_\+vflags (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{vm86__32_8c_a61d05ed7b6b7c2c24b6c0ab5584529ad}\label{vm86__32_8c_a61d05ed7b6b7c2c24b6c0ab5584529ad}} 
+\index{vm86\_32.c@{vm86\_32.c}!handle\_vm86\_fault@{handle\_vm86\_fault}}
+\index{handle\_vm86\_fault@{handle\_vm86\_fault}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{handle\_vm86\_fault()}{handle\_vm86\_fault()}}
+{\footnotesize\ttfamily void handle\+\_\+vm86\+\_\+fault (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs,  }\item[{long}]{error\+\_\+code }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{vm86__32_8c_a2c96abe092a3586fbe200109a664dfdb}\label{vm86__32_8c_a2c96abe092a3586fbe200109a664dfdb}} 
+\index{vm86\_32.c@{vm86\_32.c}!handle\_vm86\_trap@{handle\_vm86\_trap}}
+\index{handle\_vm86\_trap@{handle\_vm86\_trap}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{handle\_vm86\_trap()}{handle\_vm86\_trap()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} handle\+\_\+vm86\+\_\+trap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs,  }\item[{long}]{error\+\_\+code,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{trapno }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{vm86__32_8c_a3dccc8e53642763bc7759cb089def78f}\label{vm86__32_8c_a3dccc8e53642763bc7759cb089def78f}} 
+\index{vm86\_32.c@{vm86\_32.c}!irq\_handler@{irq\_handler}}
+\index{irq\_handler@{irq\_handler}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{irq\_handler()}{irq\_handler()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{irqreturn_8h_a08c59433c471f5408cf4e210141871fd}{irqreturn\+\_\+t}} irq\+\_\+handler (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{intno,  }\item[{void $\ast$}]{dev\+\_\+id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{vm86__32_8c_a1e1f141be1e517ead6c7820b2c893619}\label{vm86__32_8c_a1e1f141be1e517ead6c7820b2c893619}} 
+\index{vm86\_32.c@{vm86\_32.c}!is\_revectored@{is\_revectored}}
+\index{is\_revectored@{is\_revectored}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{is\_revectored()}{is\_revectored()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} is\+\_\+revectored (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr,  }\item[{struct \mbox{\hyperlink{structrevectored__struct}{revectored\+\_\+struct}} $\ast$}]{bitmap }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{vm86__32_8c_a24121825abe2ca61d4f090bf7a7fd7d4}\label{vm86__32_8c_a24121825abe2ca61d4f090bf7a7fd7d4}} 
+\index{vm86\_32.c@{vm86\_32.c}!release\_vm86\_irqs@{release\_vm86\_irqs}}
+\index{release\_vm86\_irqs@{release\_vm86\_irqs}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{release\_vm86\_irqs()}{release\_vm86\_irqs()}}
+{\footnotesize\ttfamily void release\+\_\+vm86\+\_\+irqs (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{vm86__32_8c_a2f9c27f9ace55b7dd832ed209f1d31f3}\label{vm86__32_8c_a2f9c27f9ace55b7dd832ed209f1d31f3}} 
+\index{vm86\_32.c@{vm86\_32.c}!save\_v86\_state@{save\_v86\_state}}
+\index{save\_v86\_state@{save\_v86\_state}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{save\_v86\_state()}{save\_v86\_state()}}
+{\footnotesize\ttfamily void save\+\_\+v86\+\_\+state (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{retval }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{vm86__32_8c_ad5d2ab7311943b654c185c6215f0e6ed}\label{vm86__32_8c_ad5d2ab7311943b654c185c6215f0e6ed}} 
+\index{vm86\_32.c@{vm86\_32.c}!set\_IF@{set\_IF}}
+\index{set\_IF@{set\_IF}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{set\_IF()}{set\_IF()}}
+{\footnotesize\ttfamily static void set\+\_\+\+IF (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{vm86__32_8c_a0a404cd51665d4b9e3d08482d3394198}\label{vm86__32_8c_a0a404cd51665d4b9e3d08482d3394198}} 
+\index{vm86\_32.c@{vm86\_32.c}!set\_vflags\_long@{set\_vflags\_long}}
+\index{set\_vflags\_long@{set\_vflags\_long}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{set\_vflags\_long()}{set\_vflags\_long()}}
+{\footnotesize\ttfamily static void set\+\_\+vflags\+\_\+long (\begin{DoxyParamCaption}\item[{unsigned long}]{flags,  }\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{vm86__32_8c_af63d09546e5ab6dd62871b3196c0e8cb}\label{vm86__32_8c_af63d09546e5ab6dd62871b3196c0e8cb}} 
+\index{vm86\_32.c@{vm86\_32.c}!set\_vflags\_short@{set\_vflags\_short}}
+\index{set\_vflags\_short@{set\_vflags\_short}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{set\_vflags\_short()}{set\_vflags\_short()}}
+{\footnotesize\ttfamily static void set\+\_\+vflags\+\_\+short (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}}}]{flags,  }\item[{struct \mbox{\hyperlink{structkernel__vm86__regs}{kernel\+\_\+vm86\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{vm86__32_8c_a97b8abc1d2952eff3afff85907ba9fe4}\label{vm86__32_8c_a97b8abc1d2952eff3afff85907ba9fe4}} 
+\index{vm86\_32.c@{vm86\_32.c}!SYSCALL\_DEFINE1@{SYSCALL\_DEFINE1}}
+\index{SYSCALL\_DEFINE1@{SYSCALL\_DEFINE1}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE1()}{SYSCALL\_DEFINE1()}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E1 (\begin{DoxyParamCaption}\item[{vm86old}]{,  }\item[{struct \mbox{\hyperlink{structvm86__struct}{vm86\+\_\+struct}} \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{,  }\item[{user\+\_\+vm86}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{vm86__32_8c_a0f6148c994ed9fe5470e64d0add99c9b}\label{vm86__32_8c_a0f6148c994ed9fe5470e64d0add99c9b}} 
+\index{vm86\_32.c@{vm86\_32.c}!SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}}
+\index{SYSCALL\_DEFINE2@{SYSCALL\_DEFINE2}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{SYSCALL\_DEFINE2()}{SYSCALL\_DEFINE2()}}
+{\footnotesize\ttfamily S\+Y\+S\+C\+A\+L\+L\+\_\+\+D\+E\+F\+I\+N\+E2 (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structvm86}{vm86}}}]{,  }\item[{unsigned long}]{,  }\item[{\mbox{\hyperlink{uapi_2linux_2virtio__net_8h_a0de40fae14654a63d8d1b50cf2874806}{cmd}}}]{,  }\item[{unsigned long}]{,  }\item[{arg}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 32
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{vm86__32_8c_ada4084e5cd19a075f4e626062a427f51}\label{vm86__32_8c_ada4084e5cd19a075f4e626062a427f51}} 
+\index{vm86\_32.c@{vm86\_32.c}!irqbits@{irqbits}}
+\index{irqbits@{irqbits}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{irqbits}{irqbits}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irqbits\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{vm86__32_8c_ab5b4aae6eab23458e4701184a19b3efd}\label{vm86__32_8c_ab5b4aae6eab23458e4701184a19b3efd}} 
+\index{vm86\_32.c@{vm86\_32.c}!vm86\_irqs@{vm86\_irqs}}
+\index{vm86\_irqs@{vm86\_irqs}!vm86\_32.c@{vm86\_32.c}}
+\doxysubsubsection{\texorpdfstring{vm86\_irqs}{vm86\_irqs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structvm86__irqs}{vm86\+\_\+irqs}} \mbox{\hyperlink{structvm86__irqs}{vm86\+\_\+irqs}}\mbox{[}16\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+

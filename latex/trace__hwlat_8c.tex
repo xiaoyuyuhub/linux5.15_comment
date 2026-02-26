@@ -1,0 +1,677 @@
+\hypertarget{trace__hwlat_8c}{}\doxysection{kernel/trace/trace\+\_\+hwlat.c File Reference}
+\label{trace__hwlat_8c}\index{kernel/trace/trace\_hwlat.c@{kernel/trace/trace\_hwlat.c}}
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/tracefs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpumask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/clock.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}trace.\+h\char`\"{}}\newline
+Include dependency graph for trace\+\_\+hwlat.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structhwlat__kthread__data}{hwlat\+\_\+kthread\+\_\+data}}
+\item 
+struct \mbox{\hyperlink{structhwlat__sample}{hwlat\+\_\+sample}}
+\item 
+struct \mbox{\hyperlink{structhwlat__data}{hwlat\+\_\+data}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_ad9933bb89f154ca161d379f1bad42919}{U64\+S\+T\+R\+\_\+\+S\+I\+ZE}}~22			/$\ast$ 20 digits \mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_a46c1fb0f4185dc45eda625530bc0fd73}{B\+A\+N\+N\+ER}}~\char`\"{}hwlat\+\_\+detector\+: \char`\"{}
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_a86b3df97827aea96ff7eb9d231d5cdd4}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+W\+I\+N\+D\+OW}}~1000000			/$\ast$ 1\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_a185f705a6298f043206b157865b087ed}{D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+W\+I\+D\+TH}}~500000			/$\ast$ 0.\+5\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_a9ed955a1eb3da781957bccb70b8b63e0}{D\+E\+F\+A\+U\+L\+T\+\_\+\+L\+A\+T\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD}}~10			/$\ast$ 10us $\ast$/
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_a378d2304d385a5113b7a3d918b50e49b}{time\+\_\+type}}~\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_aeacce49fe465774439c44f5a684b16e4}{time\+\_\+get}}()~\mbox{\hyperlink{include_2linux_2trace__clock_8h_a77c1a0a8d484effff61cfb744e5303f8}{trace\+\_\+clock\+\_\+local}}()
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_a3f1ebf370e12c4ed9f2d57107a8db28a}{time\+\_\+to\+\_\+us}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~\mbox{\hyperlink{linux_2math64_8h_a85587a1f5a21c38ffab3532d2fa21d79}{div\+\_\+u64}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}, 1000)
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_ad43981a796aaf500eb45cb32a8d153a6}{time\+\_\+sub}}(a,  \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})~((a) -\/ (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}))
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_ae925fb8a6ab6c8ba0c1862eb70f53dbc}{init\+\_\+time}}(a,  \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})~(a = \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_a7eb6a6790081193150bdd5606dae77ee}{time\+\_\+u64}}(a)~a
+\item 
+\#define \mbox{\hyperlink{trace__hwlat_8c_aaf49842bee14e6398cdcbfc2a030551a}{hwlat\+\_\+err}}(\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \{ \mbox{\hyperlink{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600a55c50be59001f12b54c48b09e434dced}{M\+O\+D\+E\+\_\+\+N\+O\+NE}} = 0, 
+\mbox{\hyperlink{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600ad009f15eeed7b2f639d7337cf0f3b661}{M\+O\+D\+E\+\_\+\+R\+O\+U\+N\+D\+\_\+\+R\+O\+B\+IN}}, 
+\mbox{\hyperlink{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600aea55d51518d44cff923514f5918b5978}{M\+O\+D\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}}, 
+\mbox{\hyperlink{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600a848d4eab93f99f76e3383e0b485a2b02}{M\+O\+D\+E\+\_\+\+M\+AX}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{trace__hwlat_8c_adfc95d56a4210332af697962d2187cc8}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structhwlat__kthread__data}{hwlat\+\_\+kthread\+\_\+data}}, hwlat\+\_\+per\+\_\+cpu\+\_\+data)
+\item 
+static struct \mbox{\hyperlink{structhwlat__kthread__data}{hwlat\+\_\+kthread\+\_\+data}} $\ast$ \mbox{\hyperlink{trace__hwlat_8c_a0b32cb7d8d0029229837598253f49232}{get\+\_\+cpu\+\_\+data}} (void)
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_a63698c3adda481698706eb8418f690bc}{trace\+\_\+hwlat\+\_\+sample}} (struct \mbox{\hyperlink{structhwlat__sample}{hwlat\+\_\+sample}} $\ast$sample)
+\item 
+void \mbox{\hyperlink{trace__hwlat_8c_ae8274fe89512e9935afff820a7b6d56d}{trace\+\_\+hwlat\+\_\+callback}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} enter)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_a4c89f777a406dc1ff8cef59905311f6d}{get\+\_\+sample}} (void)
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_afe2a62b6fa43c05990b4449ad7add13e}{move\+\_\+to\+\_\+next\+\_\+cpu}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_a76131d3cbf6c53ff05e9a48d76bac240}{kthread\+\_\+fn}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_ae5c00fb5577f04a04b9fc98e0fff702f}{stop\+\_\+single\+\_\+kthread}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_a762850e8538427348206fcd69886cba4}{start\+\_\+single\+\_\+kthread}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_ae62847daab1662785e09aeff9f61db22}{stop\+\_\+cpu\+\_\+kthread}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_a1494fd7c7d0887497e106c203aef8af3}{stop\+\_\+per\+\_\+cpu\+\_\+kthreads}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_adce963ea0071d8dcc61999c5b90b7037}{start\+\_\+cpu\+\_\+kthread}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_ad03ccd5aa4115d42b1252904d6ceaca7}{hwlat\+\_\+init\+\_\+hotplug\+\_\+support}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_a545f7250e6ac61e84304c31dc264e323}{start\+\_\+per\+\_\+cpu\+\_\+kthreads}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void $\ast$ \mbox{\hyperlink{trace__hwlat_8c_a28ed68f727d38cb375c1220063d33731}{s\+\_\+mode\+\_\+start}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static void $\ast$ \mbox{\hyperlink{trace__hwlat_8c_a90273753105f301e144e505bb7473bde}{s\+\_\+mode\+\_\+next}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$v, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_aed2711025687a019bf83b367423956af}{s\+\_\+mode\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$v)
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_a68b088dc1b246d5718ba443421cb56ee}{s\+\_\+mode\+\_\+stop}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}, void $\ast$v)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_a176df3b68e2638ec856df8dbf5c2fb44}{hwlat\+\_\+mode\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_a793a45bd96de4312cfd5bf5261098eba}{hwlat\+\_\+tracer\+\_\+start}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_a653db70c9ca5573a4295a575f7684643}{hwlat\+\_\+tracer\+\_\+stop}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{trace__hwlat_8c_a915ec3c315fbc6ba8a7738e5265767ca}{hwlat\+\_\+mode\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ubuf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_a9b18d1201f6ffe737c8afa79e66359b5}{init\+\_\+tracefs}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_a3da5c34a5abe8f1be6ed150a701eb53d}{hwlat\+\_\+tracer\+\_\+init}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static void \mbox{\hyperlink{trace__hwlat_8c_aebf320b41eaa9d0a5c3cd8f411c1e994}{hwlat\+\_\+tracer\+\_\+reset}} (struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$\mbox{\hyperlink{suspend__64_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{trace__hwlat_8c_ad14ee7be112e2662f99e53136a437b43}{init\+\_\+hwlat\+\_\+tracer}} (void)
+\item 
+\mbox{\hyperlink{trace__hwlat_8c_aa896e10e1b4d7e45db49c94f2dae3591}{late\+\_\+initcall}} (\mbox{\hyperlink{trace__hwlat_8c_ad14ee7be112e2662f99e53136a437b43}{init\+\_\+hwlat\+\_\+tracer}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$ \mbox{\hyperlink{trace__hwlat_8c_a168928ddf5a6cdb0d33ef573f4e31bbc}{hwlat\+\_\+trace}}
+\item 
+static struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$ \mbox{\hyperlink{trace__hwlat_8c_a6062272fd6a0bd24250a2695405ab2d6}{hwlat\+\_\+sample\+\_\+width}}
+\item 
+static struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$ \mbox{\hyperlink{trace__hwlat_8c_ad6d4d3e789c1cedf2671e9c75b867788}{hwlat\+\_\+sample\+\_\+window}}
+\item 
+static struct \mbox{\hyperlink{structdentry}{dentry}} $\ast$ \mbox{\hyperlink{trace__hwlat_8c_a14ea4d68196b5e037585c64cfa251d30}{hwlat\+\_\+thread\+\_\+mode}}
+\item 
+static char $\ast$ \mbox{\hyperlink{trace__hwlat_8c_a374bde92ac73232ea4fdad038033c7d4}{thread\+\_\+mode\+\_\+str}} \mbox{[}$\,$\mbox{]} = \{ \char`\"{}none\char`\"{}, \char`\"{}round-\/robin\char`\"{}, \char`\"{}per-\/\mbox{\hyperlink{structcpu}{cpu}}\char`\"{} \}
+\item 
+static unsigned long \mbox{\hyperlink{trace__hwlat_8c_a4bcc764ce0f0e8541bb48202ce0dae38}{save\+\_\+tracing\+\_\+thresh}}
+\item 
+struct \mbox{\hyperlink{structhwlat__kthread__data}{hwlat\+\_\+kthread\+\_\+data}} \mbox{\hyperlink{trace__hwlat_8c_a91451f57ea12f7a69e1f2ddd11297798}{hwlat\+\_\+single\+\_\+cpu\+\_\+data}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{trace__hwlat_8c_a5aeeb9a7076873e44cea0dd5337326e6}{trace\+\_\+hwlat\+\_\+callback\+\_\+enabled}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{trace__hwlat_8c_ae5f68b3e7e42770fe659ed391d4ae6d3}{last\+\_\+tracing\+\_\+thresh}} = \mbox{\hyperlink{trace__hwlat_8c_a9ed955a1eb3da781957bccb70b8b63e0}{D\+E\+F\+A\+U\+L\+T\+\_\+\+L\+A\+T\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD}} $\ast$ \mbox{\hyperlink{vdso_2time64_8h_a2180f263d149841a7c1fde663edb84c5}{N\+S\+E\+C\+\_\+\+P\+E\+R\+\_\+\+U\+S\+EC}}
+\item 
+static struct \mbox{\hyperlink{structhwlat__data}{hwlat\+\_\+data}} \mbox{\hyperlink{trace__hwlat_8c_a52bbaf3883e8a0baebd9198cb6dfa901}{hwlat\+\_\+data}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{trace__hwlat_8c_a8fc45ff98e5d632202fdf29567db73aa}{hwlat\+\_\+busy}}
+\item 
+static struct \mbox{\hyperlink{structcpumask}{cpumask}} \mbox{\hyperlink{trace__hwlat_8c_a42906161774060aac85158e1fa2e7dff}{save\+\_\+cpumask}}
+\item 
+static const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} \mbox{\hyperlink{trace__hwlat_8c_af9a939dbe4e2e7b69f5fe37244539b30}{thread\+\_\+mode\+\_\+seq\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} \mbox{\hyperlink{trace__hwlat_8c_ae866d476e56bd2dea5fd21d7055d8697}{hwlat\+\_\+width}}
+\item 
+static struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} \mbox{\hyperlink{trace__hwlat_8c_ae875ae52b9613d9f9ec6dcbe510590ac}{hwlat\+\_\+window}}
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{trace__hwlat_8c_a19b4f40793ebd7e6830351ca39dcf189}{thread\+\_\+mode\+\_\+fops}}
+\item 
+static struct \mbox{\hyperlink{structtracer}{tracer}} hwlat\+\_\+tracer \mbox{\hyperlink{trace__hwlat_8c_a6516998b434b73e3be3fd9816735680a}{\+\_\+\+\_\+read\+\_\+mostly}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+hwlat\+\_\+mode\+\_\+write -\/ Write function for \char`\"{}mode\char`\"{} entry @filp\+: \mbox{\hyperlink{classThe}{The}} active open file structure @ubuf\+: \mbox{\hyperlink{classThe}{The}} user buffer that \mbox{\hyperlink{protocolcontains-p}{contains}} the value to write @cnt\+: \mbox{\hyperlink{classThe}{The}} maximum number of bytes to write to \char`\"{}file\char`\"{} @ppos\+: \mbox{\hyperlink{classThe}{The}} current position in
+
+This function provides a write implementation for the \char`\"{}mode\char`\"{} interface to the hardware latency detector. hwlatd has different operation modes. \mbox{\hyperlink{classThe}{The}} \char`\"{}none\char`\"{} sets the allowed cpumask for a single hwlatd thread at the startup and lets the scheduler handle the migration. \mbox{\hyperlink{classThe}{The}} default mode is the \char`\"{}round-\/robin\char`\"{} one, in which a single hwlatd thread runs, migrating among the allowed C\+P\+Us in a round-\/robin fashion. \mbox{\hyperlink{classThe}{The}} \char`\"{}per-\/cpu\char`\"{} mode creates one hwlatd thread per allowed C\+PU. 
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{trace__hwlat_8c_a46c1fb0f4185dc45eda625530bc0fd73}\label{trace__hwlat_8c_a46c1fb0f4185dc45eda625530bc0fd73}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!BANNER@{BANNER}}
+\index{BANNER@{BANNER}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{BANNER}{BANNER}}
+{\footnotesize\ttfamily \#define B\+A\+N\+N\+ER~\char`\"{}hwlat\+\_\+detector\+: \char`\"{}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a9ed955a1eb3da781957bccb70b8b63e0}\label{trace__hwlat_8c_a9ed955a1eb3da781957bccb70b8b63e0}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!DEFAULT\_LAT\_THRESHOLD@{DEFAULT\_LAT\_THRESHOLD}}
+\index{DEFAULT\_LAT\_THRESHOLD@{DEFAULT\_LAT\_THRESHOLD}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_LAT\_THRESHOLD}{DEFAULT\_LAT\_THRESHOLD}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+L\+A\+T\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD~10			/$\ast$ 10us $\ast$/}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a185f705a6298f043206b157865b087ed}\label{trace__hwlat_8c_a185f705a6298f043206b157865b087ed}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!DEFAULT\_SAMPLE\_WIDTH@{DEFAULT\_SAMPLE\_WIDTH}}
+\index{DEFAULT\_SAMPLE\_WIDTH@{DEFAULT\_SAMPLE\_WIDTH}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_SAMPLE\_WIDTH}{DEFAULT\_SAMPLE\_WIDTH}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+W\+I\+D\+TH~500000			/$\ast$ 0.\+5\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a86b3df97827aea96ff7eb9d231d5cdd4}\label{trace__hwlat_8c_a86b3df97827aea96ff7eb9d231d5cdd4}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!DEFAULT\_SAMPLE\_WINDOW@{DEFAULT\_SAMPLE\_WINDOW}}
+\index{DEFAULT\_SAMPLE\_WINDOW@{DEFAULT\_SAMPLE\_WINDOW}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{DEFAULT\_SAMPLE\_WINDOW}{DEFAULT\_SAMPLE\_WINDOW}}
+{\footnotesize\ttfamily \#define D\+E\+F\+A\+U\+L\+T\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+W\+I\+N\+D\+OW~1000000			/$\ast$ 1\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} $\ast$/}
+
+\mbox{\Hypertarget{trace__hwlat_8c_aaf49842bee14e6398cdcbfc2a030551a}\label{trace__hwlat_8c_aaf49842bee14e6398cdcbfc2a030551a}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_err@{hwlat\_err}}
+\index{hwlat\_err@{hwlat\_err}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_err}{hwlat\_err}}
+{\footnotesize\ttfamily \#define hwlat\+\_\+err(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    (\{                          \(\backslash\)}
+\DoxyCodeLine{    struct \mbox{\hyperlink{structtrace__array}{trace\_array}} *\mbox{\hyperlink{suspend__32_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}} = \mbox{\hyperlink{trace__hwlat_8c_a168928ddf5a6cdb0d33ef573f4e31bbc}{hwlat\_trace}};                   \mbox{\hyperlink{kernel_2trace_2trace_8h_ad918aa5058d0e293fe20d3cd5afe212d}{\(\backslash\)}}}
+\DoxyCodeLine{\mbox{\hyperlink{kernel_2trace_2trace_8h_ad918aa5058d0e293fe20d3cd5afe212d}{                                        \(\backslash\)}}}
+\DoxyCodeLine{\mbox{\hyperlink{kernel_2trace_2trace_8h_ad918aa5058d0e293fe20d3cd5afe212d}{    trace\_array\_printk\_buf}}(\mbox{\hyperlink{suspend__32_8h_a86466f0a682ad920a126e22b9e224e1a}{tr}}-\/>array\_buffer.buffer, \mbox{\hyperlink{linux_2kernel_8h_af616ccdf3fe00099a9ee721efdf8d4d5}{\_THIS\_IP\_}}, \mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}});   \(\backslash\)}
+\DoxyCodeLine{\})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__hwlat_8c_ae925fb8a6ab6c8ba0c1862eb70f53dbc}\label{trace__hwlat_8c_ae925fb8a6ab6c8ba0c1862eb70f53dbc}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!init\_time@{init\_time}}
+\index{init\_time@{init\_time}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{init\_time}{init\_time}}
+{\footnotesize\ttfamily \#define init\+\_\+time(\begin{DoxyParamCaption}\item[{}]{a,  }\item[{}]{\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}} }\end{DoxyParamCaption})~(a = \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})}
+
+\mbox{\Hypertarget{trace__hwlat_8c_aeacce49fe465774439c44f5a684b16e4}\label{trace__hwlat_8c_aeacce49fe465774439c44f5a684b16e4}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!time\_get@{time\_get}}
+\index{time\_get@{time\_get}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{time\_get}{time\_get}}
+{\footnotesize\ttfamily \#define time\+\_\+get(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~\mbox{\hyperlink{include_2linux_2trace__clock_8h_a77c1a0a8d484effff61cfb744e5303f8}{trace\+\_\+clock\+\_\+local}}()}
+
+\mbox{\Hypertarget{trace__hwlat_8c_ad43981a796aaf500eb45cb32a8d153a6}\label{trace__hwlat_8c_ad43981a796aaf500eb45cb32a8d153a6}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!time\_sub@{time\_sub}}
+\index{time\_sub@{time\_sub}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{time\_sub}{time\_sub}}
+{\footnotesize\ttfamily \#define time\+\_\+sub(\begin{DoxyParamCaption}\item[{}]{a,  }\item[{}]{\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}} }\end{DoxyParamCaption})~((a) -\/ (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}))}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a3f1ebf370e12c4ed9f2d57107a8db28a}\label{trace__hwlat_8c_a3f1ebf370e12c4ed9f2d57107a8db28a}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!time\_to\_us@{time\_to\_us}}
+\index{time\_to\_us@{time\_to\_us}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{time\_to\_us}{time\_to\_us}}
+{\footnotesize\ttfamily \#define time\+\_\+to\+\_\+us(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~\mbox{\hyperlink{linux_2math64_8h_a85587a1f5a21c38ffab3532d2fa21d79}{div\+\_\+u64}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}, 1000)}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a378d2304d385a5113b7a3d918b50e49b}\label{trace__hwlat_8c_a378d2304d385a5113b7a3d918b50e49b}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!time\_type@{time\_type}}
+\index{time\_type@{time\_type}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{time\_type}{time\_type}}
+{\footnotesize\ttfamily \#define time\+\_\+type~\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a7eb6a6790081193150bdd5606dae77ee}\label{trace__hwlat_8c_a7eb6a6790081193150bdd5606dae77ee}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!time\_u64@{time\_u64}}
+\index{time\_u64@{time\_u64}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{time\_u64}{time\_u64}}
+{\footnotesize\ttfamily \#define time\+\_\+u64(\begin{DoxyParamCaption}\item[{}]{a }\end{DoxyParamCaption})~a}
+
+\mbox{\Hypertarget{trace__hwlat_8c_ad9933bb89f154ca161d379f1bad42919}\label{trace__hwlat_8c_ad9933bb89f154ca161d379f1bad42919}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!U64STR\_SIZE@{U64STR\_SIZE}}
+\index{U64STR\_SIZE@{U64STR\_SIZE}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{U64STR\_SIZE}{U64STR\_SIZE}}
+{\footnotesize\ttfamily \#define U64\+S\+T\+R\+\_\+\+S\+I\+ZE~22			/$\ast$ 20 digits \mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}} $\ast$/}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600}\label{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600}} 
+\doxysubsubsection{\texorpdfstring{anonymous enum}{anonymous enum}}
+{\footnotesize\ttfamily anonymous \mbox{\hyperlink{interfaceenum}{enum}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{MODE\_NONE@{MODE\_NONE}!trace\_hwlat.c@{trace\_hwlat.c}}\index{trace\_hwlat.c@{trace\_hwlat.c}!MODE\_NONE@{MODE\_NONE}}}\mbox{\Hypertarget{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600a55c50be59001f12b54c48b09e434dced}\label{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600a55c50be59001f12b54c48b09e434dced}} 
+M\+O\+D\+E\+\_\+\+N\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{MODE\_ROUND\_ROBIN@{MODE\_ROUND\_ROBIN}!trace\_hwlat.c@{trace\_hwlat.c}}\index{trace\_hwlat.c@{trace\_hwlat.c}!MODE\_ROUND\_ROBIN@{MODE\_ROUND\_ROBIN}}}\mbox{\Hypertarget{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600ad009f15eeed7b2f639d7337cf0f3b661}\label{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600ad009f15eeed7b2f639d7337cf0f3b661}} 
+M\+O\+D\+E\+\_\+\+R\+O\+U\+N\+D\+\_\+\+R\+O\+B\+IN&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{MODE\_PER\_CPU@{MODE\_PER\_CPU}!trace\_hwlat.c@{trace\_hwlat.c}}\index{trace\_hwlat.c@{trace\_hwlat.c}!MODE\_PER\_CPU@{MODE\_PER\_CPU}}}\mbox{\Hypertarget{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600aea55d51518d44cff923514f5918b5978}\label{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600aea55d51518d44cff923514f5918b5978}} 
+M\+O\+D\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{MODE\_MAX@{MODE\_MAX}!trace\_hwlat.c@{trace\_hwlat.c}}\index{trace\_hwlat.c@{trace\_hwlat.c}!MODE\_MAX@{MODE\_MAX}}}\mbox{\Hypertarget{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600a848d4eab93f99f76e3383e0b485a2b02}\label{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600a848d4eab93f99f76e3383e0b485a2b02}} 
+M\+O\+D\+E\+\_\+\+M\+AX&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{trace__hwlat_8c_adfc95d56a4210332af697962d2187cc8}\label{trace__hwlat_8c_adfc95d56a4210332af697962d2187cc8}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhwlat__kthread__data}{hwlat\+\_\+kthread\+\_\+data}}}]{,  }\item[{hwlat\+\_\+per\+\_\+cpu\+\_\+data}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a0b32cb7d8d0029229837598253f49232}\label{trace__hwlat_8c_a0b32cb7d8d0029229837598253f49232}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!get\_cpu\_data@{get\_cpu\_data}}
+\index{get\_cpu\_data@{get\_cpu\_data}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{get\_cpu\_data()}{get\_cpu\_data()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structhwlat__kthread__data}{hwlat\+\_\+kthread\+\_\+data}}$\ast$ get\+\_\+cpu\+\_\+data (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{trace__hwlat_8c_a4c89f777a406dc1ff8cef59905311f6d}\label{trace__hwlat_8c_a4c89f777a406dc1ff8cef59905311f6d}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!get\_sample@{get\_sample}}
+\index{get\_sample@{get\_sample}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{get\_sample()}{get\_sample()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+sample (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+get\+\_\+sample -\/ sample the C\+PU T\+SC and look for likely hardware latencies
+
+Used to repeatedly capture the C\+PU T\+SC (or similar), looking for potential hardware-\/induced latency. Called with interrupts disabled and with \mbox{\hyperlink{structhwlat__data_a8445b648a46f79e1d93c88fbd2d9dd20}{hwlat\+\_\+data.\+lock}} held. Here is the call graph for this function\+:
+% FIG 2
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{trace__hwlat_8c_ad03ccd5aa4115d42b1252904d6ceaca7}\label{trace__hwlat_8c_ad03ccd5aa4115d42b1252904d6ceaca7}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_init\_hotplug\_support@{hwlat\_init\_hotplug\_support}}
+\index{hwlat\_init\_hotplug\_support@{hwlat\_init\_hotplug\_support}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_init\_hotplug\_support()}{hwlat\_init\_hotplug\_support()}}
+{\footnotesize\ttfamily static void hwlat\+\_\+init\+\_\+hotplug\+\_\+support (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{trace__hwlat_8c_a176df3b68e2638ec856df8dbf5c2fb44}\label{trace__hwlat_8c_a176df3b68e2638ec856df8dbf5c2fb44}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_mode\_open@{hwlat\_mode\_open}}
+\index{hwlat\_mode\_open@{hwlat\_mode\_open}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_mode\_open()}{hwlat\_mode\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hwlat\+\_\+mode\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{trace__hwlat_8c_a915ec3c315fbc6ba8a7738e5265767ca}\label{trace__hwlat_8c_a915ec3c315fbc6ba8a7738e5265767ca}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_mode\_write@{hwlat\_mode\_write}}
+\index{hwlat\_mode\_write@{hwlat\_mode\_write}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_mode\_write()}{hwlat\_mode\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} hwlat\+\_\+mode\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ubuf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{cnt,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{trace__hwlat_8c_a3da5c34a5abe8f1be6ed150a701eb53d}\label{trace__hwlat_8c_a3da5c34a5abe8f1be6ed150a701eb53d}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_tracer\_init@{hwlat\_tracer\_init}}
+\index{hwlat\_tracer\_init@{hwlat\_tracer\_init}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_tracer\_init()}{hwlat\_tracer\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hwlat\+\_\+tracer\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{trace__hwlat_8c_aebf320b41eaa9d0a5c3cd8f411c1e994}\label{trace__hwlat_8c_aebf320b41eaa9d0a5c3cd8f411c1e994}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_tracer\_reset@{hwlat\_tracer\_reset}}
+\index{hwlat\_tracer\_reset@{hwlat\_tracer\_reset}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_tracer\_reset()}{hwlat\_tracer\_reset()}}
+{\footnotesize\ttfamily static void hwlat\+\_\+tracer\+\_\+reset (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{trace__hwlat_8c_a793a45bd96de4312cfd5bf5261098eba}\label{trace__hwlat_8c_a793a45bd96de4312cfd5bf5261098eba}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_tracer\_start@{hwlat\_tracer\_start}}
+\index{hwlat\_tracer\_start@{hwlat\_tracer\_start}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_tracer\_start()}{hwlat\_tracer\_start()}}
+{\footnotesize\ttfamily static void hwlat\+\_\+tracer\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{trace__hwlat_8c_a653db70c9ca5573a4295a575f7684643}\label{trace__hwlat_8c_a653db70c9ca5573a4295a575f7684643}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_tracer\_stop@{hwlat\_tracer\_stop}}
+\index{hwlat\_tracer\_stop@{hwlat\_tracer\_stop}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_tracer\_stop()}{hwlat\_tracer\_stop()}}
+{\footnotesize\ttfamily static void hwlat\+\_\+tracer\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{trace__hwlat_8c_ad14ee7be112e2662f99e53136a437b43}\label{trace__hwlat_8c_ad14ee7be112e2662f99e53136a437b43}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!init\_hwlat\_tracer@{init\_hwlat\_tracer}}
+\index{init\_hwlat\_tracer@{init\_hwlat\_tracer}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{init\_hwlat\_tracer()}{init\_hwlat\_tracer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+hwlat\+\_\+tracer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{trace__hwlat_8c_a9b18d1201f6ffe737c8afa79e66359b5}\label{trace__hwlat_8c_a9b18d1201f6ffe737c8afa79e66359b5}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!init\_tracefs@{init\_tracefs}}
+\index{init\_tracefs@{init\_tracefs}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{init\_tracefs()}{init\_tracefs()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+tracefs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+init\+\_\+tracefs -\/ A function to initialize the tracefs interface files
+
+This function creates entries in tracefs for \char`\"{}hwlat\+\_\+detector\char`\"{}. It creates the hwlat\+\_\+detector directory in the tracing directory, and within that directory is the count, width and window files to change and view those values. Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{trace__hwlat_8c_a76131d3cbf6c53ff05e9a48d76bac240}\label{trace__hwlat_8c_a76131d3cbf6c53ff05e9a48d76bac240}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!kthread\_fn@{kthread\_fn}}
+\index{kthread\_fn@{kthread\_fn}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{kthread\_fn()}{kthread\_fn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kthread\+\_\+fn (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{trace__hwlat_8c_aa896e10e1b4d7e45db49c94f2dae3591}\label{trace__hwlat_8c_aa896e10e1b4d7e45db49c94f2dae3591}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!late\_initcall@{late\_initcall}}
+\index{late\_initcall@{late\_initcall}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall()}{late\_initcall()}}
+{\footnotesize\ttfamily late\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{trace__hwlat_8c_ad14ee7be112e2662f99e53136a437b43}{init\+\_\+hwlat\+\_\+tracer}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{trace__hwlat_8c_afe2a62b6fa43c05990b4449ad7add13e}\label{trace__hwlat_8c_afe2a62b6fa43c05990b4449ad7add13e}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!move\_to\_next\_cpu@{move\_to\_next\_cpu}}
+\index{move\_to\_next\_cpu@{move\_to\_next\_cpu}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{move\_to\_next\_cpu()}{move\_to\_next\_cpu()}}
+{\footnotesize\ttfamily static void move\+\_\+to\+\_\+next\+\_\+cpu (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{trace__hwlat_8c_a90273753105f301e144e505bb7473bde}\label{trace__hwlat_8c_a90273753105f301e144e505bb7473bde}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!s\_mode\_next@{s\_mode\_next}}
+\index{s\_mode\_next@{s\_mode\_next}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{s\_mode\_next()}{s\_mode\_next()}}
+{\footnotesize\ttfamily static void$\ast$ s\+\_\+mode\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{s,  }\item[{void $\ast$}]{v,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_aed2711025687a019bf83b367423956af}\label{trace__hwlat_8c_aed2711025687a019bf83b367423956af}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!s\_mode\_show@{s\_mode\_show}}
+\index{s\_mode\_show@{s\_mode\_show}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{s\_mode\_show()}{s\_mode\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} s\+\_\+mode\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{s,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{trace__hwlat_8c_a28ed68f727d38cb375c1220063d33731}\label{trace__hwlat_8c_a28ed68f727d38cb375c1220063d33731}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!s\_mode\_start@{s\_mode\_start}}
+\index{s\_mode\_start@{s\_mode\_start}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{s\_mode\_start()}{s\_mode\_start()}}
+{\footnotesize\ttfamily static void$\ast$ s\+\_\+mode\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{s,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{trace__hwlat_8c_a68b088dc1b246d5718ba443421cb56ee}\label{trace__hwlat_8c_a68b088dc1b246d5718ba443421cb56ee}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!s\_mode\_stop@{s\_mode\_stop}}
+\index{s\_mode\_stop@{s\_mode\_stop}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{s\_mode\_stop()}{s\_mode\_stop()}}
+{\footnotesize\ttfamily static void s\+\_\+mode\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{s,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{trace__hwlat_8c_adce963ea0071d8dcc61999c5b90b7037}\label{trace__hwlat_8c_adce963ea0071d8dcc61999c5b90b7037}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!start\_cpu\_kthread@{start\_cpu\_kthread}}
+\index{start\_cpu\_kthread@{start\_cpu\_kthread}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{start\_cpu\_kthread()}{start\_cpu\_kthread()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} start\+\_\+cpu\+\_\+kthread (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{trace__hwlat_8c_a545f7250e6ac61e84304c31dc264e323}\label{trace__hwlat_8c_a545f7250e6ac61e84304c31dc264e323}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!start\_per\_cpu\_kthreads@{start\_per\_cpu\_kthreads}}
+\index{start\_per\_cpu\_kthreads@{start\_per\_cpu\_kthreads}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{start\_per\_cpu\_kthreads()}{start\_per\_cpu\_kthreads()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} start\+\_\+per\+\_\+cpu\+\_\+kthreads (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{trace__hwlat_8c_a762850e8538427348206fcd69886cba4}\label{trace__hwlat_8c_a762850e8538427348206fcd69886cba4}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!start\_single\_kthread@{start\_single\_kthread}}
+\index{start\_single\_kthread@{start\_single\_kthread}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{start\_single\_kthread()}{start\_single\_kthread()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} start\+\_\+single\+\_\+kthread (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}} $\ast$}]{tr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{trace__hwlat_8c_ae62847daab1662785e09aeff9f61db22}\label{trace__hwlat_8c_ae62847daab1662785e09aeff9f61db22}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!stop\_cpu\_kthread@{stop\_cpu\_kthread}}
+\index{stop\_cpu\_kthread@{stop\_cpu\_kthread}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{stop\_cpu\_kthread()}{stop\_cpu\_kthread()}}
+{\footnotesize\ttfamily static void stop\+\_\+cpu\+\_\+kthread (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{trace__hwlat_8c_a1494fd7c7d0887497e106c203aef8af3}\label{trace__hwlat_8c_a1494fd7c7d0887497e106c203aef8af3}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!stop\_per\_cpu\_kthreads@{stop\_per\_cpu\_kthreads}}
+\index{stop\_per\_cpu\_kthreads@{stop\_per\_cpu\_kthreads}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{stop\_per\_cpu\_kthreads()}{stop\_per\_cpu\_kthreads()}}
+{\footnotesize\ttfamily static void stop\+\_\+per\+\_\+cpu\+\_\+kthreads (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{trace__hwlat_8c_ae5c00fb5577f04a04b9fc98e0fff702f}\label{trace__hwlat_8c_ae5c00fb5577f04a04b9fc98e0fff702f}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!stop\_single\_kthread@{stop\_single\_kthread}}
+\index{stop\_single\_kthread@{stop\_single\_kthread}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{stop\_single\_kthread()}{stop\_single\_kthread()}}
+{\footnotesize\ttfamily static void stop\+\_\+single\+\_\+kthread (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{trace__hwlat_8c_ae8274fe89512e9935afff820a7b6d56d}\label{trace__hwlat_8c_ae8274fe89512e9935afff820a7b6d56d}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!trace\_hwlat\_callback@{trace\_hwlat\_callback}}
+\index{trace\_hwlat\_callback@{trace\_hwlat\_callback}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{trace\_hwlat\_callback()}{trace\_hwlat\_callback()}}
+{\footnotesize\ttfamily void trace\+\_\+hwlat\+\_\+callback (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{enter }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{trace__hwlat_8c_a63698c3adda481698706eb8418f690bc}\label{trace__hwlat_8c_a63698c3adda481698706eb8418f690bc}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!trace\_hwlat\_sample@{trace\_hwlat\_sample}}
+\index{trace\_hwlat\_sample@{trace\_hwlat\_sample}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{trace\_hwlat\_sample()}{trace\_hwlat\_sample()}}
+{\footnotesize\ttfamily static void trace\+\_\+hwlat\+\_\+sample (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhwlat__sample}{hwlat\+\_\+sample}} $\ast$}]{sample }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{trace__hwlat_8c_a6516998b434b73e3be3fd9816735680a}\label{trace__hwlat_8c_a6516998b434b73e3be3fd9816735680a}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtracer}{tracer}} hwlat\+\_\+tracer \+\_\+\+\_\+read\+\_\+mostly\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{=}
+\DoxyCodeLine{\{}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"hwlat"},}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{trace__hwlat_8c_a3da5c34a5abe8f1be6ed150a701eb53d}{hwlat\_tracer\_init}},}
+\DoxyCodeLine{    .reset      = \mbox{\hyperlink{trace__hwlat_8c_aebf320b41eaa9d0a5c3cd8f411c1e994}{hwlat\_tracer\_reset}},}
+\DoxyCodeLine{    .start      = \mbox{\hyperlink{trace__hwlat_8c_a793a45bd96de4312cfd5bf5261098eba}{hwlat\_tracer\_start}},}
+\DoxyCodeLine{    .stop       = \mbox{\hyperlink{trace__hwlat_8c_a653db70c9ca5573a4295a575f7684643}{hwlat\_tracer\_stop}},}
+\DoxyCodeLine{    .allow\_instances = \textcolor{keyword}{true},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__hwlat_8c_a8fc45ff98e5d632202fdf29567db73aa}\label{trace__hwlat_8c_a8fc45ff98e5d632202fdf29567db73aa}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_busy@{hwlat\_busy}}
+\index{hwlat\_busy@{hwlat\_busy}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_busy}{hwlat\_busy}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hwlat\+\_\+busy\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a52bbaf3883e8a0baebd9198cb6dfa901}\label{trace__hwlat_8c_a52bbaf3883e8a0baebd9198cb6dfa901}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_data@{hwlat\_data}}
+\index{hwlat\_data@{hwlat\_data}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_data}{hwlat\_data}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhwlat__data}{hwlat\+\_\+data}} \mbox{\hyperlink{structhwlat__data}{hwlat\+\_\+data}}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .sample\_window      = \mbox{\hyperlink{trace__hwlat_8c_a86b3df97827aea96ff7eb9d231d5cdd4}{DEFAULT\_SAMPLE\_WINDOW}},}
+\DoxyCodeLine{    .sample\_width       = \mbox{\hyperlink{trace__hwlat_8c_a185f705a6298f043206b157865b087ed}{DEFAULT\_SAMPLE\_WIDTH}},}
+\DoxyCodeLine{    .thread\_mode        = \mbox{\hyperlink{trace__hwlat_8c_a2509e839f3d717a30df9f92b403a6600ad009f15eeed7b2f639d7337cf0f3b661}{MODE\_ROUND\_ROBIN}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__hwlat_8c_a6062272fd6a0bd24250a2695405ab2d6}\label{trace__hwlat_8c_a6062272fd6a0bd24250a2695405ab2d6}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_sample\_width@{hwlat\_sample\_width}}
+\index{hwlat\_sample\_width@{hwlat\_sample\_width}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_sample\_width}{hwlat\_sample\_width}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdentry}{dentry}}$\ast$ hwlat\+\_\+sample\+\_\+width\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_ad6d4d3e789c1cedf2671e9c75b867788}\label{trace__hwlat_8c_ad6d4d3e789c1cedf2671e9c75b867788}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_sample\_window@{hwlat\_sample\_window}}
+\index{hwlat\_sample\_window@{hwlat\_sample\_window}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_sample\_window}{hwlat\_sample\_window}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdentry}{dentry}}$\ast$ hwlat\+\_\+sample\+\_\+window\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a91451f57ea12f7a69e1f2ddd11297798}\label{trace__hwlat_8c_a91451f57ea12f7a69e1f2ddd11297798}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_single\_cpu\_data@{hwlat\_single\_cpu\_data}}
+\index{hwlat\_single\_cpu\_data@{hwlat\_single\_cpu\_data}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_single\_cpu\_data}{hwlat\_single\_cpu\_data}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhwlat__kthread__data}{hwlat\+\_\+kthread\+\_\+data}} hwlat\+\_\+single\+\_\+cpu\+\_\+data}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a14ea4d68196b5e037585c64cfa251d30}\label{trace__hwlat_8c_a14ea4d68196b5e037585c64cfa251d30}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_thread\_mode@{hwlat\_thread\_mode}}
+\index{hwlat\_thread\_mode@{hwlat\_thread\_mode}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_thread\_mode}{hwlat\_thread\_mode}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structdentry}{dentry}}$\ast$ hwlat\+\_\+thread\+\_\+mode\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a168928ddf5a6cdb0d33ef573f4e31bbc}\label{trace__hwlat_8c_a168928ddf5a6cdb0d33ef573f4e31bbc}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_trace@{hwlat\_trace}}
+\index{hwlat\_trace@{hwlat\_trace}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_trace}{hwlat\_trace}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__array}{trace\+\_\+array}}$\ast$ hwlat\+\_\+trace\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_ae866d476e56bd2dea5fd21d7055d8697}\label{trace__hwlat_8c_ae866d476e56bd2dea5fd21d7055d8697}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_width@{hwlat\_width}}
+\index{hwlat\_width@{hwlat\_width}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_width}{hwlat\_width}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} hwlat\+\_\+width\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .lock       = \&\mbox{\hyperlink{structhwlat__data}{hwlat\_data}}.\mbox{\hyperlink{structhwlat__data_a8445b648a46f79e1d93c88fbd2d9dd20}{lock}},}
+\DoxyCodeLine{    .val        = \&\mbox{\hyperlink{structhwlat__data}{hwlat\_data}}.\mbox{\hyperlink{structhwlat__data_a3f2a1797db11c312d443d40de09af85c}{sample\_width}},}
+\DoxyCodeLine{    .max        = \&\mbox{\hyperlink{structhwlat__data}{hwlat\_data}}.\mbox{\hyperlink{structhwlat__data_a27fafe80b8f82d666da563e1d3750bd3}{sample\_window}},}
+\DoxyCodeLine{    .min        = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__hwlat_8c_ae875ae52b9613d9f9ec6dcbe510590ac}\label{trace__hwlat_8c_ae875ae52b9613d9f9ec6dcbe510590ac}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!hwlat\_window@{hwlat\_window}}
+\index{hwlat\_window@{hwlat\_window}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{hwlat\_window}{hwlat\_window}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtrace__min__max__param}{trace\+\_\+min\+\_\+max\+\_\+param}} hwlat\+\_\+window\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .lock       = \&\mbox{\hyperlink{structhwlat__data}{hwlat\_data}}.\mbox{\hyperlink{structhwlat__data_a8445b648a46f79e1d93c88fbd2d9dd20}{lock}},}
+\DoxyCodeLine{    .val        = \&\mbox{\hyperlink{structhwlat__data}{hwlat\_data}}.\mbox{\hyperlink{structhwlat__data_a27fafe80b8f82d666da563e1d3750bd3}{sample\_window}},}
+\DoxyCodeLine{    .max        = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .min        = \&\mbox{\hyperlink{structhwlat__data}{hwlat\_data}}.\mbox{\hyperlink{structhwlat__data_a3f2a1797db11c312d443d40de09af85c}{sample\_width}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__hwlat_8c_ae5f68b3e7e42770fe659ed391d4ae6d3}\label{trace__hwlat_8c_ae5f68b3e7e42770fe659ed391d4ae6d3}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!last\_tracing\_thresh@{last\_tracing\_thresh}}
+\index{last\_tracing\_thresh@{last\_tracing\_thresh}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{last\_tracing\_thresh}{last\_tracing\_thresh}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} last\+\_\+tracing\+\_\+thresh = \mbox{\hyperlink{trace__hwlat_8c_a9ed955a1eb3da781957bccb70b8b63e0}{D\+E\+F\+A\+U\+L\+T\+\_\+\+L\+A\+T\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD}} $\ast$ \mbox{\hyperlink{vdso_2time64_8h_a2180f263d149841a7c1fde663edb84c5}{N\+S\+E\+C\+\_\+\+P\+E\+R\+\_\+\+U\+S\+EC}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a42906161774060aac85158e1fa2e7dff}\label{trace__hwlat_8c_a42906161774060aac85158e1fa2e7dff}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!save\_cpumask@{save\_cpumask}}
+\index{save\_cpumask@{save\_cpumask}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{save\_cpumask}{save\_cpumask}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structcpumask}{cpumask}} save\+\_\+cpumask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a4bcc764ce0f0e8541bb48202ce0dae38}\label{trace__hwlat_8c_a4bcc764ce0f0e8541bb48202ce0dae38}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!save\_tracing\_thresh@{save\_tracing\_thresh}}
+\index{save\_tracing\_thresh@{save\_tracing\_thresh}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{save\_tracing\_thresh}{save\_tracing\_thresh}}
+{\footnotesize\ttfamily unsigned long save\+\_\+tracing\+\_\+thresh\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a19b4f40793ebd7e6830351ca39dcf189}\label{trace__hwlat_8c_a19b4f40793ebd7e6830351ca39dcf189}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!thread\_mode\_fops@{thread\_mode\_fops}}
+\index{thread\_mode\_fops@{thread\_mode\_fops}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{thread\_mode\_fops}{thread\_mode\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} thread\+\_\+mode\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .open       = \mbox{\hyperlink{trace__hwlat_8c_a176df3b68e2638ec856df8dbf5c2fb44}{hwlat\_mode\_open}},}
+\DoxyCodeLine{    .read       = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .llseek     = \mbox{\hyperlink{seq__file_8h_afb0190ee914a16a926d673a6a91949a9}{seq\_lseek}},}
+\DoxyCodeLine{    .release    = \mbox{\hyperlink{seq__file_8h_a6516f3a82b6086e24f24388d14198402}{seq\_release}},}
+\DoxyCodeLine{    .write      = \mbox{\hyperlink{trace__hwlat_8c_a915ec3c315fbc6ba8a7738e5265767ca}{hwlat\_mode\_write}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__hwlat_8c_af9a939dbe4e2e7b69f5fe37244539b30}\label{trace__hwlat_8c_af9a939dbe4e2e7b69f5fe37244539b30}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!thread\_mode\_seq\_ops@{thread\_mode\_seq\_ops}}
+\index{thread\_mode\_seq\_ops@{thread\_mode\_seq\_ops}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{thread\_mode\_seq\_ops}{thread\_mode\_seq\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} thread\+\_\+mode\+\_\+seq\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .start      = \mbox{\hyperlink{trace__hwlat_8c_a28ed68f727d38cb375c1220063d33731}{s\_mode\_start}},}
+\DoxyCodeLine{    .next       = \mbox{\hyperlink{trace__hwlat_8c_a90273753105f301e144e505bb7473bde}{s\_mode\_next}},}
+\DoxyCodeLine{    .show       = \mbox{\hyperlink{trace__hwlat_8c_aed2711025687a019bf83b367423956af}{s\_mode\_show}},}
+\DoxyCodeLine{    .stop       = \mbox{\hyperlink{trace__hwlat_8c_a68b088dc1b246d5718ba443421cb56ee}{s\_mode\_stop}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{trace__hwlat_8c_a374bde92ac73232ea4fdad038033c7d4}\label{trace__hwlat_8c_a374bde92ac73232ea4fdad038033c7d4}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!thread\_mode\_str@{thread\_mode\_str}}
+\index{thread\_mode\_str@{thread\_mode\_str}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{thread\_mode\_str}{thread\_mode\_str}}
+{\footnotesize\ttfamily char$\ast$ thread\+\_\+mode\+\_\+str\mbox{[}$\,$\mbox{]} = \{ \char`\"{}none\char`\"{}, \char`\"{}round-\/robin\char`\"{}, \char`\"{}per-\/\mbox{\hyperlink{structcpu}{cpu}}\char`\"{} \}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{trace__hwlat_8c_a5aeeb9a7076873e44cea0dd5337326e6}\label{trace__hwlat_8c_a5aeeb9a7076873e44cea0dd5337326e6}} 
+\index{trace\_hwlat.c@{trace\_hwlat.c}!trace\_hwlat\_callback\_enabled@{trace\_hwlat\_callback\_enabled}}
+\index{trace\_hwlat\_callback\_enabled@{trace\_hwlat\_callback\_enabled}!trace\_hwlat.c@{trace\_hwlat.c}}
+\doxysubsubsection{\texorpdfstring{trace\_hwlat\_callback\_enabled}{trace\_hwlat\_callback\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} trace\+\_\+hwlat\+\_\+callback\+\_\+enabled}
+

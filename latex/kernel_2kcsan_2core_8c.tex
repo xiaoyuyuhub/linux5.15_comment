@@ -1,0 +1,1071 @@
+\hypertarget{kernel_2kcsan_2core_8c}{}\doxysection{kernel/kcsan/core.c File Reference}
+\label{kernel_2kcsan_2core_8c}\index{kernel/kcsan/core.c@{kernel/kcsan/core.c}}
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+{\ttfamily \#include $<$linux/moduleparam.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/preempt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}encoding.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}kcsan.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}permissive.\+h\char`\"{}}\newline
+Include dependency graph for core.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}kcsan\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_ad53e70f4b4961c492390e8f1f1e47ec9}{M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+A\+M\+\_\+\+P\+R\+E\+F\+IX}}~\char`\"{}kcsan.\char`\"{}
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_af44221a17aca4ff7e28bf3256e2ebc7e}{S\+L\+O\+T\+\_\+\+I\+DX}}(\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}},  \mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}})~(\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}} + ((\mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}} + \mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a699177c6f1a9849a336c5211974fed60}{K\+C\+S\+A\+N\+\_\+\+C\+H\+E\+C\+K\+\_\+\+A\+D\+J\+A\+C\+E\+NT}}) \% \mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a88aee50938d44ce40d88c21a5dea33f2}{N\+U\+M\+\_\+\+S\+L\+O\+TS}}))
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_ae9ab074f854c8b2c2856f6919ac03399}{S\+L\+O\+T\+\_\+\+I\+D\+X\+\_\+\+F\+A\+ST}}(\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}},  \mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}})~(\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}} + \mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}})
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_af4017611b2919cd238dbfa7398d21b45}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}}(\mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_a8eb46000ee5dad7d68f2327e14a627a2}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}}(\mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_a06200b02ee683e548bd4829d1e526a0b}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+L\+O\+A\+D\+\_\+\+S\+T\+O\+RE}}(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_a55aaa7d103661aa8be02e0d262b7c154}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+R\+MW}}(\mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}},  \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}},  suffix)
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_ae75b04129303ce30fdd3097f350cf094}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+C\+M\+P\+X\+C\+HG}}(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}},  strength,  weak)
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_a6a1693f5093c9c20de4b37c6d9582023}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+C\+M\+P\+X\+C\+H\+G\+\_\+\+V\+AL}}(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+\#define \mbox{\hyperlink{kernel_2kcsan_2core_8c_abe452d58a8a9886743b497b6f6f02a6a}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS}}(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ac92cc768d64c119dbd691939bbb359a8}{module\+\_\+param\+\_\+named}} (early\+\_\+enable, \mbox{\hyperlink{kernel_2kcsan_2core_8c_aa52a327bc5f5a3c0add0f47333f92e63}{kcsan\+\_\+early\+\_\+enable}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, 0)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a1088078a77f1667a7339869f0768ee92}{module\+\_\+param\+\_\+named}} (udelay\+\_\+task, \mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a5f3c3b791624e77d7cbf76c13fbf80ac}{kcsan\+\_\+udelay\+\_\+task}}, \mbox{\hyperlink{include_2linux_2types_8h_a91ad9478d81a7aaf2593e8d9c3d06a14}{uint}}, 0644)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a4aa498bf08adfb95929d6ca34ef0fead}{module\+\_\+param\+\_\+named}} (udelay\+\_\+interrupt, \mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a32e34578e7c606254d9d3f1ecad26f48}{kcsan\+\_\+udelay\+\_\+interrupt}}, \mbox{\hyperlink{include_2linux_2types_8h_a91ad9478d81a7aaf2593e8d9c3d06a14}{uint}}, 0644)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ac4a434dd1c48fc7efccf0fbfea3ac019}{module\+\_\+param\+\_\+named}} (skip\+\_\+watch, \mbox{\hyperlink{kernel_2kcsan_2core_8c_a7346955ff33c07f6da76f45768de1dcf}{kcsan\+\_\+skip\+\_\+watch}}, long, 0644)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ad00cb53e4e1ac330955acbb5681c89e4}{module\+\_\+param\+\_\+named}} (interrupt\+\_\+watcher, \mbox{\hyperlink{kernel_2kcsan_2core_8c_aacb3b86c5d910c2681cac88f7b68e6c8}{kcsan\+\_\+interrupt\+\_\+watcher}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, 0444)
+\item 
+static \mbox{\hyperlink{kernel_2kcsan_2core_8c_ab9667aad0ec566f3eb91dd3f5413f782}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct kcsan\+\_\+ctx, kcsan\+\_\+cpu\+\_\+ctx)
+\item 
+static \mbox{\hyperlink{kernel_2kcsan_2core_8c_a04f7060a6b25800a1d348dcab5749eac}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (long, kcsan\+\_\+skip)
+\item 
+static \mbox{\hyperlink{kernel_2kcsan_2core_8c_a106f8f46a24a238f024426c77e9f2c41}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}, kcsan\+\_\+rand\+\_\+state)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$ \mbox{\hyperlink{kernel_2kcsan_2core_8c_a3495a1d030c6d9cf4d8a8941eda65cff}{find\+\_\+watchpoint}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} expect\+\_\+write, long $\ast$encoded\+\_\+watchpoint)
+\item 
+static \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$ \mbox{\hyperlink{kernel_2kcsan_2core_8c_abfc62f39a1e757c5141283c1d8effc2a}{insert\+\_\+watchpoint}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+write)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_aa314b28388200a2dfa12a73aeb981177}{try\+\_\+consume\+\_\+watchpoint}} (\mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$watchpoint, long encoded\+\_\+watchpoint)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_ad32dfc8f748a777c40fdd0a04df54b3c}{consume\+\_\+watchpoint}} (\mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$watchpoint)
+\item 
+static void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a17e1f1b0236fcf817611e5d2bd6b9c8a}{remove\+\_\+watchpoint}} (\mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$watchpoint)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} struct kcsan\+\_\+ctx $\ast$ \mbox{\hyperlink{kernel_2kcsan_2core_8c_a66647b81c36d9d035119f629a9b350b6}{get\+\_\+ctx}} (void)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a3fb42c85ef3e5daead0e820635c8312c}{kcsan\+\_\+check\+\_\+scoped\+\_\+accesses}} (void)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}{is\+\_\+atomic}} (const volatile void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, struct kcsan\+\_\+ctx $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a3743dbae4d61fe4afbbc30f474329c99}{should\+\_\+watch}} (const volatile void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, struct kcsan\+\_\+ctx $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}})
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_aa2db211484e9be7127572a97fb54459f}{kcsan\+\_\+prandom\+\_\+u32\+\_\+max}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} ep\+\_\+ro)
+\item 
+static void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a80543a7505f85d2c84887174c43d82dc}{reset\+\_\+kcsan\+\_\+skip}} (void)
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a1c10e033786f985ffabb3ebf8852ebad}{kcsan\+\_\+is\+\_\+enabled}} (struct kcsan\+\_\+ctx $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}})
+\item 
+static void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a871f9767f2a54198b2de36db9e140a1d}{delay\+\_\+access}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a6e49cdd9d5a2da5b1c215322edfc063e}{kcsan\+\_\+save\+\_\+irqtrace}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a5be93b693ac0d773f07f5043ce3eeaba}{kcsan\+\_\+restore\+\_\+irqtrace}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void \mbox{\hyperlink{kernel_2kcsan_2core_8c_ae7cf3c95d959f5a89a65949c4af41679}{kcsan\+\_\+found\+\_\+watchpoint}} (const volatile void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$watchpoint, long encoded\+\_\+watchpoint)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a5e523008dd720aa02de3f9820bd3d566}{kcsan\+\_\+setup\+\_\+watchpoint}} (const volatile void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a8da7af38e5cba758cc45084942a52b46}{check\+\_\+access}} (const volatile void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a1f5e75d11d8147c6629b8f6865f66139}{kcsan\+\_\+init}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a0c3148776e37723a9ebdd398c8a75d67}{kcsan\+\_\+disable\+\_\+current}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a64daed0cc6f8d4110a02b960a09cc31c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_abea558ad74bfdb3a4923b7e622530814}{kcsan\+\_\+disable\+\_\+current}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a89989938439d3b873157617fa9ee4dad}{kcsan\+\_\+enable\+\_\+current}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_af21c131e9e285e2c654b985ae6b37dfa}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_a74d31808b1288cdf44e5722bbc38b409}{kcsan\+\_\+enable\+\_\+current}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_aee20bed0710d2eb0bc53e309b7ec890e}{kcsan\+\_\+enable\+\_\+current\+\_\+nowarn}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ad50889ba319b50b01872019fa734839e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_afb741e8a4f799c3a380d7c43cfce026b}{kcsan\+\_\+enable\+\_\+current\+\_\+nowarn}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a75f768cbdf6561c017ec472856fdf073}{kcsan\+\_\+nestable\+\_\+atomic\+\_\+begin}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a82f010c4b37bd51237912b879c6ea2a8}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_a4bd52fbf57f225c024a189e925da6232}{kcsan\+\_\+nestable\+\_\+atomic\+\_\+begin}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a42255ed7b96705aa599ed80472022663}{kcsan\+\_\+nestable\+\_\+atomic\+\_\+end}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a0d8ca02500be6e36d16803943e04fadd}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_aa9cd2675f6d14210f155ddc30eceed18}{kcsan\+\_\+nestable\+\_\+atomic\+\_\+end}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_aaa7ba4b7e04c4bb997b937bbefd54123}{kcsan\+\_\+flat\+\_\+atomic\+\_\+begin}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a598d8cae61ea1fdef162179c159c116d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_adcfb67692098e7497578983005ca15c6}{kcsan\+\_\+flat\+\_\+atomic\+\_\+begin}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a7d31a5ebfb73546fb310b9d520c2d8b5}{kcsan\+\_\+flat\+\_\+atomic\+\_\+end}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a12f57e7edb806894f1733932bf26afb1}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_ac533c553c58c54ab2aeda8e394110540}{kcsan\+\_\+flat\+\_\+atomic\+\_\+end}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a841685c89b5ca62af5e5bc44db2b0de9}{kcsan\+\_\+atomic\+\_\+next}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} n)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_abf7fce5a3fb31f69581bd2afc74707e4}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_a18d90ba783b81acb3e5966b45b6fca63}{kcsan\+\_\+atomic\+\_\+next}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a0ea82905c357066a490aa99abaca4ff8}{kcsan\+\_\+set\+\_\+access\+\_\+mask}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a6899d549195ca56f76461c760bcfeba9}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_ab0bb5d032a0c0850b51202e7d93a3370}{kcsan\+\_\+set\+\_\+access\+\_\+mask}})
+\item 
+struct \mbox{\hyperlink{structkcsan__scoped__access}{kcsan\+\_\+scoped\+\_\+access}} $\ast$ \mbox{\hyperlink{kernel_2kcsan_2core_8c_a7e1d86cf536c2a8a944df77ae38d5466}{kcsan\+\_\+begin\+\_\+scoped\+\_\+access}} (const volatile void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, struct \mbox{\hyperlink{structkcsan__scoped__access}{kcsan\+\_\+scoped\+\_\+access}} $\ast$\mbox{\hyperlink{ieee80211_8h_a479602b8594e20a2ae83423d22a5701b}{sa}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_aa10758f0abd73d4b059432d2a11d560b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_a5267d3a2213bcbeb856d5d6688943814}{kcsan\+\_\+begin\+\_\+scoped\+\_\+access}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_ad83dfbbacdb74357df1086b9c1517449}{kcsan\+\_\+end\+\_\+scoped\+\_\+access}} (struct \mbox{\hyperlink{structkcsan__scoped__access}{kcsan\+\_\+scoped\+\_\+access}} $\ast$\mbox{\hyperlink{ieee80211_8h_a479602b8594e20a2ae83423d22a5701b}{sa}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ad65f8a98fb85941541d66c3c82f620cf}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_a4885d74d67e0aee8e413ef3fe00b9b87}{kcsan\+\_\+end\+\_\+scoped\+\_\+access}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_af95f600cb2d5cd48669227ae0e8e008c}{\+\_\+\+\_\+kcsan\+\_\+check\+\_\+access}} (const volatile void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_aeb7c6c345f8217804c35ad112a8bd827}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kcsan-checks_8h_a73ae2a452e6fd27eb8c4aa3f035ffe76}{\+\_\+\+\_\+kcsan\+\_\+check\+\_\+access}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a50976dc01959bf7c79349b614e7d3848}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (1)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a9edfe9572558fd6747445e6c4fc950cb}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (2)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ae628de26a03652f524d223cb16192eb9}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (4)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ad5129529d9f62976d33d9b0e64652268}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (8)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_aa08324fdaf428aaa24606c35b9e24232}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (16)
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_aef8a644f2d6129119b546953089f3ed9}{\+\_\+\+\_\+tsan\+\_\+read\+\_\+range}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a2cccb63b08c75fe73f2fcd4e28283574}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2kcsan_2core_8c_aef8a644f2d6129119b546953089f3ed9}{\+\_\+\+\_\+tsan\+\_\+read\+\_\+range}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_ae36e54cfda0d6fe01007d0c5a7bf0c09}{\+\_\+\+\_\+tsan\+\_\+write\+\_\+range}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_adbf0c574469d29010c9fc8bdb263184c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2kcsan_2core_8c_ae36e54cfda0d6fe01007d0c5a7bf0c09}{\+\_\+\+\_\+tsan\+\_\+write\+\_\+range}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_aeff8b2ff6a712d9079abd91d84be88b1}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (1)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ad7ff4cc2ed09144a55c1e85eea70573f}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (2)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a4e70697e1d2a62d84b5a5e6f8db4e775}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (4)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_adb31139ee560ee7be49b5413b3542246}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (8)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a37c78f091de8dc15e50a0d1db04af21e}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE}} (16)
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a6f2c6b03e0f079f134d136ca4c176ccd}{\+\_\+\+\_\+tsan\+\_\+func\+\_\+entry}} (void $\ast$call\+\_\+pc)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_aca82e0325e311c287989892fb7931a5a}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2kcsan_2core_8c_a6f2c6b03e0f079f134d136ca4c176ccd}{\+\_\+\+\_\+tsan\+\_\+func\+\_\+entry}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a63ff83b0549793dc544358386c7a1fb0}{\+\_\+\+\_\+tsan\+\_\+func\+\_\+exit}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_aafebe4da022271e10fc71c972a87aa65}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2kcsan_2core_8c_a63ff83b0549793dc544358386c7a1fb0}{\+\_\+\+\_\+tsan\+\_\+func\+\_\+exit}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a82e8a2799d633c907861aaca58cb75ed}{\+\_\+\+\_\+tsan\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_ad44ea63ea827bba7ab238acf35880744}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2kcsan_2core_8c_a82e8a2799d633c907861aaca58cb75ed}{\+\_\+\+\_\+tsan\+\_\+init}})
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_aec1237e4e6008f287d13521e050e9011}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS}} (8)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a2af61a401a993877286fdbb6955f4ca9}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS}} (16)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_add7e38cc19ee7bba5eb1af6073061ec0}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS}} (32)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a36dc95be7cdfad0294cd53643237a36f}{D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS}} (64)
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_abcd2749be69fcdc4fa89e5f02e9fc2bd}{\+\_\+\+\_\+tsan\+\_\+atomic\+\_\+thread\+\_\+fence}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memorder)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_a1914d14720ba80804c3052403e6af649}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2kcsan_2core_8c_abcd2749be69fcdc4fa89e5f02e9fc2bd}{\+\_\+\+\_\+tsan\+\_\+atomic\+\_\+thread\+\_\+fence}})
+\item 
+void \mbox{\hyperlink{kernel_2kcsan_2core_8c_a754b2975113df7851db1f534f8e31260}{\+\_\+\+\_\+tsan\+\_\+atomic\+\_\+signal\+\_\+fence}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} memorder)
+\item 
+\mbox{\hyperlink{kernel_2kcsan_2core_8c_af9ca42651c5b17a50ff956b859636e53}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kernel_2kcsan_2core_8c_a754b2975113df7851db1f534f8e31260}{\+\_\+\+\_\+tsan\+\_\+atomic\+\_\+signal\+\_\+fence}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_aa52a327bc5f5a3c0add0f47333f92e63}{kcsan\+\_\+early\+\_\+enable}} = \mbox{\hyperlink{pq_8h_a7cba8af7b38381ef613e1dc587d12005}{I\+S\+\_\+\+E\+N\+A\+B\+L\+ED}}(C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+E\+A\+R\+L\+Y\+\_\+\+E\+N\+A\+B\+LE)
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a5f3c3b791624e77d7cbf76c13fbf80ac}{kcsan\+\_\+udelay\+\_\+task}} = C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+U\+D\+E\+L\+A\+Y\+\_\+\+T\+A\+SK
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a32e34578e7c606254d9d3f1ecad26f48}{kcsan\+\_\+udelay\+\_\+interrupt}} = C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+U\+D\+E\+L\+A\+Y\+\_\+\+I\+N\+T\+E\+R\+R\+U\+PT
+\item 
+static long \mbox{\hyperlink{kernel_2kcsan_2core_8c_a7346955ff33c07f6da76f45768de1dcf}{kcsan\+\_\+skip\+\_\+watch}} = C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+S\+K\+I\+P\+\_\+\+W\+A\+T\+CH
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_aacb3b86c5d910c2681cac88f7b68e6c8}{kcsan\+\_\+interrupt\+\_\+watcher}} = \mbox{\hyperlink{pq_8h_a7cba8af7b38381ef613e1dc587d12005}{I\+S\+\_\+\+E\+N\+A\+B\+L\+ED}}(C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+I\+N\+T\+E\+R\+R\+U\+P\+T\+\_\+\+W\+A\+T\+C\+H\+ER)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a31a555a664d4ea2e1bb68c3f980150f2}{kcsan\+\_\+enabled}}
+\item 
+static \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} \mbox{\hyperlink{kernel_2kcsan_2core_8c_adda5436e1e6a38eed6681373ba9d328e}{watchpoints}} \mbox{[}C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+N\+U\+M\+\_\+\+W\+A\+T\+C\+H\+P\+O\+I\+N\+TS+\mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a88aee50938d44ce40d88c21a5dea33f2}{N\+U\+M\+\_\+\+S\+L\+O\+TS}}-\/1\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ae75b04129303ce30fdd3097f350cf094}\label{kernel_2kcsan_2core_8c_ae75b04129303ce30fdd3097f350cf094}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_CMPXCHG@{DEFINE\_TSAN\_ATOMIC\_CMPXCHG}}
+\index{DEFINE\_TSAN\_ATOMIC\_CMPXCHG@{DEFINE\_TSAN\_ATOMIC\_CMPXCHG}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_CMPXCHG}{DEFINE\_TSAN\_ATOMIC\_CMPXCHG}}
+{\footnotesize\ttfamily \#define D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+C\+M\+P\+X\+C\+HG(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}},  }\item[{}]{strength,  }\item[{}]{weak }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordtype}{int} \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_compare\_exchange\_\#\#strength(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{double_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}},          \(\backslash\)}
+\DoxyCodeLine{                                  \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}, \textcolor{keywordtype}{int} mo, \textcolor{keywordtype}{int} fail\_mo);   \(\backslash\)}
+\DoxyCodeLine{    int \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_compare\_exchange\_\#\#strength(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{double_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}},          \(\backslash\)}
+\DoxyCodeLine{                                  \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}, \textcolor{keywordtype}{int} mo, \textcolor{keywordtype}{int} fail\_mo)    \(\backslash\)}
+\DoxyCodeLine{    \{                                                                                          \(\backslash\)}
+\DoxyCodeLine{        if (!\mbox{\hyperlink{kconfig_8h_a2e3f1f46acb8ff1339122bf2bc09d30c}{IS\_ENABLED}}(CONFIG\_KCSAN\_IGNORE\_ATOMICS)) \{                                    \(\backslash\)}
+\DoxyCodeLine{            check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} / \mbox{\hyperlink{linux_2bits_8h_a369ecd38b3ab077fc235f892354bb46f}{BITS\_PER\_BYTE}},                                    \(\backslash\)}
+\DoxyCodeLine{                     \mbox{\hyperlink{kcsan-checks_8h_a61d06bbaa1239af9b10a053d64402f89}{KCSAN\_ACCESS\_COMPOUND}} | \mbox{\hyperlink{kcsan-checks_8h_a360e318e6970454834f1fb40389a7ed8}{KCSAN\_ACCESS\_WRITE}} |                  \(\backslash\)}
+\DoxyCodeLine{                         \mbox{\hyperlink{kcsan-checks_8h_a6b860e4abf6e8db22caad71e57271e76}{KCSAN\_ACCESS\_ATOMIC}});                                 \(\backslash\)}
+\DoxyCodeLine{        \}                                                                                  \(\backslash\)}
+\DoxyCodeLine{        return \_\_atomic\_compare\_exchange\_n(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{double_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}, \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}, weak, mo, fail\_mo);              \(\backslash\)}
+\DoxyCodeLine{    \}                                                                                          \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_compare\_exchange\_\#\#strength)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a6a1693f5093c9c20de4b37c6d9582023}\label{kernel_2kcsan_2core_8c_a6a1693f5093c9c20de4b37c6d9582023}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_CMPXCHG\_VAL@{DEFINE\_TSAN\_ATOMIC\_CMPXCHG\_VAL}}
+\index{DEFINE\_TSAN\_ATOMIC\_CMPXCHG\_VAL@{DEFINE\_TSAN\_ATOMIC\_CMPXCHG\_VAL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_CMPXCHG\_VAL}{DEFINE\_TSAN\_ATOMIC\_CMPXCHG\_VAL}}
+{\footnotesize\ttfamily \#define D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+C\+M\+P\+X\+C\+H\+G\+\_\+\+V\+AL(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_compare\_exchange\_val(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \mbox{\hyperlink{double_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}, \(\backslash\)}
+\DoxyCodeLine{                               \textcolor{keywordtype}{int} mo, \textcolor{keywordtype}{int} fail\_mo);                   \(\backslash\)}
+\DoxyCodeLine{    u\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_compare\_exchange\_val(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \mbox{\hyperlink{double_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}, \(\backslash\)}
+\DoxyCodeLine{                               \textcolor{keywordtype}{int} mo, \textcolor{keywordtype}{int} fail\_mo)                    \(\backslash\)}
+\DoxyCodeLine{    \{                                                                                          \(\backslash\)}
+\DoxyCodeLine{        if (!\mbox{\hyperlink{kconfig_8h_a2e3f1f46acb8ff1339122bf2bc09d30c}{IS\_ENABLED}}(CONFIG\_KCSAN\_IGNORE\_ATOMICS)) \{                                    \(\backslash\)}
+\DoxyCodeLine{            check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} / \mbox{\hyperlink{linux_2bits_8h_a369ecd38b3ab077fc235f892354bb46f}{BITS\_PER\_BYTE}},                                    \(\backslash\)}
+\DoxyCodeLine{                     \mbox{\hyperlink{kcsan-checks_8h_a61d06bbaa1239af9b10a053d64402f89}{KCSAN\_ACCESS\_COMPOUND}} | \mbox{\hyperlink{kcsan-checks_8h_a360e318e6970454834f1fb40389a7ed8}{KCSAN\_ACCESS\_WRITE}} |                  \(\backslash\)}
+\DoxyCodeLine{                         \mbox{\hyperlink{kcsan-checks_8h_a6b860e4abf6e8db22caad71e57271e76}{KCSAN\_ACCESS\_ATOMIC}});                                 \(\backslash\)}
+\DoxyCodeLine{        \}                                                                                  \(\backslash\)}
+\DoxyCodeLine{        \_\_atomic\_compare\_exchange\_n(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \&\mbox{\hyperlink{double_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}}, \mbox{\hyperlink{kcsan__test_8c_a9d343c062fc6f12e5df4c3e0f298a130}{val}}, 0, mo, fail\_mo);                       \(\backslash\)}
+\DoxyCodeLine{        return \mbox{\hyperlink{double_8h_afe89325d3f6b595b6d76dcfd801658e0}{exp}};                                                                        \(\backslash\)}
+\DoxyCodeLine{    \}                                                                                          \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_compare\_exchange\_val)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a06200b02ee683e548bd4829d1e526a0b}\label{kernel_2kcsan_2core_8c_a06200b02ee683e548bd4829d1e526a0b}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_LOAD\_STORE@{DEFINE\_TSAN\_ATOMIC\_LOAD\_STORE}}
+\index{DEFINE\_TSAN\_ATOMIC\_LOAD\_STORE@{DEFINE\_TSAN\_ATOMIC\_LOAD\_STORE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_LOAD\_STORE}{DEFINE\_TSAN\_ATOMIC\_LOAD\_STORE}}
+{\footnotesize\ttfamily \#define D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+L\+O\+A\+D\+\_\+\+S\+T\+O\+RE(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_load(\textcolor{keyword}{const} \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \textcolor{keywordtype}{int} memorder);                      \(\backslash\)}
+\DoxyCodeLine{    u\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_load(\textcolor{keyword}{const} \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \textcolor{keywordtype}{int} memorder)                       \(\backslash\)}
+\DoxyCodeLine{    \{                                                                                          \(\backslash\)}
+\DoxyCodeLine{        if (!\mbox{\hyperlink{kconfig_8h_a2e3f1f46acb8ff1339122bf2bc09d30c}{IS\_ENABLED}}(CONFIG\_KCSAN\_IGNORE\_ATOMICS)) \{                                    \(\backslash\)}
+\DoxyCodeLine{            check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} / \mbox{\hyperlink{linux_2bits_8h_a369ecd38b3ab077fc235f892354bb46f}{BITS\_PER\_BYTE}}, \mbox{\hyperlink{kcsan-checks_8h_a6b860e4abf6e8db22caad71e57271e76}{KCSAN\_ACCESS\_ATOMIC}});              \(\backslash\)}
+\DoxyCodeLine{        \}                                                                                  \(\backslash\)}
+\DoxyCodeLine{        return \_\_atomic\_load\_n(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, memorder);                                             \(\backslash\)}
+\DoxyCodeLine{    \}                                                                                          \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_load);                                                 \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_store(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} v, \textcolor{keywordtype}{int} memorder);                   \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_store(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} v, \textcolor{keywordtype}{int} memorder)                    \(\backslash\)}
+\DoxyCodeLine{    \{                                                                                          \(\backslash\)}
+\DoxyCodeLine{        if (!\mbox{\hyperlink{kconfig_8h_a2e3f1f46acb8ff1339122bf2bc09d30c}{IS\_ENABLED}}(CONFIG\_KCSAN\_IGNORE\_ATOMICS)) \{                                    \(\backslash\)}
+\DoxyCodeLine{            check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} / \mbox{\hyperlink{linux_2bits_8h_a369ecd38b3ab077fc235f892354bb46f}{BITS\_PER\_BYTE}},                                    \(\backslash\)}
+\DoxyCodeLine{                     \mbox{\hyperlink{kcsan-checks_8h_a360e318e6970454834f1fb40389a7ed8}{KCSAN\_ACCESS\_WRITE}} | \mbox{\hyperlink{kcsan-checks_8h_a6b860e4abf6e8db22caad71e57271e76}{KCSAN\_ACCESS\_ATOMIC}});                    \(\backslash\)}
+\DoxyCodeLine{        \}                                                                                  \(\backslash\)}
+\DoxyCodeLine{        \_\_atomic\_store\_n(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, v, memorder);                                                \(\backslash\)}
+\DoxyCodeLine{    \}                                                                                          \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\_store)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_abe452d58a8a9886743b497b6f6f02a6a}\label{kernel_2kcsan_2core_8c_abe452d58a8a9886743b497b6f6f02a6a}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}}
+\index{DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_OPS}{DEFINE\_TSAN\_ATOMIC\_OPS}}
+{\footnotesize\ttfamily \#define D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \mbox{\hyperlink{kernel_2kcsan_2core_8c_a06200b02ee683e548bd4829d1e526a0b}{DEFINE\_TSAN\_ATOMIC\_LOAD\_STORE}}(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}});                                                       \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_RMW(exchange, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, \_n);                                                \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_RMW(fetch\_add, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, );                                                 \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_RMW(fetch\_sub, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, );                                                 \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_RMW(fetch\_and, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, );                                                 \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_RMW(\mbox{\hyperlink{kernel_2sched_2core_8c_a7235546211ddca0ca8650c553a046d6a}{fetch\_or}}, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, );                                                  \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_RMW(fetch\_xor, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, );                                                 \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_RMW(fetch\_nand, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, );                                                \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_CMPXCHG(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, strong, 0);                                               \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_CMPXCHG(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, weak, 1);                                                 \(\backslash\)}
+\DoxyCodeLine{    DEFINE\_TSAN\_ATOMIC\_CMPXCHG\_VAL(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a55aaa7d103661aa8be02e0d262b7c154}\label{kernel_2kcsan_2core_8c_a55aaa7d103661aa8be02e0d262b7c154}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_RMW@{DEFINE\_TSAN\_ATOMIC\_RMW}}
+\index{DEFINE\_TSAN\_ATOMIC\_RMW@{DEFINE\_TSAN\_ATOMIC\_RMW}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_RMW}{DEFINE\_TSAN\_ATOMIC\_RMW}}
+{\footnotesize\ttfamily \#define D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+R\+MW(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2linux_2virtio__vsock_8h_a9f9f6513e9b2e1f8db6932dc274b146b}{op}},  }\item[{}]{\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}},  }\item[{}]{suffix }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\mbox{\hyperlink{vsprintf_8c_af20b8d139279b360b0fdeae71f8f43bc}{\_}}\#\#\mbox{\hyperlink{ceph__fs_8h_aac7608e2446d8055d4b71df44dc2ec4e}{op}}(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} v, \textcolor{keywordtype}{int} memorder);                 \(\backslash\)}
+\DoxyCodeLine{    u\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} \_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\mbox{\hyperlink{vsprintf_8c_af20b8d139279b360b0fdeae71f8f43bc}{\_}}\#\#\mbox{\hyperlink{ceph__fs_8h_aac7608e2446d8055d4b71df44dc2ec4e}{op}}(\mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{ieee80211_8h_aace265d1153383e5754b8b6e134b3cc2}{u}}\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} v, \textcolor{keywordtype}{int} memorder)                  \(\backslash\)}
+\DoxyCodeLine{    \{                                                                                          \(\backslash\)}
+\DoxyCodeLine{        if (!\mbox{\hyperlink{kconfig_8h_a2e3f1f46acb8ff1339122bf2bc09d30c}{IS\_ENABLED}}(CONFIG\_KCSAN\_IGNORE\_ATOMICS)) \{                                    \(\backslash\)}
+\DoxyCodeLine{            check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} / \mbox{\hyperlink{linux_2bits_8h_a369ecd38b3ab077fc235f892354bb46f}{BITS\_PER\_BYTE}},                                    \(\backslash\)}
+\DoxyCodeLine{                     \mbox{\hyperlink{kcsan-checks_8h_a61d06bbaa1239af9b10a053d64402f89}{KCSAN\_ACCESS\_COMPOUND}} | \mbox{\hyperlink{kcsan-checks_8h_a360e318e6970454834f1fb40389a7ed8}{KCSAN\_ACCESS\_WRITE}} |                  \(\backslash\)}
+\DoxyCodeLine{                         \mbox{\hyperlink{kcsan-checks_8h_a6b860e4abf6e8db22caad71e57271e76}{KCSAN\_ACCESS\_ATOMIC}});                                 \(\backslash\)}
+\DoxyCodeLine{        \}                                                                                  \(\backslash\)}
+\DoxyCodeLine{        return \_\_atomic\_\#\#\mbox{\hyperlink{ceph__fs_8h_aac7608e2446d8055d4b71df44dc2ec4e}{op}}\#\#suffix(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, v, memorder);                                    \(\backslash\)}
+\DoxyCodeLine{    \}                                                                                          \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_atomic\#\#\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}\#\#\mbox{\hyperlink{vsprintf_8c_af20b8d139279b360b0fdeae71f8f43bc}{\_}}\#\#\mbox{\hyperlink{ceph__fs_8h_aac7608e2446d8055d4b71df44dc2ec4e}{op}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_af4017611b2919cd238dbfa7398d21b45}\label{kernel_2kcsan_2core_8c_af4017611b2919cd238dbfa7398d21b45}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_READ\_WRITE}{DEFINE\_TSAN\_READ\_WRITE}}
+{\footnotesize\ttfamily \#define D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordtype}{void} \_\_tsan\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}});                                     \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                                      \(\backslash\)}
+\DoxyCodeLine{    \{                                                                      \(\backslash\)}
+\DoxyCodeLine{        check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}, 0);                                    \(\backslash\)}
+\DoxyCodeLine{    \}                                                                      \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                                      \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_unaligned\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                            \(\backslash\)}
+\DoxyCodeLine{        \_\_alias(\_\_tsan\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                                    \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_unaligned\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                            \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}});                                    \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                                     \(\backslash\)}
+\DoxyCodeLine{    \{                                                                      \(\backslash\)}
+\DoxyCodeLine{        check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}, \mbox{\hyperlink{kcsan-checks_8h_a360e318e6970454834f1fb40389a7ed8}{KCSAN\_ACCESS\_WRITE}});                   \(\backslash\)}
+\DoxyCodeLine{    \}                                                                      \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                                     \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_unaligned\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                           \(\backslash\)}
+\DoxyCodeLine{        \_\_alias(\_\_tsan\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                                   \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_unaligned\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                           \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_read\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}});                               \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_read\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                                \(\backslash\)}
+\DoxyCodeLine{    \{                                                                      \(\backslash\)}
+\DoxyCodeLine{        check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}},                                        \(\backslash\)}
+\DoxyCodeLine{                 \mbox{\hyperlink{kcsan-checks_8h_a61d06bbaa1239af9b10a053d64402f89}{KCSAN\_ACCESS\_COMPOUND}} | \mbox{\hyperlink{kcsan-checks_8h_a360e318e6970454834f1fb40389a7ed8}{KCSAN\_ACCESS\_WRITE}});      \(\backslash\)}
+\DoxyCodeLine{    \}                                                                      \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_read\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                                \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_unaligned\_read\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                      \(\backslash\)}
+\DoxyCodeLine{        \_\_alias(\_\_tsan\_read\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                              \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_unaligned\_read\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a8eb46000ee5dad7d68f2327e14a627a2}\label{kernel_2kcsan_2core_8c_a8eb46000ee5dad7d68f2327e14a627a2}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}}
+{\footnotesize\ttfamily \#define D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordtype}{void} \_\_tsan\_volatile\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}});                            \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_volatile\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                             \(\backslash\)}
+\DoxyCodeLine{    \{                                                                      \(\backslash\)}
+\DoxyCodeLine{        const \textcolor{keywordtype}{bool} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}{is\_atomic}} = \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}} <= \textcolor{keyword}{sizeof}(\textcolor{keywordtype}{long} long) \&\&            \(\backslash\)}
+\DoxyCodeLine{                       \mbox{\hyperlink{align_8h_a078326598d098088be458a1b75b40ef7}{IS\_ALIGNED}}((\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long})\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});   \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{kconfig_8h_a2e3f1f46acb8ff1339122bf2bc09d30c}{IS\_ENABLED}}(CONFIG\_KCSAN\_IGNORE\_ATOMICS) \&\& \mbox{\hyperlink{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}{is\_atomic}})      \(\backslash\)}
+\DoxyCodeLine{            return;                                                \(\backslash\)}
+\DoxyCodeLine{        check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}, \mbox{\hyperlink{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}{is\_atomic}} ? \mbox{\hyperlink{kcsan-checks_8h_a6b860e4abf6e8db22caad71e57271e76}{KCSAN\_ACCESS\_ATOMIC}} : 0);  \(\backslash\)}
+\DoxyCodeLine{    \}                                                                      \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_volatile\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                             \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_unaligned\_volatile\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                   \(\backslash\)}
+\DoxyCodeLine{        \_\_alias(\_\_tsan\_volatile\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                           \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_unaligned\_volatile\_read\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                   \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_volatile\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}});                           \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_volatile\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                            \(\backslash\)}
+\DoxyCodeLine{    \{                                                                      \(\backslash\)}
+\DoxyCodeLine{        const \textcolor{keywordtype}{bool} \mbox{\hyperlink{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}{is\_atomic}} = \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}} <= \textcolor{keyword}{sizeof}(\textcolor{keywordtype}{long} long) \&\&            \(\backslash\)}
+\DoxyCodeLine{                       \mbox{\hyperlink{align_8h_a078326598d098088be458a1b75b40ef7}{IS\_ALIGNED}}((\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long})\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});   \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{kconfig_8h_a2e3f1f46acb8ff1339122bf2bc09d30c}{IS\_ENABLED}}(CONFIG\_KCSAN\_IGNORE\_ATOMICS) \&\& \mbox{\hyperlink{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}{is\_atomic}})      \(\backslash\)}
+\DoxyCodeLine{            return;                                                \(\backslash\)}
+\DoxyCodeLine{        check\_access(\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}}, \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}},                                        \(\backslash\)}
+\DoxyCodeLine{                 \mbox{\hyperlink{kcsan-checks_8h_a360e318e6970454834f1fb40389a7ed8}{KCSAN\_ACCESS\_WRITE}} |                              \(\backslash\)}
+\DoxyCodeLine{                     (\mbox{\hyperlink{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}{is\_atomic}} ? \mbox{\hyperlink{kcsan-checks_8h_a6b860e4abf6e8db22caad71e57271e76}{KCSAN\_ACCESS\_ATOMIC}} : 0));   \(\backslash\)}
+\DoxyCodeLine{    \}                                                                      \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_volatile\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                            \(\backslash\)}
+\DoxyCodeLine{    void \_\_tsan\_unaligned\_volatile\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}}(\textcolor{keywordtype}{void} *\mbox{\hyperlink{arch_2x86_2boot_2pm_8c_a8ee410c4ef57eac74b9f77e60ddb26d2}{ptr}})                  \(\backslash\)}
+\DoxyCodeLine{        \_\_alias(\_\_tsan\_volatile\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}});                          \(\backslash\)}
+\DoxyCodeLine{    EXPORT\_SYMBOL(\_\_tsan\_unaligned\_volatile\_write\#\#\mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad53e70f4b4961c492390e8f1f1e47ec9}\label{kernel_2kcsan_2core_8c_ad53e70f4b4961c492390e8f1f1e47ec9}} 
+\index{core.c@{core.c}!MODULE\_PARAM\_PREFIX@{MODULE\_PARAM\_PREFIX}}
+\index{MODULE\_PARAM\_PREFIX@{MODULE\_PARAM\_PREFIX}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_PARAM\_PREFIX}{MODULE\_PARAM\_PREFIX}}
+{\footnotesize\ttfamily \#define M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+A\+M\+\_\+\+P\+R\+E\+F\+IX~\char`\"{}kcsan.\char`\"{}}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a1f8c165bf4196327bc3abff648276d92}\label{kernel_2kcsan_2core_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{core.c@{core.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}kcsan\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_af44221a17aca4ff7e28bf3256e2ebc7e}\label{kernel_2kcsan_2core_8c_af44221a17aca4ff7e28bf3256e2ebc7e}} 
+\index{core.c@{core.c}!SLOT\_IDX@{SLOT\_IDX}}
+\index{SLOT\_IDX@{SLOT\_IDX}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{SLOT\_IDX}{SLOT\_IDX}}
+{\footnotesize\ttfamily \#define S\+L\+O\+T\+\_\+\+I\+DX(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}},  }\item[{}]{\mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}} + ((\mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}} + \mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a699177c6f1a9849a336c5211974fed60}{K\+C\+S\+A\+N\+\_\+\+C\+H\+E\+C\+K\+\_\+\+A\+D\+J\+A\+C\+E\+NT}}) \% \mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a88aee50938d44ce40d88c21a5dea33f2}{N\+U\+M\+\_\+\+S\+L\+O\+TS}}))}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ae9ab074f854c8b2c2856f6919ac03399}\label{kernel_2kcsan_2core_8c_ae9ab074f854c8b2c2856f6919ac03399}} 
+\index{core.c@{core.c}!SLOT\_IDX\_FAST@{SLOT\_IDX\_FAST}}
+\index{SLOT\_IDX\_FAST@{SLOT\_IDX\_FAST}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{SLOT\_IDX\_FAST}{SLOT\_IDX\_FAST}}
+{\footnotesize\ttfamily \#define S\+L\+O\+T\+\_\+\+I\+D\+X\+\_\+\+F\+A\+ST(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}},  }\item[{}]{\mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}} + \mbox{\hyperlink{encode__rs_8c_acb559820d9ca11295b4500f179ef6392}{i}})}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_af95f600cb2d5cd48669227ae0e8e008c}\label{kernel_2kcsan_2core_8c_af95f600cb2d5cd48669227ae0e8e008c}} 
+\index{core.c@{core.c}!\_\_kcsan\_check\_access@{\_\_kcsan\_check\_access}}
+\index{\_\_kcsan\_check\_access@{\_\_kcsan\_check\_access}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kcsan\_check\_access()}{\_\_kcsan\_check\_access()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+kcsan\+\_\+check\+\_\+access (\begin{DoxyParamCaption}\item[{const volatile void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a754b2975113df7851db1f534f8e31260}\label{kernel_2kcsan_2core_8c_a754b2975113df7851db1f534f8e31260}} 
+\index{core.c@{core.c}!\_\_tsan\_atomic\_signal\_fence@{\_\_tsan\_atomic\_signal\_fence}}
+\index{\_\_tsan\_atomic\_signal\_fence@{\_\_tsan\_atomic\_signal\_fence}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_tsan\_atomic\_signal\_fence()}{\_\_tsan\_atomic\_signal\_fence()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+tsan\+\_\+atomic\+\_\+signal\+\_\+fence (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{memorder }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_abcd2749be69fcdc4fa89e5f02e9fc2bd}\label{kernel_2kcsan_2core_8c_abcd2749be69fcdc4fa89e5f02e9fc2bd}} 
+\index{core.c@{core.c}!\_\_tsan\_atomic\_thread\_fence@{\_\_tsan\_atomic\_thread\_fence}}
+\index{\_\_tsan\_atomic\_thread\_fence@{\_\_tsan\_atomic\_thread\_fence}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_tsan\_atomic\_thread\_fence()}{\_\_tsan\_atomic\_thread\_fence()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+tsan\+\_\+atomic\+\_\+thread\+\_\+fence (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{memorder }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a6f2c6b03e0f079f134d136ca4c176ccd}\label{kernel_2kcsan_2core_8c_a6f2c6b03e0f079f134d136ca4c176ccd}} 
+\index{core.c@{core.c}!\_\_tsan\_func\_entry@{\_\_tsan\_func\_entry}}
+\index{\_\_tsan\_func\_entry@{\_\_tsan\_func\_entry}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_tsan\_func\_entry()}{\_\_tsan\_func\_entry()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+tsan\+\_\+func\+\_\+entry (\begin{DoxyParamCaption}\item[{void $\ast$}]{call\+\_\+pc }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a63ff83b0549793dc544358386c7a1fb0}\label{kernel_2kcsan_2core_8c_a63ff83b0549793dc544358386c7a1fb0}} 
+\index{core.c@{core.c}!\_\_tsan\_func\_exit@{\_\_tsan\_func\_exit}}
+\index{\_\_tsan\_func\_exit@{\_\_tsan\_func\_exit}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_tsan\_func\_exit()}{\_\_tsan\_func\_exit()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+tsan\+\_\+func\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a82e8a2799d633c907861aaca58cb75ed}\label{kernel_2kcsan_2core_8c_a82e8a2799d633c907861aaca58cb75ed}} 
+\index{core.c@{core.c}!\_\_tsan\_init@{\_\_tsan\_init}}
+\index{\_\_tsan\_init@{\_\_tsan\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_tsan\_init()}{\_\_tsan\_init()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+tsan\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aef8a644f2d6129119b546953089f3ed9}\label{kernel_2kcsan_2core_8c_aef8a644f2d6129119b546953089f3ed9}} 
+\index{core.c@{core.c}!\_\_tsan\_read\_range@{\_\_tsan\_read\_range}}
+\index{\_\_tsan\_read\_range@{\_\_tsan\_read\_range}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_tsan\_read\_range()}{\_\_tsan\_read\_range()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+tsan\+\_\+read\+\_\+range (\begin{DoxyParamCaption}\item[{void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ae36e54cfda0d6fe01007d0c5a7bf0c09}\label{kernel_2kcsan_2core_8c_ae36e54cfda0d6fe01007d0c5a7bf0c09}} 
+\index{core.c@{core.c}!\_\_tsan\_write\_range@{\_\_tsan\_write\_range}}
+\index{\_\_tsan\_write\_range@{\_\_tsan\_write\_range}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{\_\_tsan\_write\_range()}{\_\_tsan\_write\_range()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+tsan\+\_\+write\+\_\+range (\begin{DoxyParamCaption}\item[{void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a8da7af38e5cba758cc45084942a52b46}\label{kernel_2kcsan_2core_8c_a8da7af38e5cba758cc45084942a52b46}} 
+\index{core.c@{core.c}!check\_access@{check\_access}}
+\index{check\_access@{check\_access}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{check\_access()}{check\_access()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void check\+\_\+access (\begin{DoxyParamCaption}\item[{const volatile void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad32dfc8f748a777c40fdd0a04df54b3c}\label{kernel_2kcsan_2core_8c_ad32dfc8f748a777c40fdd0a04df54b3c}} 
+\index{core.c@{core.c}!consume\_watchpoint@{consume\_watchpoint}}
+\index{consume\_watchpoint@{consume\_watchpoint}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{consume\_watchpoint()}{consume\_watchpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} consume\+\_\+watchpoint (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$}]{watchpoint }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a04f7060a6b25800a1d348dcab5749eac}\label{kernel_2kcsan_2core_8c_a04f7060a6b25800a1d348dcab5749eac}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{long}]{,  }\item[{kcsan\+\_\+skip}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ab9667aad0ec566f3eb91dd3f5413f782}\label{kernel_2kcsan_2core_8c_ab9667aad0ec566f3eb91dd3f5413f782}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct kcsan\+\_\+ctx}]{,  }\item[{kcsan\+\_\+cpu\+\_\+ctx}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a106f8f46a24a238f024426c77e9f2c41}\label{kernel_2kcsan_2core_8c_a106f8f46a24a238f024426c77e9f2c41}} 
+\index{core.c@{core.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{,  }\item[{kcsan\+\_\+rand\+\_\+state}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a2af61a401a993877286fdbb6955f4ca9}\label{kernel_2kcsan_2core_8c_a2af61a401a993877286fdbb6955f4ca9}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}}
+\index{DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_OPS()}{DEFINE\_TSAN\_ATOMIC\_OPS()}\hspace{0.1cm}{\footnotesize\ttfamily [1/4]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS (\begin{DoxyParamCaption}\item[{16}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_add7e38cc19ee7bba5eb1af6073061ec0}\label{kernel_2kcsan_2core_8c_add7e38cc19ee7bba5eb1af6073061ec0}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}}
+\index{DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_OPS()}{DEFINE\_TSAN\_ATOMIC\_OPS()}\hspace{0.1cm}{\footnotesize\ttfamily [2/4]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS (\begin{DoxyParamCaption}\item[{32}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a36dc95be7cdfad0294cd53643237a36f}\label{kernel_2kcsan_2core_8c_a36dc95be7cdfad0294cd53643237a36f}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}}
+\index{DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_OPS()}{DEFINE\_TSAN\_ATOMIC\_OPS()}\hspace{0.1cm}{\footnotesize\ttfamily [3/4]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS (\begin{DoxyParamCaption}\item[{64}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aec1237e4e6008f287d13521e050e9011}\label{kernel_2kcsan_2core_8c_aec1237e4e6008f287d13521e050e9011}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}}
+\index{DEFINE\_TSAN\_ATOMIC\_OPS@{DEFINE\_TSAN\_ATOMIC\_OPS}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_ATOMIC\_OPS()}{DEFINE\_TSAN\_ATOMIC\_OPS()}\hspace{0.1cm}{\footnotesize\ttfamily [4/4]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+A\+T\+O\+M\+I\+C\+\_\+\+O\+PS (\begin{DoxyParamCaption}\item[{8}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a50976dc01959bf7c79349b614e7d3848}\label{kernel_2kcsan_2core_8c_a50976dc01959bf7c79349b614e7d3848}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_READ\_WRITE()}{DEFINE\_TSAN\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{1}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aa08324fdaf428aaa24606c35b9e24232}\label{kernel_2kcsan_2core_8c_aa08324fdaf428aaa24606c35b9e24232}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_READ\_WRITE()}{DEFINE\_TSAN\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{16}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a9edfe9572558fd6747445e6c4fc950cb}\label{kernel_2kcsan_2core_8c_a9edfe9572558fd6747445e6c4fc950cb}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_READ\_WRITE()}{DEFINE\_TSAN\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{2}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ae628de26a03652f524d223cb16192eb9}\label{kernel_2kcsan_2core_8c_ae628de26a03652f524d223cb16192eb9}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_READ\_WRITE()}{DEFINE\_TSAN\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{4}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad5129529d9f62976d33d9b0e64652268}\label{kernel_2kcsan_2core_8c_ad5129529d9f62976d33d9b0e64652268}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_READ\_WRITE@{DEFINE\_TSAN\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_READ\_WRITE()}{DEFINE\_TSAN\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{8}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aeff8b2ff6a712d9079abd91d84be88b1}\label{kernel_2kcsan_2core_8c_aeff8b2ff6a712d9079abd91d84be88b1}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{1}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a37c78f091de8dc15e50a0d1db04af21e}\label{kernel_2kcsan_2core_8c_a37c78f091de8dc15e50a0d1db04af21e}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{16}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad7ff4cc2ed09144a55c1e85eea70573f}\label{kernel_2kcsan_2core_8c_ad7ff4cc2ed09144a55c1e85eea70573f}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{2}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a4e70697e1d2a62d84b5a5e6f8db4e775}\label{kernel_2kcsan_2core_8c_a4e70697e1d2a62d84b5a5e6f8db4e775}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{4}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_adb31139ee560ee7be49b5413b3542246}\label{kernel_2kcsan_2core_8c_adb31139ee560ee7be49b5413b3542246}} 
+\index{core.c@{core.c}!DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}}
+\index{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE@{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}{DEFINE\_TSAN\_VOLATILE\_READ\_WRITE()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+T\+S\+A\+N\+\_\+\+V\+O\+L\+A\+T\+I\+L\+E\+\_\+\+R\+E\+A\+D\+\_\+\+W\+R\+I\+TE (\begin{DoxyParamCaption}\item[{8}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a871f9767f2a54198b2de36db9e140a1d}\label{kernel_2kcsan_2core_8c_a871f9767f2a54198b2de36db9e140a1d}} 
+\index{core.c@{core.c}!delay\_access@{delay\_access}}
+\index{delay\_access@{delay\_access}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{delay\_access()}{delay\_access()}}
+{\footnotesize\ttfamily static void delay\+\_\+access (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aeb7c6c345f8217804c35ad112a8bd827}\label{kernel_2kcsan_2core_8c_aeb7c6c345f8217804c35ad112a8bd827}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_a73ae2a452e6fd27eb8c4aa3f035ffe76}{\+\_\+\+\_\+kcsan\+\_\+check\+\_\+access}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_af9ca42651c5b17a50ff956b859636e53}\label{kernel_2kcsan_2core_8c_af9ca42651c5b17a50ff956b859636e53}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_a754b2975113df7851db1f534f8e31260}{\+\_\+\+\_\+tsan\+\_\+atomic\+\_\+signal\+\_\+fence}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a1914d14720ba80804c3052403e6af649}\label{kernel_2kcsan_2core_8c_a1914d14720ba80804c3052403e6af649}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_abcd2749be69fcdc4fa89e5f02e9fc2bd}{\+\_\+\+\_\+tsan\+\_\+atomic\+\_\+thread\+\_\+fence}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aca82e0325e311c287989892fb7931a5a}\label{kernel_2kcsan_2core_8c_aca82e0325e311c287989892fb7931a5a}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_a6f2c6b03e0f079f134d136ca4c176ccd}{\+\_\+\+\_\+tsan\+\_\+func\+\_\+entry}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aafebe4da022271e10fc71c972a87aa65}\label{kernel_2kcsan_2core_8c_aafebe4da022271e10fc71c972a87aa65}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_a63ff83b0549793dc544358386c7a1fb0}{\+\_\+\+\_\+tsan\+\_\+func\+\_\+exit}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad44ea63ea827bba7ab238acf35880744}\label{kernel_2kcsan_2core_8c_ad44ea63ea827bba7ab238acf35880744}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_a82e8a2799d633c907861aaca58cb75ed}{\+\_\+\+\_\+tsan\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a2cccb63b08c75fe73f2fcd4e28283574}\label{kernel_2kcsan_2core_8c_a2cccb63b08c75fe73f2fcd4e28283574}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_aef8a644f2d6129119b546953089f3ed9}{\+\_\+\+\_\+tsan\+\_\+read\+\_\+range}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_adbf0c574469d29010c9fc8bdb263184c}\label{kernel_2kcsan_2core_8c_adbf0c574469d29010c9fc8bdb263184c}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_ae36e54cfda0d6fe01007d0c5a7bf0c09}{\+\_\+\+\_\+tsan\+\_\+write\+\_\+range}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_abf7fce5a3fb31f69581bd2afc74707e4}\label{kernel_2kcsan_2core_8c_abf7fce5a3fb31f69581bd2afc74707e4}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_a18d90ba783b81acb3e5966b45b6fca63}{kcsan\+\_\+atomic\+\_\+next}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aa10758f0abd73d4b059432d2a11d560b}\label{kernel_2kcsan_2core_8c_aa10758f0abd73d4b059432d2a11d560b}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_a5267d3a2213bcbeb856d5d6688943814}{kcsan\+\_\+begin\+\_\+scoped\+\_\+access}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a64daed0cc6f8d4110a02b960a09cc31c}\label{kernel_2kcsan_2core_8c_a64daed0cc6f8d4110a02b960a09cc31c}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [11/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_abea558ad74bfdb3a4923b7e622530814}{kcsan\+\_\+disable\+\_\+current}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_af21c131e9e285e2c654b985ae6b37dfa}\label{kernel_2kcsan_2core_8c_af21c131e9e285e2c654b985ae6b37dfa}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [12/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_a74d31808b1288cdf44e5722bbc38b409}{kcsan\+\_\+enable\+\_\+current}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad50889ba319b50b01872019fa734839e}\label{kernel_2kcsan_2core_8c_ad50889ba319b50b01872019fa734839e}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [13/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_afb741e8a4f799c3a380d7c43cfce026b}{kcsan\+\_\+enable\+\_\+current\+\_\+nowarn}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad65f8a98fb85941541d66c3c82f620cf}\label{kernel_2kcsan_2core_8c_ad65f8a98fb85941541d66c3c82f620cf}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [14/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_a4885d74d67e0aee8e413ef3fe00b9b87}{kcsan\+\_\+end\+\_\+scoped\+\_\+access}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a598d8cae61ea1fdef162179c159c116d}\label{kernel_2kcsan_2core_8c_a598d8cae61ea1fdef162179c159c116d}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [15/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_adcfb67692098e7497578983005ca15c6}{kcsan\+\_\+flat\+\_\+atomic\+\_\+begin}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a12f57e7edb806894f1733932bf26afb1}\label{kernel_2kcsan_2core_8c_a12f57e7edb806894f1733932bf26afb1}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [16/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_ac533c553c58c54ab2aeda8e394110540}{kcsan\+\_\+flat\+\_\+atomic\+\_\+end}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a82f010c4b37bd51237912b879c6ea2a8}\label{kernel_2kcsan_2core_8c_a82f010c4b37bd51237912b879c6ea2a8}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [17/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_a4bd52fbf57f225c024a189e925da6232}{kcsan\+\_\+nestable\+\_\+atomic\+\_\+begin}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a0d8ca02500be6e36d16803943e04fadd}\label{kernel_2kcsan_2core_8c_a0d8ca02500be6e36d16803943e04fadd}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [18/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_aa9cd2675f6d14210f155ddc30eceed18}{kcsan\+\_\+nestable\+\_\+atomic\+\_\+end}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a6899d549195ca56f76461c760bcfeba9}\label{kernel_2kcsan_2core_8c_a6899d549195ca56f76461c760bcfeba9}} 
+\index{core.c@{core.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [19/19]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kcsan-checks_8h_ab0bb5d032a0c0850b51202e7d93a3370}{kcsan\+\_\+set\+\_\+access\+\_\+mask}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a3495a1d030c6d9cf4d8a8941eda65cff}\label{kernel_2kcsan_2core_8c_a3495a1d030c6d9cf4d8a8941eda65cff}} 
+\index{core.c@{core.c}!find\_watchpoint@{find\_watchpoint}}
+\index{find\_watchpoint@{find\_watchpoint}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{find\_watchpoint()}{find\_watchpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}}$\ast$ find\+\_\+watchpoint (\begin{DoxyParamCaption}\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{expect\+\_\+write,  }\item[{long $\ast$}]{encoded\+\_\+watchpoint }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a66647b81c36d9d035119f629a9b350b6}\label{kernel_2kcsan_2core_8c_a66647b81c36d9d035119f629a9b350b6}} 
+\index{core.c@{core.c}!get\_ctx@{get\_ctx}}
+\index{get\_ctx@{get\_ctx}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{get\_ctx()}{get\_ctx()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} struct kcsan\+\_\+ctx$\ast$ get\+\_\+ctx (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_abfc62f39a1e757c5141283c1d8effc2a}\label{kernel_2kcsan_2core_8c_abfc62f39a1e757c5141283c1d8effc2a}} 
+\index{core.c@{core.c}!insert\_watchpoint@{insert\_watchpoint}}
+\index{insert\_watchpoint@{insert\_watchpoint}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{insert\_watchpoint()}{insert\_watchpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}}$\ast$ insert\+\_\+watchpoint (\begin{DoxyParamCaption}\item[{unsigned long}]{addr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{is\+\_\+write }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}\label{kernel_2kcsan_2core_8c_a47f896d7bbc5d29dd9e4880524cdd818}} 
+\index{core.c@{core.c}!is\_atomic@{is\_atomic}}
+\index{is\_atomic@{is\_atomic}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{is\_atomic()}{is\_atomic()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+atomic (\begin{DoxyParamCaption}\item[{const volatile void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type,  }\item[{struct kcsan\+\_\+ctx $\ast$}]{ctx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a841685c89b5ca62af5e5bc44db2b0de9}\label{kernel_2kcsan_2core_8c_a841685c89b5ca62af5e5bc44db2b0de9}} 
+\index{core.c@{core.c}!kcsan\_atomic\_next@{kcsan\_atomic\_next}}
+\index{kcsan\_atomic\_next@{kcsan\_atomic\_next}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_atomic\_next()}{kcsan\_atomic\_next()}}
+{\footnotesize\ttfamily void kcsan\+\_\+atomic\+\_\+next (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{n }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a7e1d86cf536c2a8a944df77ae38d5466}\label{kernel_2kcsan_2core_8c_a7e1d86cf536c2a8a944df77ae38d5466}} 
+\index{core.c@{core.c}!kcsan\_begin\_scoped\_access@{kcsan\_begin\_scoped\_access}}
+\index{kcsan\_begin\_scoped\_access@{kcsan\_begin\_scoped\_access}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_begin\_scoped\_access()}{kcsan\_begin\_scoped\_access()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkcsan__scoped__access}{kcsan\+\_\+scoped\+\_\+access}}$\ast$ kcsan\+\_\+begin\+\_\+scoped\+\_\+access (\begin{DoxyParamCaption}\item[{const volatile void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type,  }\item[{struct \mbox{\hyperlink{structkcsan__scoped__access}{kcsan\+\_\+scoped\+\_\+access}} $\ast$}]{sa }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a3fb42c85ef3e5daead0e820635c8312c}\label{kernel_2kcsan_2core_8c_a3fb42c85ef3e5daead0e820635c8312c}} 
+\index{core.c@{core.c}!kcsan\_check\_scoped\_accesses@{kcsan\_check\_scoped\_accesses}}
+\index{kcsan\_check\_scoped\_accesses@{kcsan\_check\_scoped\_accesses}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_check\_scoped\_accesses()}{kcsan\_check\_scoped\_accesses()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void kcsan\+\_\+check\+\_\+scoped\+\_\+accesses (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a0c3148776e37723a9ebdd398c8a75d67}\label{kernel_2kcsan_2core_8c_a0c3148776e37723a9ebdd398c8a75d67}} 
+\index{core.c@{core.c}!kcsan\_disable\_current@{kcsan\_disable\_current}}
+\index{kcsan\_disable\_current@{kcsan\_disable\_current}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_disable\_current()}{kcsan\_disable\_current()}}
+{\footnotesize\ttfamily void kcsan\+\_\+disable\+\_\+current (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a89989938439d3b873157617fa9ee4dad}\label{kernel_2kcsan_2core_8c_a89989938439d3b873157617fa9ee4dad}} 
+\index{core.c@{core.c}!kcsan\_enable\_current@{kcsan\_enable\_current}}
+\index{kcsan\_enable\_current@{kcsan\_enable\_current}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_enable\_current()}{kcsan\_enable\_current()}}
+{\footnotesize\ttfamily void kcsan\+\_\+enable\+\_\+current (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aee20bed0710d2eb0bc53e309b7ec890e}\label{kernel_2kcsan_2core_8c_aee20bed0710d2eb0bc53e309b7ec890e}} 
+\index{core.c@{core.c}!kcsan\_enable\_current\_nowarn@{kcsan\_enable\_current\_nowarn}}
+\index{kcsan\_enable\_current\_nowarn@{kcsan\_enable\_current\_nowarn}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_enable\_current\_nowarn()}{kcsan\_enable\_current\_nowarn()}}
+{\footnotesize\ttfamily void kcsan\+\_\+enable\+\_\+current\+\_\+nowarn (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad83dfbbacdb74357df1086b9c1517449}\label{kernel_2kcsan_2core_8c_ad83dfbbacdb74357df1086b9c1517449}} 
+\index{core.c@{core.c}!kcsan\_end\_scoped\_access@{kcsan\_end\_scoped\_access}}
+\index{kcsan\_end\_scoped\_access@{kcsan\_end\_scoped\_access}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_end\_scoped\_access()}{kcsan\_end\_scoped\_access()}}
+{\footnotesize\ttfamily void kcsan\+\_\+end\+\_\+scoped\+\_\+access (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkcsan__scoped__access}{kcsan\+\_\+scoped\+\_\+access}} $\ast$}]{sa }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aaa7ba4b7e04c4bb997b937bbefd54123}\label{kernel_2kcsan_2core_8c_aaa7ba4b7e04c4bb997b937bbefd54123}} 
+\index{core.c@{core.c}!kcsan\_flat\_atomic\_begin@{kcsan\_flat\_atomic\_begin}}
+\index{kcsan\_flat\_atomic\_begin@{kcsan\_flat\_atomic\_begin}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_flat\_atomic\_begin()}{kcsan\_flat\_atomic\_begin()}}
+{\footnotesize\ttfamily void kcsan\+\_\+flat\+\_\+atomic\+\_\+begin (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a7d31a5ebfb73546fb310b9d520c2d8b5}\label{kernel_2kcsan_2core_8c_a7d31a5ebfb73546fb310b9d520c2d8b5}} 
+\index{core.c@{core.c}!kcsan\_flat\_atomic\_end@{kcsan\_flat\_atomic\_end}}
+\index{kcsan\_flat\_atomic\_end@{kcsan\_flat\_atomic\_end}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_flat\_atomic\_end()}{kcsan\_flat\_atomic\_end()}}
+{\footnotesize\ttfamily void kcsan\+\_\+flat\+\_\+atomic\+\_\+end (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ae7cf3c95d959f5a89a65949c4af41679}\label{kernel_2kcsan_2core_8c_ae7cf3c95d959f5a89a65949c4af41679}} 
+\index{core.c@{core.c}!kcsan\_found\_watchpoint@{kcsan\_found\_watchpoint}}
+\index{kcsan\_found\_watchpoint@{kcsan\_found\_watchpoint}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_found\_watchpoint()}{kcsan\_found\_watchpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void kcsan\+\_\+found\+\_\+watchpoint (\begin{DoxyParamCaption}\item[{const volatile void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type,  }\item[{\mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$}]{watchpoint,  }\item[{long}]{encoded\+\_\+watchpoint }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a1f5e75d11d8147c6629b8f6865f66139}\label{kernel_2kcsan_2core_8c_a1f5e75d11d8147c6629b8f6865f66139}} 
+\index{core.c@{core.c}!kcsan\_init@{kcsan\_init}}
+\index{kcsan\_init@{kcsan\_init}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_init()}{kcsan\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kcsan\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a1c10e033786f985ffabb3ebf8852ebad}\label{kernel_2kcsan_2core_8c_a1c10e033786f985ffabb3ebf8852ebad}} 
+\index{core.c@{core.c}!kcsan\_is\_enabled@{kcsan\_is\_enabled}}
+\index{kcsan\_is\_enabled@{kcsan\_is\_enabled}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_is\_enabled()}{kcsan\_is\_enabled()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kcsan\+\_\+is\+\_\+enabled (\begin{DoxyParamCaption}\item[{struct kcsan\+\_\+ctx $\ast$}]{ctx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a75f768cbdf6561c017ec472856fdf073}\label{kernel_2kcsan_2core_8c_a75f768cbdf6561c017ec472856fdf073}} 
+\index{core.c@{core.c}!kcsan\_nestable\_atomic\_begin@{kcsan\_nestable\_atomic\_begin}}
+\index{kcsan\_nestable\_atomic\_begin@{kcsan\_nestable\_atomic\_begin}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_nestable\_atomic\_begin()}{kcsan\_nestable\_atomic\_begin()}}
+{\footnotesize\ttfamily void kcsan\+\_\+nestable\+\_\+atomic\+\_\+begin (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a42255ed7b96705aa599ed80472022663}\label{kernel_2kcsan_2core_8c_a42255ed7b96705aa599ed80472022663}} 
+\index{core.c@{core.c}!kcsan\_nestable\_atomic\_end@{kcsan\_nestable\_atomic\_end}}
+\index{kcsan\_nestable\_atomic\_end@{kcsan\_nestable\_atomic\_end}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_nestable\_atomic\_end()}{kcsan\_nestable\_atomic\_end()}}
+{\footnotesize\ttfamily void kcsan\+\_\+nestable\+\_\+atomic\+\_\+end (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aa2db211484e9be7127572a97fb54459f}\label{kernel_2kcsan_2core_8c_aa2db211484e9be7127572a97fb54459f}} 
+\index{core.c@{core.c}!kcsan\_prandom\_u32\_max@{kcsan\_prandom\_u32\_max}}
+\index{kcsan\_prandom\_u32\_max@{kcsan\_prandom\_u32\_max}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_prandom\_u32\_max()}{kcsan\_prandom\_u32\_max()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} kcsan\+\_\+prandom\+\_\+u32\+\_\+max (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{ep\+\_\+ro }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a5be93b693ac0d773f07f5043ce3eeaba}\label{kernel_2kcsan_2core_8c_a5be93b693ac0d773f07f5043ce3eeaba}} 
+\index{core.c@{core.c}!kcsan\_restore\_irqtrace@{kcsan\_restore\_irqtrace}}
+\index{kcsan\_restore\_irqtrace@{kcsan\_restore\_irqtrace}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_restore\_irqtrace()}{kcsan\_restore\_irqtrace()}}
+{\footnotesize\ttfamily void kcsan\+\_\+restore\+\_\+irqtrace (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a6e49cdd9d5a2da5b1c215322edfc063e}\label{kernel_2kcsan_2core_8c_a6e49cdd9d5a2da5b1c215322edfc063e}} 
+\index{core.c@{core.c}!kcsan\_save\_irqtrace@{kcsan\_save\_irqtrace}}
+\index{kcsan\_save\_irqtrace@{kcsan\_save\_irqtrace}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_save\_irqtrace()}{kcsan\_save\_irqtrace()}}
+{\footnotesize\ttfamily void kcsan\+\_\+save\+\_\+irqtrace (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a0ea82905c357066a490aa99abaca4ff8}\label{kernel_2kcsan_2core_8c_a0ea82905c357066a490aa99abaca4ff8}} 
+\index{core.c@{core.c}!kcsan\_set\_access\_mask@{kcsan\_set\_access\_mask}}
+\index{kcsan\_set\_access\_mask@{kcsan\_set\_access\_mask}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_set\_access\_mask()}{kcsan\_set\_access\_mask()}}
+{\footnotesize\ttfamily void kcsan\+\_\+set\+\_\+access\+\_\+mask (\begin{DoxyParamCaption}\item[{unsigned long}]{mask }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a5e523008dd720aa02de3f9820bd3d566}\label{kernel_2kcsan_2core_8c_a5e523008dd720aa02de3f9820bd3d566}} 
+\index{core.c@{core.c}!kcsan\_setup\_watchpoint@{kcsan\_setup\_watchpoint}}
+\index{kcsan\_setup\_watchpoint@{kcsan\_setup\_watchpoint}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_setup\_watchpoint()}{kcsan\_setup\_watchpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_afb04fed0d9040c896727b9326d634570}{noinline}} void kcsan\+\_\+setup\+\_\+watchpoint (\begin{DoxyParamCaption}\item[{const volatile void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ac92cc768d64c119dbd691939bbb359a8}\label{kernel_2kcsan_2core_8c_ac92cc768d64c119dbd691939bbb359a8}} 
+\index{core.c@{core.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{early\+\_\+enable}]{,  }\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_aa52a327bc5f5a3c0add0f47333f92e63}{kcsan\+\_\+early\+\_\+enable}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{0}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ad00cb53e4e1ac330955acbb5681c89e4}\label{kernel_2kcsan_2core_8c_ad00cb53e4e1ac330955acbb5681c89e4}} 
+\index{core.c@{core.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{interrupt\+\_\+watcher}]{,  }\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_aacb3b86c5d910c2681cac88f7b68e6c8}{kcsan\+\_\+interrupt\+\_\+watcher}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{0444}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_ac4a434dd1c48fc7efccf0fbfea3ac019}\label{kernel_2kcsan_2core_8c_ac4a434dd1c48fc7efccf0fbfea3ac019}} 
+\index{core.c@{core.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{skip\+\_\+watch}]{,  }\item[{\mbox{\hyperlink{kernel_2kcsan_2core_8c_a7346955ff33c07f6da76f45768de1dcf}{kcsan\+\_\+skip\+\_\+watch}}}]{,  }\item[{long}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a4aa498bf08adfb95929d6ca34ef0fead}\label{kernel_2kcsan_2core_8c_a4aa498bf08adfb95929d6ca34ef0fead}} 
+\index{core.c@{core.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{udelay\+\_\+interrupt}]{,  }\item[{\mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a32e34578e7c606254d9d3f1ecad26f48}{kcsan\+\_\+udelay\+\_\+interrupt}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a91ad9478d81a7aaf2593e8d9c3d06a14}{uint}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a1088078a77f1667a7339869f0768ee92}\label{kernel_2kcsan_2core_8c_a1088078a77f1667a7339869f0768ee92}} 
+\index{core.c@{core.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{udelay\+\_\+task}]{,  }\item[{\mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a5f3c3b791624e77d7cbf76c13fbf80ac}{kcsan\+\_\+udelay\+\_\+task}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a91ad9478d81a7aaf2593e8d9c3d06a14}{uint}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a17e1f1b0236fcf817611e5d2bd6b9c8a}\label{kernel_2kcsan_2core_8c_a17e1f1b0236fcf817611e5d2bd6b9c8a}} 
+\index{core.c@{core.c}!remove\_watchpoint@{remove\_watchpoint}}
+\index{remove\_watchpoint@{remove\_watchpoint}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{remove\_watchpoint()}{remove\_watchpoint()}}
+{\footnotesize\ttfamily static void remove\+\_\+watchpoint (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$}]{watchpoint }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a80543a7505f85d2c84887174c43d82dc}\label{kernel_2kcsan_2core_8c_a80543a7505f85d2c84887174c43d82dc}} 
+\index{core.c@{core.c}!reset\_kcsan\_skip@{reset\_kcsan\_skip}}
+\index{reset\_kcsan\_skip@{reset\_kcsan\_skip}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{reset\_kcsan\_skip()}{reset\_kcsan\_skip()}}
+{\footnotesize\ttfamily static void reset\+\_\+kcsan\+\_\+skip (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a3743dbae4d61fe4afbbc30f474329c99}\label{kernel_2kcsan_2core_8c_a3743dbae4d61fe4afbbc30f474329c99}} 
+\index{core.c@{core.c}!should\_watch@{should\_watch}}
+\index{should\_watch@{should\_watch}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{should\_watch()}{should\_watch()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} should\+\_\+watch (\begin{DoxyParamCaption}\item[{const volatile void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type,  }\item[{struct kcsan\+\_\+ctx $\ast$}]{ctx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aa314b28388200a2dfa12a73aeb981177}\label{kernel_2kcsan_2core_8c_aa314b28388200a2dfa12a73aeb981177}} 
+\index{core.c@{core.c}!try\_consume\_watchpoint@{try\_consume\_watchpoint}}
+\index{try\_consume\_watchpoint@{try\_consume\_watchpoint}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{try\_consume\_watchpoint()}{try\_consume\_watchpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} try\+\_\+consume\+\_\+watchpoint (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} $\ast$}]{watchpoint,  }\item[{long}]{encoded\+\_\+watchpoint }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aa52a327bc5f5a3c0add0f47333f92e63}\label{kernel_2kcsan_2core_8c_aa52a327bc5f5a3c0add0f47333f92e63}} 
+\index{core.c@{core.c}!kcsan\_early\_enable@{kcsan\_early\_enable}}
+\index{kcsan\_early\_enable@{kcsan\_early\_enable}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_early\_enable}{kcsan\_early\_enable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kcsan\+\_\+early\+\_\+enable = \mbox{\hyperlink{pq_8h_a7cba8af7b38381ef613e1dc587d12005}{I\+S\+\_\+\+E\+N\+A\+B\+L\+ED}}(C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+E\+A\+R\+L\+Y\+\_\+\+E\+N\+A\+B\+LE)\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a31a555a664d4ea2e1bb68c3f980150f2}\label{kernel_2kcsan_2core_8c_a31a555a664d4ea2e1bb68c3f980150f2}} 
+\index{core.c@{core.c}!kcsan\_enabled@{kcsan\_enabled}}
+\index{kcsan\_enabled@{kcsan\_enabled}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_enabled}{kcsan\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kcsan\+\_\+enabled}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_aacb3b86c5d910c2681cac88f7b68e6c8}\label{kernel_2kcsan_2core_8c_aacb3b86c5d910c2681cac88f7b68e6c8}} 
+\index{core.c@{core.c}!kcsan\_interrupt\_watcher@{kcsan\_interrupt\_watcher}}
+\index{kcsan\_interrupt\_watcher@{kcsan\_interrupt\_watcher}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_interrupt\_watcher}{kcsan\_interrupt\_watcher}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kcsan\+\_\+interrupt\+\_\+watcher = \mbox{\hyperlink{pq_8h_a7cba8af7b38381ef613e1dc587d12005}{I\+S\+\_\+\+E\+N\+A\+B\+L\+ED}}(C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+I\+N\+T\+E\+R\+R\+U\+P\+T\+\_\+\+W\+A\+T\+C\+H\+ER)\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a7346955ff33c07f6da76f45768de1dcf}\label{kernel_2kcsan_2core_8c_a7346955ff33c07f6da76f45768de1dcf}} 
+\index{core.c@{core.c}!kcsan\_skip\_watch@{kcsan\_skip\_watch}}
+\index{kcsan\_skip\_watch@{kcsan\_skip\_watch}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_skip\_watch}{kcsan\_skip\_watch}}
+{\footnotesize\ttfamily long kcsan\+\_\+skip\+\_\+watch = C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+S\+K\+I\+P\+\_\+\+W\+A\+T\+CH\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a32e34578e7c606254d9d3f1ecad26f48}\label{kernel_2kcsan_2core_8c_a32e34578e7c606254d9d3f1ecad26f48}} 
+\index{core.c@{core.c}!kcsan\_udelay\_interrupt@{kcsan\_udelay\_interrupt}}
+\index{kcsan\_udelay\_interrupt@{kcsan\_udelay\_interrupt}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_udelay\_interrupt}{kcsan\_udelay\_interrupt}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kcsan\+\_\+udelay\+\_\+interrupt = C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+U\+D\+E\+L\+A\+Y\+\_\+\+I\+N\+T\+E\+R\+R\+U\+PT}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_a5f3c3b791624e77d7cbf76c13fbf80ac}\label{kernel_2kcsan_2core_8c_a5f3c3b791624e77d7cbf76c13fbf80ac}} 
+\index{core.c@{core.c}!kcsan\_udelay\_task@{kcsan\_udelay\_task}}
+\index{kcsan\_udelay\_task@{kcsan\_udelay\_task}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{kcsan\_udelay\_task}{kcsan\_udelay\_task}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kcsan\+\_\+udelay\+\_\+task = C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+U\+D\+E\+L\+A\+Y\+\_\+\+T\+A\+SK}
+
+\mbox{\Hypertarget{kernel_2kcsan_2core_8c_adda5436e1e6a38eed6681373ba9d328e}\label{kernel_2kcsan_2core_8c_adda5436e1e6a38eed6681373ba9d328e}} 
+\index{core.c@{core.c}!watchpoints@{watchpoints}}
+\index{watchpoints@{watchpoints}!core.c@{core.c}}
+\doxysubsubsection{\texorpdfstring{watchpoints}{watchpoints}}
+{\footnotesize\ttfamily \mbox{\hyperlink{atomic-long_8h_a8fc98ea3fa4c3abed3cd902ba187feb0}{atomic\+\_\+long\+\_\+t}} watchpoints\mbox{[}C\+O\+N\+F\+I\+G\+\_\+\+K\+C\+S\+A\+N\+\_\+\+N\+U\+M\+\_\+\+W\+A\+T\+C\+H\+P\+O\+I\+N\+TS+\mbox{\hyperlink{kernel_2kcsan_2kcsan_8h_a88aee50938d44ce40d88c21a5dea33f2}{N\+U\+M\+\_\+\+S\+L\+O\+TS}}-\/1\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+

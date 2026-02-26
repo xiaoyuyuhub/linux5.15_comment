@@ -1,0 +1,983 @@
+\hypertarget{kvm_2svm_2sev_8c}{}\doxysection{arch/x86/kvm/svm/sev.c File Reference}
+\label{kvm_2svm_2sev_8c}\index{arch/x86/kvm/svm/sev.c@{arch/x86/kvm/svm/sev.c}}
+{\ttfamily \#include $<$linux/kvm\+\_\+types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kvm\+\_\+host.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/highmem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/psp-\/sev.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagemap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/misc\+\_\+cgroup.\+h$>$}\newline
+{\ttfamily \#include $<$linux/processor.\+h$>$}\newline
+{\ttfamily \#include $<$linux/trace\+\_\+events.\+h$>$}\newline
+{\ttfamily \#include $<$asm/fpu/internal.\+h$>$}\newline
+{\ttfamily \#include $<$asm/pkru.\+h$>$}\newline
+{\ttfamily \#include $<$asm/trapnr.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}x86.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}svm.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}svm\+\_\+ops.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}cpuid.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}trace.\+h\char`\"{}}\newline
+Include dependency graph for sev.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structenc__region}{enc\+\_\+region}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kvm_2svm_2sev_8c_acb3e1e98fc4c4948c6b74a81dced6809}{M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+S\+EV}}~\mbox{\hyperlink{misc__cgroup_8h_a36d2b9da173b406ff495dc7749e0a052afc216bd2a28895eaeec7dbb574308100}{M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+T\+Y\+P\+ES}}
+\item 
+\#define \mbox{\hyperlink{kvm_2svm_2sev_8c_a6e8c624b8e6eb539133d62a41ac36cbb}{M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+S\+E\+V\+\_\+\+ES}}~\mbox{\hyperlink{misc__cgroup_8h_a36d2b9da173b406ff495dc7749e0a052afc216bd2a28895eaeec7dbb574308100}{M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+T\+Y\+P\+ES}}
+\item 
+\#define \mbox{\hyperlink{kvm_2svm_2sev_8c_a8cea9180251b2d380c09e0fd8be68b74}{sev\+\_\+enabled}}~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}
+\item 
+\#define \mbox{\hyperlink{kvm_2svm_2sev_8c_a54a0753d622e67925f7803c15a588e55}{sev\+\_\+es\+\_\+enabled}}~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}
+\item 
+\#define \mbox{\hyperlink{kvm_2svm_2sev_8c_ae5d89ee5835a425a2bb479adb73998e4}{G\+H\+C\+B\+\_\+\+S\+C\+R\+A\+T\+C\+H\+\_\+\+A\+R\+E\+A\+\_\+\+L\+I\+M\+IT}}~(16\mbox{\hyperlink{vdso_2const_8h_ae7289206560e57188eb393096c91e575}{U\+LL}} $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{kvm_2svm_2sev_8c_a0658a510f22d06b2702ab4f85e55c54b}{D\+E\+C\+L\+A\+R\+E\+\_\+\+R\+W\+S\+EM}} (sev\+\_\+deactivate\+\_\+lock)
+\item 
+static \mbox{\hyperlink{kvm_2svm_2sev_8c_af3a620e97d408e85c05d0791e1cb60d6}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (sev\+\_\+bitmap\+\_\+lock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a610d6baedefdc28b9dcf78056c438d6b}{sev\+\_\+flush\+\_\+asids}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+asid, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+asid)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a70ad599e38cbdaca8ac3d21348d736bc}{is\+\_\+mirroring\+\_\+enc\+\_\+context}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kvm_2svm_2sev_8c_ae1b6a82488b7a44df1ac639484ee2af1}{\+\_\+\+\_\+sev\+\_\+recycle\+\_\+asids}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+asid, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+asid)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a93b4450a5d34ae216bfa84756b831bba}{sev\+\_\+asid\+\_\+new}} (struct \mbox{\hyperlink{structkvm__sev__info}{kvm\+\_\+sev\+\_\+info}} $\ast$sev)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a35afb6f059971be3e215a8af1a30d250}{sev\+\_\+get\+\_\+asid}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}})
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_aee6abadc293da84185f2a9b6e78bfd43}{sev\+\_\+asid\+\_\+free}} (struct \mbox{\hyperlink{structkvm__sev__info}{kvm\+\_\+sev\+\_\+info}} $\ast$sev)
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_aa7faf38fc33d615dc428806df7b26845}{sev\+\_\+decommission}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_a4e8d6041acaecc396b4c6eca246fcd67}{sev\+\_\+unbind\+\_\+asid}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_ac62526aea63f9ac646eb3c3fbe4b0681}{sev\+\_\+guest\+\_\+init}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a90871227c2ca03b13d49bffafc97bd43}{sev\+\_\+bind\+\_\+asid}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{initramfs_8c_a9712f5d0d176ee4b1591912bc62146dc}{error}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a992499375bab3086c14cf28bcdd02d0d}{\+\_\+\+\_\+sev\+\_\+issue\+\_\+cmd}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structfd}{fd}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{initramfs_8c_a9712f5d0d176ee4b1591912bc62146dc}{error}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a6be3f568017ce35e46a1a3ff7da8bf87}{sev\+\_\+issue\+\_\+cmd}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{initramfs_8c_a9712f5d0d176ee4b1591912bc62146dc}{error}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a4aac0b82769a9e9a6a13980f61ce8ba1}{sev\+\_\+launch\+\_\+start}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$ \mbox{\hyperlink{kvm_2svm_2sev_8c_a1dc642421dfff17eaa7d3bb67701facc}{sev\+\_\+pin\+\_\+memory}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned long uaddr, unsigned long ulen, unsigned long $\ast$n, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write)
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_aa9ba426e70b3cfcb263352b3ac89173f}{sev\+\_\+unpin\+\_\+memory}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$\mbox{\hyperlink{uapi_2linux_2screen__info_8h_a362b4344d8e47752e8852e0ae5ccea7d}{pages}}, unsigned long npages)
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_a0b87120d88ceacd35fd087fe77a0b6b4}{sev\+\_\+clflush\+\_\+pages}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{uapi_2linux_2screen__info_8h_a362b4344d8e47752e8852e0ae5ccea7d}{pages}}\mbox{[}$\,$\mbox{]}, unsigned long npages)
+\item 
+static unsigned long \mbox{\hyperlink{kvm_2svm_2sev_8c_ad675fe5da83544b4ef739d82ecdce4ca}{get\+\_\+num\+\_\+contig\+\_\+pages}} (unsigned long \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$inpages, unsigned long npages)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a4a233717598b3e11fcc62bdd74fca6cd}{sev\+\_\+launch\+\_\+update\+\_\+data}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a15ec36f97d7d6f0ca3a4e5724269aade}{sev\+\_\+es\+\_\+sync\+\_\+vmsa}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a73e538c37aa4aa7a7bd116aaa119eed7}{\+\_\+\+\_\+sev\+\_\+launch\+\_\+update\+\_\+vmsa}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{initramfs_8c_a9712f5d0d176ee4b1591912bc62146dc}{error}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a58da6a47d3ee35e28a426faf878a943e}{sev\+\_\+launch\+\_\+update\+\_\+vmsa}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_acb362b50ed86d332270fc6e7bd0fcfe3}{sev\+\_\+launch\+\_\+measure}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a85fd69118319577cfdaaa5c29085ccef}{sev\+\_\+launch\+\_\+finish}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a8c4977429c23ee42a01589afc4e8b6c8}{sev\+\_\+guest\+\_\+status}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_af61a8ee2222dd0c4855b8eb0ad795116}{\+\_\+\+\_\+sev\+\_\+issue\+\_\+dbg\+\_\+cmd}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned long \mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}}, unsigned long \mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{initramfs_8c_a9712f5d0d176ee4b1591912bc62146dc}{error}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} enc)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a7048173cbf0bfebf01ff98366c7adca5}{\+\_\+\+\_\+sev\+\_\+dbg\+\_\+decrypt}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned long src\+\_\+paddr, unsigned long dst\+\_\+paddr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sz, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{xenbus_8h_a52237f40c8c127fe10cf107da001ddb3}{err}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a5a3afcbd1b78369f3aab9a8dc436e3e6}{\+\_\+\+\_\+sev\+\_\+dbg\+\_\+decrypt\+\_\+user}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned long paddr, void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$dst\+\_\+uaddr, unsigned long dst\+\_\+paddr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{xenbus_8h_a52237f40c8c127fe10cf107da001ddb3}{err}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a2591ea1f300d49d3021ea7ffd59fdc2e}{\+\_\+\+\_\+sev\+\_\+dbg\+\_\+encrypt\+\_\+user}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned long paddr, void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$vaddr, unsigned long dst\+\_\+paddr, void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$dst\+\_\+vaddr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{initramfs_8c_a9712f5d0d176ee4b1591912bc62146dc}{error}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a5f382f275ab065f255f452612d0b8e2f}{sev\+\_\+dbg\+\_\+crypt}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} dec)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a735eb40df817d91509a036b8e5950190}{sev\+\_\+launch\+\_\+secret}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_ab9049ca6ec68860c52858b4a7c0b6e5e}{sev\+\_\+get\+\_\+attestation\+\_\+report}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a2161a9ec46ad3a0c25b8d174bb0617c8}{\+\_\+\+\_\+sev\+\_\+send\+\_\+start\+\_\+query\+\_\+session\+\_\+length}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp, struct \mbox{\hyperlink{structkvm__sev__send__start}{kvm\+\_\+sev\+\_\+send\+\_\+start}} $\ast$\mbox{\hyperlink{uapi_2linux_2edd_8h_afcd9be4d96be727dbb6dd0dcb621e11c}{params}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_ae249888cd72d16f8157726334216d8e8}{sev\+\_\+send\+\_\+start}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_aa680ad6932e5684b1ee1c10399098650}{\+\_\+\+\_\+sev\+\_\+send\+\_\+update\+\_\+data\+\_\+query\+\_\+lengths}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp, struct \mbox{\hyperlink{structkvm__sev__send__update__data}{kvm\+\_\+sev\+\_\+send\+\_\+update\+\_\+data}} $\ast$\mbox{\hyperlink{uapi_2linux_2edd_8h_afcd9be4d96be727dbb6dd0dcb621e11c}{params}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a2c14d94d1f2de5f23cd146b31f742859}{sev\+\_\+send\+\_\+update\+\_\+data}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a3795b9995a0cdb5ea7a6867c04eccd77}{sev\+\_\+send\+\_\+finish}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a91d7ee792dae7943526eb003f3597e94}{sev\+\_\+send\+\_\+cancel}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a478b7e37b46d13565bc9f75c2898a4ff}{sev\+\_\+receive\+\_\+start}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a8f8b1b540aaa2edff61d82b1c4ebc67b}{sev\+\_\+receive\+\_\+update\+\_\+data}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a949ea0fcee0697916e3bf6092513ae57}{sev\+\_\+receive\+\_\+finish}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$argp)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a7ec6b4219260e30daaa62b8a2bbe7068}{cmd\+\_\+allowed\+\_\+from\+\_\+miror}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} cmd\+\_\+id)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a75169c9b2bd67b156a76219f3ae520f8}{svm\+\_\+mem\+\_\+enc\+\_\+op}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$argp)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_af0caf89c8c763e9dadc2efd886daa272}{svm\+\_\+register\+\_\+enc\+\_\+region}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__enc__region}{kvm\+\_\+enc\+\_\+region}} $\ast$\mbox{\hyperlink{structrange}{range}})
+\item 
+static struct \mbox{\hyperlink{structenc__region}{enc\+\_\+region}} $\ast$ \mbox{\hyperlink{kvm_2svm_2sev_8c_a3d4c35c45271cf8279a512a1b14c8d7f}{find\+\_\+enc\+\_\+region}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__enc__region}{kvm\+\_\+enc\+\_\+region}} $\ast$\mbox{\hyperlink{structrange}{range}})
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_a362d02e2a9852da2f2dae93d2dbd70f9}{\+\_\+\+\_\+unregister\+\_\+enc\+\_\+region\+\_\+locked}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structenc__region}{enc\+\_\+region}} $\ast$\mbox{\hyperlink{structregion}{region}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a4ef18b3de9b139454f12ad09a804b08d}{svm\+\_\+unregister\+\_\+enc\+\_\+region}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__enc__region}{kvm\+\_\+enc\+\_\+region}} $\ast$\mbox{\hyperlink{structrange}{range}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a01e8624357d810dae41bf941c03f1579}{svm\+\_\+vm\+\_\+copy\+\_\+asid\+\_\+from}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} source\+\_\+fd)
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_af1eb77eac84f085b0a943b87f783e30d}{sev\+\_\+vm\+\_\+destroy}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kvm_2svm_2sev_8c_aeaff9c624af59b36fd36d1c25e279a50}{sev\+\_\+set\+\_\+cpu\+\_\+caps}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a9afc6299b4f92c15a93b02db0318ad79}{sev\+\_\+hardware\+\_\+setup}} (void)
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_ac58a302b0fd61591052722ede56468ee}{sev\+\_\+hardware\+\_\+teardown}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a87f63ae4bc207e3d5a5d80e34243cf50}{sev\+\_\+cpu\+\_\+init}} (struct \mbox{\hyperlink{structsvm__cpu__data}{svm\+\_\+cpu\+\_\+data}} $\ast$sd)
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_aa90c95dc329050575fa5bf2ee0df2c10}{sev\+\_\+flush\+\_\+guest\+\_\+memory}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, void $\ast$\mbox{\hyperlink{drm__print_8h_a9066b1d6817bdc657eeb9226ee55889e}{va}}, unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_af343f7dd067883e0f81017a68e854c09}{sev\+\_\+free\+\_\+vcpu}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_ad8823190c27862d96468aca70aef81c2}{dump\+\_\+ghcb}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_a9a51f2493b65daa56d8c07a204acc7cc}{sev\+\_\+es\+\_\+sync\+\_\+to\+\_\+ghcb}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_aeb0279b2cc9c76c69ffcca8eb578b33f}{sev\+\_\+es\+\_\+sync\+\_\+from\+\_\+ghcb}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a362b31e7b5b278709f2aaeaf5d209104}{sev\+\_\+es\+\_\+validate\+\_\+vmgexit}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_aba11fc99cad465d138aeb5c2cb3508e2}{sev\+\_\+es\+\_\+unmap\+\_\+ghcb}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_ad0a040a48a04ab47d0af3385ad214cd4}{pre\+\_\+sev\+\_\+run}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a965aac27727219bc220fc00f40264d09}{setup\+\_\+vmgexit\+\_\+scratch}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} sync, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_a9816022be04ccfa4aa8d91ac6b63e810}{set\+\_\+ghcb\+\_\+msr\+\_\+bits}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{kvm_2svm_2sev_8c_adb7ff474b157336f8c7dd8ce919bfdd1}{get\+\_\+ghcb\+\_\+msr\+\_\+bits}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static void \mbox{\hyperlink{kvm_2svm_2sev_8c_a791cdac9e53d50f78c0943d78462f16e}{set\+\_\+ghcb\+\_\+msr}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_ae483e70b55c68f5a2405263543ce3737}{sev\+\_\+handle\+\_\+vmgexit\+\_\+msr\+\_\+protocol}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_aac550422551b71c0afe8efe176e0b55d}{sev\+\_\+handle\+\_\+vmgexit}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a8381dc2e2d38fd331490bbb2fd097d0a}{sev\+\_\+es\+\_\+string\+\_\+io}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structport}{port}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}})
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_ad250cbcdb4bef45aa4a2f2ae0c74ddd6}{sev\+\_\+es\+\_\+init\+\_\+vmcb}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_a76c3236721be3bf759cc4b32d4d57190}{sev\+\_\+es\+\_\+create\+\_\+vcpu}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_ab1be311fa724c9c3cf9affe720e0b737}{sev\+\_\+es\+\_\+prepare\+\_\+guest\+\_\+switch}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+void \mbox{\hyperlink{kvm_2svm_2sev_8c_a9809425cf0d198f1c65811a4716ceecf}{sev\+\_\+vcpu\+\_\+deliver\+\_\+sipi\+\_\+vector}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{arch_2x86_2include_2asm_2msi_8h_a5ee73934739d0ba93bed4bd3baaeef42}{vector}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{kvm_2svm_2sev_8c_acec833aa968184a19e035fd0cb10b369}{sev\+\_\+enc\+\_\+bit}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a37d57b174f959f39f30e8f0796dc3afb}{max\+\_\+sev\+\_\+asid}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_af71d0f36be40d235f5f9d50515e33e87}{min\+\_\+sev\+\_\+asid}}
+\item 
+static unsigned long \mbox{\hyperlink{kvm_2svm_2sev_8c_a68fa42c09ca63e03fca8829ee26e18f1}{sev\+\_\+me\+\_\+mask}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2sev_8c_a30f4a3ca065f757024e9fe4d0c39e2c9}{nr\+\_\+asids}}
+\item 
+static unsigned long $\ast$ \mbox{\hyperlink{kvm_2svm_2sev_8c_ad1d0f632d1c2c4f6b85658adfb4bb1cb}{sev\+\_\+asid\+\_\+bitmap}}
+\item 
+static unsigned long $\ast$ \mbox{\hyperlink{kvm_2svm_2sev_8c_afbfa33ad6adf375e1324a9d3b17e2d7d}{sev\+\_\+reclaim\+\_\+asid\+\_\+bitmap}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ae5d89ee5835a425a2bb479adb73998e4}\label{kvm_2svm_2sev_8c_ae5d89ee5835a425a2bb479adb73998e4}} 
+\index{sev.c@{sev.c}!GHCB\_SCRATCH\_AREA\_LIMIT@{GHCB\_SCRATCH\_AREA\_LIMIT}}
+\index{GHCB\_SCRATCH\_AREA\_LIMIT@{GHCB\_SCRATCH\_AREA\_LIMIT}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{GHCB\_SCRATCH\_AREA\_LIMIT}{GHCB\_SCRATCH\_AREA\_LIMIT}}
+{\footnotesize\ttfamily \#define G\+H\+C\+B\+\_\+\+S\+C\+R\+A\+T\+C\+H\+\_\+\+A\+R\+E\+A\+\_\+\+L\+I\+M\+IT~(16\mbox{\hyperlink{vdso_2const_8h_ae7289206560e57188eb393096c91e575}{U\+LL}} $\ast$ \mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}})}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_acb3e1e98fc4c4948c6b74a81dced6809}\label{kvm_2svm_2sev_8c_acb3e1e98fc4c4948c6b74a81dced6809}} 
+\index{sev.c@{sev.c}!MISC\_CG\_RES\_SEV@{MISC\_CG\_RES\_SEV}}
+\index{MISC\_CG\_RES\_SEV@{MISC\_CG\_RES\_SEV}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{MISC\_CG\_RES\_SEV}{MISC\_CG\_RES\_SEV}}
+{\footnotesize\ttfamily \#define M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+S\+EV~\mbox{\hyperlink{misc__cgroup_8h_a36d2b9da173b406ff495dc7749e0a052afc216bd2a28895eaeec7dbb574308100}{M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+T\+Y\+P\+ES}}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a6e8c624b8e6eb539133d62a41ac36cbb}\label{kvm_2svm_2sev_8c_a6e8c624b8e6eb539133d62a41ac36cbb}} 
+\index{sev.c@{sev.c}!MISC\_CG\_RES\_SEV\_ES@{MISC\_CG\_RES\_SEV\_ES}}
+\index{MISC\_CG\_RES\_SEV\_ES@{MISC\_CG\_RES\_SEV\_ES}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{MISC\_CG\_RES\_SEV\_ES}{MISC\_CG\_RES\_SEV\_ES}}
+{\footnotesize\ttfamily \#define M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+S\+E\+V\+\_\+\+ES~\mbox{\hyperlink{misc__cgroup_8h_a36d2b9da173b406ff495dc7749e0a052afc216bd2a28895eaeec7dbb574308100}{M\+I\+S\+C\+\_\+\+C\+G\+\_\+\+R\+E\+S\+\_\+\+T\+Y\+P\+ES}}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a8cea9180251b2d380c09e0fd8be68b74}\label{kvm_2svm_2sev_8c_a8cea9180251b2d380c09e0fd8be68b74}} 
+\index{sev.c@{sev.c}!sev\_enabled@{sev\_enabled}}
+\index{sev\_enabled@{sev\_enabled}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_enabled}{sev\_enabled}}
+{\footnotesize\ttfamily \#define sev\+\_\+enabled~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a54a0753d622e67925f7803c15a588e55}\label{kvm_2svm_2sev_8c_a54a0753d622e67925f7803c15a588e55}} 
+\index{sev.c@{sev.c}!sev\_es\_enabled@{sev\_es\_enabled}}
+\index{sev\_es\_enabled@{sev\_es\_enabled}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_enabled}{sev\_es\_enabled}}
+{\footnotesize\ttfamily \#define sev\+\_\+es\+\_\+enabled~\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a7048173cbf0bfebf01ff98366c7adca5}\label{kvm_2svm_2sev_8c_a7048173cbf0bfebf01ff98366c7adca5}} 
+\index{sev.c@{sev.c}!\_\_sev\_dbg\_decrypt@{\_\_sev\_dbg\_decrypt}}
+\index{\_\_sev\_dbg\_decrypt@{\_\_sev\_dbg\_decrypt}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_dbg\_decrypt()}{\_\_sev\_dbg\_decrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+dbg\+\_\+decrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned long}]{src\+\_\+paddr,  }\item[{unsigned long}]{dst\+\_\+paddr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{sz,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{err }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a5a3afcbd1b78369f3aab9a8dc436e3e6}\label{kvm_2svm_2sev_8c_a5a3afcbd1b78369f3aab9a8dc436e3e6}} 
+\index{sev.c@{sev.c}!\_\_sev\_dbg\_decrypt\_user@{\_\_sev\_dbg\_decrypt\_user}}
+\index{\_\_sev\_dbg\_decrypt\_user@{\_\_sev\_dbg\_decrypt\_user}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_dbg\_decrypt\_user()}{\_\_sev\_dbg\_decrypt\_user()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+dbg\+\_\+decrypt\+\_\+user (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned long}]{paddr,  }\item[{void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{dst\+\_\+uaddr,  }\item[{unsigned long}]{dst\+\_\+paddr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{err }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a2591ea1f300d49d3021ea7ffd59fdc2e}\label{kvm_2svm_2sev_8c_a2591ea1f300d49d3021ea7ffd59fdc2e}} 
+\index{sev.c@{sev.c}!\_\_sev\_dbg\_encrypt\_user@{\_\_sev\_dbg\_encrypt\_user}}
+\index{\_\_sev\_dbg\_encrypt\_user@{\_\_sev\_dbg\_encrypt\_user}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_dbg\_encrypt\_user()}{\_\_sev\_dbg\_encrypt\_user()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+dbg\+\_\+encrypt\+\_\+user (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned long}]{paddr,  }\item[{void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{vaddr,  }\item[{unsigned long}]{dst\+\_\+paddr,  }\item[{void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{dst\+\_\+vaddr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{error }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a992499375bab3086c14cf28bcdd02d0d}\label{kvm_2svm_2sev_8c_a992499375bab3086c14cf28bcdd02d0d}} 
+\index{sev.c@{sev.c}!\_\_sev\_issue\_cmd@{\_\_sev\_issue\_cmd}}
+\index{\_\_sev\_issue\_cmd@{\_\_sev\_issue\_cmd}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_issue\_cmd()}{\_\_sev\_issue\_cmd()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+issue\+\_\+cmd (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{fd,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{id,  }\item[{void $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{error }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_af61a8ee2222dd0c4855b8eb0ad795116}\label{kvm_2svm_2sev_8c_af61a8ee2222dd0c4855b8eb0ad795116}} 
+\index{sev.c@{sev.c}!\_\_sev\_issue\_dbg\_cmd@{\_\_sev\_issue\_dbg\_cmd}}
+\index{\_\_sev\_issue\_dbg\_cmd@{\_\_sev\_issue\_dbg\_cmd}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_issue\_dbg\_cmd()}{\_\_sev\_issue\_dbg\_cmd()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+issue\+\_\+dbg\+\_\+cmd (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned long}]{src,  }\item[{unsigned long}]{dst,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{error,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{enc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a73e538c37aa4aa7a7bd116aaa119eed7}\label{kvm_2svm_2sev_8c_a73e538c37aa4aa7a7bd116aaa119eed7}} 
+\index{sev.c@{sev.c}!\_\_sev\_launch\_update\_vmsa@{\_\_sev\_launch\_update\_vmsa}}
+\index{\_\_sev\_launch\_update\_vmsa@{\_\_sev\_launch\_update\_vmsa}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_launch\_update\_vmsa()}{\_\_sev\_launch\_update\_vmsa()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+launch\+\_\+update\+\_\+vmsa (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{error }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ae1b6a82488b7a44df1ac639484ee2af1}\label{kvm_2svm_2sev_8c_ae1b6a82488b7a44df1ac639484ee2af1}} 
+\index{sev.c@{sev.c}!\_\_sev\_recycle\_asids@{\_\_sev\_recycle\_asids}}
+\index{\_\_sev\_recycle\_asids@{\_\_sev\_recycle\_asids}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_recycle\_asids()}{\_\_sev\_recycle\_asids()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+\+\_\+sev\+\_\+recycle\+\_\+asids (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{min\+\_\+asid,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{max\+\_\+asid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a2161a9ec46ad3a0c25b8d174bb0617c8}\label{kvm_2svm_2sev_8c_a2161a9ec46ad3a0c25b8d174bb0617c8}} 
+\index{sev.c@{sev.c}!\_\_sev\_send\_start\_query\_session\_length@{\_\_sev\_send\_start\_query\_session\_length}}
+\index{\_\_sev\_send\_start\_query\_session\_length@{\_\_sev\_send\_start\_query\_session\_length}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_send\_start\_query\_session\_length()}{\_\_sev\_send\_start\_query\_session\_length()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+send\+\_\+start\+\_\+query\+\_\+session\+\_\+length (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp,  }\item[{struct \mbox{\hyperlink{structkvm__sev__send__start}{kvm\+\_\+sev\+\_\+send\+\_\+start}} $\ast$}]{params }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aa680ad6932e5684b1ee1c10399098650}\label{kvm_2svm_2sev_8c_aa680ad6932e5684b1ee1c10399098650}} 
+\index{sev.c@{sev.c}!\_\_sev\_send\_update\_data\_query\_lengths@{\_\_sev\_send\_update\_data\_query\_lengths}}
+\index{\_\_sev\_send\_update\_data\_query\_lengths@{\_\_sev\_send\_update\_data\_query\_lengths}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_sev\_send\_update\_data\_query\_lengths()}{\_\_sev\_send\_update\_data\_query\_lengths()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+sev\+\_\+send\+\_\+update\+\_\+data\+\_\+query\+\_\+lengths (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp,  }\item[{struct \mbox{\hyperlink{structkvm__sev__send__update__data}{kvm\+\_\+sev\+\_\+send\+\_\+update\+\_\+data}} $\ast$}]{params }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a362d02e2a9852da2f2dae93d2dbd70f9}\label{kvm_2svm_2sev_8c_a362d02e2a9852da2f2dae93d2dbd70f9}} 
+\index{sev.c@{sev.c}!\_\_unregister\_enc\_region\_locked@{\_\_unregister\_enc\_region\_locked}}
+\index{\_\_unregister\_enc\_region\_locked@{\_\_unregister\_enc\_region\_locked}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{\_\_unregister\_enc\_region\_locked()}{\_\_unregister\_enc\_region\_locked()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+unregister\+\_\+enc\+\_\+region\+\_\+locked (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structenc__region}{enc\+\_\+region}} $\ast$}]{region }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a7ec6b4219260e30daaa62b8a2bbe7068}\label{kvm_2svm_2sev_8c_a7ec6b4219260e30daaa62b8a2bbe7068}} 
+\index{sev.c@{sev.c}!cmd\_allowed\_from\_miror@{cmd\_allowed\_from\_miror}}
+\index{cmd\_allowed\_from\_miror@{cmd\_allowed\_from\_miror}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{cmd\_allowed\_from\_miror()}{cmd\_allowed\_from\_miror()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} cmd\+\_\+allowed\+\_\+from\+\_\+miror (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{cmd\+\_\+id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a0658a510f22d06b2702ab4f85e55c54b}\label{kvm_2svm_2sev_8c_a0658a510f22d06b2702ab4f85e55c54b}} 
+\index{sev.c@{sev.c}!DECLARE\_RWSEM@{DECLARE\_RWSEM}}
+\index{DECLARE\_RWSEM@{DECLARE\_RWSEM}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_RWSEM()}{DECLARE\_RWSEM()}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+R\+W\+S\+EM (\begin{DoxyParamCaption}\item[{sev\+\_\+deactivate\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_af3a620e97d408e85c05d0791e1cb60d6}\label{kvm_2svm_2sev_8c_af3a620e97d408e85c05d0791e1cb60d6}} 
+\index{sev.c@{sev.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{sev\+\_\+bitmap\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ad8823190c27862d96468aca70aef81c2}\label{kvm_2svm_2sev_8c_ad8823190c27862d96468aca70aef81c2}} 
+\index{sev.c@{sev.c}!dump\_ghcb@{dump\_ghcb}}
+\index{dump\_ghcb@{dump\_ghcb}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{dump\_ghcb()}{dump\_ghcb()}}
+{\footnotesize\ttfamily static void dump\+\_\+ghcb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a3d4c35c45271cf8279a512a1b14c8d7f}\label{kvm_2svm_2sev_8c_a3d4c35c45271cf8279a512a1b14c8d7f}} 
+\index{sev.c@{sev.c}!find\_enc\_region@{find\_enc\_region}}
+\index{find\_enc\_region@{find\_enc\_region}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{find\_enc\_region()}{find\_enc\_region()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structenc__region}{enc\+\_\+region}}$\ast$ find\+\_\+enc\+\_\+region (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__enc__region}{kvm\+\_\+enc\+\_\+region}} $\ast$}]{range }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_adb7ff474b157336f8c7dd8ce919bfdd1}\label{kvm_2svm_2sev_8c_adb7ff474b157336f8c7dd8ce919bfdd1}} 
+\index{sev.c@{sev.c}!get\_ghcb\_msr\_bits@{get\_ghcb\_msr\_bits}}
+\index{get\_ghcb\_msr\_bits@{get\_ghcb\_msr\_bits}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{get\_ghcb\_msr\_bits()}{get\_ghcb\_msr\_bits()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} get\+\_\+ghcb\+\_\+msr\+\_\+bits (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{mask,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ad675fe5da83544b4ef739d82ecdce4ca}\label{kvm_2svm_2sev_8c_ad675fe5da83544b4ef739d82ecdce4ca}} 
+\index{sev.c@{sev.c}!get\_num\_contig\_pages@{get\_num\_contig\_pages}}
+\index{get\_num\_contig\_pages@{get\_num\_contig\_pages}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{get\_num\_contig\_pages()}{get\_num\_contig\_pages()}}
+{\footnotesize\ttfamily static unsigned long get\+\_\+num\+\_\+contig\+\_\+pages (\begin{DoxyParamCaption}\item[{unsigned long}]{idx,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{inpages,  }\item[{unsigned long}]{npages }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a70ad599e38cbdaca8ac3d21348d736bc}\label{kvm_2svm_2sev_8c_a70ad599e38cbdaca8ac3d21348d736bc}} 
+\index{sev.c@{sev.c}!is\_mirroring\_enc\_context@{is\_mirroring\_enc\_context}}
+\index{is\_mirroring\_enc\_context@{is\_mirroring\_enc\_context}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{is\_mirroring\_enc\_context()}{is\_mirroring\_enc\_context()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+mirroring\+\_\+enc\+\_\+context (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ad0a040a48a04ab47d0af3385ad214cd4}\label{kvm_2svm_2sev_8c_ad0a040a48a04ab47d0af3385ad214cd4}} 
+\index{sev.c@{sev.c}!pre\_sev\_run@{pre\_sev\_run}}
+\index{pre\_sev\_run@{pre\_sev\_run}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{pre\_sev\_run()}{pre\_sev\_run()}}
+{\footnotesize\ttfamily void pre\+\_\+sev\+\_\+run (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a791cdac9e53d50f78c0943d78462f16e}\label{kvm_2svm_2sev_8c_a791cdac9e53d50f78c0943d78462f16e}} 
+\index{sev.c@{sev.c}!set\_ghcb\_msr@{set\_ghcb\_msr}}
+\index{set\_ghcb\_msr@{set\_ghcb\_msr}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{set\_ghcb\_msr()}{set\_ghcb\_msr()}}
+{\footnotesize\ttfamily static void set\+\_\+ghcb\+\_\+msr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a9816022be04ccfa4aa8d91ac6b63e810}\label{kvm_2svm_2sev_8c_a9816022be04ccfa4aa8d91ac6b63e810}} 
+\index{sev.c@{sev.c}!set\_ghcb\_msr\_bits@{set\_ghcb\_msr\_bits}}
+\index{set\_ghcb\_msr\_bits@{set\_ghcb\_msr\_bits}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{set\_ghcb\_msr\_bits()}{set\_ghcb\_msr\_bits()}}
+{\footnotesize\ttfamily static void set\+\_\+ghcb\+\_\+msr\+\_\+bits (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{value,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{mask,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a965aac27727219bc220fc00f40264d09}\label{kvm_2svm_2sev_8c_a965aac27727219bc220fc00f40264d09}} 
+\index{sev.c@{sev.c}!setup\_vmgexit\_scratch@{setup\_vmgexit\_scratch}}
+\index{setup\_vmgexit\_scratch@{setup\_vmgexit\_scratch}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{setup\_vmgexit\_scratch()}{setup\_vmgexit\_scratch()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} setup\+\_\+vmgexit\+\_\+scratch (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{sync,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aee6abadc293da84185f2a9b6e78bfd43}\label{kvm_2svm_2sev_8c_aee6abadc293da84185f2a9b6e78bfd43}} 
+\index{sev.c@{sev.c}!sev\_asid\_free@{sev\_asid\_free}}
+\index{sev\_asid\_free@{sev\_asid\_free}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_asid\_free()}{sev\_asid\_free()}}
+{\footnotesize\ttfamily static void sev\+\_\+asid\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__sev__info}{kvm\+\_\+sev\+\_\+info}} $\ast$}]{sev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a93b4450a5d34ae216bfa84756b831bba}\label{kvm_2svm_2sev_8c_a93b4450a5d34ae216bfa84756b831bba}} 
+\index{sev.c@{sev.c}!sev\_asid\_new@{sev\_asid\_new}}
+\index{sev\_asid\_new@{sev\_asid\_new}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_asid\_new()}{sev\_asid\_new()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+asid\+\_\+new (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__sev__info}{kvm\+\_\+sev\+\_\+info}} $\ast$}]{sev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a90871227c2ca03b13d49bffafc97bd43}\label{kvm_2svm_2sev_8c_a90871227c2ca03b13d49bffafc97bd43}} 
+\index{sev.c@{sev.c}!sev\_bind\_asid@{sev\_bind\_asid}}
+\index{sev\_bind\_asid@{sev\_bind\_asid}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_bind\_asid()}{sev\_bind\_asid()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+bind\+\_\+asid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{handle,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{error }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a0b87120d88ceacd35fd087fe77a0b6b4}\label{kvm_2svm_2sev_8c_a0b87120d88ceacd35fd087fe77a0b6b4}} 
+\index{sev.c@{sev.c}!sev\_clflush\_pages@{sev\_clflush\_pages}}
+\index{sev\_clflush\_pages@{sev\_clflush\_pages}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_clflush\_pages()}{sev\_clflush\_pages()}}
+{\footnotesize\ttfamily static void sev\+\_\+clflush\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{pages\mbox{[}$\,$\mbox{]},  }\item[{unsigned long}]{npages }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a87f63ae4bc207e3d5a5d80e34243cf50}\label{kvm_2svm_2sev_8c_a87f63ae4bc207e3d5a5d80e34243cf50}} 
+\index{sev.c@{sev.c}!sev\_cpu\_init@{sev\_cpu\_init}}
+\index{sev\_cpu\_init@{sev\_cpu\_init}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_cpu\_init()}{sev\_cpu\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+cpu\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsvm__cpu__data}{svm\+\_\+cpu\+\_\+data}} $\ast$}]{sd }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a5f382f275ab065f255f452612d0b8e2f}\label{kvm_2svm_2sev_8c_a5f382f275ab065f255f452612d0b8e2f}} 
+\index{sev.c@{sev.c}!sev\_dbg\_crypt@{sev\_dbg\_crypt}}
+\index{sev\_dbg\_crypt@{sev\_dbg\_crypt}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_dbg\_crypt()}{sev\_dbg\_crypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+dbg\+\_\+crypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{dec }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aa7faf38fc33d615dc428806df7b26845}\label{kvm_2svm_2sev_8c_aa7faf38fc33d615dc428806df7b26845}} 
+\index{sev.c@{sev.c}!sev\_decommission@{sev\_decommission}}
+\index{sev\_decommission@{sev\_decommission}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_decommission()}{sev\_decommission()}}
+{\footnotesize\ttfamily static void sev\+\_\+decommission (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a76c3236721be3bf759cc4b32d4d57190}\label{kvm_2svm_2sev_8c_a76c3236721be3bf759cc4b32d4d57190}} 
+\index{sev.c@{sev.c}!sev\_es\_create\_vcpu@{sev\_es\_create\_vcpu}}
+\index{sev\_es\_create\_vcpu@{sev\_es\_create\_vcpu}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_create\_vcpu()}{sev\_es\_create\_vcpu()}}
+{\footnotesize\ttfamily void sev\+\_\+es\+\_\+create\+\_\+vcpu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ad250cbcdb4bef45aa4a2f2ae0c74ddd6}\label{kvm_2svm_2sev_8c_ad250cbcdb4bef45aa4a2f2ae0c74ddd6}} 
+\index{sev.c@{sev.c}!sev\_es\_init\_vmcb@{sev\_es\_init\_vmcb}}
+\index{sev\_es\_init\_vmcb@{sev\_es\_init\_vmcb}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_init\_vmcb()}{sev\_es\_init\_vmcb()}}
+{\footnotesize\ttfamily void sev\+\_\+es\+\_\+init\+\_\+vmcb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ab1be311fa724c9c3cf9affe720e0b737}\label{kvm_2svm_2sev_8c_ab1be311fa724c9c3cf9affe720e0b737}} 
+\index{sev.c@{sev.c}!sev\_es\_prepare\_guest\_switch@{sev\_es\_prepare\_guest\_switch}}
+\index{sev\_es\_prepare\_guest\_switch@{sev\_es\_prepare\_guest\_switch}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_prepare\_guest\_switch()}{sev\_es\_prepare\_guest\_switch()}}
+{\footnotesize\ttfamily void sev\+\_\+es\+\_\+prepare\+\_\+guest\+\_\+switch (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a8381dc2e2d38fd331490bbb2fd097d0a}\label{kvm_2svm_2sev_8c_a8381dc2e2d38fd331490bbb2fd097d0a}} 
+\index{sev.c@{sev.c}!sev\_es\_string\_io@{sev\_es\_string\_io}}
+\index{sev\_es\_string\_io@{sev\_es\_string\_io}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_string\_io()}{sev\_es\_string\_io()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+es\+\_\+string\+\_\+io (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{port,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{in }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aeb0279b2cc9c76c69ffcca8eb578b33f}\label{kvm_2svm_2sev_8c_aeb0279b2cc9c76c69ffcca8eb578b33f}} 
+\index{sev.c@{sev.c}!sev\_es\_sync\_from\_ghcb@{sev\_es\_sync\_from\_ghcb}}
+\index{sev\_es\_sync\_from\_ghcb@{sev\_es\_sync\_from\_ghcb}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_sync\_from\_ghcb()}{sev\_es\_sync\_from\_ghcb()}}
+{\footnotesize\ttfamily static void sev\+\_\+es\+\_\+sync\+\_\+from\+\_\+ghcb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a9a51f2493b65daa56d8c07a204acc7cc}\label{kvm_2svm_2sev_8c_a9a51f2493b65daa56d8c07a204acc7cc}} 
+\index{sev.c@{sev.c}!sev\_es\_sync\_to\_ghcb@{sev\_es\_sync\_to\_ghcb}}
+\index{sev\_es\_sync\_to\_ghcb@{sev\_es\_sync\_to\_ghcb}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_sync\_to\_ghcb()}{sev\_es\_sync\_to\_ghcb()}}
+{\footnotesize\ttfamily static void sev\+\_\+es\+\_\+sync\+\_\+to\+\_\+ghcb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a15ec36f97d7d6f0ca3a4e5724269aade}\label{kvm_2svm_2sev_8c_a15ec36f97d7d6f0ca3a4e5724269aade}} 
+\index{sev.c@{sev.c}!sev\_es\_sync\_vmsa@{sev\_es\_sync\_vmsa}}
+\index{sev\_es\_sync\_vmsa@{sev\_es\_sync\_vmsa}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_sync\_vmsa()}{sev\_es\_sync\_vmsa()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+es\+\_\+sync\+\_\+vmsa (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aba11fc99cad465d138aeb5c2cb3508e2}\label{kvm_2svm_2sev_8c_aba11fc99cad465d138aeb5c2cb3508e2}} 
+\index{sev.c@{sev.c}!sev\_es\_unmap\_ghcb@{sev\_es\_unmap\_ghcb}}
+\index{sev\_es\_unmap\_ghcb@{sev\_es\_unmap\_ghcb}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_unmap\_ghcb()}{sev\_es\_unmap\_ghcb()}}
+{\footnotesize\ttfamily void sev\+\_\+es\+\_\+unmap\+\_\+ghcb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a362b31e7b5b278709f2aaeaf5d209104}\label{kvm_2svm_2sev_8c_a362b31e7b5b278709f2aaeaf5d209104}} 
+\index{sev.c@{sev.c}!sev\_es\_validate\_vmgexit@{sev\_es\_validate\_vmgexit}}
+\index{sev\_es\_validate\_vmgexit@{sev\_es\_validate\_vmgexit}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_es\_validate\_vmgexit()}{sev\_es\_validate\_vmgexit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+es\+\_\+validate\+\_\+vmgexit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a610d6baedefdc28b9dcf78056c438d6b}\label{kvm_2svm_2sev_8c_a610d6baedefdc28b9dcf78056c438d6b}} 
+\index{sev.c@{sev.c}!sev\_flush\_asids@{sev\_flush\_asids}}
+\index{sev\_flush\_asids@{sev\_flush\_asids}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_flush\_asids()}{sev\_flush\_asids()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+flush\+\_\+asids (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{min\+\_\+asid,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{max\+\_\+asid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aa90c95dc329050575fa5bf2ee0df2c10}\label{kvm_2svm_2sev_8c_aa90c95dc329050575fa5bf2ee0df2c10}} 
+\index{sev.c@{sev.c}!sev\_flush\_guest\_memory@{sev\_flush\_guest\_memory}}
+\index{sev\_flush\_guest\_memory@{sev\_flush\_guest\_memory}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_flush\_guest\_memory()}{sev\_flush\_guest\_memory()}}
+{\footnotesize\ttfamily static void sev\+\_\+flush\+\_\+guest\+\_\+memory (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{void $\ast$}]{va,  }\item[{unsigned long}]{len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_af343f7dd067883e0f81017a68e854c09}\label{kvm_2svm_2sev_8c_af343f7dd067883e0f81017a68e854c09}} 
+\index{sev.c@{sev.c}!sev\_free\_vcpu@{sev\_free\_vcpu}}
+\index{sev\_free\_vcpu@{sev\_free\_vcpu}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_free\_vcpu()}{sev\_free\_vcpu()}}
+{\footnotesize\ttfamily void sev\+\_\+free\+\_\+vcpu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a35afb6f059971be3e215a8af1a30d250}\label{kvm_2svm_2sev_8c_a35afb6f059971be3e215a8af1a30d250}} 
+\index{sev.c@{sev.c}!sev\_get\_asid@{sev\_get\_asid}}
+\index{sev\_get\_asid@{sev\_get\_asid}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_get\_asid()}{sev\_get\_asid()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+get\+\_\+asid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ab9049ca6ec68860c52858b4a7c0b6e5e}\label{kvm_2svm_2sev_8c_ab9049ca6ec68860c52858b4a7c0b6e5e}} 
+\index{sev.c@{sev.c}!sev\_get\_attestation\_report@{sev\_get\_attestation\_report}}
+\index{sev\_get\_attestation\_report@{sev\_get\_attestation\_report}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_get\_attestation\_report()}{sev\_get\_attestation\_report()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+get\+\_\+attestation\+\_\+report (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ac62526aea63f9ac646eb3c3fbe4b0681}\label{kvm_2svm_2sev_8c_ac62526aea63f9ac646eb3c3fbe4b0681}} 
+\index{sev.c@{sev.c}!sev\_guest\_init@{sev\_guest\_init}}
+\index{sev\_guest\_init@{sev\_guest\_init}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_guest\_init()}{sev\_guest\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+guest\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a8c4977429c23ee42a01589afc4e8b6c8}\label{kvm_2svm_2sev_8c_a8c4977429c23ee42a01589afc4e8b6c8}} 
+\index{sev.c@{sev.c}!sev\_guest\_status@{sev\_guest\_status}}
+\index{sev\_guest\_status@{sev\_guest\_status}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_guest\_status()}{sev\_guest\_status()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+guest\+\_\+status (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aac550422551b71c0afe8efe176e0b55d}\label{kvm_2svm_2sev_8c_aac550422551b71c0afe8efe176e0b55d}} 
+\index{sev.c@{sev.c}!sev\_handle\_vmgexit@{sev\_handle\_vmgexit}}
+\index{sev\_handle\_vmgexit@{sev\_handle\_vmgexit}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_handle\_vmgexit()}{sev\_handle\_vmgexit()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+handle\+\_\+vmgexit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ae483e70b55c68f5a2405263543ce3737}\label{kvm_2svm_2sev_8c_ae483e70b55c68f5a2405263543ce3737}} 
+\index{sev.c@{sev.c}!sev\_handle\_vmgexit\_msr\_protocol@{sev\_handle\_vmgexit\_msr\_protocol}}
+\index{sev\_handle\_vmgexit\_msr\_protocol@{sev\_handle\_vmgexit\_msr\_protocol}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_handle\_vmgexit\_msr\_protocol()}{sev\_handle\_vmgexit\_msr\_protocol()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+handle\+\_\+vmgexit\+\_\+msr\+\_\+protocol (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 80
+Here is the caller graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a9afc6299b4f92c15a93b02db0318ad79}\label{kvm_2svm_2sev_8c_a9afc6299b4f92c15a93b02db0318ad79}} 
+\index{sev.c@{sev.c}!sev\_hardware\_setup@{sev\_hardware\_setup}}
+\index{sev\_hardware\_setup@{sev\_hardware\_setup}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_hardware\_setup()}{sev\_hardware\_setup()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} sev\+\_\+hardware\+\_\+setup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ac58a302b0fd61591052722ede56468ee}\label{kvm_2svm_2sev_8c_ac58a302b0fd61591052722ede56468ee}} 
+\index{sev.c@{sev.c}!sev\_hardware\_teardown@{sev\_hardware\_teardown}}
+\index{sev\_hardware\_teardown@{sev\_hardware\_teardown}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_hardware\_teardown()}{sev\_hardware\_teardown()}}
+{\footnotesize\ttfamily void sev\+\_\+hardware\+\_\+teardown (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a6be3f568017ce35e46a1a3ff7da8bf87}\label{kvm_2svm_2sev_8c_a6be3f568017ce35e46a1a3ff7da8bf87}} 
+\index{sev.c@{sev.c}!sev\_issue\_cmd@{sev\_issue\_cmd}}
+\index{sev\_issue\_cmd@{sev\_issue\_cmd}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_issue\_cmd()}{sev\_issue\_cmd()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structsev__issue__cmd}{sev\+\_\+issue\+\_\+cmd}} (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{id,  }\item[{void $\ast$}]{data,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{error }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a85fd69118319577cfdaaa5c29085ccef}\label{kvm_2svm_2sev_8c_a85fd69118319577cfdaaa5c29085ccef}} 
+\index{sev.c@{sev.c}!sev\_launch\_finish@{sev\_launch\_finish}}
+\index{sev\_launch\_finish@{sev\_launch\_finish}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_launch\_finish()}{sev\_launch\_finish()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+launch\+\_\+finish (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_acb362b50ed86d332270fc6e7bd0fcfe3}\label{kvm_2svm_2sev_8c_acb362b50ed86d332270fc6e7bd0fcfe3}} 
+\index{sev.c@{sev.c}!sev\_launch\_measure@{sev\_launch\_measure}}
+\index{sev\_launch\_measure@{sev\_launch\_measure}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_launch\_measure()}{sev\_launch\_measure()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+launch\+\_\+measure (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 90
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a735eb40df817d91509a036b8e5950190}\label{kvm_2svm_2sev_8c_a735eb40df817d91509a036b8e5950190}} 
+\index{sev.c@{sev.c}!sev\_launch\_secret@{sev\_launch\_secret}}
+\index{sev\_launch\_secret@{sev\_launch\_secret}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_launch\_secret()}{sev\_launch\_secret()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+launch\+\_\+secret (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 92
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a4aac0b82769a9e9a6a13980f61ce8ba1}\label{kvm_2svm_2sev_8c_a4aac0b82769a9e9a6a13980f61ce8ba1}} 
+\index{sev.c@{sev.c}!sev\_launch\_start@{sev\_launch\_start}}
+\index{sev\_launch\_start@{sev\_launch\_start}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_launch\_start()}{sev\_launch\_start()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+launch\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a4a233717598b3e11fcc62bdd74fca6cd}\label{kvm_2svm_2sev_8c_a4a233717598b3e11fcc62bdd74fca6cd}} 
+\index{sev.c@{sev.c}!sev\_launch\_update\_data@{sev\_launch\_update\_data}}
+\index{sev\_launch\_update\_data@{sev\_launch\_update\_data}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_launch\_update\_data()}{sev\_launch\_update\_data()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+launch\+\_\+update\+\_\+data (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a58da6a47d3ee35e28a426faf878a943e}\label{kvm_2svm_2sev_8c_a58da6a47d3ee35e28a426faf878a943e}} 
+\index{sev.c@{sev.c}!sev\_launch\_update\_vmsa@{sev\_launch\_update\_vmsa}}
+\index{sev\_launch\_update\_vmsa@{sev\_launch\_update\_vmsa}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_launch\_update\_vmsa()}{sev\_launch\_update\_vmsa()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+launch\+\_\+update\+\_\+vmsa (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 98
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a1dc642421dfff17eaa7d3bb67701facc}\label{kvm_2svm_2sev_8c_a1dc642421dfff17eaa7d3bb67701facc}} 
+\index{sev.c@{sev.c}!sev\_pin\_memory@{sev\_pin\_memory}}
+\index{sev\_pin\_memory@{sev\_pin\_memory}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_pin\_memory()}{sev\_pin\_memory()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$$\ast$ sev\+\_\+pin\+\_\+memory (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned long}]{uaddr,  }\item[{unsigned long}]{ulen,  }\item[{unsigned long $\ast$}]{n,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{write }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 100
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a949ea0fcee0697916e3bf6092513ae57}\label{kvm_2svm_2sev_8c_a949ea0fcee0697916e3bf6092513ae57}} 
+\index{sev.c@{sev.c}!sev\_receive\_finish@{sev\_receive\_finish}}
+\index{sev\_receive\_finish@{sev\_receive\_finish}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_receive\_finish()}{sev\_receive\_finish()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+receive\+\_\+finish (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 102
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a478b7e37b46d13565bc9f75c2898a4ff}\label{kvm_2svm_2sev_8c_a478b7e37b46d13565bc9f75c2898a4ff}} 
+\index{sev.c@{sev.c}!sev\_receive\_start@{sev\_receive\_start}}
+\index{sev\_receive\_start@{sev\_receive\_start}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_receive\_start()}{sev\_receive\_start()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+receive\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 104
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a8f8b1b540aaa2edff61d82b1c4ebc67b}\label{kvm_2svm_2sev_8c_a8f8b1b540aaa2edff61d82b1c4ebc67b}} 
+\index{sev.c@{sev.c}!sev\_receive\_update\_data@{sev\_receive\_update\_data}}
+\index{sev\_receive\_update\_data@{sev\_receive\_update\_data}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_receive\_update\_data()}{sev\_receive\_update\_data()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+receive\+\_\+update\+\_\+data (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a91d7ee792dae7943526eb003f3597e94}\label{kvm_2svm_2sev_8c_a91d7ee792dae7943526eb003f3597e94}} 
+\index{sev.c@{sev.c}!sev\_send\_cancel@{sev\_send\_cancel}}
+\index{sev\_send\_cancel@{sev\_send\_cancel}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_send\_cancel()}{sev\_send\_cancel()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+send\+\_\+cancel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a3795b9995a0cdb5ea7a6867c04eccd77}\label{kvm_2svm_2sev_8c_a3795b9995a0cdb5ea7a6867c04eccd77}} 
+\index{sev.c@{sev.c}!sev\_send\_finish@{sev\_send\_finish}}
+\index{sev\_send\_finish@{sev\_send\_finish}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_send\_finish()}{sev\_send\_finish()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+send\+\_\+finish (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ae249888cd72d16f8157726334216d8e8}\label{kvm_2svm_2sev_8c_ae249888cd72d16f8157726334216d8e8}} 
+\index{sev.c@{sev.c}!sev\_send\_start@{sev\_send\_start}}
+\index{sev\_send\_start@{sev\_send\_start}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_send\_start()}{sev\_send\_start()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+send\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 112
+Here is the caller graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a2c14d94d1f2de5f23cd146b31f742859}\label{kvm_2svm_2sev_8c_a2c14d94d1f2de5f23cd146b31f742859}} 
+\index{sev.c@{sev.c}!sev\_send\_update\_data@{sev\_send\_update\_data}}
+\index{sev\_send\_update\_data@{sev\_send\_update\_data}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_send\_update\_data()}{sev\_send\_update\_data()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sev\+\_\+send\+\_\+update\+\_\+data (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__sev__cmd}{kvm\+\_\+sev\+\_\+cmd}} $\ast$}]{argp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 114
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aeaff9c624af59b36fd36d1c25e279a50}\label{kvm_2svm_2sev_8c_aeaff9c624af59b36fd36d1c25e279a50}} 
+\index{sev.c@{sev.c}!sev\_set\_cpu\_caps@{sev\_set\_cpu\_caps}}
+\index{sev\_set\_cpu\_caps@{sev\_set\_cpu\_caps}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_set\_cpu\_caps()}{sev\_set\_cpu\_caps()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} sev\+\_\+set\+\_\+cpu\+\_\+caps (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 116
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a4e8d6041acaecc396b4c6eca246fcd67}\label{kvm_2svm_2sev_8c_a4e8d6041acaecc396b4c6eca246fcd67}} 
+\index{sev.c@{sev.c}!sev\_unbind\_asid@{sev\_unbind\_asid}}
+\index{sev\_unbind\_asid@{sev\_unbind\_asid}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_unbind\_asid()}{sev\_unbind\_asid()}}
+{\footnotesize\ttfamily static void sev\+\_\+unbind\+\_\+asid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 118
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_aa9ba426e70b3cfcb263352b3ac89173f}\label{kvm_2svm_2sev_8c_aa9ba426e70b3cfcb263352b3ac89173f}} 
+\index{sev.c@{sev.c}!sev\_unpin\_memory@{sev\_unpin\_memory}}
+\index{sev\_unpin\_memory@{sev\_unpin\_memory}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_unpin\_memory()}{sev\_unpin\_memory()}}
+{\footnotesize\ttfamily static void sev\+\_\+unpin\+\_\+memory (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{pages,  }\item[{unsigned long}]{npages }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 120
+Here is the caller graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a9809425cf0d198f1c65811a4716ceecf}\label{kvm_2svm_2sev_8c_a9809425cf0d198f1c65811a4716ceecf}} 
+\index{sev.c@{sev.c}!sev\_vcpu\_deliver\_sipi\_vector@{sev\_vcpu\_deliver\_sipi\_vector}}
+\index{sev\_vcpu\_deliver\_sipi\_vector@{sev\_vcpu\_deliver\_sipi\_vector}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_vcpu\_deliver\_sipi\_vector()}{sev\_vcpu\_deliver\_sipi\_vector()}}
+{\footnotesize\ttfamily void sev\+\_\+vcpu\+\_\+deliver\+\_\+sipi\+\_\+vector (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{vector }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 122
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_af1eb77eac84f085b0a943b87f783e30d}\label{kvm_2svm_2sev_8c_af1eb77eac84f085b0a943b87f783e30d}} 
+\index{sev.c@{sev.c}!sev\_vm\_destroy@{sev\_vm\_destroy}}
+\index{sev\_vm\_destroy@{sev\_vm\_destroy}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_vm\_destroy()}{sev\_vm\_destroy()}}
+{\footnotesize\ttfamily void sev\+\_\+vm\+\_\+destroy (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 124
+Here is the caller graph for this function\+:
+% FIG 125
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a75169c9b2bd67b156a76219f3ae520f8}\label{kvm_2svm_2sev_8c_a75169c9b2bd67b156a76219f3ae520f8}} 
+\index{sev.c@{sev.c}!svm\_mem\_enc\_op@{svm\_mem\_enc\_op}}
+\index{svm\_mem\_enc\_op@{svm\_mem\_enc\_op}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{svm\_mem\_enc\_op()}{svm\_mem\_enc\_op()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+mem\+\_\+enc\+\_\+op (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{void \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{argp }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 126
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_af0caf89c8c763e9dadc2efd886daa272}\label{kvm_2svm_2sev_8c_af0caf89c8c763e9dadc2efd886daa272}} 
+\index{sev.c@{sev.c}!svm\_register\_enc\_region@{svm\_register\_enc\_region}}
+\index{svm\_register\_enc\_region@{svm\_register\_enc\_region}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{svm\_register\_enc\_region()}{svm\_register\_enc\_region()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+register\+\_\+enc\+\_\+region (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__enc__region}{kvm\+\_\+enc\+\_\+region}} $\ast$}]{range }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 127
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a4ef18b3de9b139454f12ad09a804b08d}\label{kvm_2svm_2sev_8c_a4ef18b3de9b139454f12ad09a804b08d}} 
+\index{sev.c@{sev.c}!svm\_unregister\_enc\_region@{svm\_unregister\_enc\_region}}
+\index{svm\_unregister\_enc\_region@{svm\_unregister\_enc\_region}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{svm\_unregister\_enc\_region()}{svm\_unregister\_enc\_region()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+unregister\+\_\+enc\+\_\+region (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__enc__region}{kvm\+\_\+enc\+\_\+region}} $\ast$}]{range }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 128
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a01e8624357d810dae41bf941c03f1579}\label{kvm_2svm_2sev_8c_a01e8624357d810dae41bf941c03f1579}} 
+\index{sev.c@{sev.c}!svm\_vm\_copy\_asid\_from@{svm\_vm\_copy\_asid\_from}}
+\index{svm\_vm\_copy\_asid\_from@{svm\_vm\_copy\_asid\_from}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{svm\_vm\_copy\_asid\_from()}{svm\_vm\_copy\_asid\_from()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+vm\+\_\+copy\+\_\+asid\+\_\+from (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{source\+\_\+fd }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 129
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a37d57b174f959f39f30e8f0796dc3afb}\label{kvm_2svm_2sev_8c_a37d57b174f959f39f30e8f0796dc3afb}} 
+\index{sev.c@{sev.c}!max\_sev\_asid@{max\_sev\_asid}}
+\index{max\_sev\_asid@{max\_sev\_asid}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{max\_sev\_asid}{max\_sev\_asid}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+sev\+\_\+asid}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_af71d0f36be40d235f5f9d50515e33e87}\label{kvm_2svm_2sev_8c_af71d0f36be40d235f5f9d50515e33e87}} 
+\index{sev.c@{sev.c}!min\_sev\_asid@{min\_sev\_asid}}
+\index{min\_sev\_asid@{min\_sev\_asid}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{min\_sev\_asid}{min\_sev\_asid}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+sev\+\_\+asid\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a30f4a3ca065f757024e9fe4d0c39e2c9}\label{kvm_2svm_2sev_8c_a30f4a3ca065f757024e9fe4d0c39e2c9}} 
+\index{sev.c@{sev.c}!nr\_asids@{nr\_asids}}
+\index{nr\_asids@{nr\_asids}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{nr\_asids}{nr\_asids}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+asids\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_ad1d0f632d1c2c4f6b85658adfb4bb1cb}\label{kvm_2svm_2sev_8c_ad1d0f632d1c2c4f6b85658adfb4bb1cb}} 
+\index{sev.c@{sev.c}!sev\_asid\_bitmap@{sev\_asid\_bitmap}}
+\index{sev\_asid\_bitmap@{sev\_asid\_bitmap}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_asid\_bitmap}{sev\_asid\_bitmap}}
+{\footnotesize\ttfamily unsigned long$\ast$ sev\+\_\+asid\+\_\+bitmap\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_acec833aa968184a19e035fd0cb10b369}\label{kvm_2svm_2sev_8c_acec833aa968184a19e035fd0cb10b369}} 
+\index{sev.c@{sev.c}!sev\_enc\_bit@{sev\_enc\_bit}}
+\index{sev\_enc\_bit@{sev\_enc\_bit}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_enc\_bit}{sev\_enc\_bit}}
+{\footnotesize\ttfamily \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} sev\+\_\+enc\+\_\+bit\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_a68fa42c09ca63e03fca8829ee26e18f1}\label{kvm_2svm_2sev_8c_a68fa42c09ca63e03fca8829ee26e18f1}} 
+\index{sev.c@{sev.c}!sev\_me\_mask@{sev\_me\_mask}}
+\index{sev\_me\_mask@{sev\_me\_mask}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_me\_mask}{sev\_me\_mask}}
+{\footnotesize\ttfamily unsigned long sev\+\_\+me\+\_\+mask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kvm_2svm_2sev_8c_afbfa33ad6adf375e1324a9d3b17e2d7d}\label{kvm_2svm_2sev_8c_afbfa33ad6adf375e1324a9d3b17e2d7d}} 
+\index{sev.c@{sev.c}!sev\_reclaim\_asid\_bitmap@{sev\_reclaim\_asid\_bitmap}}
+\index{sev\_reclaim\_asid\_bitmap@{sev\_reclaim\_asid\_bitmap}!sev.c@{sev.c}}
+\doxysubsubsection{\texorpdfstring{sev\_reclaim\_asid\_bitmap}{sev\_reclaim\_asid\_bitmap}}
+{\footnotesize\ttfamily unsigned long$\ast$ sev\+\_\+reclaim\+\_\+asid\+\_\+bitmap\hspace{0.3cm}{\ttfamily [static]}}
+

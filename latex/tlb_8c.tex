@@ -1,0 +1,704 @@
+\hypertarget{tlb_8c}{}\doxysection{arch/x86/mm/tlb.c File Reference}
+\label{tlb_8c}\index{arch/x86/mm/tlb.c@{arch/x86/mm/tlb.c}}
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/smt.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mmu\+\_\+context.\+h$>$}\newline
+{\ttfamily \#include $<$asm/nospec-\/branch.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cache.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cacheflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/apic.\+h$>$}\newline
+{\ttfamily \#include $<$asm/perf\+\_\+event.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}mm\+\_\+internal.\+h\char`\"{}}\newline
+Include dependency graph for tlb.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}}~static
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a0933aea8dad1078f01e26d86de105b3d}{\+\_\+\+\_\+flush\+\_\+tlb\+\_\+local}}~\mbox{\hyperlink{tlb_8c_a570401bc4cc998cc61860079fd819cd2}{native\+\_\+flush\+\_\+tlb\+\_\+local}}
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a26edead308f35555aecb9b3f957b15d7}{\+\_\+\+\_\+flush\+\_\+tlb\+\_\+global}}~\mbox{\hyperlink{tlb_8c_a88d8c2265e4c92ca014ec047b03a199c}{native\+\_\+flush\+\_\+tlb\+\_\+global}}
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a009320992481faea4d5f03c86c5955bb}{\+\_\+\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user}}(\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})~\mbox{\hyperlink{tlb_8c_aedb9347e5235aac4ebff5aaf3ed25c63}{native\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user}}(\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\#define \mbox{\hyperlink{tlb_8c_ac7fd7e1201c8ca9a214aace62a12730f}{\+\_\+\+\_\+flush\+\_\+tlb\+\_\+multi}}(\mbox{\hyperlink{encode__rs_8c_a7c2e8aafc339180e987ef2531da1c509}{msk}},  \mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})~\mbox{\hyperlink{tlb_8c_a44cf55e288530ebf02863151753d9fda}{native\+\_\+flush\+\_\+tlb\+\_\+multi}}(\mbox{\hyperlink{encode__rs_8c_a7c2e8aafc339180e987ef2531da1c509}{msk}}, \mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a7bbae316a1c39e2c9cb1de105e21be71}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+B\+PB}}~0x1\+UL
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a5565bbb728cd0591118f241259c3831f}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+L1\+D\+\_\+\+F\+L\+U\+SH}}~0x2\+UL
+\item 
+\#define \mbox{\hyperlink{tlb_8c_aaaa82e46e5dc234f1c29f21b0c997c92}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+S\+P\+E\+C\+\_\+\+M\+A\+SK}}~(\mbox{\hyperlink{tlb_8c_a7bbae316a1c39e2c9cb1de105e21be71}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+B\+PB}} $\vert$ \mbox{\hyperlink{tlb_8c_a5565bbb728cd0591118f241259c3831f}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+L1\+D\+\_\+\+F\+L\+U\+SH}})
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a37e8b1027137c383563fe587722412a4}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+N\+IT}}~\mbox{\hyperlink{tlb_8c_a7bbae316a1c39e2c9cb1de105e21be71}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+B\+PB}}
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a1d81575c72cc84d34135a936dad72638}{C\+R3\+\_\+\+H\+W\+\_\+\+A\+S\+I\+D\+\_\+\+B\+I\+TS}}~12
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a42ff6403af4d152ba243052eb97e902d}{P\+T\+I\+\_\+\+C\+O\+N\+S\+U\+M\+E\+D\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}}~0
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a0a7c534be70bd4c9b85187fcfa4db56e}{C\+R3\+\_\+\+A\+V\+A\+I\+L\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}}~(\mbox{\hyperlink{uapi_2asm_2processor-flags_8h_ab69ec2a9413f233caa7e36440426db61}{X86\+\_\+\+C\+R3\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}} -\/ \mbox{\hyperlink{tlb_8c_a42ff6403af4d152ba243052eb97e902d}{P\+T\+I\+\_\+\+C\+O\+N\+S\+U\+M\+E\+D\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{tlb_8c_a7e7edc113dd9db3b6743717dd337a024}{M\+A\+X\+\_\+\+A\+S\+I\+D\+\_\+\+A\+V\+A\+I\+L\+A\+B\+LE}}~((1 $<$$<$ \mbox{\hyperlink{tlb_8c_a0a7c534be70bd4c9b85187fcfa4db56e}{C\+R3\+\_\+\+A\+V\+A\+I\+L\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}}) -\/ 2)
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{tlb_8c_a85ca8b83405168d428d6961356513288}{kern\+\_\+pcid}} (\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} asid)
+\item 
+static \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{tlb_8c_a360132d3ca12b4e16a1c73abf7d52771}{user\+\_\+pcid}} (\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} asid)
+\item 
+static unsigned long \mbox{\hyperlink{tlb_8c_ace41764e994150729c6531dd03e1c1f0}{build\+\_\+cr3}} (\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} asid)
+\item 
+static unsigned long \mbox{\hyperlink{tlb_8c_af9e3ddd5292d1e36ee0fa6da549036d0}{build\+\_\+cr3\+\_\+noflush}} (\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgd, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} asid)
+\item 
+static void \mbox{\hyperlink{tlb_8c_aa6b2487b17d374813f82ac6f994cc1c4}{clear\+\_\+asid\+\_\+other}} (void)
+\item 
+static void \mbox{\hyperlink{tlb_8c_a56ee65c52192e6d7092fd80e5e1a7062}{choose\+\_\+new\+\_\+asid}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} next\+\_\+tlb\+\_\+gen, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} $\ast$\mbox{\hyperlink{svm_8c_a1ec4f210ddd96122d1d787a383483514}{new\+\_\+asid}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$\mbox{\hyperlink{amd__gart__64_8c_ababfcbcb1b611836ef34eccefbfa28e3}{need\+\_\+flush}})
+\item 
+static void \mbox{\hyperlink{tlb_8c_a0ef132a879eab0f908c912e7436da738}{invalidate\+\_\+user\+\_\+asid}} (\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} asid)
+\item 
+static void \mbox{\hyperlink{tlb_8c_a62d36283e88a966f7940e45dbe65bc2b}{load\+\_\+new\+\_\+mm\+\_\+cr3}} (\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$pgdir, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{svm_8c_a1ec4f210ddd96122d1d787a383483514}{new\+\_\+asid}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{amd__gart__64_8c_ababfcbcb1b611836ef34eccefbfa28e3}{need\+\_\+flush}})
+\item 
+void \mbox{\hyperlink{tlb_8c_abb5f2280b0a6aa63d11682e1404985c8}{leave\+\_\+mm}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+\mbox{\hyperlink{tlb_8c_a0d33eb74a3301c4f4eb7c328fbeb554c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2mmu__context_8h_af6e8c8ec48da9179aa065edd138c4294}{leave\+\_\+mm}})
+\item 
+void \mbox{\hyperlink{tlb_8c_ab19d1571f05bd40fa62cacb819c7ae30}{switch\+\_\+mm}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$\mbox{\hyperlink{mm_2interval__tree_8c_a79511b35a6c382701f3d62fa2a4aa741}{prev}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}}, struct task\+\_\+struct $\ast$tsk)
+\item 
+static void \mbox{\hyperlink{tlb_8c_a227afdee27f0aceee7d146b61254c3f7}{l1d\+\_\+flush\+\_\+force\+\_\+sigbus}} (struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$ch)
+\item 
+static void \mbox{\hyperlink{tlb_8c_a2a09d6be24b95b6cbbb51621761fc3af}{l1d\+\_\+flush\+\_\+evaluate}} (unsigned long prev\+\_\+mm, unsigned long next\+\_\+mm, struct task\+\_\+struct $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}})
+\item 
+static unsigned long \mbox{\hyperlink{tlb_8c_a5e4534af632aa77e526c87398bf36132}{mm\+\_\+mangle\+\_\+tif\+\_\+spec\+\_\+bits}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}})
+\item 
+static void \mbox{\hyperlink{tlb_8c_a6088da30cbeda0ca3efa87d4276a8c3c}{cond\+\_\+mitigation}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}})
+\item 
+static void \mbox{\hyperlink{tlb_8c_abf8a188cd2a313c646325eba1a5431b4}{cr4\+\_\+update\+\_\+pce\+\_\+mm}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+void \mbox{\hyperlink{tlb_8c_aeecfb4b6e517f2d58f555454d6cee66d}{switch\+\_\+mm\+\_\+irqs\+\_\+off}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$\mbox{\hyperlink{mm_2interval__tree_8c_a79511b35a6c382701f3d62fa2a4aa741}{prev}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$\mbox{\hyperlink{include_2linux_2types_8h_af49ac2a78bf1f394a273530910fa5de2}{next}}, struct task\+\_\+struct $\ast$tsk)
+\item 
+void \mbox{\hyperlink{tlb_8c_a2496c6c06560a5da9c30db0e59803063}{enter\+\_\+lazy\+\_\+tlb}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct task\+\_\+struct $\ast$tsk)
+\item 
+void \mbox{\hyperlink{tlb_8c_afbb725a33f40d9636a743cd5b0edb0ed}{initialize\+\_\+tlbstate\+\_\+and\+\_\+flush}} (void)
+\item 
+static void \mbox{\hyperlink{tlb_8c_aeef47f7ebc672e4095dbf478ca6fa2d1}{flush\+\_\+tlb\+\_\+func}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{tlb_8c_a8e80a6797effe0b298923c1d26304465}{tlb\+\_\+is\+\_\+not\+\_\+lazy}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{tlb_8c_afaf4463744aeec1f84332bf8f5e5a61e}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (\mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}}, flush\+\_\+tlb\+\_\+mask)
+\item 
+\mbox{\hyperlink{tlb_8c_aff570ae75d36b25bcbf9e04f3bc36483}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+H\+A\+R\+E\+D\+\_\+\+A\+L\+I\+G\+N\+ED}} (struct \mbox{\hyperlink{structtlb__state__shared}{tlb\+\_\+state\+\_\+shared}}, cpu\+\_\+tlbstate\+\_\+shared)
+\item 
+\mbox{\hyperlink{tlb_8c_a82c218a4d637047effa731a83c55cf85}{E\+X\+P\+O\+R\+T\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+Y\+M\+B\+OL}} (cpu\+\_\+tlbstate\+\_\+shared)
+\item 
+\mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void \mbox{\hyperlink{tlb_8c_a44cf55e288530ebf02863151753d9fda}{native\+\_\+flush\+\_\+tlb\+\_\+multi}} (const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$\mbox{\hyperlink{structcpumask}{cpumask}}, const struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+void \mbox{\hyperlink{tlb_8c_a9f56daa0683e7ad1b0f1f29fd015bfa7}{flush\+\_\+tlb\+\_\+multi}} (const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$\mbox{\hyperlink{structcpumask}{cpumask}}, const struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static \mbox{\hyperlink{tlb_8c_a1d972f86343b939f79d03544286d1140}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+H\+A\+R\+E\+D\+\_\+\+A\+L\+I\+G\+N\+ED}} (struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}}, \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}})
+\item 
+static struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}} $\ast$ \mbox{\hyperlink{tlb_8c_af305021a66f2f8120c74943965d98d77}{get\+\_\+flush\+\_\+tlb\+\_\+info}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} stride\+\_\+shift, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} freed\+\_\+tables, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} new\+\_\+tlb\+\_\+gen)
+\item 
+static void \mbox{\hyperlink{tlb_8c_a925a340db71868c869a4af51cc3251e6}{put\+\_\+flush\+\_\+tlb\+\_\+info}} (void)
+\item 
+void \mbox{\hyperlink{tlb_8c_a401ccffd0c00cd8a6beefc0b1a301b3a}{flush\+\_\+tlb\+\_\+mm\+\_\+range}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} stride\+\_\+shift, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} freed\+\_\+tables)
+\item 
+static void \mbox{\hyperlink{tlb_8c_abaaebb7ca77d0e09571dea1afb30be3c}{do\+\_\+flush\+\_\+tlb\+\_\+all}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+void \mbox{\hyperlink{tlb_8c_a3291463a10cff32046a386fb2b07cc4b}{flush\+\_\+tlb\+\_\+all}} (void)
+\item 
+static void \mbox{\hyperlink{tlb_8c_a275c3c654b973cd530ea5eacb9aafff9}{do\+\_\+kernel\+\_\+range\+\_\+flush}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+void \mbox{\hyperlink{tlb_8c_a51150ebb59e5559cf73ee3d1d7a459ec}{flush\+\_\+tlb\+\_\+kernel\+\_\+range}} (unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+unsigned long \mbox{\hyperlink{tlb_8c_a00980ad4c28784ab7548394f12ae4c29}{\+\_\+\+\_\+get\+\_\+current\+\_\+cr3\+\_\+fast}} (void)
+\item 
+\mbox{\hyperlink{tlb_8c_a446079383e002eea8f0157a3f24fc129}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{tlb_8c_a00980ad4c28784ab7548394f12ae4c29}{\+\_\+\+\_\+get\+\_\+current\+\_\+cr3\+\_\+fast}})
+\item 
+void \mbox{\hyperlink{tlb_8c_aaed0a7131fa23153575341d7984abbbb}{flush\+\_\+tlb\+\_\+one\+\_\+kernel}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void \mbox{\hyperlink{tlb_8c_aedb9347e5235aac4ebff5aaf3ed25c63}{native\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+void \mbox{\hyperlink{tlb_8c_adf311672ed39c1051d7cbbe7338218de}{flush\+\_\+tlb\+\_\+one\+\_\+user}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void \mbox{\hyperlink{tlb_8c_a88d8c2265e4c92ca014ec047b03a199c}{native\+\_\+flush\+\_\+tlb\+\_\+global}} (void)
+\item 
+\mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void \mbox{\hyperlink{tlb_8c_a570401bc4cc998cc61860079fd819cd2}{native\+\_\+flush\+\_\+tlb\+\_\+local}} (void)
+\item 
+void \mbox{\hyperlink{tlb_8c_a3028a343c6d27e04b621d44639b02bc0}{flush\+\_\+tlb\+\_\+local}} (void)
+\item 
+void \mbox{\hyperlink{tlb_8c_a6016d6416178d7192c81001f1c57cc18}{\+\_\+\+\_\+flush\+\_\+tlb\+\_\+all}} (void)
+\item 
+\mbox{\hyperlink{tlb_8c_a9a5004a6990a71cf014cff3617c1c410}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{tlb_8c_a6016d6416178d7192c81001f1c57cc18}{\+\_\+\+\_\+flush\+\_\+tlb\+\_\+all}})
+\item 
+void \mbox{\hyperlink{tlb_8c_a6d835e7a8e99fae9e2ae03802e229047}{arch\+\_\+tlbbatch\+\_\+flush}} (struct \mbox{\hyperlink{structarch__tlbflush__unmap__batch}{arch\+\_\+tlbflush\+\_\+unmap\+\_\+batch}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_add3bc0e534276a1ac3ac16298c2822f5}{batch}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{tlb_8c_ae9e92af84a8a0ec0be68bcc60fc9eea2}{nmi\+\_\+uaccess\+\_\+okay}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{tlb_8c_a8d0f3919f78cca4095217e956f0e899b}{tlbflush\+\_\+read\+\_\+file}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+buf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{tlb_8c_a2164819c389666b8624d1456ec87296c}{tlbflush\+\_\+write\+\_\+file}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+buf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}}, loff\+\_\+t $\ast$ppos)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{tlb_8c_acc625d366247052dfe433fb8fde3c3ea}{create\+\_\+tlb\+\_\+single\+\_\+page\+\_\+flush\+\_\+ceiling}} (void)
+\item 
+\mbox{\hyperlink{tlb_8c_a851745c909430790560f84f3a7a96c8c}{late\+\_\+initcall}} (\mbox{\hyperlink{tlb_8c_acc625d366247052dfe433fb8fde3c3ea}{create\+\_\+tlb\+\_\+single\+\_\+page\+\_\+flush\+\_\+ceiling}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{structatomic64__t}{atomic64\+\_\+t}} \mbox{\hyperlink{tlb_8c_a44dd9adcbfa836b0a94c02d8a5d6fb03}{last\+\_\+mm\+\_\+ctx\+\_\+id}} = \mbox{\hyperlink{atomic64_8h_ae80e55de13c57f6a8a52ea81f763b82b}{A\+T\+O\+M\+I\+C64\+\_\+\+I\+N\+IT}}(1)
+\item 
+unsigned long \mbox{\hyperlink{mm__internal_8h_a56e7093425ca968e81a22050e4184698}{tlb\+\_\+single\+\_\+page\+\_\+flush\+\_\+ceiling}} \mbox{\hyperlink{tlb_8c_a24bb04145a9d7a0a49c5770a1aaf59c8}{\+\_\+\+\_\+read\+\_\+mostly}} = 33
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{tlb_8c_a73ec398245d3c7e212b1391bc5107e53}{fops\+\_\+tlbflush}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{tlb_8c_a26edead308f35555aecb9b3f957b15d7}\label{tlb_8c_a26edead308f35555aecb9b3f957b15d7}} 
+\index{tlb.c@{tlb.c}!\_\_flush\_tlb\_global@{\_\_flush\_tlb\_global}}
+\index{\_\_flush\_tlb\_global@{\_\_flush\_tlb\_global}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{\_\_flush\_tlb\_global}{\_\_flush\_tlb\_global}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+flush\+\_\+tlb\+\_\+global~\mbox{\hyperlink{tlb_8c_a88d8c2265e4c92ca014ec047b03a199c}{native\+\_\+flush\+\_\+tlb\+\_\+global}}}
+
+\mbox{\Hypertarget{tlb_8c_a0933aea8dad1078f01e26d86de105b3d}\label{tlb_8c_a0933aea8dad1078f01e26d86de105b3d}} 
+\index{tlb.c@{tlb.c}!\_\_flush\_tlb\_local@{\_\_flush\_tlb\_local}}
+\index{\_\_flush\_tlb\_local@{\_\_flush\_tlb\_local}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{\_\_flush\_tlb\_local}{\_\_flush\_tlb\_local}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+flush\+\_\+tlb\+\_\+local~\mbox{\hyperlink{tlb_8c_a570401bc4cc998cc61860079fd819cd2}{native\+\_\+flush\+\_\+tlb\+\_\+local}}}
+
+\mbox{\Hypertarget{tlb_8c_ac7fd7e1201c8ca9a214aace62a12730f}\label{tlb_8c_ac7fd7e1201c8ca9a214aace62a12730f}} 
+\index{tlb.c@{tlb.c}!\_\_flush\_tlb\_multi@{\_\_flush\_tlb\_multi}}
+\index{\_\_flush\_tlb\_multi@{\_\_flush\_tlb\_multi}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{\_\_flush\_tlb\_multi}{\_\_flush\_tlb\_multi}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+flush\+\_\+tlb\+\_\+multi(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{encode__rs_8c_a7c2e8aafc339180e987ef2531da1c509}{msk}},  }\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}} }\end{DoxyParamCaption})~\mbox{\hyperlink{tlb_8c_a44cf55e288530ebf02863151753d9fda}{native\+\_\+flush\+\_\+tlb\+\_\+multi}}(\mbox{\hyperlink{encode__rs_8c_a7c2e8aafc339180e987ef2531da1c509}{msk}}, \mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})}
+
+\mbox{\Hypertarget{tlb_8c_a009320992481faea4d5f03c86c5955bb}\label{tlb_8c_a009320992481faea4d5f03c86c5955bb}} 
+\index{tlb.c@{tlb.c}!\_\_flush\_tlb\_one\_user@{\_\_flush\_tlb\_one\_user}}
+\index{\_\_flush\_tlb\_one\_user@{\_\_flush\_tlb\_one\_user}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{\_\_flush\_tlb\_one\_user}{\_\_flush\_tlb\_one\_user}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}} }\end{DoxyParamCaption})~\mbox{\hyperlink{tlb_8c_aedb9347e5235aac4ebff5aaf3ed25c63}{native\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user}}(\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})}
+
+\mbox{\Hypertarget{tlb_8c_a0a7c534be70bd4c9b85187fcfa4db56e}\label{tlb_8c_a0a7c534be70bd4c9b85187fcfa4db56e}} 
+\index{tlb.c@{tlb.c}!CR3\_AVAIL\_PCID\_BITS@{CR3\_AVAIL\_PCID\_BITS}}
+\index{CR3\_AVAIL\_PCID\_BITS@{CR3\_AVAIL\_PCID\_BITS}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{CR3\_AVAIL\_PCID\_BITS}{CR3\_AVAIL\_PCID\_BITS}}
+{\footnotesize\ttfamily \#define C\+R3\+\_\+\+A\+V\+A\+I\+L\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS~(\mbox{\hyperlink{uapi_2asm_2processor-flags_8h_ab69ec2a9413f233caa7e36440426db61}{X86\+\_\+\+C\+R3\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}} -\/ \mbox{\hyperlink{tlb_8c_a42ff6403af4d152ba243052eb97e902d}{P\+T\+I\+\_\+\+C\+O\+N\+S\+U\+M\+E\+D\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{tlb_8c_a1d81575c72cc84d34135a936dad72638}\label{tlb_8c_a1d81575c72cc84d34135a936dad72638}} 
+\index{tlb.c@{tlb.c}!CR3\_HW\_ASID\_BITS@{CR3\_HW\_ASID\_BITS}}
+\index{CR3\_HW\_ASID\_BITS@{CR3\_HW\_ASID\_BITS}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{CR3\_HW\_ASID\_BITS}{CR3\_HW\_ASID\_BITS}}
+{\footnotesize\ttfamily \#define C\+R3\+\_\+\+H\+W\+\_\+\+A\+S\+I\+D\+\_\+\+B\+I\+TS~12}
+
+\mbox{\Hypertarget{tlb_8c_a7bbae316a1c39e2c9cb1de105e21be71}\label{tlb_8c_a7bbae316a1c39e2c9cb1de105e21be71}} 
+\index{tlb.c@{tlb.c}!LAST\_USER\_MM\_IBPB@{LAST\_USER\_MM\_IBPB}}
+\index{LAST\_USER\_MM\_IBPB@{LAST\_USER\_MM\_IBPB}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{LAST\_USER\_MM\_IBPB}{LAST\_USER\_MM\_IBPB}}
+{\footnotesize\ttfamily \#define L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+B\+PB~0x1\+UL}
+
+\mbox{\Hypertarget{tlb_8c_a37e8b1027137c383563fe587722412a4}\label{tlb_8c_a37e8b1027137c383563fe587722412a4}} 
+\index{tlb.c@{tlb.c}!LAST\_USER\_MM\_INIT@{LAST\_USER\_MM\_INIT}}
+\index{LAST\_USER\_MM\_INIT@{LAST\_USER\_MM\_INIT}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{LAST\_USER\_MM\_INIT}{LAST\_USER\_MM\_INIT}}
+{\footnotesize\ttfamily \#define L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+N\+IT~\mbox{\hyperlink{tlb_8c_a7bbae316a1c39e2c9cb1de105e21be71}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+B\+PB}}}
+
+\mbox{\Hypertarget{tlb_8c_a5565bbb728cd0591118f241259c3831f}\label{tlb_8c_a5565bbb728cd0591118f241259c3831f}} 
+\index{tlb.c@{tlb.c}!LAST\_USER\_MM\_L1D\_FLUSH@{LAST\_USER\_MM\_L1D\_FLUSH}}
+\index{LAST\_USER\_MM\_L1D\_FLUSH@{LAST\_USER\_MM\_L1D\_FLUSH}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{LAST\_USER\_MM\_L1D\_FLUSH}{LAST\_USER\_MM\_L1D\_FLUSH}}
+{\footnotesize\ttfamily \#define L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+L1\+D\+\_\+\+F\+L\+U\+SH~0x2\+UL}
+
+\mbox{\Hypertarget{tlb_8c_aaaa82e46e5dc234f1c29f21b0c997c92}\label{tlb_8c_aaaa82e46e5dc234f1c29f21b0c997c92}} 
+\index{tlb.c@{tlb.c}!LAST\_USER\_MM\_SPEC\_MASK@{LAST\_USER\_MM\_SPEC\_MASK}}
+\index{LAST\_USER\_MM\_SPEC\_MASK@{LAST\_USER\_MM\_SPEC\_MASK}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{LAST\_USER\_MM\_SPEC\_MASK}{LAST\_USER\_MM\_SPEC\_MASK}}
+{\footnotesize\ttfamily \#define L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+S\+P\+E\+C\+\_\+\+M\+A\+SK~(\mbox{\hyperlink{tlb_8c_a7bbae316a1c39e2c9cb1de105e21be71}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+I\+B\+PB}} $\vert$ \mbox{\hyperlink{tlb_8c_a5565bbb728cd0591118f241259c3831f}{L\+A\+S\+T\+\_\+\+U\+S\+E\+R\+\_\+\+M\+M\+\_\+\+L1\+D\+\_\+\+F\+L\+U\+SH}})}
+
+\mbox{\Hypertarget{tlb_8c_a7e7edc113dd9db3b6743717dd337a024}\label{tlb_8c_a7e7edc113dd9db3b6743717dd337a024}} 
+\index{tlb.c@{tlb.c}!MAX\_ASID\_AVAILABLE@{MAX\_ASID\_AVAILABLE}}
+\index{MAX\_ASID\_AVAILABLE@{MAX\_ASID\_AVAILABLE}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_ASID\_AVAILABLE}{MAX\_ASID\_AVAILABLE}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+A\+S\+I\+D\+\_\+\+A\+V\+A\+I\+L\+A\+B\+LE~((1 $<$$<$ \mbox{\hyperlink{tlb_8c_a0a7c534be70bd4c9b85187fcfa4db56e}{C\+R3\+\_\+\+A\+V\+A\+I\+L\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS}}) -\/ 2)}
+
+\mbox{\Hypertarget{tlb_8c_a42ff6403af4d152ba243052eb97e902d}\label{tlb_8c_a42ff6403af4d152ba243052eb97e902d}} 
+\index{tlb.c@{tlb.c}!PTI\_CONSUMED\_PCID\_BITS@{PTI\_CONSUMED\_PCID\_BITS}}
+\index{PTI\_CONSUMED\_PCID\_BITS@{PTI\_CONSUMED\_PCID\_BITS}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{PTI\_CONSUMED\_PCID\_BITS}{PTI\_CONSUMED\_PCID\_BITS}}
+{\footnotesize\ttfamily \#define P\+T\+I\+\_\+\+C\+O\+N\+S\+U\+M\+E\+D\+\_\+\+P\+C\+I\+D\+\_\+\+B\+I\+TS~0}
+
+\mbox{\Hypertarget{tlb_8c_a98c20d710028319ee79808637671e7b2}\label{tlb_8c_a98c20d710028319ee79808637671e7b2}} 
+\index{tlb.c@{tlb.c}!STATIC\_NOPV@{STATIC\_NOPV}}
+\index{STATIC\_NOPV@{STATIC\_NOPV}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{STATIC\_NOPV}{STATIC\_NOPV}}
+{\footnotesize\ttfamily \#define S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV~static}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{tlb_8c_a6016d6416178d7192c81001f1c57cc18}\label{tlb_8c_a6016d6416178d7192c81001f1c57cc18}} 
+\index{tlb.c@{tlb.c}!\_\_flush\_tlb\_all@{\_\_flush\_tlb\_all}}
+\index{\_\_flush\_tlb\_all@{\_\_flush\_tlb\_all}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{\_\_flush\_tlb\_all()}{\_\_flush\_tlb\_all()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+flush\+\_\+tlb\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{tlb_8c_a00980ad4c28784ab7548394f12ae4c29}\label{tlb_8c_a00980ad4c28784ab7548394f12ae4c29}} 
+\index{tlb.c@{tlb.c}!\_\_get\_current\_cr3\_fast@{\_\_get\_current\_cr3\_fast}}
+\index{\_\_get\_current\_cr3\_fast@{\_\_get\_current\_cr3\_fast}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{\_\_get\_current\_cr3\_fast()}{\_\_get\_current\_cr3\_fast()}}
+{\footnotesize\ttfamily unsigned long \+\_\+\+\_\+get\+\_\+current\+\_\+cr3\+\_\+fast (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{tlb_8c_a6d835e7a8e99fae9e2ae03802e229047}\label{tlb_8c_a6d835e7a8e99fae9e2ae03802e229047}} 
+\index{tlb.c@{tlb.c}!arch\_tlbbatch\_flush@{arch\_tlbbatch\_flush}}
+\index{arch\_tlbbatch\_flush@{arch\_tlbbatch\_flush}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{arch\_tlbbatch\_flush()}{arch\_tlbbatch\_flush()}}
+{\footnotesize\ttfamily void arch\+\_\+tlbbatch\+\_\+flush (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structarch__tlbflush__unmap__batch}{arch\+\_\+tlbflush\+\_\+unmap\+\_\+batch}} $\ast$}]{batch }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{tlb_8c_ace41764e994150729c6531dd03e1c1f0}\label{tlb_8c_ace41764e994150729c6531dd03e1c1f0}} 
+\index{tlb.c@{tlb.c}!build\_cr3@{build\_cr3}}
+\index{build\_cr3@{build\_cr3}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{build\_cr3()}{build\_cr3()}}
+{\footnotesize\ttfamily static unsigned long build\+\_\+cr3 (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{asid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{tlb_8c_af9e3ddd5292d1e36ee0fa6da549036d0}\label{tlb_8c_af9e3ddd5292d1e36ee0fa6da549036d0}} 
+\index{tlb.c@{tlb.c}!build\_cr3\_noflush@{build\_cr3\_noflush}}
+\index{build\_cr3\_noflush@{build\_cr3\_noflush}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{build\_cr3\_noflush()}{build\_cr3\_noflush()}}
+{\footnotesize\ttfamily static unsigned long build\+\_\+cr3\+\_\+noflush (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgd,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{asid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{tlb_8c_a56ee65c52192e6d7092fd80e5e1a7062}\label{tlb_8c_a56ee65c52192e6d7092fd80e5e1a7062}} 
+\index{tlb.c@{tlb.c}!choose\_new\_asid@{choose\_new\_asid}}
+\index{choose\_new\_asid@{choose\_new\_asid}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{choose\_new\_asid()}{choose\_new\_asid()}}
+{\footnotesize\ttfamily static void choose\+\_\+new\+\_\+asid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{next,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{next\+\_\+tlb\+\_\+gen,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} $\ast$}]{new\+\_\+asid,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$}]{need\+\_\+flush }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{tlb_8c_aa6b2487b17d374813f82ac6f994cc1c4}\label{tlb_8c_aa6b2487b17d374813f82ac6f994cc1c4}} 
+\index{tlb.c@{tlb.c}!clear\_asid\_other@{clear\_asid\_other}}
+\index{clear\_asid\_other@{clear\_asid\_other}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{clear\_asid\_other()}{clear\_asid\_other()}}
+{\footnotesize\ttfamily static void clear\+\_\+asid\+\_\+other (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{tlb_8c_a6088da30cbeda0ca3efa87d4276a8c3c}\label{tlb_8c_a6088da30cbeda0ca3efa87d4276a8c3c}} 
+\index{tlb.c@{tlb.c}!cond\_mitigation@{cond\_mitigation}}
+\index{cond\_mitigation@{cond\_mitigation}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{cond\_mitigation()}{cond\_mitigation()}}
+{\footnotesize\ttfamily static void cond\+\_\+mitigation (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{next }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{tlb_8c_abf8a188cd2a313c646325eba1a5431b4}\label{tlb_8c_abf8a188cd2a313c646325eba1a5431b4}} 
+\index{tlb.c@{tlb.c}!cr4\_update\_pce\_mm@{cr4\_update\_pce\_mm}}
+\index{cr4\_update\_pce\_mm@{cr4\_update\_pce\_mm}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{cr4\_update\_pce\_mm()}{cr4\_update\_pce\_mm()}}
+{\footnotesize\ttfamily static void cr4\+\_\+update\+\_\+pce\+\_\+mm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{tlb_8c_acc625d366247052dfe433fb8fde3c3ea}\label{tlb_8c_acc625d366247052dfe433fb8fde3c3ea}} 
+\index{tlb.c@{tlb.c}!create\_tlb\_single\_page\_flush\_ceiling@{create\_tlb\_single\_page\_flush\_ceiling}}
+\index{create\_tlb\_single\_page\_flush\_ceiling@{create\_tlb\_single\_page\_flush\_ceiling}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{create\_tlb\_single\_page\_flush\_ceiling()}{create\_tlb\_single\_page\_flush\_ceiling()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} create\+\_\+tlb\+\_\+single\+\_\+page\+\_\+flush\+\_\+ceiling (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{tlb_8c_afaf4463744aeec1f84332bf8f5e5a61e}\label{tlb_8c_afaf4463744aeec1f84332bf8f5e5a61e}} 
+\index{tlb.c@{tlb.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}}}]{,  }\item[{flush\+\_\+tlb\+\_\+mask}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tlb_8c_a1d972f86343b939f79d03544286d1140}\label{tlb_8c_a1d972f86343b939f79d03544286d1140}} 
+\index{tlb.c@{tlb.c}!DEFINE\_PER\_CPU\_SHARED\_ALIGNED@{DEFINE\_PER\_CPU\_SHARED\_ALIGNED}}
+\index{DEFINE\_PER\_CPU\_SHARED\_ALIGNED@{DEFINE\_PER\_CPU\_SHARED\_ALIGNED}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU\_SHARED\_ALIGNED()}{DEFINE\_PER\_CPU\_SHARED\_ALIGNED()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+H\+A\+R\+E\+D\+\_\+\+A\+L\+I\+G\+N\+ED (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}}}]{,  }\item[{\mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{tlb_8c_aff570ae75d36b25bcbf9e04f3bc36483}\label{tlb_8c_aff570ae75d36b25bcbf9e04f3bc36483}} 
+\index{tlb.c@{tlb.c}!DEFINE\_PER\_CPU\_SHARED\_ALIGNED@{DEFINE\_PER\_CPU\_SHARED\_ALIGNED}}
+\index{DEFINE\_PER\_CPU\_SHARED\_ALIGNED@{DEFINE\_PER\_CPU\_SHARED\_ALIGNED}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU\_SHARED\_ALIGNED()}{DEFINE\_PER\_CPU\_SHARED\_ALIGNED()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+H\+A\+R\+E\+D\+\_\+\+A\+L\+I\+G\+N\+ED (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtlb__state__shared}{tlb\+\_\+state\+\_\+shared}}}]{,  }\item[{cpu\+\_\+tlbstate\+\_\+shared}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tlb_8c_abaaebb7ca77d0e09571dea1afb30be3c}\label{tlb_8c_abaaebb7ca77d0e09571dea1afb30be3c}} 
+\index{tlb.c@{tlb.c}!do\_flush\_tlb\_all@{do\_flush\_tlb\_all}}
+\index{do\_flush\_tlb\_all@{do\_flush\_tlb\_all}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{do\_flush\_tlb\_all()}{do\_flush\_tlb\_all()}}
+{\footnotesize\ttfamily static void do\+\_\+flush\+\_\+tlb\+\_\+all (\begin{DoxyParamCaption}\item[{void $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{tlb_8c_a275c3c654b973cd530ea5eacb9aafff9}\label{tlb_8c_a275c3c654b973cd530ea5eacb9aafff9}} 
+\index{tlb.c@{tlb.c}!do\_kernel\_range\_flush@{do\_kernel\_range\_flush}}
+\index{do\_kernel\_range\_flush@{do\_kernel\_range\_flush}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{do\_kernel\_range\_flush()}{do\_kernel\_range\_flush()}}
+{\footnotesize\ttfamily static void do\+\_\+kernel\+\_\+range\+\_\+flush (\begin{DoxyParamCaption}\item[{void $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{tlb_8c_a2496c6c06560a5da9c30db0e59803063}\label{tlb_8c_a2496c6c06560a5da9c30db0e59803063}} 
+\index{tlb.c@{tlb.c}!enter\_lazy\_tlb@{enter\_lazy\_tlb}}
+\index{enter\_lazy\_tlb@{enter\_lazy\_tlb}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{enter\_lazy\_tlb()}{enter\_lazy\_tlb()}}
+{\footnotesize\ttfamily void enter\+\_\+lazy\+\_\+tlb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tlb_8c_a82c218a4d637047effa731a83c55cf85}\label{tlb_8c_a82c218a4d637047effa731a83c55cf85}} 
+\index{tlb.c@{tlb.c}!EXPORT\_PER\_CPU\_SYMBOL@{EXPORT\_PER\_CPU\_SYMBOL}}
+\index{EXPORT\_PER\_CPU\_SYMBOL@{EXPORT\_PER\_CPU\_SYMBOL}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_PER\_CPU\_SYMBOL()}{EXPORT\_PER\_CPU\_SYMBOL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{cpu\+\_\+tlbstate\+\_\+shared}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tlb_8c_a9a5004a6990a71cf014cff3617c1c410}\label{tlb_8c_a9a5004a6990a71cf014cff3617c1c410}} 
+\index{tlb.c@{tlb.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tlb_8c_a6016d6416178d7192c81001f1c57cc18}{\+\_\+\+\_\+flush\+\_\+tlb\+\_\+all}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tlb_8c_a446079383e002eea8f0157a3f24fc129}\label{tlb_8c_a446079383e002eea8f0157a3f24fc129}} 
+\index{tlb.c@{tlb.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tlb_8c_a00980ad4c28784ab7548394f12ae4c29}{\+\_\+\+\_\+get\+\_\+current\+\_\+cr3\+\_\+fast}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tlb_8c_a0d33eb74a3301c4f4eb7c328fbeb554c}\label{tlb_8c_a0d33eb74a3301c4f4eb7c328fbeb554c}} 
+\index{tlb.c@{tlb.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2mmu__context_8h_af6e8c8ec48da9179aa065edd138c4294}{leave\+\_\+mm}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tlb_8c_a3291463a10cff32046a386fb2b07cc4b}\label{tlb_8c_a3291463a10cff32046a386fb2b07cc4b}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_all@{flush\_tlb\_all}}
+\index{flush\_tlb\_all@{flush\_tlb\_all}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_all()}{flush\_tlb\_all()}}
+{\footnotesize\ttfamily void flush\+\_\+tlb\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{tlb_8c_aeef47f7ebc672e4095dbf478ca6fa2d1}\label{tlb_8c_aeef47f7ebc672e4095dbf478ca6fa2d1}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_func@{flush\_tlb\_func}}
+\index{flush\_tlb\_func@{flush\_tlb\_func}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_func()}{flush\_tlb\_func()}}
+{\footnotesize\ttfamily static void flush\+\_\+tlb\+\_\+func (\begin{DoxyParamCaption}\item[{void $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{tlb_8c_a51150ebb59e5559cf73ee3d1d7a459ec}\label{tlb_8c_a51150ebb59e5559cf73ee3d1d7a459ec}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_kernel\_range@{flush\_tlb\_kernel\_range}}
+\index{flush\_tlb\_kernel\_range@{flush\_tlb\_kernel\_range}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_kernel\_range()}{flush\_tlb\_kernel\_range()}}
+{\footnotesize\ttfamily void flush\+\_\+tlb\+\_\+kernel\+\_\+range (\begin{DoxyParamCaption}\item[{unsigned long}]{start,  }\item[{unsigned long}]{end }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{tlb_8c_a3028a343c6d27e04b621d44639b02bc0}\label{tlb_8c_a3028a343c6d27e04b621d44639b02bc0}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_local@{flush\_tlb\_local}}
+\index{flush\_tlb\_local@{flush\_tlb\_local}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_local()}{flush\_tlb\_local()}}
+{\footnotesize\ttfamily void flush\+\_\+tlb\+\_\+local (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{tlb_8c_a401ccffd0c00cd8a6beefc0b1a301b3a}\label{tlb_8c_a401ccffd0c00cd8a6beefc0b1a301b3a}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_mm\_range@{flush\_tlb\_mm\_range}}
+\index{flush\_tlb\_mm\_range@{flush\_tlb\_mm\_range}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_mm\_range()}{flush\_tlb\_mm\_range()}}
+{\footnotesize\ttfamily void flush\+\_\+tlb\+\_\+mm\+\_\+range (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{start,  }\item[{unsigned long}]{end,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{stride\+\_\+shift,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{freed\+\_\+tables }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{tlb_8c_a9f56daa0683e7ad1b0f1f29fd015bfa7}\label{tlb_8c_a9f56daa0683e7ad1b0f1f29fd015bfa7}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_multi@{flush\_tlb\_multi}}
+\index{flush\_tlb\_multi@{flush\_tlb\_multi}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_multi()}{flush\_tlb\_multi()}}
+{\footnotesize\ttfamily void flush\+\_\+tlb\+\_\+multi (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$}]{cpumask,  }\item[{const struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{tlb_8c_aaed0a7131fa23153575341d7984abbbb}\label{tlb_8c_aaed0a7131fa23153575341d7984abbbb}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_one\_kernel@{flush\_tlb\_one\_kernel}}
+\index{flush\_tlb\_one\_kernel@{flush\_tlb\_one\_kernel}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_one\_kernel()}{flush\_tlb\_one\_kernel()}}
+{\footnotesize\ttfamily void flush\+\_\+tlb\+\_\+one\+\_\+kernel (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{tlb_8c_adf311672ed39c1051d7cbbe7338218de}\label{tlb_8c_adf311672ed39c1051d7cbbe7338218de}} 
+\index{tlb.c@{tlb.c}!flush\_tlb\_one\_user@{flush\_tlb\_one\_user}}
+\index{flush\_tlb\_one\_user@{flush\_tlb\_one\_user}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{flush\_tlb\_one\_user()}{flush\_tlb\_one\_user()}}
+{\footnotesize\ttfamily void flush\+\_\+tlb\+\_\+one\+\_\+user (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{tlb_8c_af305021a66f2f8120c74943965d98d77}\label{tlb_8c_af305021a66f2f8120c74943965d98d77}} 
+\index{tlb.c@{tlb.c}!get\_flush\_tlb\_info@{get\_flush\_tlb\_info}}
+\index{get\_flush\_tlb\_info@{get\_flush\_tlb\_info}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{get\_flush\_tlb\_info()}{get\_flush\_tlb\_info()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}}$\ast$ get\+\_\+flush\+\_\+tlb\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{start,  }\item[{unsigned long}]{end,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{stride\+\_\+shift,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{freed\+\_\+tables,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{new\+\_\+tlb\+\_\+gen }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{tlb_8c_afbb725a33f40d9636a743cd5b0edb0ed}\label{tlb_8c_afbb725a33f40d9636a743cd5b0edb0ed}} 
+\index{tlb.c@{tlb.c}!initialize\_tlbstate\_and\_flush@{initialize\_tlbstate\_and\_flush}}
+\index{initialize\_tlbstate\_and\_flush@{initialize\_tlbstate\_and\_flush}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{initialize\_tlbstate\_and\_flush()}{initialize\_tlbstate\_and\_flush()}}
+{\footnotesize\ttfamily void initialize\+\_\+tlbstate\+\_\+and\+\_\+flush (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{tlb_8c_a0ef132a879eab0f908c912e7436da738}\label{tlb_8c_a0ef132a879eab0f908c912e7436da738}} 
+\index{tlb.c@{tlb.c}!invalidate\_user\_asid@{invalidate\_user\_asid}}
+\index{invalidate\_user\_asid@{invalidate\_user\_asid}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{invalidate\_user\_asid()}{invalidate\_user\_asid()}}
+{\footnotesize\ttfamily static void invalidate\+\_\+user\+\_\+asid (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{asid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{tlb_8c_a85ca8b83405168d428d6961356513288}\label{tlb_8c_a85ca8b83405168d428d6961356513288}} 
+\index{tlb.c@{tlb.c}!kern\_pcid@{kern\_pcid}}
+\index{kern\_pcid@{kern\_pcid}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{kern\_pcid()}{kern\_pcid()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} kern\+\_\+pcid (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{asid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{tlb_8c_a2a09d6be24b95b6cbbb51621761fc3af}\label{tlb_8c_a2a09d6be24b95b6cbbb51621761fc3af}} 
+\index{tlb.c@{tlb.c}!l1d\_flush\_evaluate@{l1d\_flush\_evaluate}}
+\index{l1d\_flush\_evaluate@{l1d\_flush\_evaluate}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{l1d\_flush\_evaluate()}{l1d\_flush\_evaluate()}}
+{\footnotesize\ttfamily static void l1d\+\_\+flush\+\_\+evaluate (\begin{DoxyParamCaption}\item[{unsigned long}]{prev\+\_\+mm,  }\item[{unsigned long}]{next\+\_\+mm,  }\item[{struct task\+\_\+struct $\ast$}]{next }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{tlb_8c_a227afdee27f0aceee7d146b61254c3f7}\label{tlb_8c_a227afdee27f0aceee7d146b61254c3f7}} 
+\index{tlb.c@{tlb.c}!l1d\_flush\_force\_sigbus@{l1d\_flush\_force\_sigbus}}
+\index{l1d\_flush\_force\_sigbus@{l1d\_flush\_force\_sigbus}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{l1d\_flush\_force\_sigbus()}{l1d\_flush\_force\_sigbus()}}
+{\footnotesize\ttfamily static void l1d\+\_\+flush\+\_\+force\+\_\+sigbus (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$}]{ch }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{tlb_8c_a851745c909430790560f84f3a7a96c8c}\label{tlb_8c_a851745c909430790560f84f3a7a96c8c}} 
+\index{tlb.c@{tlb.c}!late\_initcall@{late\_initcall}}
+\index{late\_initcall@{late\_initcall}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall()}{late\_initcall()}}
+{\footnotesize\ttfamily late\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{tlb_8c_acc625d366247052dfe433fb8fde3c3ea}{create\+\_\+tlb\+\_\+single\+\_\+page\+\_\+flush\+\_\+ceiling}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{tlb_8c_abb5f2280b0a6aa63d11682e1404985c8}\label{tlb_8c_abb5f2280b0a6aa63d11682e1404985c8}} 
+\index{tlb.c@{tlb.c}!leave\_mm@{leave\_mm}}
+\index{leave\_mm@{leave\_mm}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{leave\_mm()}{leave\_mm()}}
+{\footnotesize\ttfamily void leave\+\_\+mm (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{tlb_8c_a62d36283e88a966f7940e45dbe65bc2b}\label{tlb_8c_a62d36283e88a966f7940e45dbe65bc2b}} 
+\index{tlb.c@{tlb.c}!load\_new\_mm\_cr3@{load\_new\_mm\_cr3}}
+\index{load\_new\_mm\_cr3@{load\_new\_mm\_cr3}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{load\_new\_mm\_cr3()}{load\_new\_mm\_cr3()}}
+{\footnotesize\ttfamily static void load\+\_\+new\+\_\+mm\+\_\+cr3 (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structpgd__t}{pgd\+\_\+t}} $\ast$}]{pgdir,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{new\+\_\+asid,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{need\+\_\+flush }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{tlb_8c_a5e4534af632aa77e526c87398bf36132}\label{tlb_8c_a5e4534af632aa77e526c87398bf36132}} 
+\index{tlb.c@{tlb.c}!mm\_mangle\_tif\_spec\_bits@{mm\_mangle\_tif\_spec\_bits}}
+\index{mm\_mangle\_tif\_spec\_bits@{mm\_mangle\_tif\_spec\_bits}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{mm\_mangle\_tif\_spec\_bits()}{mm\_mangle\_tif\_spec\_bits()}}
+{\footnotesize\ttfamily static unsigned long mm\+\_\+mangle\+\_\+tif\+\_\+spec\+\_\+bits (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{next }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{tlb_8c_a88d8c2265e4c92ca014ec047b03a199c}\label{tlb_8c_a88d8c2265e4c92ca014ec047b03a199c}} 
+\index{tlb.c@{tlb.c}!native\_flush\_tlb\_global@{native\_flush\_tlb\_global}}
+\index{native\_flush\_tlb\_global@{native\_flush\_tlb\_global}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{native\_flush\_tlb\_global()}{native\_flush\_tlb\_global()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void native\+\_\+flush\+\_\+tlb\+\_\+global (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{tlb_8c_a570401bc4cc998cc61860079fd819cd2}\label{tlb_8c_a570401bc4cc998cc61860079fd819cd2}} 
+\index{tlb.c@{tlb.c}!native\_flush\_tlb\_local@{native\_flush\_tlb\_local}}
+\index{native\_flush\_tlb\_local@{native\_flush\_tlb\_local}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{native\_flush\_tlb\_local()}{native\_flush\_tlb\_local()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void native\+\_\+flush\+\_\+tlb\+\_\+local (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{tlb_8c_a44cf55e288530ebf02863151753d9fda}\label{tlb_8c_a44cf55e288530ebf02863151753d9fda}} 
+\index{tlb.c@{tlb.c}!native\_flush\_tlb\_multi@{native\_flush\_tlb\_multi}}
+\index{native\_flush\_tlb\_multi@{native\_flush\_tlb\_multi}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{native\_flush\_tlb\_multi()}{native\_flush\_tlb\_multi()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void native\+\_\+flush\+\_\+tlb\+\_\+multi (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structcpumask}{cpumask}} $\ast$}]{cpumask,  }\item[{const struct \mbox{\hyperlink{structflush__tlb__info}{flush\+\_\+tlb\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{tlb_8c_aedb9347e5235aac4ebff5aaf3ed25c63}\label{tlb_8c_aedb9347e5235aac4ebff5aaf3ed25c63}} 
+\index{tlb.c@{tlb.c}!native\_flush\_tlb\_one\_user@{native\_flush\_tlb\_one\_user}}
+\index{native\_flush\_tlb\_one\_user@{native\_flush\_tlb\_one\_user}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{native\_flush\_tlb\_one\_user()}{native\_flush\_tlb\_one\_user()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{tlb_8c_a98c20d710028319ee79808637671e7b2}{S\+T\+A\+T\+I\+C\+\_\+\+N\+O\+PV}} void native\+\_\+flush\+\_\+tlb\+\_\+one\+\_\+user (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{tlb_8c_ae9e92af84a8a0ec0be68bcc60fc9eea2}\label{tlb_8c_ae9e92af84a8a0ec0be68bcc60fc9eea2}} 
+\index{tlb.c@{tlb.c}!nmi\_uaccess\_okay@{nmi\_uaccess\_okay}}
+\index{nmi\_uaccess\_okay@{nmi\_uaccess\_okay}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{nmi\_uaccess\_okay()}{nmi\_uaccess\_okay()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} nmi\+\_\+uaccess\+\_\+okay (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{tlb_8c_a925a340db71868c869a4af51cc3251e6}\label{tlb_8c_a925a340db71868c869a4af51cc3251e6}} 
+\index{tlb.c@{tlb.c}!put\_flush\_tlb\_info@{put\_flush\_tlb\_info}}
+\index{put\_flush\_tlb\_info@{put\_flush\_tlb\_info}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{put\_flush\_tlb\_info()}{put\_flush\_tlb\_info()}}
+{\footnotesize\ttfamily static void put\+\_\+flush\+\_\+tlb\+\_\+info (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{tlb_8c_ab19d1571f05bd40fa62cacb819c7ae30}\label{tlb_8c_ab19d1571f05bd40fa62cacb819c7ae30}} 
+\index{tlb.c@{tlb.c}!switch\_mm@{switch\_mm}}
+\index{switch\_mm@{switch\_mm}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{switch\_mm()}{switch\_mm()}}
+{\footnotesize\ttfamily void switch\+\_\+mm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{prev,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{next,  }\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{tlb_8c_aeecfb4b6e517f2d58f555454d6cee66d}\label{tlb_8c_aeecfb4b6e517f2d58f555454d6cee66d}} 
+\index{tlb.c@{tlb.c}!switch\_mm\_irqs\_off@{switch\_mm\_irqs\_off}}
+\index{switch\_mm\_irqs\_off@{switch\_mm\_irqs\_off}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{switch\_mm\_irqs\_off()}{switch\_mm\_irqs\_off()}}
+{\footnotesize\ttfamily void switch\+\_\+mm\+\_\+irqs\+\_\+off (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{prev,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{next,  }\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{tlb_8c_a8e80a6797effe0b298923c1d26304465}\label{tlb_8c_a8e80a6797effe0b298923c1d26304465}} 
+\index{tlb.c@{tlb.c}!tlb\_is\_not\_lazy@{tlb\_is\_not\_lazy}}
+\index{tlb\_is\_not\_lazy@{tlb\_is\_not\_lazy}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{tlb\_is\_not\_lazy()}{tlb\_is\_not\_lazy()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} tlb\+\_\+is\+\_\+not\+\_\+lazy (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{tlb_8c_a8d0f3919f78cca4095217e956f0e899b}\label{tlb_8c_a8d0f3919f78cca4095217e956f0e899b}} 
+\index{tlb.c@{tlb.c}!tlbflush\_read\_file@{tlbflush\_read\_file}}
+\index{tlbflush\_read\_file@{tlbflush\_read\_file}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{tlbflush\_read\_file()}{tlbflush\_read\_file()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} tlbflush\+\_\+read\+\_\+file (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{tlb_8c_a2164819c389666b8624d1456ec87296c}\label{tlb_8c_a2164819c389666b8624d1456ec87296c}} 
+\index{tlb.c@{tlb.c}!tlbflush\_write\_file@{tlbflush\_write\_file}}
+\index{tlbflush\_write\_file@{tlbflush\_write\_file}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{tlbflush\_write\_file()}{tlbflush\_write\_file()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} tlbflush\+\_\+write\+\_\+file (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{tlb_8c_a360132d3ca12b4e16a1c73abf7d52771}\label{tlb_8c_a360132d3ca12b4e16a1c73abf7d52771}} 
+\index{tlb.c@{tlb.c}!user\_pcid@{user\_pcid}}
+\index{user\_pcid@{user\_pcid}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{user\_pcid()}{user\_pcid()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} user\+\_\+pcid (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{asid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{tlb_8c_a24bb04145a9d7a0a49c5770a1aaf59c8}\label{tlb_8c_a24bb04145a9d7a0a49c5770a1aaf59c8}} 
+\index{tlb.c@{tlb.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily unsigned long \mbox{\hyperlink{mm__internal_8h_a56e7093425ca968e81a22050e4184698}{tlb\+\_\+single\+\_\+page\+\_\+flush\+\_\+ceiling}} \+\_\+\+\_\+read\+\_\+mostly = 33}
+
+\mbox{\Hypertarget{tlb_8c_a73ec398245d3c7e212b1391bc5107e53}\label{tlb_8c_a73ec398245d3c7e212b1391bc5107e53}} 
+\index{tlb.c@{tlb.c}!fops\_tlbflush@{fops\_tlbflush}}
+\index{fops\_tlbflush@{fops\_tlbflush}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{fops\_tlbflush}{fops\_tlbflush}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} fops\+\_\+tlbflush\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .read = \mbox{\hyperlink{tlb_8c_a8d0f3919f78cca4095217e956f0e899b}{tlbflush\_read\_file}},}
+\DoxyCodeLine{    .write = \mbox{\hyperlink{tlb_8c_a2164819c389666b8624d1456ec87296c}{tlbflush\_write\_file}},}
+\DoxyCodeLine{    .llseek = \mbox{\hyperlink{linux_2fs_8h_a006a0507ddc59251e0f080b38814f088}{default\_llseek}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{tlb_8c_a44dd9adcbfa836b0a94c02d8a5d6fb03}\label{tlb_8c_a44dd9adcbfa836b0a94c02d8a5d6fb03}} 
+\index{tlb.c@{tlb.c}!last\_mm\_ctx\_id@{last\_mm\_ctx\_id}}
+\index{last\_mm\_ctx\_id@{last\_mm\_ctx\_id}!tlb.c@{tlb.c}}
+\doxysubsubsection{\texorpdfstring{last\_mm\_ctx\_id}{last\_mm\_ctx\_id}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic64__t}{atomic64\+\_\+t}} last\+\_\+mm\+\_\+ctx\+\_\+id = \mbox{\hyperlink{atomic64_8h_ae80e55de13c57f6a8a52ea81f763b82b}{A\+T\+O\+M\+I\+C64\+\_\+\+I\+N\+IT}}(1)}
+

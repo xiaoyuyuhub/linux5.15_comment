@@ -1,0 +1,1346 @@
+\hypertarget{kernel_2events_2uprobes_8c}{}\doxysection{kernel/events/uprobes.c File Reference}
+\label{kernel_2events_2uprobes_8c}\index{kernel/events/uprobes.c@{kernel/events/uprobes.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/highmem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagemap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/coredump.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rmap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mmu\+\_\+notifier.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ptrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kdebug.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}../../mm/internal.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$linux/percpu-\/rwsem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/task\+\_\+work.\+h$>$}\newline
+{\ttfamily \#include $<$linux/shmem\+\_\+fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/khugepaged.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uprobes.\+h$>$}\newline
+Include dependency graph for uprobes.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structuprobe}{uprobe}}
+\item 
+struct \mbox{\hyperlink{structdelayed__uprobe}{delayed\+\_\+uprobe}}
+\item 
+struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}}
+\item 
+struct \mbox{\hyperlink{struct____uprobe__key}{\+\_\+\+\_\+uprobe\+\_\+key}}
+\item 
+struct \mbox{\hyperlink{structmap__info}{map\+\_\+info}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kernel_2events_2uprobes_8c_ad72a1c7d35e518cbea0f07f7a9bfc60c}{U\+I\+N\+S\+N\+S\+\_\+\+P\+E\+R\+\_\+\+P\+A\+GE}}~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}}/\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_acebd0fcc93b7f86c7545c4fabca17248}{U\+P\+R\+O\+B\+E\+\_\+\+X\+O\+L\+\_\+\+S\+L\+O\+T\+\_\+\+B\+Y\+T\+ES}})
+\item 
+\#define \mbox{\hyperlink{kernel_2events_2uprobes_8c_abd5a425a86092410ce9603ab1419efb5}{M\+A\+X\+\_\+\+U\+P\+R\+O\+B\+E\+\_\+\+X\+O\+L\+\_\+\+S\+L\+O\+TS}}~\mbox{\hyperlink{kernel_2events_2uprobes_8c_ad72a1c7d35e518cbea0f07f7a9bfc60c}{U\+I\+N\+S\+N\+S\+\_\+\+P\+E\+R\+\_\+\+P\+A\+GE}}
+\item 
+\#define \mbox{\hyperlink{kernel_2events_2uprobes_8c_a407692068ac0d50da5f91aa2570b8de1}{no\+\_\+uprobe\+\_\+events}}()~\mbox{\hyperlink{rbtree_8h_a27d6d30750b25bc59c04ad79f048a035}{R\+B\+\_\+\+E\+M\+P\+T\+Y\+\_\+\+R\+O\+OT}}(\&\mbox{\hyperlink{kernel_2events_2uprobes_8c_af636eca246f3711a3528d604a0506e8c}{uprobes\+\_\+tree}})
+\item 
+\#define \mbox{\hyperlink{kernel_2events_2uprobes_8c_a034f7455cc586ef6ad191d455a6935b5}{U\+P\+R\+O\+B\+E\+S\+\_\+\+H\+A\+S\+H\+\_\+\+SZ}}~13
+\item 
+\#define \mbox{\hyperlink{kernel_2events_2uprobes_8c_afa3c81c83a793b9b407aaff8ab974d3b}{uprobes\+\_\+mmap\+\_\+hash}}(v)~(\&\mbox{\hyperlink{kernel_2events_2uprobes_8c_a58b9cb1f5d39fc9b056afc8942c0835b}{uprobes\+\_\+mmap\+\_\+mutex}}\mbox{[}((unsigned long)(v)) \% \mbox{\hyperlink{kernel_2events_2uprobes_8c_a034f7455cc586ef6ad191d455a6935b5}{U\+P\+R\+O\+B\+E\+S\+\_\+\+H\+A\+S\+H\+\_\+\+SZ}}\mbox{]})
+\item 
+\#define \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae1ad52a9a6242c488e4c622ffb176e69}{U\+P\+R\+O\+B\+E\+\_\+\+C\+O\+P\+Y\+\_\+\+I\+N\+SN}}~0
+\item 
+\#define \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac9240e43967f8fe572c27a85853f2280}{\+\_\+\+\_\+node\+\_\+2\+\_\+uprobe}}(\mbox{\hyperlink{structnode}{node}})~\mbox{\hyperlink{rbtree_8h_aedf476fcb61d6b2c7e77d811dfd9071a}{rb\+\_\+entry}}((\mbox{\hyperlink{structnode}{node}}), struct \mbox{\hyperlink{structuprobe}{uprobe}}, \mbox{\hyperlink{structrb__node}{rb\+\_\+node}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{kernel_2events_2uprobes_8c_a14c8c6a510b6d65c3c0cd6656e7d90b6}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (uprobes\+\_\+treelock)
+\item 
+\mbox{\hyperlink{kernel_2events_2uprobes_8c_aa24fc54ebf820f3b6b7693b707e580da}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+P\+E\+R\+C\+P\+U\+\_\+\+R\+W\+S\+EM}} (dup\+\_\+mmap\+\_\+sem)
+\item 
+static \mbox{\hyperlink{kernel_2events_2uprobes_8c_a949a50847f165551dc789a87e624a0bc}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (delayed\+\_\+uprobe\+\_\+lock)
+\item 
+static \mbox{\hyperlink{kernel_2events_2uprobes_8c_a8da358a1b2a8a604ca81442d27617ec1}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (delayed\+\_\+uprobe\+\_\+list)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_af23e0df55e819edb255fd7acb845f372}{valid\+\_\+vma}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+register)
+\item 
+static unsigned long \mbox{\hyperlink{kernel_2events_2uprobes_8c_a21b56aca59dffd9486542649fbe6d863}{offset\+\_\+to\+\_\+vaddr}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static loff\+\_\+t \mbox{\hyperlink{kernel_2events_2uprobes_8c_af02e3cb8fa7107572cf931113edeaeb9}{vaddr\+\_\+to\+\_\+offset}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long vaddr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac55df7bb194ae80374146a7336dfa1e5}{\+\_\+\+\_\+replace\+\_\+page}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$old\+\_\+page, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{mempolicy_8c_ab1661b9de1855f567993e9964a1d83e3}{new\+\_\+page}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a40a362f9f7103732aa0f714bea7e5516}{is\+\_\+swbp\+\_\+insn}} (\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}} $\ast$\mbox{\hyperlink{structinsn}{insn}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ab15feb9a7b08460b80b3be569f878195}{is\+\_\+trap\+\_\+insn}} (\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}} $\ast$\mbox{\hyperlink{structinsn}{insn}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_aa8f762c036b2cbaab936fafa5bb6003b}{copy\+\_\+from\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, unsigned long vaddr, void $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a6b82da9583c2aae48b29e2212193705a}{copy\+\_\+to\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, unsigned long vaddr, const void $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_af7e5d54502026e80e6a44364b6da04a4}{verify\+\_\+opcode}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, unsigned long vaddr, \mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}} $\ast$new\+\_\+opcode)
+\item 
+static struct \mbox{\hyperlink{structdelayed__uprobe}{delayed\+\_\+uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a3c582a05122fc382e29de41abe5cb926}{delayed\+\_\+uprobe\+\_\+check}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a2787a5bd4c4b52bd09b10a8674dc4e6b}{delayed\+\_\+uprobe\+\_\+add}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a101c43fbb0ef17d1755a6cb0728fb883}{delayed\+\_\+uprobe\+\_\+delete}} (struct \mbox{\hyperlink{structdelayed__uprobe}{delayed\+\_\+uprobe}} $\ast$du)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a80fa48a0fcc849b678a1bf16e971b084}{delayed\+\_\+uprobe\+\_\+remove}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ad9fef825c7f72567ba05190d30664200}{valid\+\_\+ref\+\_\+ctr\+\_\+vma}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}})
+\item 
+static struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae67ac8d2d0bcd7464b9d20c5b1e96960}{find\+\_\+ref\+\_\+ctr\+\_\+vma}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae80a2ecb3d19f1ab00ef6a0116724664}{\+\_\+\+\_\+update\+\_\+ref\+\_\+ctr}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long vaddr, \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} \mbox{\hyperlink{desc__defs_8h_a2700247be955059d67a044885e065e5c}{d}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_ad0a3f8155e32fdd99ce8d366961d563d}{update\+\_\+ref\+\_\+ctr\+\_\+warn}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} \mbox{\hyperlink{desc__defs_8h_a2700247be955059d67a044885e065e5c}{d}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a7611186df5f6e80e71e1b72f575a055c}{update\+\_\+ref\+\_\+ctr}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, \mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}} \mbox{\hyperlink{desc__defs_8h_a2700247be955059d67a044885e065e5c}{d}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_add16f7854df6f8b24e48b212075f2b3e}{uprobe\+\_\+write\+\_\+opcode}} (struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$auprobe, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long vaddr, \mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}} \mbox{\hyperlink{structopcode}{opcode}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a444e72c26f07771d181d458e15905297}{set\+\_\+swbp}} (struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$auprobe, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long vaddr)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a462d9d310bbb2c93f61b1cb26dcfbcb3}{set\+\_\+orig\+\_\+insn}} (struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$auprobe, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long vaddr)
+\item 
+static struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a58378052b8f506e08e6a3cc2a1201494}{get\+\_\+uprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a900685cc15d9532beeea168aa56d894b}{put\+\_\+uprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a623d90ad882b72dc80a44f19fec4274b}{uprobe\+\_\+cmp}} (const struct \mbox{\hyperlink{structinode}{inode}} $\ast$l\+\_\+inode, const loff\+\_\+t l\+\_\+offset, const struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_afeb6649cc8ceb989b2fc902b4d848624}{\+\_\+\+\_\+uprobe\+\_\+cmp\+\_\+key}} (const void $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, const struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_aa151bb99c0a33e392ee68943d8ce31b3}{\+\_\+\+\_\+uprobe\+\_\+cmp}} (struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}} $\ast$a, const struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}} $\ast$\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+static struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a0f445afa791cdecbc63d19def665cc14}{\+\_\+\+\_\+find\+\_\+uprobe}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a98b61dd654a6c74300018a277ab753d7}{find\+\_\+uprobe}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_afcac7c51ff6995e521786278103a0cc7}{\+\_\+\+\_\+insert\+\_\+uprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae8c581f4ca56ddad663b230fb606befb}{insert\+\_\+uprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a31ce8737c52b1db049f377c7e5c718fa}{ref\+\_\+ctr\+\_\+mismatch\+\_\+warn}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$cur\+\_\+uprobe, struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a73cab59b899c371fb1e50d6ac218b20f}{alloc\+\_\+uprobe}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, loff\+\_\+t ref\+\_\+ctr\+\_\+offset)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a7de1ff0f81b9a866d0eb5a70efeeb390}{consumer\+\_\+add}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a40fe894a22bffe48c28c8e6481804019}{consumer\+\_\+del}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae50e43a69852bd197ce3fa137c07247b}{\+\_\+\+\_\+copy\+\_\+insn}} (struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, struct \mbox{\hyperlink{structfile}{file}} $\ast$filp, void $\ast$\mbox{\hyperlink{structinsn}{insn}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{btrfs__tree_8h_adb81ec8a5887d505d7ef1ddc72f03d54}{nbytes}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a2dea8e8b82cd1beaa760e5d9de6c51f3}{copy\+\_\+insn}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$filp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ad26a4964dbb68587ff0eeb0356159af4}{prepare\+\_\+uprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long vaddr)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a1ec91cdc8a8cd3695e0458b12e5e4e0b}{consumer\+\_\+filter}} (struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{include_2linux_2uprobes_8h_a93dda55f25e2faf74a78609afb7525e9}{uprobe\+\_\+filter\+\_\+ctx}} \mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a1614b6834f62ce328b1941718a1c3080}{filter\+\_\+chain}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{include_2linux_2uprobes_8h_a93dda55f25e2faf74a78609afb7525e9}{uprobe\+\_\+filter\+\_\+ctx}} \mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_aac90623eac5e68bbe2ce0c0c75e990c7}{install\+\_\+breakpoint}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long vaddr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a10d01fa253093823e7697619b6bee8bb}{remove\+\_\+breakpoint}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long vaddr)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a9272cc99c145b6afb22a91b523352b95}{uprobe\+\_\+is\+\_\+active}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac29e08a9062897f1efa273ad0a9b511d}{delete\+\_\+uprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static struct \mbox{\hyperlink{structmap__info}{map\+\_\+info}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_aa08c2a2207b9a7304b84b5211792557a}{free\+\_\+map\+\_\+info}} (struct \mbox{\hyperlink{structmap__info}{map\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+static struct \mbox{\hyperlink{structmap__info}{map\+\_\+info}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_abf954929c720f014b23baff353ecb501}{build\+\_\+map\+\_\+info}} (struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+register)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae7e0217d7f74d854065061fe174e413b}{register\+\_\+for\+\_\+each\+\_\+vma}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a81b04ebf600cd0875c5073dfc6bf1c96}{\+\_\+\+\_\+uprobe\+\_\+unregister}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc)
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a7abd2e42daf9e3f714531b5aa384e31d}{uprobe\+\_\+unregister}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc)
+\item 
+\mbox{\hyperlink{kernel_2events_2uprobes_8c_acd434db4e3c7f559d393c4438bbfc5e5}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2uprobes_8h_a5ddaceba1327873ab5f2279823e52166}{uprobe\+\_\+unregister}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_aba4ea13570ecee3059fdce0fee97d44d}{\+\_\+\+\_\+uprobe\+\_\+register}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, loff\+\_\+t ref\+\_\+ctr\+\_\+offset, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a223b762b29cfab51b3aabcd3b8d748ef}{uprobe\+\_\+register}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc)
+\item 
+\mbox{\hyperlink{kernel_2events_2uprobes_8c_a16439dc29bc7a67b52df7110559a0087}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2uprobes_8h_a2d1f0193e895199dd1c9957c60c1c8e0}{uprobe\+\_\+register}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ab7a2e297b2f1d0556bc5619650f7d9ad}{uprobe\+\_\+register\+\_\+refctr}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, loff\+\_\+t ref\+\_\+ctr\+\_\+offset, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc)
+\item 
+\mbox{\hyperlink{kernel_2events_2uprobes_8c_a75e29315345c530c55a29b6443099331}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2uprobes_8h_aceddb4e4adfb099583a028216a705ac3}{uprobe\+\_\+register\+\_\+refctr}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a4478594997f02a7be18f9f1dd4cdd108}{uprobe\+\_\+apply}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$uc, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} add)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a75d5c9381e6568b4a1d29297264481be}{unapply\+\_\+uprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_aec94b2e8681f1b794253e3094bdb9577}{find\+\_\+node\+\_\+in\+\_\+range}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, loff\+\_\+t \mbox{\hyperlink{uapi_2sound_2asoc_8h_af76c6939ecb8056b71b7547c8c5d6baa}{min}}, loff\+\_\+t \mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a84e30ebcff38a7d6858ee4199c611f31}{build\+\_\+probe\+\_\+list}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}}, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac6f65aa1ae074a286289195cd7569645}{delayed\+\_\+ref\+\_\+ctr\+\_\+inc}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_aa049f5487ededf85c72e2969e8406a9d}{uprobe\+\_\+mmap}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a97e1e9aef41506ce5a112d92fee7c44e}{vma\+\_\+has\+\_\+uprobes}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac9f3e1f4248b649d550facd952b9a325}{uprobe\+\_\+munmap}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a2aefbe442a349584a4fe6a8bae55ed2e}{xol\+\_\+add\+\_\+vma}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}} $\ast$area)
+\item 
+static struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a3d4848e1da06696d7deb7efc09538b9a}{\+\_\+\+\_\+create\+\_\+xol\+\_\+area}} (unsigned long vaddr)
+\item 
+static struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_aaa60bb1951a43a156818e70346acbcf8}{get\+\_\+xol\+\_\+area}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a27ca50c26518a02d5c42a41088d812a3}{uprobe\+\_\+clear\+\_\+state}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_ab88dbbf33954bac3fb1388473bc3f890}{uprobe\+\_\+start\+\_\+dup\+\_\+mmap}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_ab1ada69723f406ac415cbd3a16d88164}{uprobe\+\_\+end\+\_\+dup\+\_\+mmap}} (void)
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a8e8a5d5e9a970f45288876021ae48f97}{uprobe\+\_\+dup\+\_\+mmap}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$oldmm, struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$newmm)
+\item 
+static unsigned long \mbox{\hyperlink{kernel_2events_2uprobes_8c_a390ed74193978e7cc4665428b52eb7c6}{xol\+\_\+take\+\_\+insn\+\_\+slot}} (struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}} $\ast$area)
+\item 
+static unsigned long \mbox{\hyperlink{kernel_2events_2uprobes_8c_a7142b24d70f87c43189318e72b1c867b}{xol\+\_\+get\+\_\+insn\+\_\+slot}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a03bfe590fa4b094999aa70417d71da29}{xol\+\_\+free\+\_\+insn\+\_\+slot}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+void \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a42e7415681132f19669129b7c35adcf5}{arch\+\_\+uprobe\+\_\+copy\+\_\+ixol}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, unsigned long vaddr, void $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}}, unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+unsigned long \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_aa721c06966dc5f9679163c63ff28294f}{uprobe\+\_\+get\+\_\+swbp\+\_\+addr}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+unsigned long \mbox{\hyperlink{kernel_2events_2uprobes_8c_a5583ab7d1c5cf7ce40c656c7718ce13b}{uprobe\+\_\+get\+\_\+trap\+\_\+addr}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static struct return\+\_\+instance $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a64408b724841a576f0dbf0436e236b4f}{free\+\_\+ret\+\_\+instance}} (struct return\+\_\+instance $\ast$ri)
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a366a3cee875110296ce4bcd01f1d3be4}{uprobe\+\_\+free\+\_\+utask}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+static struct uprobe\+\_\+task $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a89e0b8330538e0780b9f6a62b39cc64f}{get\+\_\+utask}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a77535a442522c788e5f926c8709f5865}{dup\+\_\+utask}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}}, struct uprobe\+\_\+task $\ast$o\+\_\+utask)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a9b08324cc1bd881cace30c5bcfc239ed}{uprobe\+\_\+warn}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}}, const char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a3874efb72a9618a16ab75eb06b19f4cc}{dup\+\_\+xol\+\_\+work}} (struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$work)
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_aa8876832f33da85effa7ee5e79b92601}{uprobe\+\_\+copy\+\_\+process}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}}, unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static unsigned long \mbox{\hyperlink{kernel_2events_2uprobes_8c_a84dc6ae7f1f3131f2378b9a2a8ecf635}{get\+\_\+trampoline\+\_\+vaddr}} (void)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a1f2ce4becb5e639af15c4858be08edac}{cleanup\+\_\+return\+\_\+instances}} (struct uprobe\+\_\+task $\ast$utask, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} chained, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a2d8c3498047af3099b7c3dd84f6ec950}{prepare\+\_\+uretprobe}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae45cbbf156fc970c469baa6b44a2b9ad}{pre\+\_\+ssout}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, unsigned long bp\+\_\+vaddr)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a1ca4dbe28dbca1ac1341d19ce0a80da9}{uprobe\+\_\+deny\+\_\+signal}} (void)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_af1029ccbf660df0e7f377063941649ff}{mmf\+\_\+recalc\+\_\+uprobes}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_affd0ba1da62e6a53adb837d0e115b795}{is\+\_\+trap\+\_\+at\+\_\+addr}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long vaddr)
+\item 
+static struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a0769cae6796a1a88281b949faf217316}{find\+\_\+active\+\_\+uprobe}} (unsigned long bp\+\_\+vaddr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$is\+\_\+swbp)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a7c132584b28f910c872d3e968344f0c0}{handler\+\_\+chain}} (struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$\mbox{\hyperlink{structuprobe}{uprobe}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_aed4a6745d26810561f929ad6b3970e39}{handle\+\_\+uretprobe\+\_\+chain}} (struct return\+\_\+instance $\ast$ri, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static struct return\+\_\+instance $\ast$ \mbox{\hyperlink{kernel_2events_2uprobes_8c_a01a9eae678a6bc9fe60135d000fea094}{find\+\_\+next\+\_\+ret\+\_\+chain}} (struct return\+\_\+instance $\ast$ri)
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a783d7c9d021618ca7f135665fddfefa4}{handle\+\_\+trampoline}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_abb2d2367558e84dfeb332d9a01eadfe5}{arch\+\_\+uprobe\+\_\+ignore}} (struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$aup, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a944518701e22f9fcf5bc02b96445070f}{arch\+\_\+uretprobe\+\_\+is\+\_\+alive}} (struct return\+\_\+instance $\ast$\mbox{\hyperlink{xz__dec__test_8c_aa53b984cbb8e149556f0e3091f6e4c89}{ret}}, \mbox{\hyperlink{interfaceenum}{enum}} rp\+\_\+check \mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac3d6a7a5aee31915d97b6c7351d311fa}{handle\+\_\+swbp}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a4e89f55fe153d9bb84687afda70ae00e}{handle\+\_\+singlestep}} (struct uprobe\+\_\+task $\ast$utask, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+void \mbox{\hyperlink{kernel_2events_2uprobes_8c_a523b951ea2796041116eb2d521d37ba9}{uprobe\+\_\+notify\+\_\+resume}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac58e07d1470a48fd3153672f339287f1}{uprobe\+\_\+pre\+\_\+sstep\+\_\+notifier}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ac72737975cdeb650678ea985cd1704e7}{uprobe\+\_\+post\+\_\+sstep\+\_\+notifier}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_ae39140eb1094735cbc4439db7f537a31}{uprobes\+\_\+init}} (void)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structrb__root}{rb\+\_\+root}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_af636eca246f3711a3528d604a0506e8c}{uprobes\+\_\+tree}} = \mbox{\hyperlink{rbtree__types_8h_a0dc291988d7286d8dd4268066e9031a4}{R\+B\+\_\+\+R\+O\+OT}}
+\item 
+static struct \mbox{\hyperlink{structmutex}{mutex}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a58b9cb1f5d39fc9b056afc8942c0835b}{uprobes\+\_\+mmap\+\_\+mutex}} \mbox{[}\mbox{\hyperlink{kernel_2events_2uprobes_8c_a034f7455cc586ef6ad191d455a6935b5}{U\+P\+R\+O\+B\+E\+S\+\_\+\+H\+A\+S\+H\+\_\+\+SZ}}\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} \mbox{\hyperlink{kernel_2events_2uprobes_8c_a3c5903fb812387a6d3f23303d8a1617b}{uprobe\+\_\+exception\+\_\+nb}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac9240e43967f8fe572c27a85853f2280}\label{kernel_2events_2uprobes_8c_ac9240e43967f8fe572c27a85853f2280}} 
+\index{uprobes.c@{uprobes.c}!\_\_node\_2\_uprobe@{\_\_node\_2\_uprobe}}
+\index{\_\_node\_2\_uprobe@{\_\_node\_2\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_node\_2\_uprobe}{\_\_node\_2\_uprobe}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+node\+\_\+2\+\_\+uprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{structnode}{node}} }\end{DoxyParamCaption})~\mbox{\hyperlink{rbtree_8h_aedf476fcb61d6b2c7e77d811dfd9071a}{rb\+\_\+entry}}((\mbox{\hyperlink{structnode}{node}}), struct \mbox{\hyperlink{structuprobe}{uprobe}}, \mbox{\hyperlink{structrb__node}{rb\+\_\+node}})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_abd5a425a86092410ce9603ab1419efb5}\label{kernel_2events_2uprobes_8c_abd5a425a86092410ce9603ab1419efb5}} 
+\index{uprobes.c@{uprobes.c}!MAX\_UPROBE\_XOL\_SLOTS@{MAX\_UPROBE\_XOL\_SLOTS}}
+\index{MAX\_UPROBE\_XOL\_SLOTS@{MAX\_UPROBE\_XOL\_SLOTS}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_UPROBE\_XOL\_SLOTS}{MAX\_UPROBE\_XOL\_SLOTS}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+U\+P\+R\+O\+B\+E\+\_\+\+X\+O\+L\+\_\+\+S\+L\+O\+TS~\mbox{\hyperlink{kernel_2events_2uprobes_8c_ad72a1c7d35e518cbea0f07f7a9bfc60c}{U\+I\+N\+S\+N\+S\+\_\+\+P\+E\+R\+\_\+\+P\+A\+GE}}}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a407692068ac0d50da5f91aa2570b8de1}\label{kernel_2events_2uprobes_8c_a407692068ac0d50da5f91aa2570b8de1}} 
+\index{uprobes.c@{uprobes.c}!no\_uprobe\_events@{no\_uprobe\_events}}
+\index{no\_uprobe\_events@{no\_uprobe\_events}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{no\_uprobe\_events}{no\_uprobe\_events}}
+{\footnotesize\ttfamily \#define no\+\_\+uprobe\+\_\+events(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~\mbox{\hyperlink{rbtree_8h_a27d6d30750b25bc59c04ad79f048a035}{R\+B\+\_\+\+E\+M\+P\+T\+Y\+\_\+\+R\+O\+OT}}(\&\mbox{\hyperlink{kernel_2events_2uprobes_8c_af636eca246f3711a3528d604a0506e8c}{uprobes\+\_\+tree}})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ad72a1c7d35e518cbea0f07f7a9bfc60c}\label{kernel_2events_2uprobes_8c_ad72a1c7d35e518cbea0f07f7a9bfc60c}} 
+\index{uprobes.c@{uprobes.c}!UINSNS\_PER\_PAGE@{UINSNS\_PER\_PAGE}}
+\index{UINSNS\_PER\_PAGE@{UINSNS\_PER\_PAGE}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{UINSNS\_PER\_PAGE}{UINSNS\_PER\_PAGE}}
+{\footnotesize\ttfamily \#define U\+I\+N\+S\+N\+S\+\_\+\+P\+E\+R\+\_\+\+P\+A\+GE~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}}/\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_acebd0fcc93b7f86c7545c4fabca17248}{U\+P\+R\+O\+B\+E\+\_\+\+X\+O\+L\+\_\+\+S\+L\+O\+T\+\_\+\+B\+Y\+T\+ES}})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae1ad52a9a6242c488e4c622ffb176e69}\label{kernel_2events_2uprobes_8c_ae1ad52a9a6242c488e4c622ffb176e69}} 
+\index{uprobes.c@{uprobes.c}!UPROBE\_COPY\_INSN@{UPROBE\_COPY\_INSN}}
+\index{UPROBE\_COPY\_INSN@{UPROBE\_COPY\_INSN}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{UPROBE\_COPY\_INSN}{UPROBE\_COPY\_INSN}}
+{\footnotesize\ttfamily \#define U\+P\+R\+O\+B\+E\+\_\+\+C\+O\+P\+Y\+\_\+\+I\+N\+SN~0}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a034f7455cc586ef6ad191d455a6935b5}\label{kernel_2events_2uprobes_8c_a034f7455cc586ef6ad191d455a6935b5}} 
+\index{uprobes.c@{uprobes.c}!UPROBES\_HASH\_SZ@{UPROBES\_HASH\_SZ}}
+\index{UPROBES\_HASH\_SZ@{UPROBES\_HASH\_SZ}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{UPROBES\_HASH\_SZ}{UPROBES\_HASH\_SZ}}
+{\footnotesize\ttfamily \#define U\+P\+R\+O\+B\+E\+S\+\_\+\+H\+A\+S\+H\+\_\+\+SZ~13}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_afa3c81c83a793b9b407aaff8ab974d3b}\label{kernel_2events_2uprobes_8c_afa3c81c83a793b9b407aaff8ab974d3b}} 
+\index{uprobes.c@{uprobes.c}!uprobes\_mmap\_hash@{uprobes\_mmap\_hash}}
+\index{uprobes\_mmap\_hash@{uprobes\_mmap\_hash}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobes\_mmap\_hash}{uprobes\_mmap\_hash}}
+{\footnotesize\ttfamily \#define uprobes\+\_\+mmap\+\_\+hash(\begin{DoxyParamCaption}\item[{}]{v }\end{DoxyParamCaption})~(\&\mbox{\hyperlink{kernel_2events_2uprobes_8c_a58b9cb1f5d39fc9b056afc8942c0835b}{uprobes\+\_\+mmap\+\_\+mutex}}\mbox{[}((unsigned long)(v)) \% \mbox{\hyperlink{kernel_2events_2uprobes_8c_a034f7455cc586ef6ad191d455a6935b5}{U\+P\+R\+O\+B\+E\+S\+\_\+\+H\+A\+S\+H\+\_\+\+SZ}}\mbox{]})}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae50e43a69852bd197ce3fa137c07247b}\label{kernel_2events_2uprobes_8c_ae50e43a69852bd197ce3fa137c07247b}} 
+\index{uprobes.c@{uprobes.c}!\_\_copy\_insn@{\_\_copy\_insn}}
+\index{\_\_copy\_insn@{\_\_copy\_insn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_copy\_insn()}{\_\_copy\_insn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+copy\+\_\+insn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp,  }\item[{void $\ast$}]{insn,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nbytes,  }\item[{loff\+\_\+t}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a3d4848e1da06696d7deb7efc09538b9a}\label{kernel_2events_2uprobes_8c_a3d4848e1da06696d7deb7efc09538b9a}} 
+\index{uprobes.c@{uprobes.c}!\_\_create\_xol\_area@{\_\_create\_xol\_area}}
+\index{\_\_create\_xol\_area@{\_\_create\_xol\_area}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_create\_xol\_area()}{\_\_create\_xol\_area()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}}$\ast$ \+\_\+\+\_\+create\+\_\+xol\+\_\+area (\begin{DoxyParamCaption}\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a0f445afa791cdecbc63d19def665cc14}\label{kernel_2events_2uprobes_8c_a0f445afa791cdecbc63d19def665cc14}} 
+\index{uprobes.c@{uprobes.c}!\_\_find\_uprobe@{\_\_find\_uprobe}}
+\index{\_\_find\_uprobe@{\_\_find\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_find\_uprobe()}{\_\_find\_uprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structuprobe}{uprobe}}$\ast$ \+\_\+\+\_\+find\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_afcac7c51ff6995e521786278103a0cc7}\label{kernel_2events_2uprobes_8c_afcac7c51ff6995e521786278103a0cc7}} 
+\index{uprobes.c@{uprobes.c}!\_\_insert\_uprobe@{\_\_insert\_uprobe}}
+\index{\_\_insert\_uprobe@{\_\_insert\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_insert\_uprobe()}{\_\_insert\_uprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structuprobe}{uprobe}}$\ast$ \+\_\+\+\_\+insert\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac55df7bb194ae80374146a7336dfa1e5}\label{kernel_2events_2uprobes_8c_ac55df7bb194ae80374146a7336dfa1e5}} 
+\index{uprobes.c@{uprobes.c}!\_\_replace\_page@{\_\_replace\_page}}
+\index{\_\_replace\_page@{\_\_replace\_page}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_replace\_page()}{\_\_replace\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+replace\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{addr,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{old\+\_\+page,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{new\+\_\+page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae80a2ecb3d19f1ab00ef6a0116724664}\label{kernel_2events_2uprobes_8c_ae80a2ecb3d19f1ab00ef6a0116724664}} 
+\index{uprobes.c@{uprobes.c}!\_\_update\_ref\_ctr@{\_\_update\_ref\_ctr}}
+\index{\_\_update\_ref\_ctr@{\_\_update\_ref\_ctr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_update\_ref\_ctr()}{\_\_update\_ref\_ctr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+update\+\_\+ref\+\_\+ctr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{vaddr,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}}}]{d }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aa151bb99c0a33e392ee68943d8ce31b3}\label{kernel_2events_2uprobes_8c_aa151bb99c0a33e392ee68943d8ce31b3}} 
+\index{uprobes.c@{uprobes.c}!\_\_uprobe\_cmp@{\_\_uprobe\_cmp}}
+\index{\_\_uprobe\_cmp@{\_\_uprobe\_cmp}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_uprobe\_cmp()}{\_\_uprobe\_cmp()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+uprobe\+\_\+cmp (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}} $\ast$}]{a,  }\item[{const struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}} $\ast$}]{b }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_afeb6649cc8ceb989b2fc902b4d848624}\label{kernel_2events_2uprobes_8c_afeb6649cc8ceb989b2fc902b4d848624}} 
+\index{uprobes.c@{uprobes.c}!\_\_uprobe\_cmp\_key@{\_\_uprobe\_cmp\_key}}
+\index{\_\_uprobe\_cmp\_key@{\_\_uprobe\_cmp\_key}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_uprobe\_cmp\_key()}{\_\_uprobe\_cmp\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+uprobe\+\_\+cmp\+\_\+key (\begin{DoxyParamCaption}\item[{const void $\ast$}]{key,  }\item[{const struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}} $\ast$}]{b }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aba4ea13570ecee3059fdce0fee97d44d}\label{kernel_2events_2uprobes_8c_aba4ea13570ecee3059fdce0fee97d44d}} 
+\index{uprobes.c@{uprobes.c}!\_\_uprobe\_register@{\_\_uprobe\_register}}
+\index{\_\_uprobe\_register@{\_\_uprobe\_register}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_uprobe\_register()}{\_\_uprobe\_register()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+uprobe\+\_\+register (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset,  }\item[{loff\+\_\+t}]{ref\+\_\+ctr\+\_\+offset,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a81b04ebf600cd0875c5073dfc6bf1c96}\label{kernel_2events_2uprobes_8c_a81b04ebf600cd0875c5073dfc6bf1c96}} 
+\index{uprobes.c@{uprobes.c}!\_\_uprobe\_unregister@{\_\_uprobe\_unregister}}
+\index{\_\_uprobe\_unregister@{\_\_uprobe\_unregister}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_uprobe\_unregister()}{\_\_uprobe\_unregister()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+uprobe\+\_\+unregister (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a73cab59b899c371fb1e50d6ac218b20f}\label{kernel_2events_2uprobes_8c_a73cab59b899c371fb1e50d6ac218b20f}} 
+\index{uprobes.c@{uprobes.c}!alloc\_uprobe@{alloc\_uprobe}}
+\index{alloc\_uprobe@{alloc\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_uprobe()}{alloc\_uprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structuprobe}{uprobe}}$\ast$ alloc\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset,  }\item[{loff\+\_\+t}]{ref\+\_\+ctr\+\_\+offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a42e7415681132f19669129b7c35adcf5}\label{kernel_2events_2uprobes_8c_a42e7415681132f19669129b7c35adcf5}} 
+\index{uprobes.c@{uprobes.c}!arch\_uprobe\_copy\_ixol@{arch\_uprobe\_copy\_ixol}}
+\index{arch\_uprobe\_copy\_ixol@{arch\_uprobe\_copy\_ixol}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_uprobe\_copy\_ixol()}{arch\_uprobe\_copy\_ixol()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+uprobe\+\_\+copy\+\_\+ixol (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{unsigned long}]{vaddr,  }\item[{void $\ast$}]{src,  }\item[{unsigned long}]{len }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_abb2d2367558e84dfeb332d9a01eadfe5}\label{kernel_2events_2uprobes_8c_abb2d2367558e84dfeb332d9a01eadfe5}} 
+\index{uprobes.c@{uprobes.c}!arch\_uprobe\_ignore@{arch\_uprobe\_ignore}}
+\index{arch\_uprobe\_ignore@{arch\_uprobe\_ignore}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_uprobe\_ignore()}{arch\_uprobe\_ignore()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+uprobe\+\_\+ignore (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$}]{aup,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a944518701e22f9fcf5bc02b96445070f}\label{kernel_2events_2uprobes_8c_a944518701e22f9fcf5bc02b96445070f}} 
+\index{uprobes.c@{uprobes.c}!arch\_uretprobe\_is\_alive@{arch\_uretprobe\_is\_alive}}
+\index{arch\_uretprobe\_is\_alive@{arch\_uretprobe\_is\_alive}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_uretprobe\_is\_alive()}{arch\_uretprobe\_is\_alive()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+uretprobe\+\_\+is\+\_\+alive (\begin{DoxyParamCaption}\item[{struct return\+\_\+instance $\ast$}]{ret,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} rp\+\_\+check}]{ctx,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_abf954929c720f014b23baff353ecb501}\label{kernel_2events_2uprobes_8c_abf954929c720f014b23baff353ecb501}} 
+\index{uprobes.c@{uprobes.c}!build\_map\_info@{build\_map\_info}}
+\index{build\_map\_info@{build\_map\_info}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{build\_map\_info()}{build\_map\_info()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structmap__info}{map\+\_\+info}}$\ast$ build\+\_\+map\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{loff\+\_\+t}]{offset,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{is\+\_\+register }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a84e30ebcff38a7d6858ee4199c611f31}\label{kernel_2events_2uprobes_8c_a84e30ebcff38a7d6858ee4199c611f31}} 
+\index{uprobes.c@{uprobes.c}!build\_probe\_list@{build\_probe\_list}}
+\index{build\_probe\_list@{build\_probe\_list}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{build\_probe\_list()}{build\_probe\_list()}}
+{\footnotesize\ttfamily static void build\+\_\+probe\+\_\+list (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{start,  }\item[{unsigned long}]{end,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{head }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a1f2ce4becb5e639af15c4858be08edac}\label{kernel_2events_2uprobes_8c_a1f2ce4becb5e639af15c4858be08edac}} 
+\index{uprobes.c@{uprobes.c}!cleanup\_return\_instances@{cleanup\_return\_instances}}
+\index{cleanup\_return\_instances@{cleanup\_return\_instances}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{cleanup\_return\_instances()}{cleanup\_return\_instances()}}
+{\footnotesize\ttfamily static void cleanup\+\_\+return\+\_\+instances (\begin{DoxyParamCaption}\item[{struct uprobe\+\_\+task $\ast$}]{utask,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{chained,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a7de1ff0f81b9a866d0eb5a70efeeb390}\label{kernel_2events_2uprobes_8c_a7de1ff0f81b9a866d0eb5a70efeeb390}} 
+\index{uprobes.c@{uprobes.c}!consumer\_add@{consumer\_add}}
+\index{consumer\_add@{consumer\_add}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{consumer\_add()}{consumer\_add()}}
+{\footnotesize\ttfamily static void consumer\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a40fe894a22bffe48c28c8e6481804019}\label{kernel_2events_2uprobes_8c_a40fe894a22bffe48c28c8e6481804019}} 
+\index{uprobes.c@{uprobes.c}!consumer\_del@{consumer\_del}}
+\index{consumer\_del@{consumer\_del}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{consumer\_del()}{consumer\_del()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} consumer\+\_\+del (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a1ec91cdc8a8cd3695e0458b12e5e4e0b}\label{kernel_2events_2uprobes_8c_a1ec91cdc8a8cd3695e0458b12e5e4e0b}} 
+\index{uprobes.c@{uprobes.c}!consumer\_filter@{consumer\_filter}}
+\index{consumer\_filter@{consumer\_filter}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{consumer\_filter()}{consumer\_filter()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} consumer\+\_\+filter (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{include_2linux_2uprobes_8h_a93dda55f25e2faf74a78609afb7525e9}{uprobe\+\_\+filter\+\_\+ctx}}}]{ctx,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aa8f762c036b2cbaab936fafa5bb6003b}\label{kernel_2events_2uprobes_8c_aa8f762c036b2cbaab936fafa5bb6003b}} 
+\index{uprobes.c@{uprobes.c}!copy\_from\_page@{copy\_from\_page}}
+\index{copy\_from\_page@{copy\_from\_page}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{copy\_from\_page()}{copy\_from\_page()}}
+{\footnotesize\ttfamily static void copy\+\_\+from\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{unsigned long}]{vaddr,  }\item[{void $\ast$}]{dst,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a2dea8e8b82cd1beaa760e5d9de6c51f3}\label{kernel_2events_2uprobes_8c_a2dea8e8b82cd1beaa760e5d9de6c51f3}} 
+\index{uprobes.c@{uprobes.c}!copy\_insn@{copy\_insn}}
+\index{copy\_insn@{copy\_insn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{copy\_insn()}{copy\_insn()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} copy\+\_\+insn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{filp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a6b82da9583c2aae48b29e2212193705a}\label{kernel_2events_2uprobes_8c_a6b82da9583c2aae48b29e2212193705a}} 
+\index{uprobes.c@{uprobes.c}!copy\_to\_page@{copy\_to\_page}}
+\index{copy\_to\_page@{copy\_to\_page}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{copy\_to\_page()}{copy\_to\_page()}}
+{\footnotesize\ttfamily static void copy\+\_\+to\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{unsigned long}]{vaddr,  }\item[{const void $\ast$}]{src,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a949a50847f165551dc789a87e624a0bc}\label{kernel_2events_2uprobes_8c_a949a50847f165551dc789a87e624a0bc}} 
+\index{uprobes.c@{uprobes.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{delayed\+\_\+uprobe\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a14c8c6a510b6d65c3c0cd6656e7d90b6}\label{kernel_2events_2uprobes_8c_a14c8c6a510b6d65c3c0cd6656e7d90b6}} 
+\index{uprobes.c@{uprobes.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{uprobes\+\_\+treelock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aa24fc54ebf820f3b6b7693b707e580da}\label{kernel_2events_2uprobes_8c_aa24fc54ebf820f3b6b7693b707e580da}} 
+\index{uprobes.c@{uprobes.c}!DEFINE\_STATIC\_PERCPU\_RWSEM@{DEFINE\_STATIC\_PERCPU\_RWSEM}}
+\index{DEFINE\_STATIC\_PERCPU\_RWSEM@{DEFINE\_STATIC\_PERCPU\_RWSEM}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_PERCPU\_RWSEM()}{DEFINE\_STATIC\_PERCPU\_RWSEM()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+P\+E\+R\+C\+P\+U\+\_\+\+R\+W\+S\+EM (\begin{DoxyParamCaption}\item[{dup\+\_\+mmap\+\_\+sem}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac6f65aa1ae074a286289195cd7569645}\label{kernel_2events_2uprobes_8c_ac6f65aa1ae074a286289195cd7569645}} 
+\index{uprobes.c@{uprobes.c}!delayed\_ref\_ctr\_inc@{delayed\_ref\_ctr\_inc}}
+\index{delayed\_ref\_ctr\_inc@{delayed\_ref\_ctr\_inc}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{delayed\_ref\_ctr\_inc()}{delayed\_ref\_ctr\_inc()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} delayed\+\_\+ref\+\_\+ctr\+\_\+inc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a2787a5bd4c4b52bd09b10a8674dc4e6b}\label{kernel_2events_2uprobes_8c_a2787a5bd4c4b52bd09b10a8674dc4e6b}} 
+\index{uprobes.c@{uprobes.c}!delayed\_uprobe\_add@{delayed\_uprobe\_add}}
+\index{delayed\_uprobe\_add@{delayed\_uprobe\_add}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{delayed\_uprobe\_add()}{delayed\_uprobe\_add()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} delayed\+\_\+uprobe\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a3c582a05122fc382e29de41abe5cb926}\label{kernel_2events_2uprobes_8c_a3c582a05122fc382e29de41abe5cb926}} 
+\index{uprobes.c@{uprobes.c}!delayed\_uprobe\_check@{delayed\_uprobe\_check}}
+\index{delayed\_uprobe\_check@{delayed\_uprobe\_check}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{delayed\_uprobe\_check()}{delayed\_uprobe\_check()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structdelayed__uprobe}{delayed\+\_\+uprobe}}$\ast$ delayed\+\_\+uprobe\+\_\+check (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a101c43fbb0ef17d1755a6cb0728fb883}\label{kernel_2events_2uprobes_8c_a101c43fbb0ef17d1755a6cb0728fb883}} 
+\index{uprobes.c@{uprobes.c}!delayed\_uprobe\_delete@{delayed\_uprobe\_delete}}
+\index{delayed\_uprobe\_delete@{delayed\_uprobe\_delete}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{delayed\_uprobe\_delete()}{delayed\_uprobe\_delete()}}
+{\footnotesize\ttfamily static void delayed\+\_\+uprobe\+\_\+delete (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdelayed__uprobe}{delayed\+\_\+uprobe}} $\ast$}]{du }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a80fa48a0fcc849b678a1bf16e971b084}\label{kernel_2events_2uprobes_8c_a80fa48a0fcc849b678a1bf16e971b084}} 
+\index{uprobes.c@{uprobes.c}!delayed\_uprobe\_remove@{delayed\_uprobe\_remove}}
+\index{delayed\_uprobe\_remove@{delayed\_uprobe\_remove}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{delayed\_uprobe\_remove()}{delayed\_uprobe\_remove()}}
+{\footnotesize\ttfamily static void delayed\+\_\+uprobe\+\_\+remove (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac29e08a9062897f1efa273ad0a9b511d}\label{kernel_2events_2uprobes_8c_ac29e08a9062897f1efa273ad0a9b511d}} 
+\index{uprobes.c@{uprobes.c}!delete\_uprobe@{delete\_uprobe}}
+\index{delete\_uprobe@{delete\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{delete\_uprobe()}{delete\_uprobe()}}
+{\footnotesize\ttfamily static void delete\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a77535a442522c788e5f926c8709f5865}\label{kernel_2events_2uprobes_8c_a77535a442522c788e5f926c8709f5865}} 
+\index{uprobes.c@{uprobes.c}!dup\_utask@{dup\_utask}}
+\index{dup\_utask@{dup\_utask}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{dup\_utask()}{dup\_utask()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dup\+\_\+utask (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{t,  }\item[{struct uprobe\+\_\+task $\ast$}]{o\+\_\+utask }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a3874efb72a9618a16ab75eb06b19f4cc}\label{kernel_2events_2uprobes_8c_a3874efb72a9618a16ab75eb06b19f4cc}} 
+\index{uprobes.c@{uprobes.c}!dup\_xol\_work@{dup\_xol\_work}}
+\index{dup\_xol\_work@{dup\_xol\_work}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{dup\_xol\_work()}{dup\_xol\_work()}}
+{\footnotesize\ttfamily static void dup\+\_\+xol\+\_\+work (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcallback__head}{callback\+\_\+head}} $\ast$}]{work }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a16439dc29bc7a67b52df7110559a0087}\label{kernel_2events_2uprobes_8c_a16439dc29bc7a67b52df7110559a0087}} 
+\index{uprobes.c@{uprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2uprobes_8h_a2d1f0193e895199dd1c9957c60c1c8e0}{uprobe\+\_\+register}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a75e29315345c530c55a29b6443099331}\label{kernel_2events_2uprobes_8c_a75e29315345c530c55a29b6443099331}} 
+\index{uprobes.c@{uprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2uprobes_8h_aceddb4e4adfb099583a028216a705ac3}{uprobe\+\_\+register\+\_\+refctr}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_acd434db4e3c7f559d393c4438bbfc5e5}\label{kernel_2events_2uprobes_8c_acd434db4e3c7f559d393c4438bbfc5e5}} 
+\index{uprobes.c@{uprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2uprobes_8h_a5ddaceba1327873ab5f2279823e52166}{uprobe\+\_\+unregister}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a1614b6834f62ce328b1941718a1c3080}\label{kernel_2events_2uprobes_8c_a1614b6834f62ce328b1941718a1c3080}} 
+\index{uprobes.c@{uprobes.c}!filter\_chain@{filter\_chain}}
+\index{filter\_chain@{filter\_chain}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{filter\_chain()}{filter\_chain()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} filter\+\_\+chain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{include_2linux_2uprobes_8h_a93dda55f25e2faf74a78609afb7525e9}{uprobe\+\_\+filter\+\_\+ctx}}}]{ctx,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a0769cae6796a1a88281b949faf217316}\label{kernel_2events_2uprobes_8c_a0769cae6796a1a88281b949faf217316}} 
+\index{uprobes.c@{uprobes.c}!find\_active\_uprobe@{find\_active\_uprobe}}
+\index{find\_active\_uprobe@{find\_active\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{find\_active\_uprobe()}{find\_active\_uprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structuprobe}{uprobe}}$\ast$ find\+\_\+active\+\_\+uprobe (\begin{DoxyParamCaption}\item[{unsigned long}]{bp\+\_\+vaddr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{is\+\_\+swbp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a01a9eae678a6bc9fe60135d000fea094}\label{kernel_2events_2uprobes_8c_a01a9eae678a6bc9fe60135d000fea094}} 
+\index{uprobes.c@{uprobes.c}!find\_next\_ret\_chain@{find\_next\_ret\_chain}}
+\index{find\_next\_ret\_chain@{find\_next\_ret\_chain}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{find\_next\_ret\_chain()}{find\_next\_ret\_chain()}}
+{\footnotesize\ttfamily static struct return\+\_\+instance$\ast$ find\+\_\+next\+\_\+ret\+\_\+chain (\begin{DoxyParamCaption}\item[{struct return\+\_\+instance $\ast$}]{ri }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aec94b2e8681f1b794253e3094bdb9577}\label{kernel_2events_2uprobes_8c_aec94b2e8681f1b794253e3094bdb9577}} 
+\index{uprobes.c@{uprobes.c}!find\_node\_in\_range@{find\_node\_in\_range}}
+\index{find\_node\_in\_range@{find\_node\_in\_range}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{find\_node\_in\_range()}{find\_node\_in\_range()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structrb__node}{rb\+\_\+node}}$\ast$ find\+\_\+node\+\_\+in\+\_\+range (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{min,  }\item[{loff\+\_\+t}]{max }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae67ac8d2d0bcd7464b9d20c5b1e96960}\label{kernel_2events_2uprobes_8c_ae67ac8d2d0bcd7464b9d20c5b1e96960}} 
+\index{uprobes.c@{uprobes.c}!find\_ref\_ctr\_vma@{find\_ref\_ctr\_vma}}
+\index{find\_ref\_ctr\_vma@{find\_ref\_ctr\_vma}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{find\_ref\_ctr\_vma()}{find\_ref\_ctr\_vma()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}}$\ast$ find\+\_\+ref\+\_\+ctr\+\_\+vma (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 64
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a98b61dd654a6c74300018a277ab753d7}\label{kernel_2events_2uprobes_8c_a98b61dd654a6c74300018a277ab753d7}} 
+\index{uprobes.c@{uprobes.c}!find\_uprobe@{find\_uprobe}}
+\index{find\_uprobe@{find\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{find\_uprobe()}{find\_uprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structuprobe}{uprobe}}$\ast$ find\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aa08c2a2207b9a7304b84b5211792557a}\label{kernel_2events_2uprobes_8c_aa08c2a2207b9a7304b84b5211792557a}} 
+\index{uprobes.c@{uprobes.c}!free\_map\_info@{free\_map\_info}}
+\index{free\_map\_info@{free\_map\_info}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{free\_map\_info()}{free\_map\_info()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structmap__info}{map\+\_\+info}}$\ast$ free\+\_\+map\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmap__info}{map\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a64408b724841a576f0dbf0436e236b4f}\label{kernel_2events_2uprobes_8c_a64408b724841a576f0dbf0436e236b4f}} 
+\index{uprobes.c@{uprobes.c}!free\_ret\_instance@{free\_ret\_instance}}
+\index{free\_ret\_instance@{free\_ret\_instance}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{free\_ret\_instance()}{free\_ret\_instance()}}
+{\footnotesize\ttfamily static struct return\+\_\+instance$\ast$ free\+\_\+ret\+\_\+instance (\begin{DoxyParamCaption}\item[{struct return\+\_\+instance $\ast$}]{ri }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a84dc6ae7f1f3131f2378b9a2a8ecf635}\label{kernel_2events_2uprobes_8c_a84dc6ae7f1f3131f2378b9a2a8ecf635}} 
+\index{uprobes.c@{uprobes.c}!get\_trampoline\_vaddr@{get\_trampoline\_vaddr}}
+\index{get\_trampoline\_vaddr@{get\_trampoline\_vaddr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{get\_trampoline\_vaddr()}{get\_trampoline\_vaddr()}}
+{\footnotesize\ttfamily static unsigned long get\+\_\+trampoline\+\_\+vaddr (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a58378052b8f506e08e6a3cc2a1201494}\label{kernel_2events_2uprobes_8c_a58378052b8f506e08e6a3cc2a1201494}} 
+\index{uprobes.c@{uprobes.c}!get\_uprobe@{get\_uprobe}}
+\index{get\_uprobe@{get\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{get\_uprobe()}{get\_uprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structuprobe}{uprobe}}$\ast$ get\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a89e0b8330538e0780b9f6a62b39cc64f}\label{kernel_2events_2uprobes_8c_a89e0b8330538e0780b9f6a62b39cc64f}} 
+\index{uprobes.c@{uprobes.c}!get\_utask@{get\_utask}}
+\index{get\_utask@{get\_utask}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{get\_utask()}{get\_utask()}}
+{\footnotesize\ttfamily static struct uprobe\+\_\+task$\ast$ get\+\_\+utask (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aaa60bb1951a43a156818e70346acbcf8}\label{kernel_2events_2uprobes_8c_aaa60bb1951a43a156818e70346acbcf8}} 
+\index{uprobes.c@{uprobes.c}!get\_xol\_area@{get\_xol\_area}}
+\index{get\_xol\_area@{get\_xol\_area}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{get\_xol\_area()}{get\_xol\_area()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}}$\ast$ get\+\_\+xol\+\_\+area (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a4e89f55fe153d9bb84687afda70ae00e}\label{kernel_2events_2uprobes_8c_a4e89f55fe153d9bb84687afda70ae00e}} 
+\index{uprobes.c@{uprobes.c}!handle\_singlestep@{handle\_singlestep}}
+\index{handle\_singlestep@{handle\_singlestep}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{handle\_singlestep()}{handle\_singlestep()}}
+{\footnotesize\ttfamily static void handle\+\_\+singlestep (\begin{DoxyParamCaption}\item[{struct uprobe\+\_\+task $\ast$}]{utask,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 79
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac3d6a7a5aee31915d97b6c7351d311fa}\label{kernel_2events_2uprobes_8c_ac3d6a7a5aee31915d97b6c7351d311fa}} 
+\index{uprobes.c@{uprobes.c}!handle\_swbp@{handle\_swbp}}
+\index{handle\_swbp@{handle\_swbp}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{handle\_swbp()}{handle\_swbp()}}
+{\footnotesize\ttfamily static void handle\+\_\+swbp (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a783d7c9d021618ca7f135665fddfefa4}\label{kernel_2events_2uprobes_8c_a783d7c9d021618ca7f135665fddfefa4}} 
+\index{uprobes.c@{uprobes.c}!handle\_trampoline@{handle\_trampoline}}
+\index{handle\_trampoline@{handle\_trampoline}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{handle\_trampoline()}{handle\_trampoline()}}
+{\footnotesize\ttfamily static void handle\+\_\+trampoline (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 83
+Here is the caller graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aed4a6745d26810561f929ad6b3970e39}\label{kernel_2events_2uprobes_8c_aed4a6745d26810561f929ad6b3970e39}} 
+\index{uprobes.c@{uprobes.c}!handle\_uretprobe\_chain@{handle\_uretprobe\_chain}}
+\index{handle\_uretprobe\_chain@{handle\_uretprobe\_chain}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{handle\_uretprobe\_chain()}{handle\_uretprobe\_chain()}}
+{\footnotesize\ttfamily static void handle\+\_\+uretprobe\+\_\+chain (\begin{DoxyParamCaption}\item[{struct return\+\_\+instance $\ast$}]{ri,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 85
+Here is the caller graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a7c132584b28f910c872d3e968344f0c0}\label{kernel_2events_2uprobes_8c_a7c132584b28f910c872d3e968344f0c0}} 
+\index{uprobes.c@{uprobes.c}!handler\_chain@{handler\_chain}}
+\index{handler\_chain@{handler\_chain}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{handler\_chain()}{handler\_chain()}}
+{\footnotesize\ttfamily static void handler\+\_\+chain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 87
+Here is the caller graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae8c581f4ca56ddad663b230fb606befb}\label{kernel_2events_2uprobes_8c_ae8c581f4ca56ddad663b230fb606befb}} 
+\index{uprobes.c@{uprobes.c}!insert\_uprobe@{insert\_uprobe}}
+\index{insert\_uprobe@{insert\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{insert\_uprobe()}{insert\_uprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structuprobe}{uprobe}}$\ast$ insert\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 89
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aac90623eac5e68bbe2ce0c0c75e990c7}\label{kernel_2events_2uprobes_8c_aac90623eac5e68bbe2ce0c0c75e990c7}} 
+\index{uprobes.c@{uprobes.c}!install\_breakpoint@{install\_breakpoint}}
+\index{install\_breakpoint@{install\_breakpoint}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{install\_breakpoint()}{install\_breakpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} install\+\_\+breakpoint (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 91
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a40a362f9f7103732aa0f714bea7e5516}\label{kernel_2events_2uprobes_8c_a40a362f9f7103732aa0f714bea7e5516}} 
+\index{uprobes.c@{uprobes.c}!is\_swbp\_insn@{is\_swbp\_insn}}
+\index{is\_swbp\_insn@{is\_swbp\_insn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{is\_swbp\_insn()}{is\_swbp\_insn()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} is\+\_\+swbp\+\_\+insn (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}} $\ast$}]{insn }\end{DoxyParamCaption})}
+
+is\+\_\+swbp\+\_\+insn -\/ check if instruction is breakpoint instruction. @insn\+: instruction to be checked. Default implementation of is\+\_\+swbp\+\_\+insn Returns true if @insn is a breakpoint instruction. Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_affd0ba1da62e6a53adb837d0e115b795}\label{kernel_2events_2uprobes_8c_affd0ba1da62e6a53adb837d0e115b795}} 
+\index{uprobes.c@{uprobes.c}!is\_trap\_at\_addr@{is\_trap\_at\_addr}}
+\index{is\_trap\_at\_addr@{is\_trap\_at\_addr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{is\_trap\_at\_addr()}{is\_trap\_at\_addr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} is\+\_\+trap\+\_\+at\+\_\+addr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ab15feb9a7b08460b80b3be569f878195}\label{kernel_2events_2uprobes_8c_ab15feb9a7b08460b80b3be569f878195}} 
+\index{uprobes.c@{uprobes.c}!is\_trap\_insn@{is\_trap\_insn}}
+\index{is\_trap\_insn@{is\_trap\_insn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{is\_trap\_insn()}{is\_trap\_insn()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} is\+\_\+trap\+\_\+insn (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}} $\ast$}]{insn }\end{DoxyParamCaption})}
+
+is\+\_\+trap\+\_\+insn -\/ check if instruction is breakpoint instruction. @insn\+: instruction to be checked. Default implementation of is\+\_\+trap\+\_\+insn Returns true if @insn is a breakpoint instruction.
+
+This function is needed for the case where an architecture has multiple trap instructions (like powerpc). Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a8da358a1b2a8a604ca81442d27617ec1}\label{kernel_2events_2uprobes_8c_a8da358a1b2a8a604ca81442d27617ec1}} 
+\index{uprobes.c@{uprobes.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{delayed\+\_\+uprobe\+\_\+list}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_af1029ccbf660df0e7f377063941649ff}\label{kernel_2events_2uprobes_8c_af1029ccbf660df0e7f377063941649ff}} 
+\index{uprobes.c@{uprobes.c}!mmf\_recalc\_uprobes@{mmf\_recalc\_uprobes}}
+\index{mmf\_recalc\_uprobes@{mmf\_recalc\_uprobes}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{mmf\_recalc\_uprobes()}{mmf\_recalc\_uprobes()}}
+{\footnotesize\ttfamily static void mmf\+\_\+recalc\+\_\+uprobes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 98
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a21b56aca59dffd9486542649fbe6d863}\label{kernel_2events_2uprobes_8c_a21b56aca59dffd9486542649fbe6d863}} 
+\index{uprobes.c@{uprobes.c}!offset\_to\_vaddr@{offset\_to\_vaddr}}
+\index{offset\_to\_vaddr@{offset\_to\_vaddr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{offset\_to\_vaddr()}{offset\_to\_vaddr()}}
+{\footnotesize\ttfamily static unsigned long offset\+\_\+to\+\_\+vaddr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{loff\+\_\+t}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae45cbbf156fc970c469baa6b44a2b9ad}\label{kernel_2events_2uprobes_8c_ae45cbbf156fc970c469baa6b44a2b9ad}} 
+\index{uprobes.c@{uprobes.c}!pre\_ssout@{pre\_ssout}}
+\index{pre\_ssout@{pre\_ssout}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{pre\_ssout()}{pre\_ssout()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pre\+\_\+ssout (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{unsigned long}]{bp\+\_\+vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 101
+Here is the caller graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ad26a4964dbb68587ff0eeb0356159af4}\label{kernel_2events_2uprobes_8c_ad26a4964dbb68587ff0eeb0356159af4}} 
+\index{uprobes.c@{uprobes.c}!prepare\_uprobe@{prepare\_uprobe}}
+\index{prepare\_uprobe@{prepare\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{prepare\_uprobe()}{prepare\_uprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prepare\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 103
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a2d8c3498047af3099b7c3dd84f6ec950}\label{kernel_2events_2uprobes_8c_a2d8c3498047af3099b7c3dd84f6ec950}} 
+\index{uprobes.c@{uprobes.c}!prepare\_uretprobe@{prepare\_uretprobe}}
+\index{prepare\_uretprobe@{prepare\_uretprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{prepare\_uretprobe()}{prepare\_uretprobe()}}
+{\footnotesize\ttfamily static void prepare\+\_\+uretprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 105
+Here is the caller graph for this function\+:
+% FIG 106
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a900685cc15d9532beeea168aa56d894b}\label{kernel_2events_2uprobes_8c_a900685cc15d9532beeea168aa56d894b}} 
+\index{uprobes.c@{uprobes.c}!put\_uprobe@{put\_uprobe}}
+\index{put\_uprobe@{put\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{put\_uprobe()}{put\_uprobe()}}
+{\footnotesize\ttfamily static void put\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 107
+Here is the caller graph for this function\+:
+% FIG 108
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a31ce8737c52b1db049f377c7e5c718fa}\label{kernel_2events_2uprobes_8c_a31ce8737c52b1db049f377c7e5c718fa}} 
+\index{uprobes.c@{uprobes.c}!ref\_ctr\_mismatch\_warn@{ref\_ctr\_mismatch\_warn}}
+\index{ref\_ctr\_mismatch\_warn@{ref\_ctr\_mismatch\_warn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{ref\_ctr\_mismatch\_warn()}{ref\_ctr\_mismatch\_warn()}}
+{\footnotesize\ttfamily static void ref\+\_\+ctr\+\_\+mismatch\+\_\+warn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{cur\+\_\+uprobe,  }\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae7e0217d7f74d854065061fe174e413b}\label{kernel_2events_2uprobes_8c_ae7e0217d7f74d854065061fe174e413b}} 
+\index{uprobes.c@{uprobes.c}!register\_for\_each\_vma@{register\_for\_each\_vma}}
+\index{register\_for\_each\_vma@{register\_for\_each\_vma}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{register\_for\_each\_vma()}{register\_for\_each\_vma()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} register\+\_\+for\+\_\+each\+\_\+vma (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{new }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a10d01fa253093823e7697619b6bee8bb}\label{kernel_2events_2uprobes_8c_a10d01fa253093823e7697619b6bee8bb}} 
+\index{uprobes.c@{uprobes.c}!remove\_breakpoint@{remove\_breakpoint}}
+\index{remove\_breakpoint@{remove\_breakpoint}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{remove\_breakpoint()}{remove\_breakpoint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} remove\+\_\+breakpoint (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 112
+Here is the caller graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a462d9d310bbb2c93f61b1cb26dcfbcb3}\label{kernel_2events_2uprobes_8c_a462d9d310bbb2c93f61b1cb26dcfbcb3}} 
+\index{uprobes.c@{uprobes.c}!set\_orig\_insn@{set\_orig\_insn}}
+\index{set\_orig\_insn@{set\_orig\_insn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{set\_orig\_insn()}{set\_orig\_insn()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} set\+\_\+orig\+\_\+insn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$}]{auprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})}
+
+set\+\_\+orig\+\_\+insn -\/ Restore the original instruction. @mm\+: the probed process address space. @auprobe\+: arch specific probepoint information. @vaddr\+: the virtual address to insert the opcode.
+
+For mm @mm, restore the original opcode (opcode) at @vaddr. Return 0 (success) or a negative errno. Here is the call graph for this function\+:
+% FIG 114
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a444e72c26f07771d181d458e15905297}\label{kernel_2events_2uprobes_8c_a444e72c26f07771d181d458e15905297}} 
+\index{uprobes.c@{uprobes.c}!set\_swbp@{set\_swbp}}
+\index{set\_swbp@{set\_swbp}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{set\_swbp()}{set\_swbp()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} set\+\_\+swbp (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$}]{auprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})}
+
+set\+\_\+swbp -\/ store breakpoint at a given address. @auprobe\+: arch specific probepoint information. @mm\+: the probed process address space. @vaddr\+: the virtual address to insert the opcode.
+
+For mm @mm, store the breakpoint instruction at @vaddr. Return 0 (success) or a negative errno. Here is the call graph for this function\+:
+% FIG 116
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a75d5c9381e6568b4a1d29297264481be}\label{kernel_2events_2uprobes_8c_a75d5c9381e6568b4a1d29297264481be}} 
+\index{uprobes.c@{uprobes.c}!unapply\_uprobe@{unapply\_uprobe}}
+\index{unapply\_uprobe@{unapply\_uprobe}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{unapply\_uprobe()}{unapply\_uprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} unapply\+\_\+uprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 118
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a7611186df5f6e80e71e1b72f575a055c}\label{kernel_2events_2uprobes_8c_a7611186df5f6e80e71e1b72f575a055c}} 
+\index{uprobes.c@{uprobes.c}!update\_ref\_ctr@{update\_ref\_ctr}}
+\index{update\_ref\_ctr@{update\_ref\_ctr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{update\_ref\_ctr()}{update\_ref\_ctr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} update\+\_\+ref\+\_\+ctr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}}}]{d }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 120
+Here is the caller graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ad0a3f8155e32fdd99ce8d366961d563d}\label{kernel_2events_2uprobes_8c_ad0a3f8155e32fdd99ce8d366961d563d}} 
+\index{uprobes.c@{uprobes.c}!update\_ref\_ctr\_warn@{update\_ref\_ctr\_warn}}
+\index{update\_ref\_ctr\_warn@{update\_ref\_ctr\_warn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{update\_ref\_ctr\_warn()}{update\_ref\_ctr\_warn()}}
+{\footnotesize\ttfamily static void update\+\_\+ref\+\_\+ctr\+\_\+warn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2io_8h_a831ae7261cfbc3d10cd36bed891d713a}{short}}}]{d }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 122
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a4478594997f02a7be18f9f1dd4cdd108}\label{kernel_2events_2uprobes_8c_a4478594997f02a7be18f9f1dd4cdd108}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_apply@{uprobe\_apply}}
+\index{uprobe\_apply@{uprobe\_apply}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_apply()}{uprobe\_apply()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+apply (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{add }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a27ca50c26518a02d5c42a41088d812a3}\label{kernel_2events_2uprobes_8c_a27ca50c26518a02d5c42a41088d812a3}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_clear\_state@{uprobe\_clear\_state}}
+\index{uprobe\_clear\_state@{uprobe\_clear\_state}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_clear\_state()}{uprobe\_clear\_state()}}
+{\footnotesize\ttfamily void uprobe\+\_\+clear\+\_\+state (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 124
+Here is the caller graph for this function\+:
+% FIG 125
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a623d90ad882b72dc80a44f19fec4274b}\label{kernel_2events_2uprobes_8c_a623d90ad882b72dc80a44f19fec4274b}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_cmp@{uprobe\_cmp}}
+\index{uprobe\_cmp@{uprobe\_cmp}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_cmp()}{uprobe\_cmp()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+cmp (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{l\+\_\+inode,  }\item[{const loff\+\_\+t}]{l\+\_\+offset,  }\item[{const struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{r }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 126
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aa8876832f33da85effa7ee5e79b92601}\label{kernel_2events_2uprobes_8c_aa8876832f33da85effa7ee5e79b92601}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_copy\_process@{uprobe\_copy\_process}}
+\index{uprobe\_copy\_process@{uprobe\_copy\_process}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_copy\_process()}{uprobe\_copy\_process()}}
+{\footnotesize\ttfamily void uprobe\+\_\+copy\+\_\+process (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{t,  }\item[{unsigned long}]{flags }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 127
+Here is the caller graph for this function\+:
+% FIG 128
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a1ca4dbe28dbca1ac1341d19ce0a80da9}\label{kernel_2events_2uprobes_8c_a1ca4dbe28dbca1ac1341d19ce0a80da9}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_deny\_signal@{uprobe\_deny\_signal}}
+\index{uprobe\_deny\_signal@{uprobe\_deny\_signal}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_deny\_signal()}{uprobe\_deny\_signal()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} uprobe\+\_\+deny\+\_\+signal (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 129
+Here is the caller graph for this function\+:
+% FIG 130
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a8e8a5d5e9a970f45288876021ae48f97}\label{kernel_2events_2uprobes_8c_a8e8a5d5e9a970f45288876021ae48f97}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_dup\_mmap@{uprobe\_dup\_mmap}}
+\index{uprobe\_dup\_mmap@{uprobe\_dup\_mmap}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_dup\_mmap()}{uprobe\_dup\_mmap()}}
+{\footnotesize\ttfamily void uprobe\+\_\+dup\+\_\+mmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{oldmm,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{newmm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 131
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ab1ada69723f406ac415cbd3a16d88164}\label{kernel_2events_2uprobes_8c_ab1ada69723f406ac415cbd3a16d88164}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_end\_dup\_mmap@{uprobe\_end\_dup\_mmap}}
+\index{uprobe\_end\_dup\_mmap@{uprobe\_end\_dup\_mmap}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_end\_dup\_mmap()}{uprobe\_end\_dup\_mmap()}}
+{\footnotesize\ttfamily void uprobe\+\_\+end\+\_\+dup\+\_\+mmap (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 132
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a366a3cee875110296ce4bcd01f1d3be4}\label{kernel_2events_2uprobes_8c_a366a3cee875110296ce4bcd01f1d3be4}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_free\_utask@{uprobe\_free\_utask}}
+\index{uprobe\_free\_utask@{uprobe\_free\_utask}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_free\_utask()}{uprobe\_free\_utask()}}
+{\footnotesize\ttfamily void uprobe\+\_\+free\+\_\+utask (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{t }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 133
+Here is the caller graph for this function\+:
+% FIG 134
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aa721c06966dc5f9679163c63ff28294f}\label{kernel_2events_2uprobes_8c_aa721c06966dc5f9679163c63ff28294f}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_get\_swbp\_addr@{uprobe\_get\_swbp\_addr}}
+\index{uprobe\_get\_swbp\_addr@{uprobe\_get\_swbp\_addr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_get\_swbp\_addr()}{uprobe\_get\_swbp\_addr()}}
+{\footnotesize\ttfamily unsigned long \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} uprobe\+\_\+get\+\_\+swbp\+\_\+addr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+uprobe\+\_\+get\+\_\+swbp\+\_\+addr -\/ compute address of swbp given post-\/swbp regs @regs\+: Reflects the saved state of the task after it has hit a breakpoint instruction. Return the address of the breakpoint instruction. Here is the call graph for this function\+:
+% FIG 135
+Here is the caller graph for this function\+:
+% FIG 136
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a5583ab7d1c5cf7ce40c656c7718ce13b}\label{kernel_2events_2uprobes_8c_a5583ab7d1c5cf7ce40c656c7718ce13b}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_get\_trap\_addr@{uprobe\_get\_trap\_addr}}
+\index{uprobe\_get\_trap\_addr@{uprobe\_get\_trap\_addr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_get\_trap\_addr()}{uprobe\_get\_trap\_addr()}}
+{\footnotesize\ttfamily unsigned long uprobe\+\_\+get\+\_\+trap\+\_\+addr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 137
+Here is the caller graph for this function\+:
+% FIG 138
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a9272cc99c145b6afb22a91b523352b95}\label{kernel_2events_2uprobes_8c_a9272cc99c145b6afb22a91b523352b95}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_is\_active@{uprobe\_is\_active}}
+\index{uprobe\_is\_active@{uprobe\_is\_active}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_is\_active()}{uprobe\_is\_active()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} uprobe\+\_\+is\+\_\+active (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 139
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_aa049f5487ededf85c72e2969e8406a9d}\label{kernel_2events_2uprobes_8c_aa049f5487ededf85c72e2969e8406a9d}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_mmap@{uprobe\_mmap}}
+\index{uprobe\_mmap@{uprobe\_mmap}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_mmap()}{uprobe\_mmap()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+mmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 140
+Here is the caller graph for this function\+:
+% FIG 141
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac9f3e1f4248b649d550facd952b9a325}\label{kernel_2events_2uprobes_8c_ac9f3e1f4248b649d550facd952b9a325}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_munmap@{uprobe\_munmap}}
+\index{uprobe\_munmap@{uprobe\_munmap}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_munmap()}{uprobe\_munmap()}}
+{\footnotesize\ttfamily void uprobe\+\_\+munmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{start,  }\item[{unsigned long}]{end }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 142
+Here is the caller graph for this function\+:
+% FIG 143
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a523b951ea2796041116eb2d521d37ba9}\label{kernel_2events_2uprobes_8c_a523b951ea2796041116eb2d521d37ba9}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_notify\_resume@{uprobe\_notify\_resume}}
+\index{uprobe\_notify\_resume@{uprobe\_notify\_resume}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_notify\_resume()}{uprobe\_notify\_resume()}}
+{\footnotesize\ttfamily void uprobe\+\_\+notify\+\_\+resume (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 144
+Here is the caller graph for this function\+:
+% FIG 145
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac72737975cdeb650678ea985cd1704e7}\label{kernel_2events_2uprobes_8c_ac72737975cdeb650678ea985cd1704e7}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_post\_sstep\_notifier@{uprobe\_post\_sstep\_notifier}}
+\index{uprobe\_post\_sstep\_notifier@{uprobe\_post\_sstep\_notifier}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_post\_sstep\_notifier()}{uprobe\_post\_sstep\_notifier()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+post\+\_\+sstep\+\_\+notifier (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 146
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ac58e07d1470a48fd3153672f339287f1}\label{kernel_2events_2uprobes_8c_ac58e07d1470a48fd3153672f339287f1}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_pre\_sstep\_notifier@{uprobe\_pre\_sstep\_notifier}}
+\index{uprobe\_pre\_sstep\_notifier@{uprobe\_pre\_sstep\_notifier}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_pre\_sstep\_notifier()}{uprobe\_pre\_sstep\_notifier()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+pre\+\_\+sstep\+\_\+notifier (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 147
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a223b762b29cfab51b3aabcd3b8d748ef}\label{kernel_2events_2uprobes_8c_a223b762b29cfab51b3aabcd3b8d748ef}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_register@{uprobe\_register}}
+\index{uprobe\_register@{uprobe\_register}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_register()}{uprobe\_register()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+register (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 148
+Here is the caller graph for this function\+:
+% FIG 149
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ab7a2e297b2f1d0556bc5619650f7d9ad}\label{kernel_2events_2uprobes_8c_ab7a2e297b2f1d0556bc5619650f7d9ad}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_register\_refctr@{uprobe\_register\_refctr}}
+\index{uprobe\_register\_refctr@{uprobe\_register\_refctr}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_register\_refctr()}{uprobe\_register\_refctr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+register\+\_\+refctr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset,  }\item[{loff\+\_\+t}]{ref\+\_\+ctr\+\_\+offset,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 150
+Here is the caller graph for this function\+:
+% FIG 151
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ab88dbbf33954bac3fb1388473bc3f890}\label{kernel_2events_2uprobes_8c_ab88dbbf33954bac3fb1388473bc3f890}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_start\_dup\_mmap@{uprobe\_start\_dup\_mmap}}
+\index{uprobe\_start\_dup\_mmap@{uprobe\_start\_dup\_mmap}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_start\_dup\_mmap()}{uprobe\_start\_dup\_mmap()}}
+{\footnotesize\ttfamily void uprobe\+\_\+start\+\_\+dup\+\_\+mmap (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 152
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a7abd2e42daf9e3f714531b5aa384e31d}\label{kernel_2events_2uprobes_8c_a7abd2e42daf9e3f714531b5aa384e31d}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_unregister@{uprobe\_unregister}}
+\index{uprobe\_unregister@{uprobe\_unregister}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_unregister()}{uprobe\_unregister()}}
+{\footnotesize\ttfamily void uprobe\+\_\+unregister (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{loff\+\_\+t}]{offset,  }\item[{struct \mbox{\hyperlink{structuprobe__consumer}{uprobe\+\_\+consumer}} $\ast$}]{uc }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 153
+Here is the caller graph for this function\+:
+% FIG 154
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a9b08324cc1bd881cace30c5bcfc239ed}\label{kernel_2events_2uprobes_8c_a9b08324cc1bd881cace30c5bcfc239ed}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_warn@{uprobe\_warn}}
+\index{uprobe\_warn@{uprobe\_warn}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_warn()}{uprobe\_warn()}}
+{\footnotesize\ttfamily static void uprobe\+\_\+warn (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{t,  }\item[{const char $\ast$}]{msg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 155
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_add16f7854df6f8b24e48b212075f2b3e}\label{kernel_2events_2uprobes_8c_add16f7854df6f8b24e48b212075f2b3e}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_write\_opcode@{uprobe\_write\_opcode}}
+\index{uprobe\_write\_opcode@{uprobe\_write\_opcode}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_write\_opcode()}{uprobe\_write\_opcode()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uprobe\+\_\+write\+\_\+opcode (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structarch__uprobe}{arch\+\_\+uprobe}} $\ast$}]{auprobe,  }\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{vaddr,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}}}]{opcode }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 156
+Here is the caller graph for this function\+:
+% FIG 157
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ae39140eb1094735cbc4439db7f537a31}\label{kernel_2events_2uprobes_8c_ae39140eb1094735cbc4439db7f537a31}} 
+\index{uprobes.c@{uprobes.c}!uprobes\_init@{uprobes\_init}}
+\index{uprobes\_init@{uprobes\_init}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobes\_init()}{uprobes\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} uprobes\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 158
+Here is the caller graph for this function\+:
+% FIG 159
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_af02e3cb8fa7107572cf931113edeaeb9}\label{kernel_2events_2uprobes_8c_af02e3cb8fa7107572cf931113edeaeb9}} 
+\index{uprobes.c@{uprobes.c}!vaddr\_to\_offset@{vaddr\_to\_offset}}
+\index{vaddr\_to\_offset@{vaddr\_to\_offset}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{vaddr\_to\_offset()}{vaddr\_to\_offset()}}
+{\footnotesize\ttfamily static loff\+\_\+t vaddr\+\_\+to\+\_\+offset (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{vaddr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 160
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_ad9fef825c7f72567ba05190d30664200}\label{kernel_2events_2uprobes_8c_ad9fef825c7f72567ba05190d30664200}} 
+\index{uprobes.c@{uprobes.c}!valid\_ref\_ctr\_vma@{valid\_ref\_ctr\_vma}}
+\index{valid\_ref\_ctr\_vma@{valid\_ref\_ctr\_vma}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{valid\_ref\_ctr\_vma()}{valid\_ref\_ctr\_vma()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} valid\+\_\+ref\+\_\+ctr\+\_\+vma (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 161
+Here is the caller graph for this function\+:
+% FIG 162
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_af23e0df55e819edb255fd7acb845f372}\label{kernel_2events_2uprobes_8c_af23e0df55e819edb255fd7acb845f372}} 
+\index{uprobes.c@{uprobes.c}!valid\_vma@{valid\_vma}}
+\index{valid\_vma@{valid\_vma}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{valid\_vma()}{valid\_vma()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} valid\+\_\+vma (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{is\+\_\+register }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 163
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_af7e5d54502026e80e6a44364b6da04a4}\label{kernel_2events_2uprobes_8c_af7e5d54502026e80e6a44364b6da04a4}} 
+\index{uprobes.c@{uprobes.c}!verify\_opcode@{verify\_opcode}}
+\index{verify\_opcode@{verify\_opcode}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{verify\_opcode()}{verify\_opcode()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} verify\+\_\+opcode (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{unsigned long}]{vaddr,  }\item[{\mbox{\hyperlink{arch_2x86_2include_2asm_2uprobes_8h_ad9974dfad69244b5c32287fe49f0c16d}{uprobe\+\_\+opcode\+\_\+t}} $\ast$}]{new\+\_\+opcode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 164
+Here is the caller graph for this function\+:
+% FIG 165
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a97e1e9aef41506ce5a112d92fee7c44e}\label{kernel_2events_2uprobes_8c_a97e1e9aef41506ce5a112d92fee7c44e}} 
+\index{uprobes.c@{uprobes.c}!vma\_has\_uprobes@{vma\_has\_uprobes}}
+\index{vma\_has\_uprobes@{vma\_has\_uprobes}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{vma\_has\_uprobes()}{vma\_has\_uprobes()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} vma\+\_\+has\+\_\+uprobes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{start,  }\item[{unsigned long}]{end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 166
+Here is the caller graph for this function\+:
+% FIG 167
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a2aefbe442a349584a4fe6a8bae55ed2e}\label{kernel_2events_2uprobes_8c_a2aefbe442a349584a4fe6a8bae55ed2e}} 
+\index{uprobes.c@{uprobes.c}!xol\_add\_vma@{xol\_add\_vma}}
+\index{xol\_add\_vma@{xol\_add\_vma}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{xol\_add\_vma()}{xol\_add\_vma()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xol\+\_\+add\+\_\+vma (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}} $\ast$}]{area }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 168
+Here is the caller graph for this function\+:
+% FIG 169
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a03bfe590fa4b094999aa70417d71da29}\label{kernel_2events_2uprobes_8c_a03bfe590fa4b094999aa70417d71da29}} 
+\index{uprobes.c@{uprobes.c}!xol\_free\_insn\_slot@{xol\_free\_insn\_slot}}
+\index{xol\_free\_insn\_slot@{xol\_free\_insn\_slot}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{xol\_free\_insn\_slot()}{xol\_free\_insn\_slot()}}
+{\footnotesize\ttfamily static void xol\+\_\+free\+\_\+insn\+\_\+slot (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 170
+Here is the caller graph for this function\+:
+% FIG 171
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a7142b24d70f87c43189318e72b1c867b}\label{kernel_2events_2uprobes_8c_a7142b24d70f87c43189318e72b1c867b}} 
+\index{uprobes.c@{uprobes.c}!xol\_get\_insn\_slot@{xol\_get\_insn\_slot}}
+\index{xol\_get\_insn\_slot@{xol\_get\_insn\_slot}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{xol\_get\_insn\_slot()}{xol\_get\_insn\_slot()}}
+{\footnotesize\ttfamily static unsigned long xol\+\_\+get\+\_\+insn\+\_\+slot (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structuprobe}{uprobe}} $\ast$}]{uprobe }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 172
+Here is the caller graph for this function\+:
+% FIG 173
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a390ed74193978e7cc4665428b52eb7c6}\label{kernel_2events_2uprobes_8c_a390ed74193978e7cc4665428b52eb7c6}} 
+\index{uprobes.c@{uprobes.c}!xol\_take\_insn\_slot@{xol\_take\_insn\_slot}}
+\index{xol\_take\_insn\_slot@{xol\_take\_insn\_slot}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{xol\_take\_insn\_slot()}{xol\_take\_insn\_slot()}}
+{\footnotesize\ttfamily static unsigned long xol\+\_\+take\+\_\+insn\+\_\+slot (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structxol__area}{xol\+\_\+area}} $\ast$}]{area }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 174
+Here is the caller graph for this function\+:
+% FIG 175
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a3c5903fb812387a6d3f23303d8a1617b}\label{kernel_2events_2uprobes_8c_a3c5903fb812387a6d3f23303d8a1617b}} 
+\index{uprobes.c@{uprobes.c}!uprobe\_exception\_nb@{uprobe\_exception\_nb}}
+\index{uprobe\_exception\_nb@{uprobe\_exception\_nb}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobe\_exception\_nb}{uprobe\_exception\_nb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} uprobe\+\_\+exception\+\_\+nb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .notifier\_call      = \mbox{\hyperlink{arch_2x86_2kernel_2uprobes_8c_a242119acdbacc4f111d13ccab484d0c5}{arch\_uprobe\_exception\_notify}},}
+\DoxyCodeLine{    .priority       = \mbox{\hyperlink{vdso_2limits_8h_a9ec306f36d50c7375e74f0d1c55a3a67}{INT\_MAX}}-\/1, }
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_a58b9cb1f5d39fc9b056afc8942c0835b}\label{kernel_2events_2uprobes_8c_a58b9cb1f5d39fc9b056afc8942c0835b}} 
+\index{uprobes.c@{uprobes.c}!uprobes\_mmap\_mutex@{uprobes\_mmap\_mutex}}
+\index{uprobes\_mmap\_mutex@{uprobes\_mmap\_mutex}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobes\_mmap\_mutex}{uprobes\_mmap\_mutex}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmutex}{mutex}} uprobes\+\_\+mmap\+\_\+mutex\mbox{[}\mbox{\hyperlink{kernel_2events_2uprobes_8c_a034f7455cc586ef6ad191d455a6935b5}{U\+P\+R\+O\+B\+E\+S\+\_\+\+H\+A\+S\+H\+\_\+\+SZ}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kernel_2events_2uprobes_8c_af636eca246f3711a3528d604a0506e8c}\label{kernel_2events_2uprobes_8c_af636eca246f3711a3528d604a0506e8c}} 
+\index{uprobes.c@{uprobes.c}!uprobes\_tree@{uprobes\_tree}}
+\index{uprobes\_tree@{uprobes\_tree}!uprobes.c@{uprobes.c}}
+\doxysubsubsection{\texorpdfstring{uprobes\_tree}{uprobes\_tree}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrb__root}{rb\+\_\+root}} uprobes\+\_\+tree = \mbox{\hyperlink{rbtree__types_8h_a0dc291988d7286d8dd4268066e9031a4}{R\+B\+\_\+\+R\+O\+OT}}\hspace{0.3cm}{\ttfamily [static]}}
+

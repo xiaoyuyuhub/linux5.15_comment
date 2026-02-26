@@ -1,0 +1,115 @@
+\hypertarget{structmm__slot}{}\doxysection{mm\+\_\+slot Struct Reference}
+\label{structmm__slot}\index{mm\_slot@{mm\_slot}}
+
+
+Collaboration diagram for mm\+\_\+slot\+:
+% FIG 0
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structhlist__node}{hlist\+\_\+node}} \mbox{\hyperlink{structmm__slot_aad505c851b9af71cb110db2b66573360}{hash}}
+\item 
+struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} \mbox{\hyperlink{structmm__slot_a3c5d29445e1d6ab0bcdbbb092fcd1a0f}{mm\+\_\+node}}
+\item 
+struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$ \mbox{\hyperlink{structmm__slot_a5e4dd4b2d0c5ecc3d9bac10b82f37b65}{mm}}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structmm__slot_aa98ac7e524116dfb5cb33c934d7a588c}{nr\+\_\+pte\+\_\+mapped\+\_\+thp}}
+\item 
+unsigned long \mbox{\hyperlink{structmm__slot_a8600d8b238bf12d46b75853f5cbb3d80}{pte\+\_\+mapped\+\_\+thp}} \mbox{[}\mbox{\hyperlink{khugepaged_8c_adf10e885820ff905c33b4a1d16d056a6}{M\+A\+X\+\_\+\+P\+T\+E\+\_\+\+M\+A\+P\+P\+E\+D\+\_\+\+T\+HP}}\mbox{]}
+\item 
+struct \mbox{\hyperlink{structhlist__node}{hlist\+\_\+node}} \mbox{\hyperlink{structmm__slot_a0802d85bec7f2780996fed3f0ad73e10}{link}}
+\item 
+struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} \mbox{\hyperlink{structmm__slot_a9914f88caef57a8c92bf9061292e23ad}{mm\+\_\+list}}
+\item 
+struct \mbox{\hyperlink{structrmap__item}{rmap\+\_\+item}} $\ast$ \mbox{\hyperlink{structmm__slot_a948993e5de3998c3106b07a863456677}{rmap\+\_\+list}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} -\/ hash lookup from mm to \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} @hash\+: hash collision list @mm\+\_\+node\+: khugepaged scan list headed in \mbox{\hyperlink{structkhugepaged__scan_a38f778e5c36074409694d50279a03fce}{khugepaged\+\_\+scan.\+mm\+\_\+head}} @mm\+: the mm that this information is valid for @nr\+\_\+pte\+\_\+mapped\+\_\+thp\+: number of pte mapped T\+HP @pte\+\_\+mapped\+\_\+thp\+: address array corresponding pte mapped T\+HP
+
+D\+OC\+: Overview
+
+A few notes about the K\+SM scanning process, to make it easier to understand the data structures below\+:
+
+In order to reduce excessive scanning, K\+SM sorts the memory pages by their contents into a data structure that holds pointers to the pages\textquotesingle{} locations.
+
+Since the contents of the pages may change at any moment, K\+SM cannot just insert the pages into a normal sorted tree and expect it to find anything. Therefore K\+SM uses two data structures -\/ the stable and the unstable tree.
+
+\mbox{\hyperlink{classThe}{The}} stable tree holds pointers to all the merged pages (ksm pages), sorted by their contents. Because each such page is write-\/protected, searching on this tree is fully assured to be working (except when pages are unmapped), and therefore this tree is called the stable tree.
+
+\mbox{\hyperlink{classThe}{The}} stable tree node includes information required for reverse mapping from a K\+SM page to virtual addresses that map this page.
+
+In order to avoid large latencies of the rmap walks on K\+SM pages, K\+SM maintains two types of nodes in the stable tree\+:
+
+
+\begin{DoxyItemize}
+\item the regular nodes that keep the reverse mapping structures in a linked list
+\item the \char`\"{}chains\char`\"{} that link nodes (\char`\"{}dups\char`\"{}) that represent the same write protected memory content, but each \char`\"{}dup\char`\"{} corresponds to a different K\+SM page copy of that content
+\end{DoxyItemize}
+
+Internally, the regular nodes, \char`\"{}dups\char`\"{} and \char`\"{}chains\char`\"{} are represented using the same struct \mbox{\hyperlink{structstable__node}{stable\+\_\+node}} structure.
+
+In addition to the stable tree, K\+SM uses a second data structure called the unstable tree\+: this tree holds pointers to pages which have been found to be \char`\"{}unchanged for a period of time\char`\"{}. \mbox{\hyperlink{classThe}{The}} unstable tree sorts these pages by their contents, but since they are not write-\/protected, K\+SM cannot rely upon the unstable tree to work correctly -\/ the unstable tree is liable to be corrupted as its contents are modified, and so it is called unstable.
+
+K\+SM solves this problem by several techniques\+:
+
+1) \mbox{\hyperlink{classThe}{The}} unstable tree is flushed every time K\+SM completes scanning all memory areas, and then the tree is rebuilt again from the beginning. 2) K\+SM will only insert into the unstable tree, pages whose hash value has not changed since the previous scan of all memory areas. 3) \mbox{\hyperlink{classThe}{The}} unstable tree is a Red\+Black Tree -\/ so its balancing is based on the colors of the nodes and not on their contents, assuring that even when the tree gets \char`\"{}corrupted\char`\"{} it won\textquotesingle{}t get out of balance, so scanning time remains the same (also, searching and inserting nodes in an rbtree uses the same algorithm, so we have no overhead when we flush and rebuild). 4) K\+SM never flushes the stable tree, which means that even if it were to take 10 attempts to find a page in the unstable tree, once it is found, it is secured in the stable tree. (When we scan a new page, we first compare it against the stable tree, and then against the unstable tree.)
+
+If the merge\+\_\+across\+\_\+nodes tunable is unset, then K\+SM maintains multiple stable trees and multiple unstable trees\+: one of each for each N\+U\+MA node. struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} -\/ ksm information per mm that is being scanned  link to the mm\+\_\+slots hash list @mm\+\_\+list\+: link into the mm\+\_\+slots list, rooted in ksm\+\_\+mm\+\_\+head @rmap\+\_\+list\+: head for this \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}}\textquotesingle{}s singly-\/linked list of rmap\+\_\+items @mm\+: the mm that this information is valid for 
+
+\doxysubsection{Member Data Documentation}
+\mbox{\Hypertarget{structmm__slot_aad505c851b9af71cb110db2b66573360}\label{structmm__slot_aad505c851b9af71cb110db2b66573360}} 
+\index{mm\_slot@{mm\_slot}!hash@{hash}}
+\index{hash@{hash}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{hash}{hash}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhlist__node}{hlist\+\_\+node}} mm\+\_\+slot\+::hash}
+
+\mbox{\Hypertarget{structmm__slot_a0802d85bec7f2780996fed3f0ad73e10}\label{structmm__slot_a0802d85bec7f2780996fed3f0ad73e10}} 
+\index{mm\_slot@{mm\_slot}!link@{link}}
+\index{link@{link}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{link}{link}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhlist__node}{hlist\+\_\+node}} mm\+\_\+slot\+::link}
+
+\mbox{\Hypertarget{structmm__slot_a5e4dd4b2d0c5ecc3d9bac10b82f37b65}\label{structmm__slot_a5e4dd4b2d0c5ecc3d9bac10b82f37b65}} 
+\index{mm\_slot@{mm\_slot}!mm@{mm}}
+\index{mm@{mm}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{mm}{mm}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$ mm\+\_\+slot\+::mm}
+
+\mbox{\Hypertarget{structmm__slot_a9914f88caef57a8c92bf9061292e23ad}\label{structmm__slot_a9914f88caef57a8c92bf9061292e23ad}} 
+\index{mm\_slot@{mm\_slot}!mm\_list@{mm\_list}}
+\index{mm\_list@{mm\_list}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{mm\_list}{mm\_list}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} mm\+\_\+slot\+::mm\+\_\+list}
+
+\mbox{\Hypertarget{structmm__slot_a3c5d29445e1d6ab0bcdbbb092fcd1a0f}\label{structmm__slot_a3c5d29445e1d6ab0bcdbbb092fcd1a0f}} 
+\index{mm\_slot@{mm\_slot}!mm\_node@{mm\_node}}
+\index{mm\_node@{mm\_node}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{mm\_node}{mm\_node}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} mm\+\_\+slot\+::mm\+\_\+node}
+
+\mbox{\Hypertarget{structmm__slot_aa98ac7e524116dfb5cb33c934d7a588c}\label{structmm__slot_aa98ac7e524116dfb5cb33c934d7a588c}} 
+\index{mm\_slot@{mm\_slot}!nr\_pte\_mapped\_thp@{nr\_pte\_mapped\_thp}}
+\index{nr\_pte\_mapped\_thp@{nr\_pte\_mapped\_thp}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{nr\_pte\_mapped\_thp}{nr\_pte\_mapped\_thp}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mm\+\_\+slot\+::nr\+\_\+pte\+\_\+mapped\+\_\+thp}
+
+\mbox{\Hypertarget{structmm__slot_a8600d8b238bf12d46b75853f5cbb3d80}\label{structmm__slot_a8600d8b238bf12d46b75853f5cbb3d80}} 
+\index{mm\_slot@{mm\_slot}!pte\_mapped\_thp@{pte\_mapped\_thp}}
+\index{pte\_mapped\_thp@{pte\_mapped\_thp}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{pte\_mapped\_thp}{pte\_mapped\_thp}}
+{\footnotesize\ttfamily unsigned long mm\+\_\+slot\+::pte\+\_\+mapped\+\_\+thp\mbox{[}\mbox{\hyperlink{khugepaged_8c_adf10e885820ff905c33b4a1d16d056a6}{M\+A\+X\+\_\+\+P\+T\+E\+\_\+\+M\+A\+P\+P\+E\+D\+\_\+\+T\+HP}}\mbox{]}}
+
+\mbox{\Hypertarget{structmm__slot_a948993e5de3998c3106b07a863456677}\label{structmm__slot_a948993e5de3998c3106b07a863456677}} 
+\index{mm\_slot@{mm\_slot}!rmap\_list@{rmap\_list}}
+\index{rmap\_list@{rmap\_list}!mm\_slot@{mm\_slot}}
+\doxysubsubsection{\texorpdfstring{rmap\_list}{rmap\_list}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrmap__item}{rmap\+\_\+item}}$\ast$ mm\+\_\+slot\+::rmap\+\_\+list}
+
+
+
+The documentation for this struct was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+mm/\mbox{\hyperlink{khugepaged_8c}{khugepaged.\+c}}\item 
+mm/\mbox{\hyperlink{ksm_8c}{ksm.\+c}}\end{DoxyCompactItemize}

@@ -1,0 +1,333 @@
+\hypertarget{quarantine_8c}{}\doxysection{mm/kasan/quarantine.c File Reference}
+\label{quarantine_8c}\index{mm/kasan/quarantine.c@{mm/kasan/quarantine.c}}
+{\ttfamily \#include $<$linux/gfp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hash.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/printk.\+h$>$}\newline
+{\ttfamily \#include $<$linux/shrinker.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/srcu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpuhotplug.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}../slab.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}kasan.\+h\char`\"{}}\newline
+Include dependency graph for quarantine.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{quarantine_8c_a1975486e223ab1038937a1e696646938}{Q\+L\+I\+S\+T\+\_\+\+I\+N\+IT}}~\{ \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}, \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}, 0 \}
+\item 
+\#define \mbox{\hyperlink{quarantine_8c_a41cbbbe273f9b35c51fc292b92247877}{Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+P\+E\+R\+C\+P\+U\+\_\+\+S\+I\+ZE}}~(1 $<$$<$ 20)
+\item 
+\#define \mbox{\hyperlink{quarantine_8c_af4011f2dcc3971736a6cc2692af31e76}{Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+B\+A\+T\+C\+H\+ES}}~(1024 $>$ 4 $\ast$ \mbox{\hyperlink{threads_8h_aac2fafed029234e870f1b53ee6daf2fe}{C\+O\+N\+F\+I\+G\+\_\+\+N\+R\+\_\+\+C\+P\+US}} ? 1024 \+: 4 $\ast$ \mbox{\hyperlink{threads_8h_aac2fafed029234e870f1b53ee6daf2fe}{C\+O\+N\+F\+I\+G\+\_\+\+N\+R\+\_\+\+C\+P\+US}})
+\item 
+\#define \mbox{\hyperlink{quarantine_8c_a5265613ef88be7d42bfa788d5c5b3915}{Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+F\+R\+A\+C\+T\+I\+ON}}~32
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{quarantine_8c_a49b8ef45b73fe926fe4b9c99181b8665}{qlist\+\_\+empty}} (struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}})
+\item 
+static void \mbox{\hyperlink{quarantine_8c_a7996a74a388918d433f976b8fd7f4e94}{qlist\+\_\+init}} (struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}})
+\item 
+static void \mbox{\hyperlink{quarantine_8c_acd04074fc7838abca4658d51d45a37a7}{qlist\+\_\+put}} (struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$qlink, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{quarantine_8c_a3da88f9da1f9507fa2aa9f0140d3ca23}{qlist\+\_\+move\+\_\+all}} (struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$\mbox{\hyperlink{uapi_2linux_2nbd_8h_a40a5b09b54e6b509d25739f0d9a626e9}{from}}, struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$to)
+\item 
+static \mbox{\hyperlink{quarantine_8c_adfd521541d647c4eb0532c4c17e2c1a9}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}}, cpu\+\_\+quarantine)
+\item 
+static \mbox{\hyperlink{quarantine_8c_a02b3f78a4e6f95c6ef7857c3f8316417}{D\+E\+F\+I\+N\+E\+\_\+\+R\+A\+W\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (quarantine\+\_\+lock)
+\item 
+\mbox{\hyperlink{quarantine_8c_a6c20af2f2eb095fa3708d3f6878ee5af}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+S\+R\+CU}} (remove\+\_\+cache\+\_\+srcu)
+\item 
+static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$ \mbox{\hyperlink{quarantine_8c_ac865160c8ce27c1df50f72c59ab87df0}{qlink\+\_\+to\+\_\+cache}} (struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$qlink)
+\item 
+static void $\ast$ \mbox{\hyperlink{quarantine_8c_afe2e9365d2031dc6a271184221d3b40b}{qlink\+\_\+to\+\_\+object}} (struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$qlink, struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$cache)
+\item 
+static void \mbox{\hyperlink{quarantine_8c_a5efff91811faa0bff834c9521d7e76fe}{qlink\+\_\+free}} (struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$qlink, struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$cache)
+\item 
+static void \mbox{\hyperlink{quarantine_8c_a2dc1b50c2d10e49beefaa28244e9f4d8}{qlist\+\_\+free\+\_\+all}} (struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$\mbox{\hyperlink{decode__rs_8c_a462e8d86a4e2a6d19cfbdcd5c49b2992}{q}}, struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$cache)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{quarantine_8c_aa9a0e428ded39f3c4b59c1c6cdc13d35}{kasan\+\_\+quarantine\+\_\+put}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$cache, void $\ast$object)
+\item 
+void \mbox{\hyperlink{quarantine_8c_a13d8062251ada198c3f164aca63be3b5}{kasan\+\_\+quarantine\+\_\+reduce}} (void)
+\item 
+static void \mbox{\hyperlink{quarantine_8c_aad1ab9616b4ac4d55445f63a9d85d7b4}{qlist\+\_\+move\+\_\+cache}} (struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$\mbox{\hyperlink{uapi_2linux_2nbd_8h_a40a5b09b54e6b509d25739f0d9a626e9}{from}}, struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$to, struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$cache)
+\item 
+static void \mbox{\hyperlink{quarantine_8c_a29d109c4609eae3d6ea46a1dac7dcc48}{per\+\_\+cpu\+\_\+remove\+\_\+cache}} (void $\ast$arg)
+\item 
+void \mbox{\hyperlink{quarantine_8c_abf1e3802038f749edf543bff8eea32a1}{kasan\+\_\+quarantine\+\_\+remove\+\_\+cache}} (struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$cache)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{quarantine_8c_af1716650f7d39140474d5b1098c1a14a}{kasan\+\_\+cpu\+\_\+online}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{quarantine_8c_a8f2457c767a6531e7ccb3bd8c1c66dca}{kasan\+\_\+cpu\+\_\+offline}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{quarantine_8c_a18ff058a5039c9cd43023d1a0a9514eb}{kasan\+\_\+cpu\+\_\+quarantine\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{quarantine_8c_acd6bc0dca7c1c110f185bcc4911d3d60}{late\+\_\+initcall}} (\mbox{\hyperlink{quarantine_8c_a18ff058a5039c9cd43023d1a0a9514eb}{kasan\+\_\+cpu\+\_\+quarantine\+\_\+init}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} \mbox{\hyperlink{quarantine_8c_ae00c20a12c67ae880b010dc74c96d8d8}{global\+\_\+quarantine}} \mbox{[}\mbox{\hyperlink{quarantine_8c_af4011f2dcc3971736a6cc2692af31e76}{Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+B\+A\+T\+C\+H\+ES}}\mbox{]}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{quarantine_8c_a9af42e21dc8b929e7a08847bafbb77e3}{quarantine\+\_\+head}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{quarantine_8c_a30f781e43f2ff94a4b6aaf343538bbbf}{quarantine\+\_\+tail}}
+\item 
+static unsigned long \mbox{\hyperlink{quarantine_8c_a3931b6dd1ce97e4bf9f9f093431c88dc}{quarantine\+\_\+size}}
+\item 
+static unsigned long \mbox{\hyperlink{quarantine_8c_ae3ef70a6ca4dd253d362a3afbcb8a25a}{quarantine\+\_\+max\+\_\+size}}
+\item 
+static unsigned long \mbox{\hyperlink{quarantine_8c_ae19011a2e76eb1219228fedc4c7ea8ae}{quarantine\+\_\+batch\+\_\+size}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{quarantine_8c_a1975486e223ab1038937a1e696646938}\label{quarantine_8c_a1975486e223ab1038937a1e696646938}} 
+\index{quarantine.c@{quarantine.c}!QLIST\_INIT@{QLIST\_INIT}}
+\index{QLIST\_INIT@{QLIST\_INIT}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{QLIST\_INIT}{QLIST\_INIT}}
+{\footnotesize\ttfamily \#define Q\+L\+I\+S\+T\+\_\+\+I\+N\+IT~\{ \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}, \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}, 0 \}}
+
+\mbox{\Hypertarget{quarantine_8c_af4011f2dcc3971736a6cc2692af31e76}\label{quarantine_8c_af4011f2dcc3971736a6cc2692af31e76}} 
+\index{quarantine.c@{quarantine.c}!QUARANTINE\_BATCHES@{QUARANTINE\_BATCHES}}
+\index{QUARANTINE\_BATCHES@{QUARANTINE\_BATCHES}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{QUARANTINE\_BATCHES}{QUARANTINE\_BATCHES}}
+{\footnotesize\ttfamily \#define Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+B\+A\+T\+C\+H\+ES~(1024 $>$ 4 $\ast$ \mbox{\hyperlink{threads_8h_aac2fafed029234e870f1b53ee6daf2fe}{C\+O\+N\+F\+I\+G\+\_\+\+N\+R\+\_\+\+C\+P\+US}} ? 1024 \+: 4 $\ast$ \mbox{\hyperlink{threads_8h_aac2fafed029234e870f1b53ee6daf2fe}{C\+O\+N\+F\+I\+G\+\_\+\+N\+R\+\_\+\+C\+P\+US}})}
+
+\mbox{\Hypertarget{quarantine_8c_a5265613ef88be7d42bfa788d5c5b3915}\label{quarantine_8c_a5265613ef88be7d42bfa788d5c5b3915}} 
+\index{quarantine.c@{quarantine.c}!QUARANTINE\_FRACTION@{QUARANTINE\_FRACTION}}
+\index{QUARANTINE\_FRACTION@{QUARANTINE\_FRACTION}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{QUARANTINE\_FRACTION}{QUARANTINE\_FRACTION}}
+{\footnotesize\ttfamily \#define Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+F\+R\+A\+C\+T\+I\+ON~32}
+
+\mbox{\Hypertarget{quarantine_8c_a41cbbbe273f9b35c51fc292b92247877}\label{quarantine_8c_a41cbbbe273f9b35c51fc292b92247877}} 
+\index{quarantine.c@{quarantine.c}!QUARANTINE\_PERCPU\_SIZE@{QUARANTINE\_PERCPU\_SIZE}}
+\index{QUARANTINE\_PERCPU\_SIZE@{QUARANTINE\_PERCPU\_SIZE}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{QUARANTINE\_PERCPU\_SIZE}{QUARANTINE\_PERCPU\_SIZE}}
+{\footnotesize\ttfamily \#define Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+P\+E\+R\+C\+P\+U\+\_\+\+S\+I\+ZE~(1 $<$$<$ 20)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{quarantine_8c_adfd521541d647c4eb0532c4c17e2c1a9}\label{quarantine_8c_adfd521541d647c4eb0532c4c17e2c1a9}} 
+\index{quarantine.c@{quarantine.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}}}]{,  }\item[{cpu\+\_\+quarantine}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{quarantine_8c_a02b3f78a4e6f95c6ef7857c3f8316417}\label{quarantine_8c_a02b3f78a4e6f95c6ef7857c3f8316417}} 
+\index{quarantine.c@{quarantine.c}!DEFINE\_RAW\_SPINLOCK@{DEFINE\_RAW\_SPINLOCK}}
+\index{DEFINE\_RAW\_SPINLOCK@{DEFINE\_RAW\_SPINLOCK}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_RAW\_SPINLOCK()}{DEFINE\_RAW\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+R\+A\+W\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{quarantine\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{quarantine_8c_a6c20af2f2eb095fa3708d3f6878ee5af}\label{quarantine_8c_a6c20af2f2eb095fa3708d3f6878ee5af}} 
+\index{quarantine.c@{quarantine.c}!DEFINE\_STATIC\_SRCU@{DEFINE\_STATIC\_SRCU}}
+\index{DEFINE\_STATIC\_SRCU@{DEFINE\_STATIC\_SRCU}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_SRCU()}{DEFINE\_STATIC\_SRCU()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+S\+R\+CU (\begin{DoxyParamCaption}\item[{remove\+\_\+cache\+\_\+srcu}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{quarantine_8c_a8f2457c767a6531e7ccb3bd8c1c66dca}\label{quarantine_8c_a8f2457c767a6531e7ccb3bd8c1c66dca}} 
+\index{quarantine.c@{quarantine.c}!kasan\_cpu\_offline@{kasan\_cpu\_offline}}
+\index{kasan\_cpu\_offline@{kasan\_cpu\_offline}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{kasan\_cpu\_offline()}{kasan\_cpu\_offline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kasan\+\_\+cpu\+\_\+offline (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{quarantine_8c_af1716650f7d39140474d5b1098c1a14a}\label{quarantine_8c_af1716650f7d39140474d5b1098c1a14a}} 
+\index{quarantine.c@{quarantine.c}!kasan\_cpu\_online@{kasan\_cpu\_online}}
+\index{kasan\_cpu\_online@{kasan\_cpu\_online}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{kasan\_cpu\_online()}{kasan\_cpu\_online()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kasan\+\_\+cpu\+\_\+online (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{quarantine_8c_a18ff058a5039c9cd43023d1a0a9514eb}\label{quarantine_8c_a18ff058a5039c9cd43023d1a0a9514eb}} 
+\index{quarantine.c@{quarantine.c}!kasan\_cpu\_quarantine\_init@{kasan\_cpu\_quarantine\_init}}
+\index{kasan\_cpu\_quarantine\_init@{kasan\_cpu\_quarantine\_init}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{kasan\_cpu\_quarantine\_init()}{kasan\_cpu\_quarantine\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kasan\+\_\+cpu\+\_\+quarantine\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{quarantine_8c_aa9a0e428ded39f3c4b59c1c6cdc13d35}\label{quarantine_8c_aa9a0e428ded39f3c4b59c1c6cdc13d35}} 
+\index{quarantine.c@{quarantine.c}!kasan\_quarantine\_put@{kasan\_quarantine\_put}}
+\index{kasan\_quarantine\_put@{kasan\_quarantine\_put}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{kasan\_quarantine\_put()}{kasan\_quarantine\_put()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kasan\+\_\+quarantine\+\_\+put (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{cache,  }\item[{void $\ast$}]{object }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{quarantine_8c_a13d8062251ada198c3f164aca63be3b5}\label{quarantine_8c_a13d8062251ada198c3f164aca63be3b5}} 
+\index{quarantine.c@{quarantine.c}!kasan\_quarantine\_reduce@{kasan\_quarantine\_reduce}}
+\index{kasan\_quarantine\_reduce@{kasan\_quarantine\_reduce}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{kasan\_quarantine\_reduce()}{kasan\_quarantine\_reduce()}}
+{\footnotesize\ttfamily void kasan\+\_\+quarantine\+\_\+reduce (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{quarantine_8c_abf1e3802038f749edf543bff8eea32a1}\label{quarantine_8c_abf1e3802038f749edf543bff8eea32a1}} 
+\index{quarantine.c@{quarantine.c}!kasan\_quarantine\_remove\_cache@{kasan\_quarantine\_remove\_cache}}
+\index{kasan\_quarantine\_remove\_cache@{kasan\_quarantine\_remove\_cache}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{kasan\_quarantine\_remove\_cache()}{kasan\_quarantine\_remove\_cache()}}
+{\footnotesize\ttfamily void kasan\+\_\+quarantine\+\_\+remove\+\_\+cache (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{cache }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{quarantine_8c_acd6bc0dca7c1c110f185bcc4911d3d60}\label{quarantine_8c_acd6bc0dca7c1c110f185bcc4911d3d60}} 
+\index{quarantine.c@{quarantine.c}!late\_initcall@{late\_initcall}}
+\index{late\_initcall@{late\_initcall}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall()}{late\_initcall()}}
+{\footnotesize\ttfamily late\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{quarantine_8c_a18ff058a5039c9cd43023d1a0a9514eb}{kasan\+\_\+cpu\+\_\+quarantine\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{quarantine_8c_a29d109c4609eae3d6ea46a1dac7dcc48}\label{quarantine_8c_a29d109c4609eae3d6ea46a1dac7dcc48}} 
+\index{quarantine.c@{quarantine.c}!per\_cpu\_remove\_cache@{per\_cpu\_remove\_cache}}
+\index{per\_cpu\_remove\_cache@{per\_cpu\_remove\_cache}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{per\_cpu\_remove\_cache()}{per\_cpu\_remove\_cache()}}
+{\footnotesize\ttfamily static void per\+\_\+cpu\+\_\+remove\+\_\+cache (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{quarantine_8c_a5efff91811faa0bff834c9521d7e76fe}\label{quarantine_8c_a5efff91811faa0bff834c9521d7e76fe}} 
+\index{quarantine.c@{quarantine.c}!qlink\_free@{qlink\_free}}
+\index{qlink\_free@{qlink\_free}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlink\_free()}{qlink\_free()}}
+{\footnotesize\ttfamily static void qlink\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$}]{qlink,  }\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{cache }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{quarantine_8c_ac865160c8ce27c1df50f72c59ab87df0}\label{quarantine_8c_ac865160c8ce27c1df50f72c59ab87df0}} 
+\index{quarantine.c@{quarantine.c}!qlink\_to\_cache@{qlink\_to\_cache}}
+\index{qlink\_to\_cache@{qlink\_to\_cache}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlink\_to\_cache()}{qlink\_to\_cache()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ qlink\+\_\+to\+\_\+cache (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$}]{qlink }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{quarantine_8c_afe2e9365d2031dc6a271184221d3b40b}\label{quarantine_8c_afe2e9365d2031dc6a271184221d3b40b}} 
+\index{quarantine.c@{quarantine.c}!qlink\_to\_object@{qlink\_to\_object}}
+\index{qlink\_to\_object@{qlink\_to\_object}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlink\_to\_object()}{qlink\_to\_object()}}
+{\footnotesize\ttfamily static void$\ast$ qlink\+\_\+to\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$}]{qlink,  }\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{cache }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{quarantine_8c_a49b8ef45b73fe926fe4b9c99181b8665}\label{quarantine_8c_a49b8ef45b73fe926fe4b9c99181b8665}} 
+\index{quarantine.c@{quarantine.c}!qlist\_empty@{qlist\_empty}}
+\index{qlist\_empty@{qlist\_empty}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlist\_empty()}{qlist\_empty()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} qlist\+\_\+empty (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{quarantine_8c_a2dc1b50c2d10e49beefaa28244e9f4d8}\label{quarantine_8c_a2dc1b50c2d10e49beefaa28244e9f4d8}} 
+\index{quarantine.c@{quarantine.c}!qlist\_free\_all@{qlist\_free\_all}}
+\index{qlist\_free\_all@{qlist\_free\_all}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlist\_free\_all()}{qlist\_free\_all()}}
+{\footnotesize\ttfamily static void qlist\+\_\+free\+\_\+all (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{cache }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{quarantine_8c_a7996a74a388918d433f976b8fd7f4e94}\label{quarantine_8c_a7996a74a388918d433f976b8fd7f4e94}} 
+\index{quarantine.c@{quarantine.c}!qlist\_init@{qlist\_init}}
+\index{qlist\_init@{qlist\_init}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlist\_init()}{qlist\_init()}}
+{\footnotesize\ttfamily static void qlist\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{quarantine_8c_a3da88f9da1f9507fa2aa9f0140d3ca23}\label{quarantine_8c_a3da88f9da1f9507fa2aa9f0140d3ca23}} 
+\index{quarantine.c@{quarantine.c}!qlist\_move\_all@{qlist\_move\_all}}
+\index{qlist\_move\_all@{qlist\_move\_all}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlist\_move\_all()}{qlist\_move\_all()}}
+{\footnotesize\ttfamily static void qlist\+\_\+move\+\_\+all (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{from,  }\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{to }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{quarantine_8c_aad1ab9616b4ac4d55445f63a9d85d7b4}\label{quarantine_8c_aad1ab9616b4ac4d55445f63a9d85d7b4}} 
+\index{quarantine.c@{quarantine.c}!qlist\_move\_cache@{qlist\_move\_cache}}
+\index{qlist\_move\_cache@{qlist\_move\_cache}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlist\_move\_cache()}{qlist\_move\_cache()}}
+{\footnotesize\ttfamily static void qlist\+\_\+move\+\_\+cache (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{from,  }\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{to,  }\item[{struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$}]{cache }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{quarantine_8c_acd04074fc7838abca4658d51d45a37a7}\label{quarantine_8c_acd04074fc7838abca4658d51d45a37a7}} 
+\index{quarantine.c@{quarantine.c}!qlist\_put@{qlist\_put}}
+\index{qlist\_put@{qlist\_put}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{qlist\_put()}{qlist\_put()}}
+{\footnotesize\ttfamily static void qlist\+\_\+put (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} $\ast$}]{q,  }\item[{struct \mbox{\hyperlink{structqlist__node}{qlist\+\_\+node}} $\ast$}]{qlink,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{quarantine_8c_ae00c20a12c67ae880b010dc74c96d8d8}\label{quarantine_8c_ae00c20a12c67ae880b010dc74c96d8d8}} 
+\index{quarantine.c@{quarantine.c}!global\_quarantine@{global\_quarantine}}
+\index{global\_quarantine@{global\_quarantine}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{global\_quarantine}{global\_quarantine}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structqlist__head}{qlist\+\_\+head}} global\+\_\+quarantine\mbox{[}\mbox{\hyperlink{quarantine_8c_af4011f2dcc3971736a6cc2692af31e76}{Q\+U\+A\+R\+A\+N\+T\+I\+N\+E\+\_\+\+B\+A\+T\+C\+H\+ES}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{quarantine_8c_ae19011a2e76eb1219228fedc4c7ea8ae}\label{quarantine_8c_ae19011a2e76eb1219228fedc4c7ea8ae}} 
+\index{quarantine.c@{quarantine.c}!quarantine\_batch\_size@{quarantine\_batch\_size}}
+\index{quarantine\_batch\_size@{quarantine\_batch\_size}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{quarantine\_batch\_size}{quarantine\_batch\_size}}
+{\footnotesize\ttfamily unsigned long quarantine\+\_\+batch\+\_\+size\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{quarantine_8c_a9af42e21dc8b929e7a08847bafbb77e3}\label{quarantine_8c_a9af42e21dc8b929e7a08847bafbb77e3}} 
+\index{quarantine.c@{quarantine.c}!quarantine\_head@{quarantine\_head}}
+\index{quarantine\_head@{quarantine\_head}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{quarantine\_head}{quarantine\_head}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} quarantine\+\_\+head\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{quarantine_8c_ae3ef70a6ca4dd253d362a3afbcb8a25a}\label{quarantine_8c_ae3ef70a6ca4dd253d362a3afbcb8a25a}} 
+\index{quarantine.c@{quarantine.c}!quarantine\_max\_size@{quarantine\_max\_size}}
+\index{quarantine\_max\_size@{quarantine\_max\_size}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{quarantine\_max\_size}{quarantine\_max\_size}}
+{\footnotesize\ttfamily unsigned long quarantine\+\_\+max\+\_\+size\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{quarantine_8c_a3931b6dd1ce97e4bf9f9f093431c88dc}\label{quarantine_8c_a3931b6dd1ce97e4bf9f9f093431c88dc}} 
+\index{quarantine.c@{quarantine.c}!quarantine\_size@{quarantine\_size}}
+\index{quarantine\_size@{quarantine\_size}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{quarantine\_size}{quarantine\_size}}
+{\footnotesize\ttfamily unsigned long quarantine\+\_\+size\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{quarantine_8c_a30f781e43f2ff94a4b6aaf343538bbbf}\label{quarantine_8c_a30f781e43f2ff94a4b6aaf343538bbbf}} 
+\index{quarantine.c@{quarantine.c}!quarantine\_tail@{quarantine\_tail}}
+\index{quarantine\_tail@{quarantine\_tail}!quarantine.c@{quarantine.c}}
+\doxysubsubsection{\texorpdfstring{quarantine\_tail}{quarantine\_tail}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} quarantine\+\_\+tail\hspace{0.3cm}{\ttfamily [static]}}
+

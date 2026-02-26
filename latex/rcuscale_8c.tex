@@ -1,0 +1,951 @@
+\hypertarget{rcuscale_8c}{}\doxysection{kernel/rcu/rcuscale.c File Reference}
+\label{rcuscale_8c}\index{kernel/rcu/rcuscale.c@{kernel/rcu/rcuscale.c}}
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/err.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$uapi/linux/sched/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/completion.\+h$>$}\newline
+{\ttfamily \#include $<$linux/moduleparam.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/notifier.\+h$>$}\newline
+{\ttfamily \#include $<$linux/reboot.\+h$>$}\newline
+{\ttfamily \#include $<$linux/freezer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stat.\+h$>$}\newline
+{\ttfamily \#include $<$linux/srcu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$asm/byteorder.\+h$>$}\newline
+{\ttfamily \#include $<$linux/torture.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate\+\_\+trace.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}rcu.\+h\char`\"{}}\newline
+Include dependency graph for rcuscale.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}}
+\item 
+struct \mbox{\hyperlink{structkfree__obj}{kfree\+\_\+obj}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_ab1e14bd903aa2ff3c830aaa32ad0c4fa}{S\+C\+A\+L\+E\+\_\+\+F\+L\+AG}}~\char`\"{}-\/scale\+:\char`\"{}
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_a5ef80e29b10e86eea3825001ff169a1f}{S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+S\+T\+R\+I\+NG}}(\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})~\mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{} \%s\textbackslash{}n\char`\"{}, scale\+\_\+type, \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_ae0358b382952de6f7a9c0d700ad496f2}{V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+S\+T\+R\+I\+NG}}(\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{} \%s\textbackslash{}n\char`\"{}, scale\+\_\+type, \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_a43c3cda4f60e5cdc40e55f54fea90311}{V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+E\+R\+R\+S\+T\+R\+I\+NG}}(\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{}!!! \%s\textbackslash{}n\char`\"{}, scale\+\_\+type, \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_a720f83d91a46483b66f846db7ff6bc2f}{R\+C\+U\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}~1
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_afd9cbd2378fc60b017ce35afa1a84e03}{M\+A\+X\+\_\+\+M\+E\+AS}}~10000
+\item 
+\#define \mbox{\hyperlink{rcuscale_8c_a020ac45e971a2456323486de34d42abd}{M\+I\+N\+\_\+\+M\+E\+AS}}~100
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{rcuscale_8c_ad94b36675e7eb067ea3ce6ff9e244a44}{M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE}} (\char`\"{}G\+PL\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a5c0ac3a78c305f4b2f81c20414b953cf}{M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR}} (\char`\"{}Paul E. Mc\+Kenney $<$paulmck@linux.\+ibm.\+com$>$\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a258fe87b4f028cb4499f647e19d45eb3}{torture\+\_\+param}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, gp\+\_\+async, \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}, \char`\"{}Use asynchronous \mbox{\hyperlink{emulate_8c_a50837d3801ed23c7c79a8880dd18c8cf}{GP}} \mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}} primitives\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a6eb6edfde5ffd4d32e501105c3f9227b}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, gp\+\_\+async\+\_\+max, 1000, \char`\"{}Max \# outstanding waits per reader\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a084f2ecae3e9f9d62f12efdcb6491808}{torture\+\_\+param}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, gp\+\_\+exp, \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}, \char`\"{}Use expedited \mbox{\hyperlink{emulate_8c_a50837d3801ed23c7c79a8880dd18c8cf}{GP}} \mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}} primitives\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a6036fd700f76f30a585f1d8fec077d02}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{clocksource-wdtest_8c_a66c34f2885537f8d4ddbfc609a892f2e}{holdoff}}, 10, \char`\"{}Holdoff \mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}} \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}} (\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a8a7f0934274feee0acab5881d6b736ad}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, nreaders, -\/1, \char`\"{}Number of R\+CU reader \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a67d1168b07b4f5c5cd09f14e1c07217e}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, nwriters, -\/1, \char`\"{}Number of R\+CU updater \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a7bd6002f6d8bec7a06a2688f78a916ba}{torture\+\_\+param}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, shutdown, \mbox{\hyperlink{rcuscale_8c_a720f83d91a46483b66f846db7ff6bc2f}{R\+C\+U\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}, \char`\"{}Shutdown \mbox{\hyperlink{sysfs_8h_aa879b49b930abef1610d29e2605632fa}{at}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}} of scalability tests.\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a34cb1cf20673af4a41b1580d1c2a9565}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}, 1, \char`\"{}Enable \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_ad3ec8b3948de266b32147e0f024ce326}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, writer\+\_\+holdoff, 0, \char`\"{}Holdoff (us) \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}} G\+Ps, \mbox{\hyperlink{desc__defs_8h_a12833cd5405ef3659520ccf452458f92}{zero}} to disable\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a3fdcf04a8154b013f8bc4bc2f9f47c57}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, kfree\+\_\+rcu\+\_\+test, 0, \char`\"{}Do we run a \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}() \mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{scale}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}}?\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a2b931f82f062c48613429868d8d729da}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, kfree\+\_\+mult, 1, \char`\"{}Multiple of \mbox{\hyperlink{structkfree__obj}{kfree\+\_\+obj}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} to allocate.\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_acafc13727f790a27a2528cdc01c2aded}{module\+\_\+param}} (\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, charp, 0444)
+\item 
+\mbox{\hyperlink{rcuscale_8c_a30a370fd6b357d25d224c57f68288d3f}{M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+M\+\_\+\+D\+E\+SC}} (\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}, \char`\"{}Type of R\+CU to scalability-\/\mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} (\mbox{\hyperlink{workqueue_8c_aa9677537ffa4e40f3c4f3e9fb3b4c76d}{rcu}}, srcu, ...)\char`\"{})
+\item 
+static \mbox{\hyperlink{rcuscale_8c_a2205db9a822fddd2441bfb24e8d06f23}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (\mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}}, n\+\_\+async\+\_\+inflight)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a2066b543b6ec9f86e6de6c9172e5bdc3}{rcu\+\_\+scale\+\_\+read\+\_\+lock}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a546a932ce03dc39864454c04bdd4ba3e}{rcu\+\_\+scale\+\_\+read\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(R\+CU)
+\item 
+static unsigned long \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}} \mbox{\hyperlink{rcuscale_8c_a2782041332b27ab6e79a806b11bbdcca}{rcu\+\_\+no\+\_\+completed}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\+\_\+sync\+\_\+scale\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{rcuscale_8c_a34f3278f193168007b70f203374bdd2d}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+S\+R\+CU}} (srcu\+\_\+ctl\+\_\+scale)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a05b4d8fd83a8cbe37574e752f1193911}{srcu\+\_\+scale\+\_\+read\+\_\+lock}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a10f7aac35ada40149fae5621afb8f4b0}{srcu\+\_\+scale\+\_\+read\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(\mbox{\hyperlink{refscale_8c_a396eed611d0c9f47cd480b8bdd8c8c69}{srcu\+\_\+ctlp}})
+\item 
+static unsigned long \mbox{\hyperlink{rcuscale_8c_a121b5a61209eb0701559d76759ebfdf9}{srcu\+\_\+scale\+\_\+completed}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a7c8b8dec49bfe3c6d77a738c202c74af}{srcu\+\_\+call\+\_\+rcu}} (struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}}, \mbox{\hyperlink{include_2linux_2types_8h_a3fb9999f44970b426981cee0b3d005ef}{rcu\+\_\+callback\+\_\+t}} \mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_afbe08252f52239458b4a76c6607865a0}{srcu\+\_\+rcu\+\_\+barrier}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_ab13d253f30709893e61a84f7a2261668}{srcu\+\_\+scale\+\_\+synchronize}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a3f654b098622ab1c934338c76a412a6c}{srcu\+\_\+scale\+\_\+synchronize\+\_\+expedited}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a5ca1d6132828f5fab638bc9950a43d1e}{srcu\+\_\+sync\+\_\+scale\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a5e650fbf136613bf060c5b6e11cd586b}{srcu\+\_\+sync\+\_\+scale\+\_\+cleanup}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a61d86977538172d17eff08d7312b2cd9}{tasks\+\_\+scale\+\_\+read\+\_\+lock}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a8ae818777b1bb56c6ca240f222e833d6}{tasks\+\_\+scale\+\_\+read\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a4c14da5dc78f9a84676caefa45fe546b}{tasks\+\_\+trace\+\_\+scale\+\_\+read\+\_\+lock}} (void)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_ab4105e4ce613767d26dcf851b9b11272}{tasks\+\_\+trace\+\_\+scale\+\_\+read\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static unsigned long \mbox{\hyperlink{rcuscale_8c_a6a80cd53b4cdb4f112e5c20eab02919e}{rcuscale\+\_\+seq\+\_\+diff}} (unsigned long \mbox{\hyperlink{lsm__hook__defs_8h_ae8598aff5b520cd0223a1fd33d0e7bd7}{new}}, unsigned long \mbox{\hyperlink{lsm__hook__defs_8h_a94e4ae933f8d97fd5131427e649f734d}{old}})
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a5384a56fb16f6809b936a1535adf6774}{rcu\+\_\+scale\+\_\+wait\+\_\+shutdown}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a7b89352c0de8030b3a8a05f6e072db9f}{rcu\+\_\+scale\+\_\+reader}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_aa7ddf1a09347ccc62153698f2633d8ba}{rcu\+\_\+scale\+\_\+async\+\_\+cb}} (struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$rhp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a3e97d25665893de0fba8b526241f7170}{rcu\+\_\+scale\+\_\+writer}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a443e945b3aa7b0226a34cc9854944bf5}{rcu\+\_\+scale\+\_\+print\+\_\+module\+\_\+parms}} (struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} $\ast$\mbox{\hyperlink{refscale_8c_ac4b73a96ea718c917683e3b816d5b158}{cur\+\_\+ops}}, const char $\ast$\mbox{\hyperlink{virtio__scsi_8h_a5ad1555df5690c26801949601db361e0}{tag}})
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a206a2977cf02c119d26dba01c80dff19}{rcu\+\_\+scale\+\_\+cleanup}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_afdc78fe6dae4b6dbe352fcbb548af84b}{compute\+\_\+real}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} n)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a551d8c41353101453345d226e6fc70d8}{rcu\+\_\+scale\+\_\+shutdown}} (void $\ast$arg)
+\item 
+\mbox{\hyperlink{rcuscale_8c_a2d5a0ad12df313e9f33b38260022425f}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, kfree\+\_\+nthreads, -\/1, \char`\"{}Number of \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}} running loops of \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}().\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_af75536da51f65d1a44e1ff21ec754600}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, kfree\+\_\+alloc\+\_\+num, 8000, \char`\"{}Number of allocations and frees \mbox{\hyperlink{nvme-fc-driver_8h_a5dce516024e448778bb4acfa78e085dd}{done}} \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}} an iteration.\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a4f53c3419467fb9ec6a6ae4aebac2cc9}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, kfree\+\_\+loops, 10, \char`\"{}Number of loops doing kfree\+\_\+alloc\+\_\+num allocations and frees.\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a03ad1abc7b88617f87dc26a28106a41a}{torture\+\_\+param}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, kfree\+\_\+rcu\+\_\+test\+\_\+double, \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}, \char`\"{}Do we run a \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}() double-\/argument \mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{scale}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}}?\char`\"{})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a5c3527a7dc579d1b36072725c22af823}{torture\+\_\+param}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, kfree\+\_\+rcu\+\_\+test\+\_\+single, \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}, \char`\"{}Do we run a \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}() single-\/argument \mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{scale}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}}?\char`\"{})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a197e5f86100fac953bc5dbe9d77a34f3}{kfree\+\_\+scale\+\_\+thread}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{rcuscale_8c_a0605e27d38e7712188df49ce1bdf4916}{kfree\+\_\+scale\+\_\+cleanup}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a3814469a6ab42dc93e9fa5f0fad67026}{kfree\+\_\+scale\+\_\+shutdown}} (void $\ast$arg)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{rcuscale_8c_a1358a53fafaf02de19e819ccf50e3a4c}{kfree\+\_\+scale\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{rcuscale_8c_a381547a0221ef41d2e827ab93ac57527}{rcu\+\_\+scale\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{rcuscale_8c_a988c647ce7d24c5cc10de96dbd28e860}{module\+\_\+init}} (\mbox{\hyperlink{rcuscale_8c_a381547a0221ef41d2e827ab93ac57527}{rcu\+\_\+scale\+\_\+init}})
+\item 
+\mbox{\hyperlink{rcuscale_8c_a2fb557e65a605b681cec05e02e2956d4}{module\+\_\+exit}} (\mbox{\hyperlink{rcuscale_8c_a206a2977cf02c119d26dba01c80dff19}{rcu\+\_\+scale\+\_\+cleanup}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static char $\ast$ \mbox{\hyperlink{rcuscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}} = \char`\"{}rcu\char`\"{}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_ae24add5ad4794d9b71c27725b554b08a}{nrealreaders}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_abba9409b346d6e06e8f06e19e94046ef}{nrealwriters}}
+\item 
+static struct task\+\_\+struct $\ast$$\ast$ \mbox{\hyperlink{rcuscale_8c_a370989a737503343923251d7b7555aa1}{writer\+\_\+tasks}}
+\item 
+static struct task\+\_\+struct $\ast$$\ast$ \mbox{\hyperlink{rcuscale_8c_a28523223991ce928e5568233d4cc3fb4}{reader\+\_\+tasks}}
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{rcuscale_8c_aef825574089ccaa6fbe18f99617dea75}{shutdown\+\_\+task}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$$\ast$ \mbox{\hyperlink{rcuscale_8c_a43f0e3009f7efe2f95ed4a425575107a}{writer\+\_\+durations}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$ \mbox{\hyperlink{rcuscale_8c_aa046453667510709021b00a2fc7dbeca}{writer\+\_\+n\+\_\+durations}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{rcuscale_8c_ab7cb234a76aee421aee8236fd99ac3b3}{n\+\_\+rcu\+\_\+scale\+\_\+reader\+\_\+started}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{rcuscale_8c_a0fac13859701ca134b1f80461d59ec96}{n\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+started}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{rcuscale_8c_aea30027d6c65dffc6fbd23458468c3cd}{n\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+finished}}
+\item 
+static \mbox{\hyperlink{linux_2wait_8h_abb3abe8a10e13f6e9e3037520ccb4e42}{wait\+\_\+queue\+\_\+head\+\_\+t}} \mbox{\hyperlink{rcuscale_8c_a0fbaf10772e35cd22ce897a76bc9b291}{shutdown\+\_\+wq}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rcuscale_8c_ad5e57f2e2f8b9b2246e6a6d525f984de}{t\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+started}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rcuscale_8c_af0317b179c699ed7b635a730e0f57034}{t\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+finished}}
+\item 
+static unsigned long \mbox{\hyperlink{rcuscale_8c_a0e477811e8431059be852285d2bb9f9d}{b\+\_\+rcu\+\_\+gp\+\_\+test\+\_\+started}}
+\item 
+static unsigned long \mbox{\hyperlink{rcuscale_8c_a52c9afbf07038f84e27852a83151d843}{b\+\_\+rcu\+\_\+gp\+\_\+test\+\_\+finished}}
+\item 
+static struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} $\ast$ \mbox{\hyperlink{rcuscale_8c_a2e815ce548e592d3567b1b36bf0c9098}{cur\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{rcuscale_8c_a01b35454c6d7ef639baed14afab683cb}{rcu\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structsrcu__struct}{srcu\+\_\+struct}} $\ast$ \mbox{\hyperlink{rcuscale_8c_a396eed611d0c9f47cd480b8bdd8c8c69}{srcu\+\_\+ctlp}} = \&srcu\+\_\+ctl\+\_\+scale
+\item 
+static struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{rcuscale_8c_a800f4f579f39824875977ec069b852ff}{srcu\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structsrcu__struct}{srcu\+\_\+struct}} \mbox{\hyperlink{rcuscale_8c_a122b1545258489cffea7b64a4cacf03b}{srcud}}
+\item 
+static struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{rcuscale_8c_a7afc326be728af3f42a8217bfdd2c14f}{srcud\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{rcuscale_8c_a83b6d778de988d1c3b6bd1f4fbf9bd2d}{tasks\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} \mbox{\hyperlink{rcuscale_8c_a3569c5045389a923548bd717d95b1f9f}{tasks\+\_\+tracing\+\_\+ops}}
+\item 
+static struct task\+\_\+struct $\ast$$\ast$ \mbox{\hyperlink{rcuscale_8c_aea4377ed447899284b37df8827926bb8}{kfree\+\_\+reader\+\_\+tasks}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rcuscale_8c_a04f8c3833e4d78b99d82e8ca862ec10e}{kfree\+\_\+nrealthreads}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{rcuscale_8c_a2fb71d52dd9acc60e7fc0ba437b6426e}{n\+\_\+kfree\+\_\+scale\+\_\+thread\+\_\+started}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{rcuscale_8c_a0caf90be74ccceffe44e1e536044cdff}{n\+\_\+kfree\+\_\+scale\+\_\+thread\+\_\+ended}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{rcuscale_8c_afd9cbd2378fc60b017ce35afa1a84e03}\label{rcuscale_8c_afd9cbd2378fc60b017ce35afa1a84e03}} 
+\index{rcuscale.c@{rcuscale.c}!MAX\_MEAS@{MAX\_MEAS}}
+\index{MAX\_MEAS@{MAX\_MEAS}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_MEAS}{MAX\_MEAS}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+M\+E\+AS~10000}
+
+\mbox{\Hypertarget{rcuscale_8c_a020ac45e971a2456323486de34d42abd}\label{rcuscale_8c_a020ac45e971a2456323486de34d42abd}} 
+\index{rcuscale.c@{rcuscale.c}!MIN\_MEAS@{MIN\_MEAS}}
+\index{MIN\_MEAS@{MIN\_MEAS}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{MIN\_MEAS}{MIN\_MEAS}}
+{\footnotesize\ttfamily \#define M\+I\+N\+\_\+\+M\+E\+AS~100}
+
+\mbox{\Hypertarget{rcuscale_8c_a1f8c165bf4196327bc3abff648276d92}\label{rcuscale_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{rcuscale.c@{rcuscale.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{rcuscale_8c_a720f83d91a46483b66f846db7ff6bc2f}\label{rcuscale_8c_a720f83d91a46483b66f846db7ff6bc2f}} 
+\index{rcuscale.c@{rcuscale.c}!RCUSCALE\_SHUTDOWN@{RCUSCALE\_SHUTDOWN}}
+\index{RCUSCALE\_SHUTDOWN@{RCUSCALE\_SHUTDOWN}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{RCUSCALE\_SHUTDOWN}{RCUSCALE\_SHUTDOWN}}
+{\footnotesize\ttfamily \#define R\+C\+U\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN~1}
+
+\mbox{\Hypertarget{rcuscale_8c_ab1e14bd903aa2ff3c830aaa32ad0c4fa}\label{rcuscale_8c_ab1e14bd903aa2ff3c830aaa32ad0c4fa}} 
+\index{rcuscale.c@{rcuscale.c}!SCALE\_FLAG@{SCALE\_FLAG}}
+\index{SCALE\_FLAG@{SCALE\_FLAG}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{SCALE\_FLAG}{SCALE\_FLAG}}
+{\footnotesize\ttfamily \#define S\+C\+A\+L\+E\+\_\+\+F\+L\+AG~\char`\"{}-\/scale\+:\char`\"{}}
+
+\mbox{\Hypertarget{rcuscale_8c_a5ef80e29b10e86eea3825001ff169a1f}\label{rcuscale_8c_a5ef80e29b10e86eea3825001ff169a1f}} 
+\index{rcuscale.c@{rcuscale.c}!SCALEOUT\_STRING@{SCALEOUT\_STRING}}
+\index{SCALEOUT\_STRING@{SCALEOUT\_STRING}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{SCALEOUT\_STRING}{SCALEOUT\_STRING}}
+{\footnotesize\ttfamily \#define S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+S\+T\+R\+I\+NG(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} }\end{DoxyParamCaption})~\mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{} \%s\textbackslash{}n\char`\"{}, scale\+\_\+type, \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})}
+
+\mbox{\Hypertarget{rcuscale_8c_a43c3cda4f60e5cdc40e55f54fea90311}\label{rcuscale_8c_a43c3cda4f60e5cdc40e55f54fea90311}} 
+\index{rcuscale.c@{rcuscale.c}!VERBOSE\_SCALEOUT\_ERRSTRING@{VERBOSE\_SCALEOUT\_ERRSTRING}}
+\index{VERBOSE\_SCALEOUT\_ERRSTRING@{VERBOSE\_SCALEOUT\_ERRSTRING}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{VERBOSE\_SCALEOUT\_ERRSTRING}{VERBOSE\_SCALEOUT\_ERRSTRING}}
+{\footnotesize\ttfamily \#define V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+E\+R\+R\+S\+T\+R\+I\+NG(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} }\end{DoxyParamCaption})~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{}!!! \%s\textbackslash{}n\char`\"{}, scale\+\_\+type, \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{rcuscale_8c_ae0358b382952de6f7a9c0d700ad496f2}\label{rcuscale_8c_ae0358b382952de6f7a9c0d700ad496f2}} 
+\index{rcuscale.c@{rcuscale.c}!VERBOSE\_SCALEOUT\_STRING@{VERBOSE\_SCALEOUT\_STRING}}
+\index{VERBOSE\_SCALEOUT\_STRING@{VERBOSE\_SCALEOUT\_STRING}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{VERBOSE\_SCALEOUT\_STRING}{VERBOSE\_SCALEOUT\_STRING}}
+{\footnotesize\ttfamily \#define V\+E\+R\+B\+O\+S\+E\+\_\+\+S\+C\+A\+L\+E\+O\+U\+T\+\_\+\+S\+T\+R\+I\+NG(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}} }\end{DoxyParamCaption})~do \{ \mbox{\hyperlink{encode__rs_8c_ad2c4e32adcafc525246eefb74d20fab7}{if}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}) \mbox{\hyperlink{linux_2printk_8h_a77ab60ff6d7a17c5eef5c182051a2a49}{pr\+\_\+alert}}(\char`\"{}\%s\char`\"{} S\+C\+A\+L\+E\+\_\+\+F\+L\+AG \char`\"{} \%s\textbackslash{}n\char`\"{}, scale\+\_\+type, \mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}); \} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{rcuscale_8c_afdc78fe6dae4b6dbe352fcbb548af84b}\label{rcuscale_8c_afdc78fe6dae4b6dbe352fcbb548af84b}} 
+\index{rcuscale.c@{rcuscale.c}!compute\_real@{compute\_real}}
+\index{compute\_real@{compute\_real}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{compute\_real()}{compute\_real()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} compute\+\_\+real (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{rcuscale_8c_a2205db9a822fddd2441bfb24e8d06f23}\label{rcuscale_8c_a2205db9a822fddd2441bfb24e8d06f23}} 
+\index{rcuscale.c@{rcuscale.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}}}]{,  }\item[{n\+\_\+async\+\_\+inflight}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a34f3278f193168007b70f203374bdd2d}\label{rcuscale_8c_a34f3278f193168007b70f203374bdd2d}} 
+\index{rcuscale.c@{rcuscale.c}!DEFINE\_STATIC\_SRCU@{DEFINE\_STATIC\_SRCU}}
+\index{DEFINE\_STATIC\_SRCU@{DEFINE\_STATIC\_SRCU}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_SRCU()}{DEFINE\_STATIC\_SRCU()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+S\+R\+CU (\begin{DoxyParamCaption}\item[{srcu\+\_\+ctl\+\_\+scale}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a0605e27d38e7712188df49ce1bdf4916}\label{rcuscale_8c_a0605e27d38e7712188df49ce1bdf4916}} 
+\index{rcuscale.c@{rcuscale.c}!kfree\_scale\_cleanup@{kfree\_scale\_cleanup}}
+\index{kfree\_scale\_cleanup@{kfree\_scale\_cleanup}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{kfree\_scale\_cleanup()}{kfree\_scale\_cleanup()}}
+{\footnotesize\ttfamily static void kfree\+\_\+scale\+\_\+cleanup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 2
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{rcuscale_8c_a1358a53fafaf02de19e819ccf50e3a4c}\label{rcuscale_8c_a1358a53fafaf02de19e819ccf50e3a4c}} 
+\index{rcuscale.c@{rcuscale.c}!kfree\_scale\_init@{kfree\_scale\_init}}
+\index{kfree\_scale\_init@{kfree\_scale\_init}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{kfree\_scale\_init()}{kfree\_scale\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kfree\+\_\+scale\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{rcuscale_8c_a3814469a6ab42dc93e9fa5f0fad67026}\label{rcuscale_8c_a3814469a6ab42dc93e9fa5f0fad67026}} 
+\index{rcuscale.c@{rcuscale.c}!kfree\_scale\_shutdown@{kfree\_scale\_shutdown}}
+\index{kfree\_scale\_shutdown@{kfree\_scale\_shutdown}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{kfree\_scale\_shutdown()}{kfree\_scale\_shutdown()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kfree\+\_\+scale\+\_\+shutdown (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{rcuscale_8c_a197e5f86100fac953bc5dbe9d77a34f3}\label{rcuscale_8c_a197e5f86100fac953bc5dbe9d77a34f3}} 
+\index{rcuscale.c@{rcuscale.c}!kfree\_scale\_thread@{kfree\_scale\_thread}}
+\index{kfree\_scale\_thread@{kfree\_scale\_thread}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{kfree\_scale\_thread()}{kfree\_scale\_thread()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kfree\+\_\+scale\+\_\+thread (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{rcuscale_8c_a5c0ac3a78c305f4b2f81c20414b953cf}\label{rcuscale_8c_a5c0ac3a78c305f4b2f81c20414b953cf}} 
+\index{rcuscale.c@{rcuscale.c}!MODULE\_AUTHOR@{MODULE\_AUTHOR}}
+\index{MODULE\_AUTHOR@{MODULE\_AUTHOR}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_AUTHOR()}{MODULE\_AUTHOR()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR (\begin{DoxyParamCaption}\item[{\char`\"{}Paul E. Mc\+Kenney $<$paulmck@linux.\+ibm.\+com$>$\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a2fb557e65a605b681cec05e02e2956d4}\label{rcuscale_8c_a2fb557e65a605b681cec05e02e2956d4}} 
+\index{rcuscale.c@{rcuscale.c}!module\_exit@{module\_exit}}
+\index{module\_exit@{module\_exit}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{module\_exit()}{module\_exit()}}
+{\footnotesize\ttfamily module\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rcuscale_8c_a206a2977cf02c119d26dba01c80dff19}{rcu\+\_\+scale\+\_\+cleanup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a988c647ce7d24c5cc10de96dbd28e860}\label{rcuscale_8c_a988c647ce7d24c5cc10de96dbd28e860}} 
+\index{rcuscale.c@{rcuscale.c}!module\_init@{module\_init}}
+\index{module\_init@{module\_init}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{module\_init()}{module\_init()}}
+{\footnotesize\ttfamily module\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rcuscale_8c_a381547a0221ef41d2e827ab93ac57527}{rcu\+\_\+scale\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_ad94b36675e7eb067ea3ce6ff9e244a44}\label{rcuscale_8c_ad94b36675e7eb067ea3ce6ff9e244a44}} 
+\index{rcuscale.c@{rcuscale.c}!MODULE\_LICENSE@{MODULE\_LICENSE}}
+\index{MODULE\_LICENSE@{MODULE\_LICENSE}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_LICENSE()}{MODULE\_LICENSE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE (\begin{DoxyParamCaption}\item[{\char`\"{}G\+PL\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_acafc13727f790a27a2528cdc01c2aded}\label{rcuscale_8c_acafc13727f790a27a2528cdc01c2aded}} 
+\index{rcuscale.c@{rcuscale.c}!module\_param@{module\_param}}
+\index{module\_param@{module\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{module\_param()}{module\_param()}}
+{\footnotesize\ttfamily module\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}}]{,  }\item[{charp}]{,  }\item[{0444}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a30a370fd6b357d25d224c57f68288d3f}\label{rcuscale_8c_a30a370fd6b357d25d224c57f68288d3f}} 
+\index{rcuscale.c@{rcuscale.c}!MODULE\_PARM\_DESC@{MODULE\_PARM\_DESC}}
+\index{MODULE\_PARM\_DESC@{MODULE\_PARM\_DESC}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_PARM\_DESC()}{MODULE\_PARM\_DESC()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+M\+\_\+\+D\+E\+SC (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{refscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}{scale\+\_\+type}}}]{,  }\item[{\char`\"{}Type of R\+CU to scalability-\/\mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} (\mbox{\hyperlink{workqueue_8c_aa9677537ffa4e40f3c4f3e9fb3b4c76d}{rcu}}, srcu, ...)\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a2782041332b27ab6e79a806b11bbdcca}\label{rcuscale_8c_a2782041332b27ab6e79a806b11bbdcca}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_no\_completed@{rcu\_no\_completed}}
+\index{rcu\_no\_completed@{rcu\_no\_completed}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_no\_completed()}{rcu\_no\_completed()}}
+{\footnotesize\ttfamily static unsigned long \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}} rcu\+\_\+no\+\_\+completed (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_aa7ddf1a09347ccc62153698f2633d8ba}\label{rcuscale_8c_aa7ddf1a09347ccc62153698f2633d8ba}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_async\_cb@{rcu\_scale\_async\_cb}}
+\index{rcu\_scale\_async\_cb@{rcu\_scale\_async\_cb}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_async\_cb()}{rcu\_scale\_async\_cb()}}
+{\footnotesize\ttfamily static void rcu\+\_\+scale\+\_\+async\+\_\+cb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$}]{rhp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{rcuscale_8c_a206a2977cf02c119d26dba01c80dff19}\label{rcuscale_8c_a206a2977cf02c119d26dba01c80dff19}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_cleanup@{rcu\_scale\_cleanup}}
+\index{rcu\_scale\_cleanup@{rcu\_scale\_cleanup}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_cleanup()}{rcu\_scale\_cleanup()}}
+{\footnotesize\ttfamily static void rcu\+\_\+scale\+\_\+cleanup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{rcuscale_8c_a381547a0221ef41d2e827ab93ac57527}\label{rcuscale_8c_a381547a0221ef41d2e827ab93ac57527}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_init@{rcu\_scale\_init}}
+\index{rcu\_scale\_init@{rcu\_scale\_init}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_init()}{rcu\_scale\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} rcu\+\_\+scale\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{rcuscale_8c_a443e945b3aa7b0226a34cc9854944bf5}\label{rcuscale_8c_a443e945b3aa7b0226a34cc9854944bf5}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_print\_module\_parms@{rcu\_scale\_print\_module\_parms}}
+\index{rcu\_scale\_print\_module\_parms@{rcu\_scale\_print\_module\_parms}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_print\_module\_parms()}{rcu\_scale\_print\_module\_parms()}}
+{\footnotesize\ttfamily static void rcu\+\_\+scale\+\_\+print\+\_\+module\+\_\+parms (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} $\ast$}]{cur\+\_\+ops,  }\item[{const char $\ast$}]{tag }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{rcuscale_8c_a2066b543b6ec9f86e6de6c9172e5bdc3}\label{rcuscale_8c_a2066b543b6ec9f86e6de6c9172e5bdc3}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_read\_lock@{rcu\_scale\_read\_lock}}
+\index{rcu\_scale\_read\_lock@{rcu\_scale\_read\_lock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_read\_lock()}{rcu\_scale\_read\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rcu\+\_\+scale\+\_\+read\+\_\+lock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{rcuscale_8c_a546a932ce03dc39864454c04bdd4ba3e}\label{rcuscale_8c_a546a932ce03dc39864454c04bdd4ba3e}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_read\_unlock@{rcu\_scale\_read\_unlock}}
+\index{rcu\_scale\_read\_unlock@{rcu\_scale\_read\_unlock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_read\_unlock()}{rcu\_scale\_read\_unlock()}}
+{\footnotesize\ttfamily static void rcu\+\_\+scale\+\_\+read\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{rcuscale_8c_a7b89352c0de8030b3a8a05f6e072db9f}\label{rcuscale_8c_a7b89352c0de8030b3a8a05f6e072db9f}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_reader@{rcu\_scale\_reader}}
+\index{rcu\_scale\_reader@{rcu\_scale\_reader}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_reader()}{rcu\_scale\_reader()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rcu\+\_\+scale\+\_\+reader (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{rcuscale_8c_a551d8c41353101453345d226e6fc70d8}\label{rcuscale_8c_a551d8c41353101453345d226e6fc70d8}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_shutdown@{rcu\_scale\_shutdown}}
+\index{rcu\_scale\_shutdown@{rcu\_scale\_shutdown}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_shutdown()}{rcu\_scale\_shutdown()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rcu\+\_\+scale\+\_\+shutdown (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{rcuscale_8c_a5384a56fb16f6809b936a1535adf6774}\label{rcuscale_8c_a5384a56fb16f6809b936a1535adf6774}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_wait\_shutdown@{rcu\_scale\_wait\_shutdown}}
+\index{rcu\_scale\_wait\_shutdown@{rcu\_scale\_wait\_shutdown}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_wait\_shutdown()}{rcu\_scale\_wait\_shutdown()}}
+{\footnotesize\ttfamily static void rcu\+\_\+scale\+\_\+wait\+\_\+shutdown (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{rcuscale_8c_a3e97d25665893de0fba8b526241f7170}\label{rcuscale_8c_a3e97d25665893de0fba8b526241f7170}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_scale\_writer@{rcu\_scale\_writer}}
+\index{rcu\_scale\_writer@{rcu\_scale\_writer}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_scale\_writer()}{rcu\_scale\_writer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rcu\+\_\+scale\+\_\+writer (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{rcuscale_8c_a416112e965d7413834e3f79fcba6c9fe}\label{rcuscale_8c_a416112e965d7413834e3f79fcba6c9fe}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_sync\_scale\_init@{rcu\_sync\_scale\_init}}
+\index{rcu\_sync\_scale\_init@{rcu\_sync\_scale\_init}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_sync\_scale\_init()}{rcu\_sync\_scale\_init()}}
+{\footnotesize\ttfamily static void rcu\+\_\+sync\+\_\+scale\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a6a80cd53b4cdb4f112e5c20eab02919e}\label{rcuscale_8c_a6a80cd53b4cdb4f112e5c20eab02919e}} 
+\index{rcuscale.c@{rcuscale.c}!rcuscale\_seq\_diff@{rcuscale\_seq\_diff}}
+\index{rcuscale\_seq\_diff@{rcuscale\_seq\_diff}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcuscale\_seq\_diff()}{rcuscale\_seq\_diff()}}
+{\footnotesize\ttfamily static unsigned long rcuscale\+\_\+seq\+\_\+diff (\begin{DoxyParamCaption}\item[{unsigned long}]{new,  }\item[{unsigned long}]{old }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{rcuscale_8c_a7c8b8dec49bfe3c6d77a738c202c74af}\label{rcuscale_8c_a7c8b8dec49bfe3c6d77a738c202c74af}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_call\_rcu@{srcu\_call\_rcu}}
+\index{srcu\_call\_rcu@{srcu\_call\_rcu}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_call\_rcu()}{srcu\_call\_rcu()}}
+{\footnotesize\ttfamily static void srcu\+\_\+call\+\_\+rcu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$}]{head,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a3fb9999f44970b426981cee0b3d005ef}{rcu\+\_\+callback\+\_\+t}}}]{func }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{rcuscale_8c_afbe08252f52239458b4a76c6607865a0}\label{rcuscale_8c_afbe08252f52239458b4a76c6607865a0}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_rcu\_barrier@{srcu\_rcu\_barrier}}
+\index{srcu\_rcu\_barrier@{srcu\_rcu\_barrier}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_rcu\_barrier()}{srcu\_rcu\_barrier()}}
+{\footnotesize\ttfamily static void srcu\+\_\+rcu\+\_\+barrier (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{rcuscale_8c_a121b5a61209eb0701559d76759ebfdf9}\label{rcuscale_8c_a121b5a61209eb0701559d76759ebfdf9}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_scale\_completed@{srcu\_scale\_completed}}
+\index{srcu\_scale\_completed@{srcu\_scale\_completed}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_scale\_completed()}{srcu\_scale\_completed()}}
+{\footnotesize\ttfamily static unsigned long srcu\+\_\+scale\+\_\+completed (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{rcuscale_8c_a05b4d8fd83a8cbe37574e752f1193911}\label{rcuscale_8c_a05b4d8fd83a8cbe37574e752f1193911}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_scale\_read\_lock@{srcu\_scale\_read\_lock}}
+\index{srcu\_scale\_read\_lock@{srcu\_scale\_read\_lock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_scale\_read\_lock()}{srcu\_scale\_read\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} srcu\+\_\+scale\+\_\+read\+\_\+lock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{rcuscale_8c_a10f7aac35ada40149fae5621afb8f4b0}\label{rcuscale_8c_a10f7aac35ada40149fae5621afb8f4b0}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_scale\_read\_unlock@{srcu\_scale\_read\_unlock}}
+\index{srcu\_scale\_read\_unlock@{srcu\_scale\_read\_unlock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_scale\_read\_unlock()}{srcu\_scale\_read\_unlock()}}
+{\footnotesize\ttfamily static void srcu\+\_\+scale\+\_\+read\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{rcuscale_8c_ab13d253f30709893e61a84f7a2261668}\label{rcuscale_8c_ab13d253f30709893e61a84f7a2261668}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_scale\_synchronize@{srcu\_scale\_synchronize}}
+\index{srcu\_scale\_synchronize@{srcu\_scale\_synchronize}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_scale\_synchronize()}{srcu\_scale\_synchronize()}}
+{\footnotesize\ttfamily static void srcu\+\_\+scale\+\_\+synchronize (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{rcuscale_8c_a3f654b098622ab1c934338c76a412a6c}\label{rcuscale_8c_a3f654b098622ab1c934338c76a412a6c}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_scale\_synchronize\_expedited@{srcu\_scale\_synchronize\_expedited}}
+\index{srcu\_scale\_synchronize\_expedited@{srcu\_scale\_synchronize\_expedited}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_scale\_synchronize\_expedited()}{srcu\_scale\_synchronize\_expedited()}}
+{\footnotesize\ttfamily static void srcu\+\_\+scale\+\_\+synchronize\+\_\+expedited (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{rcuscale_8c_a5e650fbf136613bf060c5b6e11cd586b}\label{rcuscale_8c_a5e650fbf136613bf060c5b6e11cd586b}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_sync\_scale\_cleanup@{srcu\_sync\_scale\_cleanup}}
+\index{srcu\_sync\_scale\_cleanup@{srcu\_sync\_scale\_cleanup}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_sync\_scale\_cleanup()}{srcu\_sync\_scale\_cleanup()}}
+{\footnotesize\ttfamily static void srcu\+\_\+sync\+\_\+scale\+\_\+cleanup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{rcuscale_8c_a5ca1d6132828f5fab638bc9950a43d1e}\label{rcuscale_8c_a5ca1d6132828f5fab638bc9950a43d1e}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_sync\_scale\_init@{srcu\_sync\_scale\_init}}
+\index{srcu\_sync\_scale\_init@{srcu\_sync\_scale\_init}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_sync\_scale\_init()}{srcu\_sync\_scale\_init()}}
+{\footnotesize\ttfamily static void srcu\+\_\+sync\+\_\+scale\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{rcuscale_8c_a61d86977538172d17eff08d7312b2cd9}\label{rcuscale_8c_a61d86977538172d17eff08d7312b2cd9}} 
+\index{rcuscale.c@{rcuscale.c}!tasks\_scale\_read\_lock@{tasks\_scale\_read\_lock}}
+\index{tasks\_scale\_read\_lock@{tasks\_scale\_read\_lock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{tasks\_scale\_read\_lock()}{tasks\_scale\_read\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} tasks\+\_\+scale\+\_\+read\+\_\+lock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a8ae818777b1bb56c6ca240f222e833d6}\label{rcuscale_8c_a8ae818777b1bb56c6ca240f222e833d6}} 
+\index{rcuscale.c@{rcuscale.c}!tasks\_scale\_read\_unlock@{tasks\_scale\_read\_unlock}}
+\index{tasks\_scale\_read\_unlock@{tasks\_scale\_read\_unlock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{tasks\_scale\_read\_unlock()}{tasks\_scale\_read\_unlock()}}
+{\footnotesize\ttfamily static void tasks\+\_\+scale\+\_\+read\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a4c14da5dc78f9a84676caefa45fe546b}\label{rcuscale_8c_a4c14da5dc78f9a84676caefa45fe546b}} 
+\index{rcuscale.c@{rcuscale.c}!tasks\_trace\_scale\_read\_lock@{tasks\_trace\_scale\_read\_lock}}
+\index{tasks\_trace\_scale\_read\_lock@{tasks\_trace\_scale\_read\_lock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{tasks\_trace\_scale\_read\_lock()}{tasks\_trace\_scale\_read\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} tasks\+\_\+trace\+\_\+scale\+\_\+read\+\_\+lock (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{rcuscale_8c_ab4105e4ce613767d26dcf851b9b11272}\label{rcuscale_8c_ab4105e4ce613767d26dcf851b9b11272}} 
+\index{rcuscale.c@{rcuscale.c}!tasks\_trace\_scale\_read\_unlock@{tasks\_trace\_scale\_read\_unlock}}
+\index{tasks\_trace\_scale\_read\_unlock@{tasks\_trace\_scale\_read\_unlock}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{tasks\_trace\_scale\_read\_unlock()}{tasks\_trace\_scale\_read\_unlock()}}
+{\footnotesize\ttfamily static void tasks\+\_\+trace\+\_\+scale\+\_\+read\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{rcuscale_8c_a258fe87b4f028cb4499f647e19d45eb3}\label{rcuscale_8c_a258fe87b4f028cb4499f647e19d45eb3}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [1/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{gp\+\_\+async}]{,  }\item[{\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}}]{,  }\item[{\char`\"{}Use asynchronous \mbox{\hyperlink{emulate_8c_a50837d3801ed23c7c79a8880dd18c8cf}{GP}} \mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}} primitives\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a084f2ecae3e9f9d62f12efdcb6491808}\label{rcuscale_8c_a084f2ecae3e9f9d62f12efdcb6491808}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [2/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{gp\+\_\+exp}]{,  }\item[{\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}}]{,  }\item[{\char`\"{}Use expedited \mbox{\hyperlink{emulate_8c_a50837d3801ed23c7c79a8880dd18c8cf}{GP}} \mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}} primitives\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a03ad1abc7b88617f87dc26a28106a41a}\label{rcuscale_8c_a03ad1abc7b88617f87dc26a28106a41a}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [3/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{kfree\+\_\+rcu\+\_\+test\+\_\+double}]{,  }\item[{\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}}]{,  }\item[{\char`\"{}Do we run a \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}() double-\/argument \mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{scale}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}}?\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a5c3527a7dc579d1b36072725c22af823}\label{rcuscale_8c_a5c3527a7dc579d1b36072725c22af823}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [4/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{kfree\+\_\+rcu\+\_\+test\+\_\+single}]{,  }\item[{\mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2ae9de385ef6fe9bf3360d1038396b884c}{false}}}]{,  }\item[{\char`\"{}Do we run a \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}() single-\/argument \mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{scale}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}}?\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a7bd6002f6d8bec7a06a2688f78a916ba}\label{rcuscale_8c_a7bd6002f6d8bec7a06a2688f78a916ba}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [5/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{shutdown}]{,  }\item[{\mbox{\hyperlink{rcuscale_8c_a720f83d91a46483b66f846db7ff6bc2f}{R\+C\+U\+S\+C\+A\+L\+E\+\_\+\+S\+H\+U\+T\+D\+O\+WN}}}]{,  }\item[{\char`\"{}Shutdown \mbox{\hyperlink{sysfs_8h_aa879b49b930abef1610d29e2605632fa}{at}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}} of scalability tests.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a6eb6edfde5ffd4d32e501105c3f9227b}\label{rcuscale_8c_a6eb6edfde5ffd4d32e501105c3f9227b}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [6/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{gp\+\_\+async\+\_\+max}]{,  }\item[{1000}]{,  }\item[{\char`\"{}Max \# outstanding waits per reader\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a6036fd700f76f30a585f1d8fec077d02}\label{rcuscale_8c_a6036fd700f76f30a585f1d8fec077d02}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [7/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{clocksource-wdtest_8c_a66c34f2885537f8d4ddbfc609a892f2e}{holdoff}}}]{,  }\item[{10}]{,  }\item[{\char`\"{}Holdoff \mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}} \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}} (\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_af75536da51f65d1a44e1ff21ec754600}\label{rcuscale_8c_af75536da51f65d1a44e1ff21ec754600}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [8/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{kfree\+\_\+alloc\+\_\+num}]{,  }\item[{8000}]{,  }\item[{\char`\"{}Number of allocations and frees \mbox{\hyperlink{nvme-fc-driver_8h_a5dce516024e448778bb4acfa78e085dd}{done}} \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}} an iteration.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a4f53c3419467fb9ec6a6ae4aebac2cc9}\label{rcuscale_8c_a4f53c3419467fb9ec6a6ae4aebac2cc9}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [9/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{kfree\+\_\+loops}]{,  }\item[{10}]{,  }\item[{\char`\"{}Number of loops doing kfree\+\_\+alloc\+\_\+num allocations and frees.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a2b931f82f062c48613429868d8d729da}\label{rcuscale_8c_a2b931f82f062c48613429868d8d729da}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [10/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{kfree\+\_\+mult}]{,  }\item[{1}]{,  }\item[{\char`\"{}Multiple of \mbox{\hyperlink{structkfree__obj}{kfree\+\_\+obj}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} to allocate.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a2d5a0ad12df313e9f33b38260022425f}\label{rcuscale_8c_a2d5a0ad12df313e9f33b38260022425f}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [11/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{kfree\+\_\+nthreads}]{,  }\item[{-\/}]{1,  }\item[{\char`\"{}Number of \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}} running loops of \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}().\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a3fdcf04a8154b013f8bc4bc2f9f47c57}\label{rcuscale_8c_a3fdcf04a8154b013f8bc4bc2f9f47c57}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [12/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{kfree\+\_\+rcu\+\_\+test}]{,  }\item[{0}]{,  }\item[{\char`\"{}Do we run a \mbox{\hyperlink{rcupdate_8h_ab386d1226fbabf13ca203599dfa54c94}{kfree\+\_\+rcu}}() \mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{scale}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}}?\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a8a7f0934274feee0acab5881d6b736ad}\label{rcuscale_8c_a8a7f0934274feee0acab5881d6b736ad}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [13/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{nreaders}]{,  }\item[{-\/}]{1,  }\item[{\char`\"{}Number of R\+CU reader \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a67d1168b07b4f5c5cd09f14e1c07217e}\label{rcuscale_8c_a67d1168b07b4f5c5cd09f14e1c07217e}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [14/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{nwriters}]{,  }\item[{-\/}]{1,  }\item[{\char`\"{}Number of R\+CU updater \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_a34cb1cf20673af4a41b1580d1c2a9565}\label{rcuscale_8c_a34cb1cf20673af4a41b1580d1c2a9565}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [15/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}}]{,  }\item[{1}]{,  }\item[{\char`\"{}Enable \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rcuscale_8c_ad3ec8b3948de266b32147e0f024ce326}\label{rcuscale_8c_ad3ec8b3948de266b32147e0f024ce326}} 
+\index{rcuscale.c@{rcuscale.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [16/16]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{writer\+\_\+holdoff}]{,  }\item[{0}]{,  }\item[{\char`\"{}Holdoff (us) \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}}}]{G\+Ps,  }\item[{\mbox{\hyperlink{desc__defs_8h_a12833cd5405ef3659520ccf452458f92}{zero}} to disable\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{rcuscale_8c_a52c9afbf07038f84e27852a83151d843}\label{rcuscale_8c_a52c9afbf07038f84e27852a83151d843}} 
+\index{rcuscale.c@{rcuscale.c}!b\_rcu\_gp\_test\_finished@{b\_rcu\_gp\_test\_finished}}
+\index{b\_rcu\_gp\_test\_finished@{b\_rcu\_gp\_test\_finished}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{b\_rcu\_gp\_test\_finished}{b\_rcu\_gp\_test\_finished}}
+{\footnotesize\ttfamily unsigned long b\+\_\+rcu\+\_\+gp\+\_\+test\+\_\+finished\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a0e477811e8431059be852285d2bb9f9d}\label{rcuscale_8c_a0e477811e8431059be852285d2bb9f9d}} 
+\index{rcuscale.c@{rcuscale.c}!b\_rcu\_gp\_test\_started@{b\_rcu\_gp\_test\_started}}
+\index{b\_rcu\_gp\_test\_started@{b\_rcu\_gp\_test\_started}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{b\_rcu\_gp\_test\_started}{b\_rcu\_gp\_test\_started}}
+{\footnotesize\ttfamily unsigned long b\+\_\+rcu\+\_\+gp\+\_\+test\+\_\+started\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a2e815ce548e592d3567b1b36bf0c9098}\label{rcuscale_8c_a2e815ce548e592d3567b1b36bf0c9098}} 
+\index{rcuscale.c@{rcuscale.c}!cur\_ops@{cur\_ops}}
+\index{cur\_ops@{cur\_ops}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{cur\_ops}{cur\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}}$\ast$ cur\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a04f8c3833e4d78b99d82e8ca862ec10e}\label{rcuscale_8c_a04f8c3833e4d78b99d82e8ca862ec10e}} 
+\index{rcuscale.c@{rcuscale.c}!kfree\_nrealthreads@{kfree\_nrealthreads}}
+\index{kfree\_nrealthreads@{kfree\_nrealthreads}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{kfree\_nrealthreads}{kfree\_nrealthreads}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kfree\+\_\+nrealthreads\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_aea4377ed447899284b37df8827926bb8}\label{rcuscale_8c_aea4377ed447899284b37df8827926bb8}} 
+\index{rcuscale.c@{rcuscale.c}!kfree\_reader\_tasks@{kfree\_reader\_tasks}}
+\index{kfree\_reader\_tasks@{kfree\_reader\_tasks}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{kfree\_reader\_tasks}{kfree\_reader\_tasks}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$$\ast$ kfree\+\_\+reader\+\_\+tasks\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a0caf90be74ccceffe44e1e536044cdff}\label{rcuscale_8c_a0caf90be74ccceffe44e1e536044cdff}} 
+\index{rcuscale.c@{rcuscale.c}!n\_kfree\_scale\_thread\_ended@{n\_kfree\_scale\_thread\_ended}}
+\index{n\_kfree\_scale\_thread\_ended@{n\_kfree\_scale\_thread\_ended}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_kfree\_scale\_thread\_ended}{n\_kfree\_scale\_thread\_ended}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+kfree\+\_\+scale\+\_\+thread\+\_\+ended\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a2fb71d52dd9acc60e7fc0ba437b6426e}\label{rcuscale_8c_a2fb71d52dd9acc60e7fc0ba437b6426e}} 
+\index{rcuscale.c@{rcuscale.c}!n\_kfree\_scale\_thread\_started@{n\_kfree\_scale\_thread\_started}}
+\index{n\_kfree\_scale\_thread\_started@{n\_kfree\_scale\_thread\_started}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_kfree\_scale\_thread\_started}{n\_kfree\_scale\_thread\_started}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+kfree\+\_\+scale\+\_\+thread\+\_\+started\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_ab7cb234a76aee421aee8236fd99ac3b3}\label{rcuscale_8c_ab7cb234a76aee421aee8236fd99ac3b3}} 
+\index{rcuscale.c@{rcuscale.c}!n\_rcu\_scale\_reader\_started@{n\_rcu\_scale\_reader\_started}}
+\index{n\_rcu\_scale\_reader\_started@{n\_rcu\_scale\_reader\_started}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_rcu\_scale\_reader\_started}{n\_rcu\_scale\_reader\_started}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+rcu\+\_\+scale\+\_\+reader\+\_\+started\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_aea30027d6c65dffc6fbd23458468c3cd}\label{rcuscale_8c_aea30027d6c65dffc6fbd23458468c3cd}} 
+\index{rcuscale.c@{rcuscale.c}!n\_rcu\_scale\_writer\_finished@{n\_rcu\_scale\_writer\_finished}}
+\index{n\_rcu\_scale\_writer\_finished@{n\_rcu\_scale\_writer\_finished}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_rcu\_scale\_writer\_finished}{n\_rcu\_scale\_writer\_finished}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+finished\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a0fac13859701ca134b1f80461d59ec96}\label{rcuscale_8c_a0fac13859701ca134b1f80461d59ec96}} 
+\index{rcuscale.c@{rcuscale.c}!n\_rcu\_scale\_writer\_started@{n\_rcu\_scale\_writer\_started}}
+\index{n\_rcu\_scale\_writer\_started@{n\_rcu\_scale\_writer\_started}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{n\_rcu\_scale\_writer\_started}{n\_rcu\_scale\_writer\_started}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} n\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+started\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_ae24add5ad4794d9b71c27725b554b08a}\label{rcuscale_8c_ae24add5ad4794d9b71c27725b554b08a}} 
+\index{rcuscale.c@{rcuscale.c}!nrealreaders@{nrealreaders}}
+\index{nrealreaders@{nrealreaders}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{nrealreaders}{nrealreaders}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nrealreaders\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_abba9409b346d6e06e8f06e19e94046ef}\label{rcuscale_8c_abba9409b346d6e06e8f06e19e94046ef}} 
+\index{rcuscale.c@{rcuscale.c}!nrealwriters@{nrealwriters}}
+\index{nrealwriters@{nrealwriters}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{nrealwriters}{nrealwriters}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nrealwriters\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a01b35454c6d7ef639baed14afab683cb}\label{rcuscale_8c_a01b35454c6d7ef639baed14afab683cb}} 
+\index{rcuscale.c@{rcuscale.c}!rcu\_ops@{rcu\_ops}}
+\index{rcu\_ops@{rcu\_ops}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{rcu\_ops}{rcu\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} rcu\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .ptype      = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a93fd1bfba6926ffa30241ddc9a577910aa5b6d6ed245d144fba87b4e7911394bf}{RCU\_FLAVOR}},}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{rcuscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readlock   = \mbox{\hyperlink{rcuscale_8c_a2066b543b6ec9f86e6de6c9172e5bdc3}{rcu\_scale\_read\_lock}},}
+\DoxyCodeLine{    .readunlock = \mbox{\hyperlink{rcuscale_8c_a546a932ce03dc39864454c04bdd4ba3e}{rcu\_scale\_read\_unlock}},}
+\DoxyCodeLine{    .get\_gp\_seq = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_aa28e274a05fdb2e2a5c94ed5e3c0eb23}{rcu\_get\_gp\_seq}},}
+\DoxyCodeLine{    .gp\_diff    = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a08c0bf58c4e588a6dc428e170b7c8398}{rcu\_seq\_diff}},}
+\DoxyCodeLine{    .exp\_completed  = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_ac86c5b46abb57700a83edbf52d224751}{rcu\_exp\_batches\_completed}},}
+\DoxyCodeLine{    .async      = \mbox{\hyperlink{tiny_8c_a094a548179ef967658b67414a0c91d32}{call\_rcu}},}
+\DoxyCodeLine{    .gp\_barrier = \mbox{\hyperlink{tiny_8c_a7ac3474e3971b47e01b1a5f5c590d8ee}{rcu\_barrier}},}
+\DoxyCodeLine{    .sync       = \mbox{\hyperlink{tiny_8c_a2a82b0ecedfdd3957789e90bdfd47756}{synchronize\_rcu}},}
+\DoxyCodeLine{    .exp\_sync   = \mbox{\hyperlink{tree__exp_8h_a083fbbb282ef5a0d32d2f99d74372dc8}{synchronize\_rcu\_expedited}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rcu"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rcuscale_8c_a28523223991ce928e5568233d4cc3fb4}\label{rcuscale_8c_a28523223991ce928e5568233d4cc3fb4}} 
+\index{rcuscale.c@{rcuscale.c}!reader\_tasks@{reader\_tasks}}
+\index{reader\_tasks@{reader\_tasks}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{reader\_tasks}{reader\_tasks}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$$\ast$ reader\+\_\+tasks\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}\label{rcuscale_8c_ad8d71dd568454e314cfd1c31136dbcf7}} 
+\index{rcuscale.c@{rcuscale.c}!scale\_type@{scale\_type}}
+\index{scale\_type@{scale\_type}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{scale\_type}{scale\_type}}
+{\footnotesize\ttfamily char$\ast$ scale\+\_\+type = \char`\"{}rcu\char`\"{}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_aef825574089ccaa6fbe18f99617dea75}\label{rcuscale_8c_aef825574089ccaa6fbe18f99617dea75}} 
+\index{rcuscale.c@{rcuscale.c}!shutdown\_task@{shutdown\_task}}
+\index{shutdown\_task@{shutdown\_task}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{shutdown\_task}{shutdown\_task}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$ shutdown\+\_\+task\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a0fbaf10772e35cd22ce897a76bc9b291}\label{rcuscale_8c_a0fbaf10772e35cd22ce897a76bc9b291}} 
+\index{rcuscale.c@{rcuscale.c}!shutdown\_wq@{shutdown\_wq}}
+\index{shutdown\_wq@{shutdown\_wq}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{shutdown\_wq}{shutdown\_wq}}
+{\footnotesize\ttfamily \mbox{\hyperlink{linux_2wait_8h_abb3abe8a10e13f6e9e3037520ccb4e42}{wait\+\_\+queue\+\_\+head\+\_\+t}} shutdown\+\_\+wq\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a396eed611d0c9f47cd480b8bdd8c8c69}\label{rcuscale_8c_a396eed611d0c9f47cd480b8bdd8c8c69}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_ctlp@{srcu\_ctlp}}
+\index{srcu\_ctlp@{srcu\_ctlp}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_ctlp}{srcu\_ctlp}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsrcu__struct}{srcu\+\_\+struct}}$\ast$ srcu\+\_\+ctlp = \&srcu\+\_\+ctl\+\_\+scale\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a800f4f579f39824875977ec069b852ff}\label{rcuscale_8c_a800f4f579f39824875977ec069b852ff}} 
+\index{rcuscale.c@{rcuscale.c}!srcu\_ops@{srcu\_ops}}
+\index{srcu\_ops@{srcu\_ops}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcu\_ops}{srcu\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} srcu\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .ptype      = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a93fd1bfba6926ffa30241ddc9a577910addae302b51c3629ac3e92ce2ab5016d5}{SRCU\_FLAVOR}},}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{rcuscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readlock   = \mbox{\hyperlink{rcuscale_8c_a05b4d8fd83a8cbe37574e752f1193911}{srcu\_scale\_read\_lock}},}
+\DoxyCodeLine{    .readunlock = \mbox{\hyperlink{rcuscale_8c_a10f7aac35ada40149fae5621afb8f4b0}{srcu\_scale\_read\_unlock}},}
+\DoxyCodeLine{    .get\_gp\_seq = \mbox{\hyperlink{rcuscale_8c_a121b5a61209eb0701559d76759ebfdf9}{srcu\_scale\_completed}},}
+\DoxyCodeLine{    .gp\_diff    = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a08c0bf58c4e588a6dc428e170b7c8398}{rcu\_seq\_diff}},}
+\DoxyCodeLine{    .exp\_completed  = \mbox{\hyperlink{rcuscale_8c_a121b5a61209eb0701559d76759ebfdf9}{srcu\_scale\_completed}},}
+\DoxyCodeLine{    .async      = \mbox{\hyperlink{rcuscale_8c_a7c8b8dec49bfe3c6d77a738c202c74af}{srcu\_call\_rcu}},}
+\DoxyCodeLine{    .gp\_barrier = \mbox{\hyperlink{rcuscale_8c_afbe08252f52239458b4a76c6607865a0}{srcu\_rcu\_barrier}},}
+\DoxyCodeLine{    .sync       = \mbox{\hyperlink{rcuscale_8c_ab13d253f30709893e61a84f7a2261668}{srcu\_scale\_synchronize}},}
+\DoxyCodeLine{    .exp\_sync   = \mbox{\hyperlink{rcuscale_8c_a3f654b098622ab1c934338c76a412a6c}{srcu\_scale\_synchronize\_expedited}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"srcu"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rcuscale_8c_a122b1545258489cffea7b64a4cacf03b}\label{rcuscale_8c_a122b1545258489cffea7b64a4cacf03b}} 
+\index{rcuscale.c@{rcuscale.c}!srcud@{srcud}}
+\index{srcud@{srcud}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcud}{srcud}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structsrcu__struct}{srcu\+\_\+struct}} srcud\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a7afc326be728af3f42a8217bfdd2c14f}\label{rcuscale_8c_a7afc326be728af3f42a8217bfdd2c14f}} 
+\index{rcuscale.c@{rcuscale.c}!srcud\_ops@{srcud\_ops}}
+\index{srcud\_ops@{srcud\_ops}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{srcud\_ops}{srcud\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} srcud\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .ptype      = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a93fd1bfba6926ffa30241ddc9a577910addae302b51c3629ac3e92ce2ab5016d5}{SRCU\_FLAVOR}},}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{rcuscale_8c_a5ca1d6132828f5fab638bc9950a43d1e}{srcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .cleanup    = \mbox{\hyperlink{rcuscale_8c_a5e650fbf136613bf060c5b6e11cd586b}{srcu\_sync\_scale\_cleanup}},}
+\DoxyCodeLine{    .readlock   = \mbox{\hyperlink{rcuscale_8c_a05b4d8fd83a8cbe37574e752f1193911}{srcu\_scale\_read\_lock}},}
+\DoxyCodeLine{    .readunlock = \mbox{\hyperlink{rcuscale_8c_a10f7aac35ada40149fae5621afb8f4b0}{srcu\_scale\_read\_unlock}},}
+\DoxyCodeLine{    .get\_gp\_seq = \mbox{\hyperlink{rcuscale_8c_a121b5a61209eb0701559d76759ebfdf9}{srcu\_scale\_completed}},}
+\DoxyCodeLine{    .gp\_diff    = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a08c0bf58c4e588a6dc428e170b7c8398}{rcu\_seq\_diff}},}
+\DoxyCodeLine{    .exp\_completed  = \mbox{\hyperlink{rcuscale_8c_a121b5a61209eb0701559d76759ebfdf9}{srcu\_scale\_completed}},}
+\DoxyCodeLine{    .async      = \mbox{\hyperlink{rcuscale_8c_a7c8b8dec49bfe3c6d77a738c202c74af}{srcu\_call\_rcu}},}
+\DoxyCodeLine{    .gp\_barrier = \mbox{\hyperlink{rcuscale_8c_afbe08252f52239458b4a76c6607865a0}{srcu\_rcu\_barrier}},}
+\DoxyCodeLine{    .sync       = \mbox{\hyperlink{rcuscale_8c_ab13d253f30709893e61a84f7a2261668}{srcu\_scale\_synchronize}},}
+\DoxyCodeLine{    .exp\_sync   = \mbox{\hyperlink{rcuscale_8c_a3f654b098622ab1c934338c76a412a6c}{srcu\_scale\_synchronize\_expedited}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"srcud"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rcuscale_8c_af0317b179c699ed7b635a730e0f57034}\label{rcuscale_8c_af0317b179c699ed7b635a730e0f57034}} 
+\index{rcuscale.c@{rcuscale.c}!t\_rcu\_scale\_writer\_finished@{t\_rcu\_scale\_writer\_finished}}
+\index{t\_rcu\_scale\_writer\_finished@{t\_rcu\_scale\_writer\_finished}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{t\_rcu\_scale\_writer\_finished}{t\_rcu\_scale\_writer\_finished}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} t\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+finished\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_ad5e57f2e2f8b9b2246e6a6d525f984de}\label{rcuscale_8c_ad5e57f2e2f8b9b2246e6a6d525f984de}} 
+\index{rcuscale.c@{rcuscale.c}!t\_rcu\_scale\_writer\_started@{t\_rcu\_scale\_writer\_started}}
+\index{t\_rcu\_scale\_writer\_started@{t\_rcu\_scale\_writer\_started}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{t\_rcu\_scale\_writer\_started}{t\_rcu\_scale\_writer\_started}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} t\+\_\+rcu\+\_\+scale\+\_\+writer\+\_\+started\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a83b6d778de988d1c3b6bd1f4fbf9bd2d}\label{rcuscale_8c_a83b6d778de988d1c3b6bd1f4fbf9bd2d}} 
+\index{rcuscale.c@{rcuscale.c}!tasks\_ops@{tasks\_ops}}
+\index{tasks\_ops@{tasks\_ops}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{tasks\_ops}{tasks\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} tasks\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .ptype      = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a93fd1bfba6926ffa30241ddc9a577910a203677e4b5739b39ca20ed4a18cf0a25}{RCU\_TASKS\_FLAVOR}},}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{rcuscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readlock   = \mbox{\hyperlink{rcuscale_8c_a61d86977538172d17eff08d7312b2cd9}{tasks\_scale\_read\_lock}},}
+\DoxyCodeLine{    .readunlock = \mbox{\hyperlink{rcuscale_8c_a8ae818777b1bb56c6ca240f222e833d6}{tasks\_scale\_read\_unlock}},}
+\DoxyCodeLine{    .get\_gp\_seq = \mbox{\hyperlink{rcuscale_8c_a2782041332b27ab6e79a806b11bbdcca}{rcu\_no\_completed}},}
+\DoxyCodeLine{    .gp\_diff    = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a08c0bf58c4e588a6dc428e170b7c8398}{rcu\_seq\_diff}},}
+\DoxyCodeLine{    .async      = \mbox{\hyperlink{rcupdate_8h_a762c23ca23378541494cda7c5f5eeaaa}{call\_rcu\_tasks}},}
+\DoxyCodeLine{    .gp\_barrier = \mbox{\hyperlink{rcupdate_8h_ad9e214a5ef1e4f351bf3a8b06117a416}{rcu\_barrier\_tasks}},}
+\DoxyCodeLine{    .sync       = \mbox{\hyperlink{rcupdate_8h_ad38f956612c4cc8f3ee933e9f3f0d692}{synchronize\_rcu\_tasks}},}
+\DoxyCodeLine{    .exp\_sync   = \mbox{\hyperlink{rcupdate_8h_ad38f956612c4cc8f3ee933e9f3f0d692}{synchronize\_rcu\_tasks}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"tasks"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rcuscale_8c_a3569c5045389a923548bd717d95b1f9f}\label{rcuscale_8c_a3569c5045389a923548bd717d95b1f9f}} 
+\index{rcuscale.c@{rcuscale.c}!tasks\_tracing\_ops@{tasks\_tracing\_ops}}
+\index{tasks\_tracing\_ops@{tasks\_tracing\_ops}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{tasks\_tracing\_ops}{tasks\_tracing\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrcu__scale__ops}{rcu\+\_\+scale\+\_\+ops}} tasks\+\_\+tracing\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .ptype      = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a93fd1bfba6926ffa30241ddc9a577910a203677e4b5739b39ca20ed4a18cf0a25}{RCU\_TASKS\_FLAVOR}},}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{rcuscale_8c_a416112e965d7413834e3f79fcba6c9fe}{rcu\_sync\_scale\_init}},}
+\DoxyCodeLine{    .readlock   = \mbox{\hyperlink{rcuscale_8c_a4c14da5dc78f9a84676caefa45fe546b}{tasks\_trace\_scale\_read\_lock}},}
+\DoxyCodeLine{    .readunlock = \mbox{\hyperlink{rcuscale_8c_ab4105e4ce613767d26dcf851b9b11272}{tasks\_trace\_scale\_read\_unlock}},}
+\DoxyCodeLine{    .get\_gp\_seq = \mbox{\hyperlink{rcuscale_8c_a2782041332b27ab6e79a806b11bbdcca}{rcu\_no\_completed}},}
+\DoxyCodeLine{    .gp\_diff    = \mbox{\hyperlink{kernel_2rcu_2rcu_8h_a08c0bf58c4e588a6dc428e170b7c8398}{rcu\_seq\_diff}},}
+\DoxyCodeLine{    .async      = \mbox{\hyperlink{rcupdate__trace_8h_a84e55e980022402705796b56373d549d}{call\_rcu\_tasks\_trace}},}
+\DoxyCodeLine{    .gp\_barrier = rcu\_barrier\_tasks\_trace,}
+\DoxyCodeLine{    .sync       = synchronize\_rcu\_tasks\_trace,}
+\DoxyCodeLine{    .exp\_sync   = synchronize\_rcu\_tasks\_trace,}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"tasks-\/tracing"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rcuscale_8c_a43f0e3009f7efe2f95ed4a425575107a}\label{rcuscale_8c_a43f0e3009f7efe2f95ed4a425575107a}} 
+\index{rcuscale.c@{rcuscale.c}!writer\_durations@{writer\_durations}}
+\index{writer\_durations@{writer\_durations}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{writer\_durations}{writer\_durations}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}$\ast$$\ast$ writer\+\_\+durations\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_aa046453667510709021b00a2fc7dbeca}\label{rcuscale_8c_aa046453667510709021b00a2fc7dbeca}} 
+\index{rcuscale.c@{rcuscale.c}!writer\_n\_durations@{writer\_n\_durations}}
+\index{writer\_n\_durations@{writer\_n\_durations}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{writer\_n\_durations}{writer\_n\_durations}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}$\ast$ writer\+\_\+n\+\_\+durations\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rcuscale_8c_a370989a737503343923251d7b7555aa1}\label{rcuscale_8c_a370989a737503343923251d7b7555aa1}} 
+\index{rcuscale.c@{rcuscale.c}!writer\_tasks@{writer\_tasks}}
+\index{writer\_tasks@{writer\_tasks}!rcuscale.c@{rcuscale.c}}
+\doxysubsubsection{\texorpdfstring{writer\_tasks}{writer\_tasks}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$$\ast$ writer\+\_\+tasks\hspace{0.3cm}{\ttfamily [static]}}
+

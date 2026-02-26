@@ -1,0 +1,874 @@
+\hypertarget{rwsem_8c}{}\doxysection{kernel/locking/rwsem.c File Reference}
+\label{rwsem_8c}\index{kernel/locking/rwsem.c@{kernel/locking/rwsem.c}}
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/rt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/debug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/wake\+\_\+q.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/signal.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/clock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rwsem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}lock\+\_\+events.\+h\char`\"{}}\newline
+Include dependency graph for rwsem.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structrwsem__waiter}{rwsem\+\_\+waiter}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a0fdd9113c51b957a7db40d76119aa1ca}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+O\+W\+N\+ED}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 0)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_aca45bc256c4decd51a2eaf9fb71f64a9}{R\+W\+S\+E\+M\+\_\+\+N\+O\+N\+S\+P\+I\+N\+N\+A\+B\+LE}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 1)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a9a26131b213fe2c9408161cfee2dc7a2}{R\+W\+S\+E\+M\+\_\+\+O\+W\+N\+E\+R\+\_\+\+F\+L\+A\+G\+S\+\_\+\+M\+A\+SK}}~(\mbox{\hyperlink{rwsem_8c_a0fdd9113c51b957a7db40d76119aa1ca}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+O\+W\+N\+ED}} $\vert$ \mbox{\hyperlink{rwsem_8c_aca45bc256c4decd51a2eaf9fb71f64a9}{R\+W\+S\+E\+M\+\_\+\+N\+O\+N\+S\+P\+I\+N\+N\+A\+B\+LE}})
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a15ab0a4df35a5790a9b727252452a4ec}{D\+E\+B\+U\+G\+\_\+\+R\+W\+S\+E\+M\+S\+\_\+\+W\+A\+R\+N\+\_\+\+ON}}(\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}},  sem)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_acedb79342bbbbddcad068a0039531820}{R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+L\+O\+C\+K\+ED}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 0)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a2f67b0f2ef33266a00c54162c2b0eb80}{R\+W\+S\+E\+M\+\_\+\+F\+L\+A\+G\+\_\+\+W\+A\+I\+T\+E\+RS}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 1)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a4fd94ad4a88135eab03ad8c07973a852}{R\+W\+S\+E\+M\+\_\+\+F\+L\+A\+G\+\_\+\+H\+A\+N\+D\+O\+FF}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 2)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a3c37f6b0749874cb9958965b737475a8}{R\+W\+S\+E\+M\+\_\+\+F\+L\+A\+G\+\_\+\+R\+E\+A\+D\+F\+A\+IL}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ (\mbox{\hyperlink{pq_8h_a2f660aa23a5dbc0f4b8df48b4302b8c3}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+L\+O\+NG}} -\/ 1))
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a455efbde6a0ab6533f0143a8cc55afcc}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+S\+H\+I\+FT}}~8
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a1868cad1ed427e1f72cb73c1b922f739}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+B\+I\+AS}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{rwsem_8c_a455efbde6a0ab6533f0143a8cc55afcc}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+S\+H\+I\+FT}})
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a37d94329ab3d41a1e5d1a675c538a2ac}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+M\+A\+SK}}~($\sim$(\mbox{\hyperlink{rwsem_8c_a1868cad1ed427e1f72cb73c1b922f739}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+B\+I\+AS}} -\/ 1))
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a8dc31591b78bf66ec242a0e1eb57b234}{R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+M\+A\+SK}}~\mbox{\hyperlink{rwsem_8c_acedb79342bbbbddcad068a0039531820}{R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+L\+O\+C\+K\+ED}}
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a621a00e97577a38de9bfb4266a84c668}{R\+W\+S\+E\+M\+\_\+\+L\+O\+C\+K\+\_\+\+M\+A\+SK}}~(\mbox{\hyperlink{rwsem_8c_a8dc31591b78bf66ec242a0e1eb57b234}{R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+M\+A\+SK}}$\vert$\mbox{\hyperlink{rwsem_8c_a37d94329ab3d41a1e5d1a675c538a2ac}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+M\+A\+SK}})
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_af42a52136396f90d4a7b3e5a8d190c6c}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+\_\+\+F\+A\+I\+L\+E\+D\+\_\+\+M\+A\+SK}}
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a0c91739a9463c39f38399312e506b363}{rwsem\+\_\+first\+\_\+waiter}}(sem)~\mbox{\hyperlink{list_8h_a29b80cf9d55392a4949d2071b7db4d5c}{list\+\_\+first\+\_\+entry}}(\&sem-\/$>$wait\+\_\+list, struct \mbox{\hyperlink{structrwsem__waiter}{rwsem\+\_\+waiter}}, list)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_a6298326355868cbea717e82b99ba6071}{R\+W\+S\+E\+M\+\_\+\+W\+A\+I\+T\+\_\+\+T\+I\+M\+E\+O\+UT}}~\mbox{\hyperlink{math_8h_ab70ffcffa591efaf0981a349740f389c}{D\+I\+V\+\_\+\+R\+O\+U\+N\+D\+\_\+\+UP}}(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}, 250)
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_ab7ab9c1eeda67696fdf9305125bc4202}{M\+A\+X\+\_\+\+R\+E\+A\+D\+E\+R\+S\+\_\+\+W\+A\+K\+E\+UP}}~0x100
+\item 
+\#define \mbox{\hyperlink{rwsem_8c_ab8f8b12df0d7a73cd90c2f942fe0d275}{O\+W\+N\+E\+R\+\_\+\+N\+U\+LL}}~1
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{rwsem_8c_a3d21815e114596e7e9da99a53aace4fd}{rwsem\+\_\+waiter\+\_\+type}} \{ \mbox{\hyperlink{rwsem_8c_a3d21815e114596e7e9da99a53aace4fdac56a06cf6eaae3c8f67d9471fde13e49}{R\+W\+S\+E\+M\+\_\+\+W\+A\+I\+T\+I\+N\+G\+\_\+\+F\+O\+R\+\_\+\+W\+R\+I\+TE}}, 
+\mbox{\hyperlink{rwsem_8c_a3d21815e114596e7e9da99a53aace4fda168ad1cc6e70198a60f14e23e6f1eb24}{R\+W\+S\+E\+M\+\_\+\+W\+A\+I\+T\+I\+N\+G\+\_\+\+F\+O\+R\+\_\+\+R\+E\+AD}}
+ \}
+\item 
+enum \mbox{\hyperlink{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31}{rwsem\+\_\+wake\+\_\+type}} \{ \mbox{\hyperlink{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31a7bdf19f9a53c2ff7d030524e9e89c463}{R\+W\+S\+E\+M\+\_\+\+W\+A\+K\+E\+\_\+\+A\+NY}}, 
+\mbox{\hyperlink{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31aa4eb46f3dbb109d416aabe651ba97714}{R\+W\+S\+E\+M\+\_\+\+W\+A\+K\+E\+\_\+\+R\+E\+A\+D\+E\+RS}}, 
+\mbox{\hyperlink{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31a9f9022ff0d7d0532c2f0ab89b73b024b}{R\+W\+S\+E\+M\+\_\+\+W\+A\+K\+E\+\_\+\+R\+E\+A\+D\+\_\+\+O\+W\+N\+ED}}
+ \}
+\item 
+enum \mbox{\hyperlink{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5}{writer\+\_\+wait\+\_\+state}} \{ \mbox{\hyperlink{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5a431da4ccff775f3c0115abc9d9448991}{W\+R\+I\+T\+E\+R\+\_\+\+N\+O\+T\+\_\+\+F\+I\+R\+ST}}, 
+\mbox{\hyperlink{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5ac111b1d6345810d57e62a9c82699a6ee}{W\+R\+I\+T\+E\+R\+\_\+\+F\+I\+R\+ST}}, 
+\mbox{\hyperlink{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5a7de139d99b6985f94d3e6dbba6a53ace}{W\+R\+I\+T\+E\+R\+\_\+\+H\+A\+N\+D\+O\+FF}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void \mbox{\hyperlink{rwsem_8c_aa8360daebe3eb16e3316cf0c9aa9ea44}{rwsem\+\_\+set\+\_\+owner}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static void \mbox{\hyperlink{rwsem_8c_ab3106166df32371faa1f16cb8069d8fc}{rwsem\+\_\+clear\+\_\+owner}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rwsem_8c_a5cb294ce0d73489720e61ddc2276eb69}{rwsem\+\_\+test\+\_\+oflags}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a231a01846bcf470105ece1d5d62269a7}{\+\_\+\+\_\+rwsem\+\_\+set\+\_\+reader\+\_\+owned}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, struct task\+\_\+struct $\ast$\mbox{\hyperlink{btrfs__tree_8h_a39f26b10bb4a92b7f6d651d588a364b3}{owner}})
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a105dd717f7cd10dd4364fe64f8636abe}{rwsem\+\_\+set\+\_\+reader\+\_\+owned}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rwsem_8c_a86192fd4f06139b80424b3429e4c7877}{is\+\_\+rwsem\+\_\+reader\+\_\+owned}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a03966f064567fa47c27d5f2a9ac631df}{rwsem\+\_\+clear\+\_\+reader\+\_\+owned}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a71d307a95e21e06c01a35ed01dfd6111}{rwsem\+\_\+set\+\_\+nonspinnable}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rwsem_8c_a8a8c4be339e4d624b3f2e8a96677d0ce}{rwsem\+\_\+read\+\_\+trylock}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, long $\ast$cntp)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rwsem_8c_af4cf10b36c10c033320a2dd035420418}{rwsem\+\_\+write\+\_\+trylock}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{rwsem_8c_a7d57c2a5f805214d7fa9c9b47d64e79e}{rwsem\+\_\+owner}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{rwsem_8c_a5b2ab92698028b3c9de5bacdcabe7604}{rwsem\+\_\+owner\+\_\+flags}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, unsigned long $\ast$pflags)
+\item 
+void \mbox{\hyperlink{rwsem_8c_a20f24af32287f98cbfd3d6b2ef7a615c}{\+\_\+\+\_\+init\+\_\+rwsem}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+\mbox{\hyperlink{rwsem_8c_a8261d9cc8d6ba97019973105e808a1f4}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_a20f24af32287f98cbfd3d6b2ef7a615c}{\+\_\+\+\_\+init\+\_\+rwsem}})
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a93830214df0a692b1d0d2c7ec5e193ba}{rwsem\+\_\+mark\+\_\+wake}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31}{rwsem\+\_\+wake\+\_\+type}} wake\+\_\+type, struct \mbox{\hyperlink{structwake__q__head}{wake\+\_\+q\+\_\+head}} $\ast$wake\+\_\+q)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rwsem_8c_a8af00b69ef3ce57160e3cbdc07202019}{rwsem\+\_\+try\+\_\+write\+\_\+lock}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5}{writer\+\_\+wait\+\_\+state}} wstate)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rwsem_8c_aa403ea0324f2abdc588dbd047e3901c2}{rwsem\+\_\+can\+\_\+spin\+\_\+on\+\_\+owner}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rwsem_8c_a5b3582c88688a0fabd468cb0190b0165}{rwsem\+\_\+optimistic\+\_\+spin}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a59a446be5c4d23b2c5732b3a2a586e47}{clear\+\_\+nonspinnable}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a7eba688c375ef18644c1661a246ae40a}{rwsem\+\_\+spin\+\_\+on\+\_\+owner}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} $\ast$ \mbox{\hyperlink{rwsem_8c_ab75e4b16ae8c792afc1bc157f11bbcd8}{rwsem\+\_\+down\+\_\+read\+\_\+slowpath}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, long \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}})
+\item 
+static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$ \mbox{\hyperlink{rwsem_8c_abdce813389a2d0b9f1a7697956a4ae8e}{rwsem\+\_\+down\+\_\+write\+\_\+slowpath}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}})
+\item 
+static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$ \mbox{\hyperlink{rwsem_8c_a5f97c7ad70f3c4bc29f76d1003b7dbe0}{rwsem\+\_\+wake}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$ \mbox{\hyperlink{rwsem_8c_a4ee53e9a5be7399186b1f7fc26cfcbaa}{rwsem\+\_\+downgrade\+\_\+wake}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a8fec93817af0cc5282e6b8271c31fe85}{\+\_\+\+\_\+down\+\_\+read\+\_\+common}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}})
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a0ea4e5941369031592c863d65042fb31}{\+\_\+\+\_\+down\+\_\+read}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a84a3db991f8ad0f0d272d534ee16b04e}{\+\_\+\+\_\+down\+\_\+read\+\_\+interruptible}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_ae93289fa0961f62cf3945ccf73103614}{\+\_\+\+\_\+down\+\_\+read\+\_\+killable}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a4681b3146444438a441a8fffa3084b0f}{\+\_\+\+\_\+down\+\_\+read\+\_\+trylock}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a9aeb661290486e65ea605ef34e87061d}{\+\_\+\+\_\+down\+\_\+write\+\_\+common}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}})
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a70f07895e6686a258b5c7795eafe8b0e}{\+\_\+\+\_\+down\+\_\+write}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a254d3d43f318c0afe08d77f72a62a67b}{\+\_\+\+\_\+down\+\_\+write\+\_\+killable}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a4b8f359eba514d5793fe6013e032ec52}{\+\_\+\+\_\+down\+\_\+write\+\_\+trylock}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static void \mbox{\hyperlink{rwsem_8c_af3af576b5a507a809e94965237afdd67}{\+\_\+\+\_\+up\+\_\+read}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static void \mbox{\hyperlink{rwsem_8c_a3408abac3381729f537b4dc21eb675d4}{\+\_\+\+\_\+up\+\_\+write}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+static void \mbox{\hyperlink{rwsem_8c_acfcb3e1325f5b59d09641de9fabef9f3}{\+\_\+\+\_\+downgrade\+\_\+write}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+void \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{rwsem_8c_a0502a5cdd58cadb4f1dcbc7666c32b87}{down\+\_\+read}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_a26be9de30c6c4b054df3ebe9785baf40}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_ab2a67537759bc0278e1756eb953d2672}{down\+\_\+read}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{rwsem_8c_aa8db285efb3abf2bbab459c70edf50d7}{down\+\_\+read\+\_\+interruptible}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_a8b5a2b2dfbf938233ab6bc7e9bea7a96}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_a1bacf9307239f71a0323f0321aa80ee8}{down\+\_\+read\+\_\+interruptible}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{rwsem_8c_af53572568bb1577969a839059ceb5cff}{down\+\_\+read\+\_\+killable}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_af6ba89bd27fc20d48b8c4c377fa0661f}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_ad83f09c02b2b121d4ffd4cfe1e8871af}{down\+\_\+read\+\_\+killable}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_a85f0aeb93db02029d438357fd2deb5b6}{down\+\_\+read\+\_\+trylock}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_a4c4bd869a5e83472685b7083f42800b8}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_a85f0aeb93db02029d438357fd2deb5b6}{down\+\_\+read\+\_\+trylock}})
+\item 
+void \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{rwsem_8c_a38dadc589b4f0d174805a8d2c0a45d97}{down\+\_\+write}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_a6ee047aad25d30597248b9ec01fd4641}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_aac1c7a43cc3af429a315548be125e4b3}{down\+\_\+write}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{rwsem_8c_a455246ec3d539ce698c70f5013685970}{down\+\_\+write\+\_\+killable}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_add17dde1cfc8f99ae8ac369dc679368a}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_af6896be6017229dc5e716c19f29a0f6b}{down\+\_\+write\+\_\+killable}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rwsem_8c_ada912532c7b610f7b73e0f6bacea323e}{down\+\_\+write\+\_\+trylock}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_a0c1bde04a516a10d888d82be52000453}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_ada912532c7b610f7b73e0f6bacea323e}{down\+\_\+write\+\_\+trylock}})
+\item 
+void \mbox{\hyperlink{rwsem_8c_adcf7e9b7902c606e3dd1adbb6ce1b595}{up\+\_\+read}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_afb6118c2865953c2f650b1a32c77ed83}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_adcf7e9b7902c606e3dd1adbb6ce1b595}{up\+\_\+read}})
+\item 
+void \mbox{\hyperlink{rwsem_8c_af4f9b3eb8a1dd8b7b213acc5b1e0cb95}{up\+\_\+write}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_a3741062bccf8e5719903096c074e059c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_af4f9b3eb8a1dd8b7b213acc5b1e0cb95}{up\+\_\+write}})
+\item 
+void \mbox{\hyperlink{rwsem_8c_ad8c6cd1508ed28a0bd0b43483aee761b}{downgrade\+\_\+write}} (struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$sem)
+\item 
+\mbox{\hyperlink{rwsem_8c_a534838d2fc76735bcdb92f204c693b6a}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{rwsem_8h_ad8c6cd1508ed28a0bd0b43483aee761b}{downgrade\+\_\+write}})
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{rwsem_8c_a15ab0a4df35a5790a9b727252452a4ec}\label{rwsem_8c_a15ab0a4df35a5790a9b727252452a4ec}} 
+\index{rwsem.c@{rwsem.c}!DEBUG\_RWSEMS\_WARN\_ON@{DEBUG\_RWSEMS\_WARN\_ON}}
+\index{DEBUG\_RWSEMS\_WARN\_ON@{DEBUG\_RWSEMS\_WARN\_ON}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{DEBUG\_RWSEMS\_WARN\_ON}{DEBUG\_RWSEMS\_WARN\_ON}}
+{\footnotesize\ttfamily \#define D\+E\+B\+U\+G\+\_\+\+R\+W\+S\+E\+M\+S\+\_\+\+W\+A\+R\+N\+\_\+\+ON(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}},  }\item[{}]{sem }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_ab7ab9c1eeda67696fdf9305125bc4202}\label{rwsem_8c_ab7ab9c1eeda67696fdf9305125bc4202}} 
+\index{rwsem.c@{rwsem.c}!MAX\_READERS\_WAKEUP@{MAX\_READERS\_WAKEUP}}
+\index{MAX\_READERS\_WAKEUP@{MAX\_READERS\_WAKEUP}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_READERS\_WAKEUP}{MAX\_READERS\_WAKEUP}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+R\+E\+A\+D\+E\+R\+S\+\_\+\+W\+A\+K\+E\+UP~0x100}
+
+\mbox{\Hypertarget{rwsem_8c_ab8f8b12df0d7a73cd90c2f942fe0d275}\label{rwsem_8c_ab8f8b12df0d7a73cd90c2f942fe0d275}} 
+\index{rwsem.c@{rwsem.c}!OWNER\_NULL@{OWNER\_NULL}}
+\index{OWNER\_NULL@{OWNER\_NULL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{OWNER\_NULL}{OWNER\_NULL}}
+{\footnotesize\ttfamily \#define O\+W\+N\+E\+R\+\_\+\+N\+U\+LL~1}
+
+\mbox{\Hypertarget{rwsem_8c_a0c91739a9463c39f38399312e506b363}\label{rwsem_8c_a0c91739a9463c39f38399312e506b363}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_first\_waiter@{rwsem\_first\_waiter}}
+\index{rwsem\_first\_waiter@{rwsem\_first\_waiter}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_first\_waiter}{rwsem\_first\_waiter}}
+{\footnotesize\ttfamily \#define rwsem\+\_\+first\+\_\+waiter(\begin{DoxyParamCaption}\item[{}]{sem }\end{DoxyParamCaption})~\mbox{\hyperlink{list_8h_a29b80cf9d55392a4949d2071b7db4d5c}{list\+\_\+first\+\_\+entry}}(\&sem-\/$>$wait\+\_\+list, struct \mbox{\hyperlink{structrwsem__waiter}{rwsem\+\_\+waiter}}, list)}
+
+\mbox{\Hypertarget{rwsem_8c_a4fd94ad4a88135eab03ad8c07973a852}\label{rwsem_8c_a4fd94ad4a88135eab03ad8c07973a852}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_FLAG\_HANDOFF@{RWSEM\_FLAG\_HANDOFF}}
+\index{RWSEM\_FLAG\_HANDOFF@{RWSEM\_FLAG\_HANDOFF}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_FLAG\_HANDOFF}{RWSEM\_FLAG\_HANDOFF}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+F\+L\+A\+G\+\_\+\+H\+A\+N\+D\+O\+FF~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 2)}
+
+\mbox{\Hypertarget{rwsem_8c_a3c37f6b0749874cb9958965b737475a8}\label{rwsem_8c_a3c37f6b0749874cb9958965b737475a8}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_FLAG\_READFAIL@{RWSEM\_FLAG\_READFAIL}}
+\index{RWSEM\_FLAG\_READFAIL@{RWSEM\_FLAG\_READFAIL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_FLAG\_READFAIL}{RWSEM\_FLAG\_READFAIL}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+F\+L\+A\+G\+\_\+\+R\+E\+A\+D\+F\+A\+IL~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ (\mbox{\hyperlink{pq_8h_a2f660aa23a5dbc0f4b8df48b4302b8c3}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+L\+O\+NG}} -\/ 1))}
+
+\mbox{\Hypertarget{rwsem_8c_a2f67b0f2ef33266a00c54162c2b0eb80}\label{rwsem_8c_a2f67b0f2ef33266a00c54162c2b0eb80}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_FLAG\_WAITERS@{RWSEM\_FLAG\_WAITERS}}
+\index{RWSEM\_FLAG\_WAITERS@{RWSEM\_FLAG\_WAITERS}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_FLAG\_WAITERS}{RWSEM\_FLAG\_WAITERS}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+F\+L\+A\+G\+\_\+\+W\+A\+I\+T\+E\+RS~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 1)}
+
+\mbox{\Hypertarget{rwsem_8c_a621a00e97577a38de9bfb4266a84c668}\label{rwsem_8c_a621a00e97577a38de9bfb4266a84c668}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_LOCK\_MASK@{RWSEM\_LOCK\_MASK}}
+\index{RWSEM\_LOCK\_MASK@{RWSEM\_LOCK\_MASK}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_LOCK\_MASK}{RWSEM\_LOCK\_MASK}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+L\+O\+C\+K\+\_\+\+M\+A\+SK~(\mbox{\hyperlink{rwsem_8c_a8dc31591b78bf66ec242a0e1eb57b234}{R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+M\+A\+SK}}$\vert$\mbox{\hyperlink{rwsem_8c_a37d94329ab3d41a1e5d1a675c538a2ac}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+M\+A\+SK}})}
+
+\mbox{\Hypertarget{rwsem_8c_aca45bc256c4decd51a2eaf9fb71f64a9}\label{rwsem_8c_aca45bc256c4decd51a2eaf9fb71f64a9}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_NONSPINNABLE@{RWSEM\_NONSPINNABLE}}
+\index{RWSEM\_NONSPINNABLE@{RWSEM\_NONSPINNABLE}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_NONSPINNABLE}{RWSEM\_NONSPINNABLE}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+N\+O\+N\+S\+P\+I\+N\+N\+A\+B\+LE~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 1)}
+
+\mbox{\Hypertarget{rwsem_8c_a9a26131b213fe2c9408161cfee2dc7a2}\label{rwsem_8c_a9a26131b213fe2c9408161cfee2dc7a2}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_OWNER\_FLAGS\_MASK@{RWSEM\_OWNER\_FLAGS\_MASK}}
+\index{RWSEM\_OWNER\_FLAGS\_MASK@{RWSEM\_OWNER\_FLAGS\_MASK}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_OWNER\_FLAGS\_MASK}{RWSEM\_OWNER\_FLAGS\_MASK}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+O\+W\+N\+E\+R\+\_\+\+F\+L\+A\+G\+S\+\_\+\+M\+A\+SK~(\mbox{\hyperlink{rwsem_8c_a0fdd9113c51b957a7db40d76119aa1ca}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+O\+W\+N\+ED}} $\vert$ \mbox{\hyperlink{rwsem_8c_aca45bc256c4decd51a2eaf9fb71f64a9}{R\+W\+S\+E\+M\+\_\+\+N\+O\+N\+S\+P\+I\+N\+N\+A\+B\+LE}})}
+
+\mbox{\Hypertarget{rwsem_8c_af42a52136396f90d4a7b3e5a8d190c6c}\label{rwsem_8c_af42a52136396f90d4a7b3e5a8d190c6c}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_READ\_FAILED\_MASK@{RWSEM\_READ\_FAILED\_MASK}}
+\index{RWSEM\_READ\_FAILED\_MASK@{RWSEM\_READ\_FAILED\_MASK}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_READ\_FAILED\_MASK}{RWSEM\_READ\_FAILED\_MASK}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+\_\+\+F\+A\+I\+L\+E\+D\+\_\+\+M\+A\+SK}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                 (\mbox{\hyperlink{rwsem_8c_a8dc31591b78bf66ec242a0e1eb57b234}{RWSEM\_WRITER\_MASK}}|\mbox{\hyperlink{rwsem_8c_a2f67b0f2ef33266a00c54162c2b0eb80}{RWSEM\_FLAG\_WAITERS}}|\(\backslash\)}
+\DoxyCodeLine{                 RWSEM\_FLAG\_HANDOFF|\mbox{\hyperlink{rwsem_8c_a3c37f6b0749874cb9958965b737475a8}{RWSEM\_FLAG\_READFAIL}})}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rwsem_8c_a1868cad1ed427e1f72cb73c1b922f739}\label{rwsem_8c_a1868cad1ed427e1f72cb73c1b922f739}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_READER\_BIAS@{RWSEM\_READER\_BIAS}}
+\index{RWSEM\_READER\_BIAS@{RWSEM\_READER\_BIAS}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_READER\_BIAS}{RWSEM\_READER\_BIAS}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+B\+I\+AS~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{rwsem_8c_a455efbde6a0ab6533f0143a8cc55afcc}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+S\+H\+I\+FT}})}
+
+\mbox{\Hypertarget{rwsem_8c_a37d94329ab3d41a1e5d1a675c538a2ac}\label{rwsem_8c_a37d94329ab3d41a1e5d1a675c538a2ac}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_READER\_MASK@{RWSEM\_READER\_MASK}}
+\index{RWSEM\_READER\_MASK@{RWSEM\_READER\_MASK}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_READER\_MASK}{RWSEM\_READER\_MASK}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+M\+A\+SK~($\sim$(\mbox{\hyperlink{rwsem_8c_a1868cad1ed427e1f72cb73c1b922f739}{R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+B\+I\+AS}} -\/ 1))}
+
+\mbox{\Hypertarget{rwsem_8c_a0fdd9113c51b957a7db40d76119aa1ca}\label{rwsem_8c_a0fdd9113c51b957a7db40d76119aa1ca}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_READER\_OWNED@{RWSEM\_READER\_OWNED}}
+\index{RWSEM\_READER\_OWNED@{RWSEM\_READER\_OWNED}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_READER\_OWNED}{RWSEM\_READER\_OWNED}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+O\+W\+N\+ED~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 0)}
+
+\mbox{\Hypertarget{rwsem_8c_a455efbde6a0ab6533f0143a8cc55afcc}\label{rwsem_8c_a455efbde6a0ab6533f0143a8cc55afcc}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_READER\_SHIFT@{RWSEM\_READER\_SHIFT}}
+\index{RWSEM\_READER\_SHIFT@{RWSEM\_READER\_SHIFT}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_READER\_SHIFT}{RWSEM\_READER\_SHIFT}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+R\+E\+A\+D\+E\+R\+\_\+\+S\+H\+I\+FT~8}
+
+\mbox{\Hypertarget{rwsem_8c_a6298326355868cbea717e82b99ba6071}\label{rwsem_8c_a6298326355868cbea717e82b99ba6071}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_WAIT\_TIMEOUT@{RWSEM\_WAIT\_TIMEOUT}}
+\index{RWSEM\_WAIT\_TIMEOUT@{RWSEM\_WAIT\_TIMEOUT}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_WAIT\_TIMEOUT}{RWSEM\_WAIT\_TIMEOUT}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+W\+A\+I\+T\+\_\+\+T\+I\+M\+E\+O\+UT~\mbox{\hyperlink{math_8h_ab70ffcffa591efaf0981a349740f389c}{D\+I\+V\+\_\+\+R\+O\+U\+N\+D\+\_\+\+UP}}(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}, 250)}
+
+\mbox{\Hypertarget{rwsem_8c_acedb79342bbbbddcad068a0039531820}\label{rwsem_8c_acedb79342bbbbddcad068a0039531820}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_WRITER\_LOCKED@{RWSEM\_WRITER\_LOCKED}}
+\index{RWSEM\_WRITER\_LOCKED@{RWSEM\_WRITER\_LOCKED}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_WRITER\_LOCKED}{RWSEM\_WRITER\_LOCKED}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+L\+O\+C\+K\+ED~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ 0)}
+
+\mbox{\Hypertarget{rwsem_8c_a8dc31591b78bf66ec242a0e1eb57b234}\label{rwsem_8c_a8dc31591b78bf66ec242a0e1eb57b234}} 
+\index{rwsem.c@{rwsem.c}!RWSEM\_WRITER\_MASK@{RWSEM\_WRITER\_MASK}}
+\index{RWSEM\_WRITER\_MASK@{RWSEM\_WRITER\_MASK}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{RWSEM\_WRITER\_MASK}{RWSEM\_WRITER\_MASK}}
+{\footnotesize\ttfamily \#define R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+M\+A\+SK~\mbox{\hyperlink{rwsem_8c_acedb79342bbbbddcad068a0039531820}{R\+W\+S\+E\+M\+\_\+\+W\+R\+I\+T\+E\+R\+\_\+\+L\+O\+C\+K\+ED}}}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{rwsem_8c_a3d21815e114596e7e9da99a53aace4fd}\label{rwsem_8c_a3d21815e114596e7e9da99a53aace4fd}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_waiter\_type@{rwsem\_waiter\_type}}
+\index{rwsem\_waiter\_type@{rwsem\_waiter\_type}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_waiter\_type}{rwsem\_waiter\_type}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rwsem_8c_a3d21815e114596e7e9da99a53aace4fd}{rwsem\+\_\+waiter\+\_\+type}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RWSEM\_WAITING\_FOR\_WRITE@{RWSEM\_WAITING\_FOR\_WRITE}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!RWSEM\_WAITING\_FOR\_WRITE@{RWSEM\_WAITING\_FOR\_WRITE}}}\mbox{\Hypertarget{rwsem_8c_a3d21815e114596e7e9da99a53aace4fdac56a06cf6eaae3c8f67d9471fde13e49}\label{rwsem_8c_a3d21815e114596e7e9da99a53aace4fdac56a06cf6eaae3c8f67d9471fde13e49}} 
+R\+W\+S\+E\+M\+\_\+\+W\+A\+I\+T\+I\+N\+G\+\_\+\+F\+O\+R\+\_\+\+W\+R\+I\+TE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RWSEM\_WAITING\_FOR\_READ@{RWSEM\_WAITING\_FOR\_READ}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!RWSEM\_WAITING\_FOR\_READ@{RWSEM\_WAITING\_FOR\_READ}}}\mbox{\Hypertarget{rwsem_8c_a3d21815e114596e7e9da99a53aace4fda168ad1cc6e70198a60f14e23e6f1eb24}\label{rwsem_8c_a3d21815e114596e7e9da99a53aace4fda168ad1cc6e70198a60f14e23e6f1eb24}} 
+R\+W\+S\+E\+M\+\_\+\+W\+A\+I\+T\+I\+N\+G\+\_\+\+F\+O\+R\+\_\+\+R\+E\+AD&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31}\label{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_wake\_type@{rwsem\_wake\_type}}
+\index{rwsem\_wake\_type@{rwsem\_wake\_type}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_wake\_type}{rwsem\_wake\_type}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31}{rwsem\+\_\+wake\+\_\+type}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RWSEM\_WAKE\_ANY@{RWSEM\_WAKE\_ANY}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!RWSEM\_WAKE\_ANY@{RWSEM\_WAKE\_ANY}}}\mbox{\Hypertarget{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31a7bdf19f9a53c2ff7d030524e9e89c463}\label{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31a7bdf19f9a53c2ff7d030524e9e89c463}} 
+R\+W\+S\+E\+M\+\_\+\+W\+A\+K\+E\+\_\+\+A\+NY&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RWSEM\_WAKE\_READERS@{RWSEM\_WAKE\_READERS}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!RWSEM\_WAKE\_READERS@{RWSEM\_WAKE\_READERS}}}\mbox{\Hypertarget{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31aa4eb46f3dbb109d416aabe651ba97714}\label{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31aa4eb46f3dbb109d416aabe651ba97714}} 
+R\+W\+S\+E\+M\+\_\+\+W\+A\+K\+E\+\_\+\+R\+E\+A\+D\+E\+RS&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RWSEM\_WAKE\_READ\_OWNED@{RWSEM\_WAKE\_READ\_OWNED}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!RWSEM\_WAKE\_READ\_OWNED@{RWSEM\_WAKE\_READ\_OWNED}}}\mbox{\Hypertarget{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31a9f9022ff0d7d0532c2f0ab89b73b024b}\label{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31a9f9022ff0d7d0532c2f0ab89b73b024b}} 
+R\+W\+S\+E\+M\+\_\+\+W\+A\+K\+E\+\_\+\+R\+E\+A\+D\+\_\+\+O\+W\+N\+ED&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5}\label{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5}} 
+\index{rwsem.c@{rwsem.c}!writer\_wait\_state@{writer\_wait\_state}}
+\index{writer\_wait\_state@{writer\_wait\_state}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{writer\_wait\_state}{writer\_wait\_state}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5}{writer\+\_\+wait\+\_\+state}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{WRITER\_NOT\_FIRST@{WRITER\_NOT\_FIRST}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!WRITER\_NOT\_FIRST@{WRITER\_NOT\_FIRST}}}\mbox{\Hypertarget{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5a431da4ccff775f3c0115abc9d9448991}\label{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5a431da4ccff775f3c0115abc9d9448991}} 
+W\+R\+I\+T\+E\+R\+\_\+\+N\+O\+T\+\_\+\+F\+I\+R\+ST&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{WRITER\_FIRST@{WRITER\_FIRST}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!WRITER\_FIRST@{WRITER\_FIRST}}}\mbox{\Hypertarget{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5ac111b1d6345810d57e62a9c82699a6ee}\label{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5ac111b1d6345810d57e62a9c82699a6ee}} 
+W\+R\+I\+T\+E\+R\+\_\+\+F\+I\+R\+ST&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{WRITER\_HANDOFF@{WRITER\_HANDOFF}!rwsem.c@{rwsem.c}}\index{rwsem.c@{rwsem.c}!WRITER\_HANDOFF@{WRITER\_HANDOFF}}}\mbox{\Hypertarget{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5a7de139d99b6985f94d3e6dbba6a53ace}\label{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5a7de139d99b6985f94d3e6dbba6a53ace}} 
+W\+R\+I\+T\+E\+R\+\_\+\+H\+A\+N\+D\+O\+FF&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{rwsem_8c_a0ea4e5941369031592c863d65042fb31}\label{rwsem_8c_a0ea4e5941369031592c863d65042fb31}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_read@{\_\_down\_read}}
+\index{\_\_down\_read@{\_\_down\_read}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_read()}{\_\_down\_read()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+down\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{rwsem_8c_a8fec93817af0cc5282e6b8271c31fe85}\label{rwsem_8c_a8fec93817af0cc5282e6b8271c31fe85}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_read\_common@{\_\_down\_read\_common}}
+\index{\_\_down\_read\_common@{\_\_down\_read\_common}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_read\_common()}{\_\_down\_read\_common()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+down\+\_\+read\+\_\+common (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{rwsem_8c_a84a3db991f8ad0f0d272d534ee16b04e}\label{rwsem_8c_a84a3db991f8ad0f0d272d534ee16b04e}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_read\_interruptible@{\_\_down\_read\_interruptible}}
+\index{\_\_down\_read\_interruptible@{\_\_down\_read\_interruptible}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_read\_interruptible()}{\_\_down\_read\_interruptible()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+down\+\_\+read\+\_\+interruptible (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{rwsem_8c_ae93289fa0961f62cf3945ccf73103614}\label{rwsem_8c_ae93289fa0961f62cf3945ccf73103614}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_read\_killable@{\_\_down\_read\_killable}}
+\index{\_\_down\_read\_killable@{\_\_down\_read\_killable}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_read\_killable()}{\_\_down\_read\_killable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+down\+\_\+read\+\_\+killable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{rwsem_8c_a4681b3146444438a441a8fffa3084b0f}\label{rwsem_8c_a4681b3146444438a441a8fffa3084b0f}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_read\_trylock@{\_\_down\_read\_trylock}}
+\index{\_\_down\_read\_trylock@{\_\_down\_read\_trylock}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_read\_trylock()}{\_\_down\_read\_trylock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+down\+\_\+read\+\_\+trylock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{rwsem_8c_a70f07895e6686a258b5c7795eafe8b0e}\label{rwsem_8c_a70f07895e6686a258b5c7795eafe8b0e}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_write@{\_\_down\_write}}
+\index{\_\_down\_write@{\_\_down\_write}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_write()}{\_\_down\_write()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+down\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{rwsem_8c_a9aeb661290486e65ea605ef34e87061d}\label{rwsem_8c_a9aeb661290486e65ea605ef34e87061d}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_write\_common@{\_\_down\_write\_common}}
+\index{\_\_down\_write\_common@{\_\_down\_write\_common}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_write\_common()}{\_\_down\_write\_common()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+down\+\_\+write\+\_\+common (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{rwsem_8c_a254d3d43f318c0afe08d77f72a62a67b}\label{rwsem_8c_a254d3d43f318c0afe08d77f72a62a67b}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_write\_killable@{\_\_down\_write\_killable}}
+\index{\_\_down\_write\_killable@{\_\_down\_write\_killable}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_write\_killable()}{\_\_down\_write\_killable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+down\+\_\+write\+\_\+killable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{rwsem_8c_a4b8f359eba514d5793fe6013e032ec52}\label{rwsem_8c_a4b8f359eba514d5793fe6013e032ec52}} 
+\index{rwsem.c@{rwsem.c}!\_\_down\_write\_trylock@{\_\_down\_write\_trylock}}
+\index{\_\_down\_write\_trylock@{\_\_down\_write\_trylock}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_down\_write\_trylock()}{\_\_down\_write\_trylock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+down\+\_\+write\+\_\+trylock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{rwsem_8c_acfcb3e1325f5b59d09641de9fabef9f3}\label{rwsem_8c_acfcb3e1325f5b59d09641de9fabef9f3}} 
+\index{rwsem.c@{rwsem.c}!\_\_downgrade\_write@{\_\_downgrade\_write}}
+\index{\_\_downgrade\_write@{\_\_downgrade\_write}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_downgrade\_write()}{\_\_downgrade\_write()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+downgrade\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{rwsem_8c_a20f24af32287f98cbfd3d6b2ef7a615c}\label{rwsem_8c_a20f24af32287f98cbfd3d6b2ef7a615c}} 
+\index{rwsem.c@{rwsem.c}!\_\_init\_rwsem@{\_\_init\_rwsem}}
+\index{\_\_init\_rwsem@{\_\_init\_rwsem}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_init\_rwsem()}{\_\_init\_rwsem()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+init\+\_\+rwsem (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{const char $\ast$}]{name,  }\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{rwsem_8c_a231a01846bcf470105ece1d5d62269a7}\label{rwsem_8c_a231a01846bcf470105ece1d5d62269a7}} 
+\index{rwsem.c@{rwsem.c}!\_\_rwsem\_set\_reader\_owned@{\_\_rwsem\_set\_reader\_owned}}
+\index{\_\_rwsem\_set\_reader\_owned@{\_\_rwsem\_set\_reader\_owned}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_rwsem\_set\_reader\_owned()}{\_\_rwsem\_set\_reader\_owned()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+rwsem\+\_\+set\+\_\+reader\+\_\+owned (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{struct task\+\_\+struct $\ast$}]{owner }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{rwsem_8c_af3af576b5a507a809e94965237afdd67}\label{rwsem_8c_af3af576b5a507a809e94965237afdd67}} 
+\index{rwsem.c@{rwsem.c}!\_\_up\_read@{\_\_up\_read}}
+\index{\_\_up\_read@{\_\_up\_read}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_up\_read()}{\_\_up\_read()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+up\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{rwsem_8c_a3408abac3381729f537b4dc21eb675d4}\label{rwsem_8c_a3408abac3381729f537b4dc21eb675d4}} 
+\index{rwsem.c@{rwsem.c}!\_\_up\_write@{\_\_up\_write}}
+\index{\_\_up\_write@{\_\_up\_write}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{\_\_up\_write()}{\_\_up\_write()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+up\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{rwsem_8c_a59a446be5c4d23b2c5732b3a2a586e47}\label{rwsem_8c_a59a446be5c4d23b2c5732b3a2a586e47}} 
+\index{rwsem.c@{rwsem.c}!clear\_nonspinnable@{clear\_nonspinnable}}
+\index{clear\_nonspinnable@{clear\_nonspinnable}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{clear\_nonspinnable()}{clear\_nonspinnable()}}
+{\footnotesize\ttfamily static void clear\+\_\+nonspinnable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{rwsem_8c_a0502a5cdd58cadb4f1dcbc7666c32b87}\label{rwsem_8c_a0502a5cdd58cadb4f1dcbc7666c32b87}} 
+\index{rwsem.c@{rwsem.c}!down\_read@{down\_read}}
+\index{down\_read@{down\_read}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{down\_read()}{down\_read()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} down\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{rwsem_8c_aa8db285efb3abf2bbab459c70edf50d7}\label{rwsem_8c_aa8db285efb3abf2bbab459c70edf50d7}} 
+\index{rwsem.c@{rwsem.c}!down\_read\_interruptible@{down\_read\_interruptible}}
+\index{down\_read\_interruptible@{down\_read\_interruptible}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{down\_read\_interruptible()}{down\_read\_interruptible()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} down\+\_\+read\+\_\+interruptible (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{rwsem_8c_af53572568bb1577969a839059ceb5cff}\label{rwsem_8c_af53572568bb1577969a839059ceb5cff}} 
+\index{rwsem.c@{rwsem.c}!down\_read\_killable@{down\_read\_killable}}
+\index{down\_read\_killable@{down\_read\_killable}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{down\_read\_killable()}{down\_read\_killable()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} down\+\_\+read\+\_\+killable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{rwsem_8c_a85f0aeb93db02029d438357fd2deb5b6}\label{rwsem_8c_a85f0aeb93db02029d438357fd2deb5b6}} 
+\index{rwsem.c@{rwsem.c}!down\_read\_trylock@{down\_read\_trylock}}
+\index{down\_read\_trylock@{down\_read\_trylock}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{down\_read\_trylock()}{down\_read\_trylock()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} down\+\_\+read\+\_\+trylock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{rwsem_8c_a38dadc589b4f0d174805a8d2c0a45d97}\label{rwsem_8c_a38dadc589b4f0d174805a8d2c0a45d97}} 
+\index{rwsem.c@{rwsem.c}!down\_write@{down\_write}}
+\index{down\_write@{down\_write}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{down\_write()}{down\_write()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} down\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{rwsem_8c_a455246ec3d539ce698c70f5013685970}\label{rwsem_8c_a455246ec3d539ce698c70f5013685970}} 
+\index{rwsem.c@{rwsem.c}!down\_write\_killable@{down\_write\_killable}}
+\index{down\_write\_killable@{down\_write\_killable}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{down\_write\_killable()}{down\_write\_killable()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} down\+\_\+write\+\_\+killable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{rwsem_8c_ada912532c7b610f7b73e0f6bacea323e}\label{rwsem_8c_ada912532c7b610f7b73e0f6bacea323e}} 
+\index{rwsem.c@{rwsem.c}!down\_write\_trylock@{down\_write\_trylock}}
+\index{down\_write\_trylock@{down\_write\_trylock}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{down\_write\_trylock()}{down\_write\_trylock()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} down\+\_\+write\+\_\+trylock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{rwsem_8c_ad8c6cd1508ed28a0bd0b43483aee761b}\label{rwsem_8c_ad8c6cd1508ed28a0bd0b43483aee761b}} 
+\index{rwsem.c@{rwsem.c}!downgrade\_write@{downgrade\_write}}
+\index{downgrade\_write@{downgrade\_write}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{downgrade\_write()}{downgrade\_write()}}
+{\footnotesize\ttfamily void downgrade\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{rwsem_8c_a8261d9cc8d6ba97019973105e808a1f4}\label{rwsem_8c_a8261d9cc8d6ba97019973105e808a1f4}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_a20f24af32287f98cbfd3d6b2ef7a615c}{\+\_\+\+\_\+init\+\_\+rwsem}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a26be9de30c6c4b054df3ebe9785baf40}\label{rwsem_8c_a26be9de30c6c4b054df3ebe9785baf40}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_ab2a67537759bc0278e1756eb953d2672}{down\+\_\+read}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a8b5a2b2dfbf938233ab6bc7e9bea7a96}\label{rwsem_8c_a8b5a2b2dfbf938233ab6bc7e9bea7a96}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_a1bacf9307239f71a0323f0321aa80ee8}{down\+\_\+read\+\_\+interruptible}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_af6ba89bd27fc20d48b8c4c377fa0661f}\label{rwsem_8c_af6ba89bd27fc20d48b8c4c377fa0661f}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_ad83f09c02b2b121d4ffd4cfe1e8871af}{down\+\_\+read\+\_\+killable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a4c4bd869a5e83472685b7083f42800b8}\label{rwsem_8c_a4c4bd869a5e83472685b7083f42800b8}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_a85f0aeb93db02029d438357fd2deb5b6}{down\+\_\+read\+\_\+trylock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a6ee047aad25d30597248b9ec01fd4641}\label{rwsem_8c_a6ee047aad25d30597248b9ec01fd4641}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_aac1c7a43cc3af429a315548be125e4b3}{down\+\_\+write}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_add17dde1cfc8f99ae8ac369dc679368a}\label{rwsem_8c_add17dde1cfc8f99ae8ac369dc679368a}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_af6896be6017229dc5e716c19f29a0f6b}{down\+\_\+write\+\_\+killable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a0c1bde04a516a10d888d82be52000453}\label{rwsem_8c_a0c1bde04a516a10d888d82be52000453}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_ada912532c7b610f7b73e0f6bacea323e}{down\+\_\+write\+\_\+trylock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a534838d2fc76735bcdb92f204c693b6a}\label{rwsem_8c_a534838d2fc76735bcdb92f204c693b6a}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_ad8c6cd1508ed28a0bd0b43483aee761b}{downgrade\+\_\+write}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_afb6118c2865953c2f650b1a32c77ed83}\label{rwsem_8c_afb6118c2865953c2f650b1a32c77ed83}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_adcf7e9b7902c606e3dd1adbb6ce1b595}{up\+\_\+read}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a3741062bccf8e5719903096c074e059c}\label{rwsem_8c_a3741062bccf8e5719903096c074e059c}} 
+\index{rwsem.c@{rwsem.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [11/11]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rwsem_8h_af4f9b3eb8a1dd8b7b213acc5b1e0cb95}{up\+\_\+write}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rwsem_8c_a86192fd4f06139b80424b3429e4c7877}\label{rwsem_8c_a86192fd4f06139b80424b3429e4c7877}} 
+\index{rwsem.c@{rwsem.c}!is\_rwsem\_reader\_owned@{is\_rwsem\_reader\_owned}}
+\index{is\_rwsem\_reader\_owned@{is\_rwsem\_reader\_owned}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{is\_rwsem\_reader\_owned()}{is\_rwsem\_reader\_owned()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+rwsem\+\_\+reader\+\_\+owned (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{rwsem_8c_aa403ea0324f2abdc588dbd047e3901c2}\label{rwsem_8c_aa403ea0324f2abdc588dbd047e3901c2}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_can\_spin\_on\_owner@{rwsem\_can\_spin\_on\_owner}}
+\index{rwsem\_can\_spin\_on\_owner@{rwsem\_can\_spin\_on\_owner}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_can\_spin\_on\_owner()}{rwsem\_can\_spin\_on\_owner()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} rwsem\+\_\+can\+\_\+spin\+\_\+on\+\_\+owner (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{rwsem_8c_ab3106166df32371faa1f16cb8069d8fc}\label{rwsem_8c_ab3106166df32371faa1f16cb8069d8fc}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_clear\_owner@{rwsem\_clear\_owner}}
+\index{rwsem\_clear\_owner@{rwsem\_clear\_owner}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_clear\_owner()}{rwsem\_clear\_owner()}}
+{\footnotesize\ttfamily static void rwsem\+\_\+clear\+\_\+owner (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{rwsem_8c_a03966f064567fa47c27d5f2a9ac631df}\label{rwsem_8c_a03966f064567fa47c27d5f2a9ac631df}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_clear\_reader\_owned@{rwsem\_clear\_reader\_owned}}
+\index{rwsem\_clear\_reader\_owned@{rwsem\_clear\_reader\_owned}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_clear\_reader\_owned()}{rwsem\_clear\_reader\_owned()}}
+{\footnotesize\ttfamily static void rwsem\+\_\+clear\+\_\+reader\+\_\+owned (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{rwsem_8c_ab75e4b16ae8c792afc1bc157f11bbcd8}\label{rwsem_8c_ab75e4b16ae8c792afc1bc157f11bbcd8}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_down\_read\_slowpath@{rwsem\_down\_read\_slowpath}}
+\index{rwsem\_down\_read\_slowpath@{rwsem\_down\_read\_slowpath}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_down\_read\_slowpath()}{rwsem\_down\_read\_slowpath()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}}$\ast$ rwsem\+\_\+down\+\_\+read\+\_\+slowpath (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{long}]{count,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{rwsem_8c_abdce813389a2d0b9f1a7697956a4ae8e}\label{rwsem_8c_abdce813389a2d0b9f1a7697956a4ae8e}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_down\_write\_slowpath@{rwsem\_down\_write\_slowpath}}
+\index{rwsem\_down\_write\_slowpath@{rwsem\_down\_write\_slowpath}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_down\_write\_slowpath()}{rwsem\_down\_write\_slowpath()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}}$\ast$ rwsem\+\_\+down\+\_\+write\+\_\+slowpath (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{state }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{rwsem_8c_a4ee53e9a5be7399186b1f7fc26cfcbaa}\label{rwsem_8c_a4ee53e9a5be7399186b1f7fc26cfcbaa}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_downgrade\_wake@{rwsem\_downgrade\_wake}}
+\index{rwsem\_downgrade\_wake@{rwsem\_downgrade\_wake}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_downgrade\_wake()}{rwsem\_downgrade\_wake()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}}$\ast$ rwsem\+\_\+downgrade\+\_\+wake (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{rwsem_8c_a93830214df0a692b1d0d2c7ec5e193ba}\label{rwsem_8c_a93830214df0a692b1d0d2c7ec5e193ba}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_mark\_wake@{rwsem\_mark\_wake}}
+\index{rwsem\_mark\_wake@{rwsem\_mark\_wake}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_mark\_wake()}{rwsem\_mark\_wake()}}
+{\footnotesize\ttfamily static void rwsem\+\_\+mark\+\_\+wake (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rwsem_8c_ae66df1f2db12f72c14a2b063d8280b31}{rwsem\+\_\+wake\+\_\+type}}}]{wake\+\_\+type,  }\item[{struct \mbox{\hyperlink{structwake__q__head}{wake\+\_\+q\+\_\+head}} $\ast$}]{wake\+\_\+q }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{rwsem_8c_a5b3582c88688a0fabd468cb0190b0165}\label{rwsem_8c_a5b3582c88688a0fabd468cb0190b0165}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_optimistic\_spin@{rwsem\_optimistic\_spin}}
+\index{rwsem\_optimistic\_spin@{rwsem\_optimistic\_spin}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_optimistic\_spin()}{rwsem\_optimistic\_spin()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} rwsem\+\_\+optimistic\+\_\+spin (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{rwsem_8c_a7d57c2a5f805214d7fa9c9b47d64e79e}\label{rwsem_8c_a7d57c2a5f805214d7fa9c9b47d64e79e}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_owner@{rwsem\_owner}}
+\index{rwsem\_owner@{rwsem\_owner}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_owner()}{rwsem\_owner()}}
+{\footnotesize\ttfamily static struct task\+\_\+struct$\ast$ rwsem\+\_\+owner (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{rwsem_8c_a5b2ab92698028b3c9de5bacdcabe7604}\label{rwsem_8c_a5b2ab92698028b3c9de5bacdcabe7604}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_owner\_flags@{rwsem\_owner\_flags}}
+\index{rwsem\_owner\_flags@{rwsem\_owner\_flags}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_owner\_flags()}{rwsem\_owner\_flags()}}
+{\footnotesize\ttfamily static struct task\+\_\+struct$\ast$ rwsem\+\_\+owner\+\_\+flags (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{unsigned long $\ast$}]{pflags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{rwsem_8c_a8a8c4be339e4d624b3f2e8a96677d0ce}\label{rwsem_8c_a8a8c4be339e4d624b3f2e8a96677d0ce}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_read\_trylock@{rwsem\_read\_trylock}}
+\index{rwsem\_read\_trylock@{rwsem\_read\_trylock}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_read\_trylock()}{rwsem\_read\_trylock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} rwsem\+\_\+read\+\_\+trylock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{long $\ast$}]{cntp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{rwsem_8c_a71d307a95e21e06c01a35ed01dfd6111}\label{rwsem_8c_a71d307a95e21e06c01a35ed01dfd6111}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_set\_nonspinnable@{rwsem\_set\_nonspinnable}}
+\index{rwsem\_set\_nonspinnable@{rwsem\_set\_nonspinnable}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_set\_nonspinnable()}{rwsem\_set\_nonspinnable()}}
+{\footnotesize\ttfamily static void rwsem\+\_\+set\+\_\+nonspinnable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{rwsem_8c_aa8360daebe3eb16e3316cf0c9aa9ea44}\label{rwsem_8c_aa8360daebe3eb16e3316cf0c9aa9ea44}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_set\_owner@{rwsem\_set\_owner}}
+\index{rwsem\_set\_owner@{rwsem\_set\_owner}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_set\_owner()}{rwsem\_set\_owner()}}
+{\footnotesize\ttfamily static void rwsem\+\_\+set\+\_\+owner (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{rwsem_8c_a105dd717f7cd10dd4364fe64f8636abe}\label{rwsem_8c_a105dd717f7cd10dd4364fe64f8636abe}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_set\_reader\_owned@{rwsem\_set\_reader\_owned}}
+\index{rwsem\_set\_reader\_owned@{rwsem\_set\_reader\_owned}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_set\_reader\_owned()}{rwsem\_set\_reader\_owned()}}
+{\footnotesize\ttfamily static void rwsem\+\_\+set\+\_\+reader\+\_\+owned (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{rwsem_8c_a7eba688c375ef18644c1661a246ae40a}\label{rwsem_8c_a7eba688c375ef18644c1661a246ae40a}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_spin\_on\_owner@{rwsem\_spin\_on\_owner}}
+\index{rwsem\_spin\_on\_owner@{rwsem\_spin\_on\_owner}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_spin\_on\_owner()}{rwsem\_spin\_on\_owner()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rwsem\+\_\+spin\+\_\+on\+\_\+owner (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{rwsem_8c_a5cb294ce0d73489720e61ddc2276eb69}\label{rwsem_8c_a5cb294ce0d73489720e61ddc2276eb69}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_test\_oflags@{rwsem\_test\_oflags}}
+\index{rwsem\_test\_oflags@{rwsem\_test\_oflags}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_test\_oflags()}{rwsem\_test\_oflags()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} rwsem\+\_\+test\+\_\+oflags (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{long}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{rwsem_8c_a8af00b69ef3ce57160e3cbdc07202019}\label{rwsem_8c_a8af00b69ef3ce57160e3cbdc07202019}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_try\_write\_lock@{rwsem\_try\_write\_lock}}
+\index{rwsem\_try\_write\_lock@{rwsem\_try\_write\_lock}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_try\_write\_lock()}{rwsem\_try\_write\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} rwsem\+\_\+try\+\_\+write\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rwsem_8c_ad6560323cc6bdfab17a3b4ba41c9f4f5}{writer\+\_\+wait\+\_\+state}}}]{wstate }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{rwsem_8c_a5f97c7ad70f3c4bc29f76d1003b7dbe0}\label{rwsem_8c_a5f97c7ad70f3c4bc29f76d1003b7dbe0}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_wake@{rwsem\_wake}}
+\index{rwsem\_wake@{rwsem\_wake}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_wake()}{rwsem\_wake()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}}$\ast$ rwsem\+\_\+wake (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{rwsem_8c_af4cf10b36c10c033320a2dd035420418}\label{rwsem_8c_af4cf10b36c10c033320a2dd035420418}} 
+\index{rwsem.c@{rwsem.c}!rwsem\_write\_trylock@{rwsem\_write\_trylock}}
+\index{rwsem\_write\_trylock@{rwsem\_write\_trylock}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_write\_trylock()}{rwsem\_write\_trylock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} rwsem\+\_\+write\+\_\+trylock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{rwsem_8c_adcf7e9b7902c606e3dd1adbb6ce1b595}\label{rwsem_8c_adcf7e9b7902c606e3dd1adbb6ce1b595}} 
+\index{rwsem.c@{rwsem.c}!up\_read@{up\_read}}
+\index{up\_read@{up\_read}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{up\_read()}{up\_read()}}
+{\footnotesize\ttfamily void up\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 80
+Here is the caller graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{rwsem_8c_af4f9b3eb8a1dd8b7b213acc5b1e0cb95}\label{rwsem_8c_af4f9b3eb8a1dd8b7b213acc5b1e0cb95}} 
+\index{rwsem.c@{rwsem.c}!up\_write@{up\_write}}
+\index{up\_write@{up\_write}!rwsem.c@{rwsem.c}}
+\doxysubsubsection{\texorpdfstring{up\_write()}{up\_write()}}
+{\footnotesize\ttfamily void up\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrw__semaphore}{rw\+\_\+semaphore}} $\ast$}]{sem }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83

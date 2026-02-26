@@ -1,0 +1,740 @@
+\hypertarget{dynamic__debug_8c}{}\doxysection{lib/dynamic\+\_\+debug.c File Reference}
+\label{dynamic__debug_8c}\index{lib/dynamic\_debug.c@{lib/dynamic\_debug.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/moduleparam.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kallsyms.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/proc\+\_\+fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sysctl.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ctype.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/parser.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string\+\_\+helpers.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/dynamic\+\_\+debug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jump\+\_\+label.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hardirq.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/device.\+h$>$}\newline
+{\ttfamily \#include $<$linux/netdevice.\+h$>$}\newline
+{\ttfamily \#include $<$rdma/ib\+\_\+verbs.\+h$>$}\newline
+Include dependency graph for dynamic\+\_\+debug.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structddebug__table}{ddebug\+\_\+table}}
+\item 
+struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}}
+\item 
+struct \mbox{\hyperlink{structddebug__iter}{ddebug\+\_\+iter}}
+\item 
+struct \mbox{\hyperlink{structflag__settings}{flag\+\_\+settings}}
+\item 
+struct \mbox{\hyperlink{structflagsbuf}{flagsbuf}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}dyndbg\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_ae586667adee316d8057f7a0e081171ca}{vnpr\+\_\+info}}(lvl,  \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, ...)
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_a13990e39a15a63c0dfc31f80b89f7206}{vpr\+\_\+info}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, ...)~\mbox{\hyperlink{dynamic__debug_8c_ae586667adee316d8057f7a0e081171ca}{vnpr\+\_\+info}}(1, \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, \#\#\+\_\+\+\_\+\+V\+A\+\_\+\+A\+R\+G\+S\+\_\+\+\_\+)
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_aed8e916b292194c734ce2f1fac7cfae4}{v2pr\+\_\+info}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, ...)~\mbox{\hyperlink{dynamic__debug_8c_ae586667adee316d8057f7a0e081171ca}{vnpr\+\_\+info}}(2, \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, \#\#\+\_\+\+\_\+\+V\+A\+\_\+\+A\+R\+G\+S\+\_\+\+\_\+)
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_aa6b319146daf33409da1bbe4194553dc}{M\+A\+X\+W\+O\+R\+DS}}~9
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_abe208177340b58cb5096daabe07922d1}{P\+R\+E\+F\+I\+X\+\_\+\+S\+I\+ZE}}~64
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_a5bd314b92d3496918dfca7ee248fe1b0}{D\+D\+E\+B\+U\+G\+\_\+\+S\+T\+R\+I\+N\+G\+\_\+\+S\+I\+ZE}}~1024
+\item 
+\#define \mbox{\hyperlink{dynamic__debug_8c_ab5feda5fd9f536e7033c76b5fe7e9619}{U\+S\+E\+R\+\_\+\+B\+U\+F\+\_\+\+P\+A\+GE}}~4096
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dynamic__debug_8c_abfdcecdf0a0401e8c91a87c70dc11326}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (ddebug\+\_\+lock)
+\item 
+static \mbox{\hyperlink{dynamic__debug_8c_a3bc975bda2b73b8c724a37ae5371c48b}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (ddebug\+\_\+tables)
+\item 
+\mbox{\hyperlink{dynamic__debug_8c_aa82b15490d415b53ecd12a89bd540b90}{module\+\_\+param}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+static const char $\ast$ \mbox{\hyperlink{dynamic__debug_8c_a0243d18bf607ddd5de1d04905cabcab4}{trim\+\_\+prefix}} (const char $\ast$\mbox{\hyperlink{structpath}{path}})
+\item 
+static char $\ast$ \mbox{\hyperlink{dynamic__debug_8c_ac090f75abd8b352f99c4b54f68d8ba77}{ddebug\+\_\+describe\+\_\+flags}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, struct \mbox{\hyperlink{structflagsbuf}{flagsbuf}} $\ast$\mbox{\hyperlink{encode__rs_8c_ad2ad2d3dee43c44c447cbff4ce6cffeb}{fb}})
+\item 
+static void \mbox{\hyperlink{dynamic__debug_8c_a95a09a889841bdc3032eec1bc56216d8}{vpr\+\_\+info\+\_\+dq}} (const struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a5de52427eb1365043c57cd9b14afbac2}{query}}, const char $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a7dd7e7688655cc57d6643af5801f96b6}{msg}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_af1a149469a6e4301c228e0f996a39450}{ddebug\+\_\+change}} (const struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a5de52427eb1365043c57cd9b14afbac2}{query}}, struct \mbox{\hyperlink{structflag__settings}{flag\+\_\+settings}} $\ast$modifiers)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_ae1e4c2ed6956e12215f211d778f8313d}{ddebug\+\_\+tokenize}} (char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, char $\ast$words\mbox{[}$\,$\mbox{]}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} maxwords)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a4ceebcc8b908d03c83a726b44ee92817}{parse\+\_\+lineno}} (const char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a1f1cd8bccbd00c9123ef99fd3d15afc2}{parse\+\_\+linerange}} (struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a5de52427eb1365043c57cd9b14afbac2}{query}}, const char $\ast$\mbox{\hyperlink{ceph__fs_8h_adf9c2183bbe8c2f38b1e1e715288a965}{first}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_aae6a2e536de8f2b2e4aa81e50e09d07d}{check\+\_\+set}} (const char $\ast$$\ast$\mbox{\hyperlink{apicdef_8h_a95653a0e059f85d3ccfe3a86caf0a34b}{dest}}, char $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}}, char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a9a3b738dd28e18992f2888e426a6d64d}{ddebug\+\_\+parse\+\_\+query}} (char $\ast$words\mbox{[}$\,$\mbox{]}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nwords, struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a5de52427eb1365043c57cd9b14afbac2}{query}}, const char $\ast$\mbox{\hyperlink{dynamic__debug_8h_a3b686c3a43da337674ef85b79a7d2dee}{modname}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_acec18e8dfabe21a0b9566c37813655ac}{ddebug\+\_\+parse\+\_\+flags}} (const char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}}, struct \mbox{\hyperlink{structflag__settings}{flag\+\_\+settings}} $\ast$modifiers)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a548bd73dcbde39e7237e3c9f0be9c8a8}{ddebug\+\_\+exec\+\_\+query}} (char $\ast$query\+\_\+string, const char $\ast$\mbox{\hyperlink{dynamic__debug_8h_a3b686c3a43da337674ef85b79a7d2dee}{modname}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a0ce2a9b7c173ac3efc8569a0ba710312}{ddebug\+\_\+exec\+\_\+queries}} (char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a5de52427eb1365043c57cd9b14afbac2}{query}}, const char $\ast$\mbox{\hyperlink{dynamic__debug_8h_a3b686c3a43da337674ef85b79a7d2dee}{modname}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a375870ec2b4bd5f653f084a1eebc9d28}{dynamic\+\_\+debug\+\_\+exec\+\_\+queries}} (const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a5de52427eb1365043c57cd9b14afbac2}{query}}, const char $\ast$\mbox{\hyperlink{dynamic__debug_8h_a3b686c3a43da337674ef85b79a7d2dee}{modname}})
+\item 
+\mbox{\hyperlink{dynamic__debug_8c_ae93c804d4caa4f06a654407299638122}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{dynamic__debug_8c_a375870ec2b4bd5f653f084a1eebc9d28}{dynamic\+\_\+debug\+\_\+exec\+\_\+queries}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_ac40ba5a1250c0f0f2864e76d2b3760e0}{remaining}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} wrote)
+\item 
+static char $\ast$ \mbox{\hyperlink{dynamic__debug_8c_a026aabd034de118aa7fa5364db61f610}{\+\_\+\+\_\+dynamic\+\_\+emit\+\_\+prefix}} (const struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$\mbox{\hyperlink{linux_2hid_8h_a6a2438be08bca98db53ee7abe96afc62}{desc}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static char $\ast$ \mbox{\hyperlink{dynamic__debug_8c_a6a47e535e37209816e22b178c63dbf44}{dynamic\+\_\+emit\+\_\+prefix}} (struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$\mbox{\hyperlink{linux_2hid_8h_a6a2438be08bca98db53ee7abe96afc62}{desc}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+void \mbox{\hyperlink{dynamic__debug_8c_a29089cf042c53e098aa80255a1e6b552}{\+\_\+\+\_\+dynamic\+\_\+pr\+\_\+debug}} (struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$\mbox{\hyperlink{compress__offload_8h_a69e1b1d77484877c2d56c03d17787e65}{descriptor}}, const char $\ast$\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},...)
+\item 
+\mbox{\hyperlink{dynamic__debug_8c_a7ab6305181cb7b30364bb47a5d2629b8}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{dynamic__debug_8c_a29089cf042c53e098aa80255a1e6b552}{\+\_\+\+\_\+dynamic\+\_\+pr\+\_\+debug}})
+\item 
+void \mbox{\hyperlink{dynamic__debug_8c_abb2e43302d892dbd1ec6b52d2208059c}{\+\_\+\+\_\+dynamic\+\_\+dev\+\_\+dbg}} (struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$\mbox{\hyperlink{compress__offload_8h_a69e1b1d77484877c2d56c03d17787e65}{descriptor}}, const struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, const char $\ast$\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},...)
+\item 
+\mbox{\hyperlink{dynamic__debug_8c_a6df54205578e1962d889cd1d30f51f3f}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{dynamic__debug_8c_abb2e43302d892dbd1ec6b52d2208059c}{\+\_\+\+\_\+dynamic\+\_\+dev\+\_\+dbg}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a729e78e5a7d9b75d1b6ff7c61d909d2c}{ddebug\+\_\+setup\+\_\+query}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{dynamic__debug_8c_a5708708b5264e839a7fedb573523081c}{\+\_\+\+\_\+setup}} (\char`\"{}ddebug\+\_\+query=\char`\"{}, ddebug\+\_\+setup\+\_\+query)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{dynamic__debug_8c_adc3519f64ffe478986c8358446a892cc}{ddebug\+\_\+proc\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$ubuf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, loff\+\_\+t $\ast$offp)
+\item 
+static struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$ \mbox{\hyperlink{dynamic__debug_8c_a5c2b1a30f49ac79a6c804b75d8208d55}{ddebug\+\_\+iter\+\_\+first}} (struct \mbox{\hyperlink{structddebug__iter}{ddebug\+\_\+iter}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a169ff8d863e9abaaa0b5cd1c86e305a8}{iter}})
+\item 
+static struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$ \mbox{\hyperlink{dynamic__debug_8c_a5c7d141498d6d343774f6ac5d61e4525}{ddebug\+\_\+iter\+\_\+next}} (struct \mbox{\hyperlink{structddebug__iter}{ddebug\+\_\+iter}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a169ff8d863e9abaaa0b5cd1c86e305a8}{iter}})
+\item 
+static void $\ast$ \mbox{\hyperlink{dynamic__debug_8c_a5e60f53f2c15dded645c610fbff743c1}{ddebug\+\_\+proc\+\_\+start}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static void $\ast$ \mbox{\hyperlink{dynamic__debug_8c_a24fcbd0bbeb0b913c99162d0dafaba68}{ddebug\+\_\+proc\+\_\+next}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_afff54f18418c20d89879c07ca31d5f60}{ddebug\+\_\+proc\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static void \mbox{\hyperlink{dynamic__debug_8c_aaa4fe7ae561ef27154f47a3aefd6a965}{ddebug\+\_\+proc\+\_\+stop}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{drm__edid_8h_a8aa7771eaf05faa701ecda0be2545250}{m}}, void $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a485849c9539ba13217ad1b540a90d037}{ddebug\+\_\+proc\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_ab0ba084cd99642a8a57e73ba911dd412}{ddebug\+\_\+add\+\_\+module}} (struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$tab, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} n, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a7bf63b9c4c43dcdc134f5c436933e1b5}{ddebug\+\_\+dyndbg\+\_\+param\+\_\+cb}} (char $\ast$\mbox{\hyperlink{iscsi__if_8h_aba18f3d521fde3af39c58b809a9c7ef0}{param}}, char $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, const char $\ast$\mbox{\hyperlink{dynamic__debug_8h_a3b686c3a43da337674ef85b79a7d2dee}{modname}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} on\+\_\+err)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a47484922639496a00b69d523bec6a39a}{ddebug\+\_\+dyndbg\+\_\+boot\+\_\+param\+\_\+cb}} (char $\ast$\mbox{\hyperlink{iscsi__if_8h_aba18f3d521fde3af39c58b809a9c7ef0}{param}}, char $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, const char $\ast$\mbox{\hyperlink{nftl-user_8h_afcaf71a662b476ae78c2b1ed0f0526d7}{unused}}, void $\ast$arg)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a85dbcd359a87edb0fc420e0f763b24c3}{ddebug\+\_\+dyndbg\+\_\+module\+\_\+param\+\_\+cb}} (char $\ast$\mbox{\hyperlink{iscsi__if_8h_aba18f3d521fde3af39c58b809a9c7ef0}{param}}, char $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, const char $\ast$module)
+\item 
+static void \mbox{\hyperlink{dynamic__debug_8c_a7e57ec65bb3c669b93eba1d974ebd3ab}{ddebug\+\_\+table\+\_\+free}} (struct \mbox{\hyperlink{structddebug__table}{ddebug\+\_\+table}} $\ast$dt)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_afcb5dd7e298fce2aed44c44c7f754a18}{ddebug\+\_\+remove\+\_\+module}} (const char $\ast$mod\+\_\+name)
+\item 
+static void \mbox{\hyperlink{dynamic__debug_8c_aeda25d38f873bda30d9a7f7a131864ec}{ddebug\+\_\+remove\+\_\+all\+\_\+tables}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dynamic__debug_8c_a00edffa476b93c9166275046bcd754c3}{dynamic\+\_\+debug\+\_\+init\+\_\+control}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dynamic__debug_8c_ab90825da6d113322618ada78cc771bb6}{dynamic\+\_\+debug\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{dynamic__debug_8c_aca2b2b4a4c7584957e4fb2849aeb460d}{early\+\_\+initcall}} (\mbox{\hyperlink{dynamic__debug_8c_ab90825da6d113322618ada78cc771bb6}{dynamic\+\_\+debug\+\_\+init}})
+\item 
+\mbox{\hyperlink{dynamic__debug_8c_a7a5f827efbcecb99402725f4dc91a12d}{fs\+\_\+initcall}} (\mbox{\hyperlink{dynamic__debug_8c_a00edffa476b93c9166275046bcd754c3}{dynamic\+\_\+debug\+\_\+init\+\_\+control}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} \mbox{\hyperlink{dynamic__debug_8c_ae637da22e8dc75f4cd41c9e229e45d1f}{\+\_\+\+\_\+start\+\_\+\+\_\+\+\_\+dyndbg}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} \mbox{\hyperlink{dynamic__debug_8c_ad796e96cf0a20b2aefecba2fb3b25512}{\+\_\+\+\_\+stop\+\_\+\+\_\+\+\_\+dyndbg}} \mbox{[}$\,$\mbox{]}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a0b2caeb4b6f130be43e5a2f0267dd453}{verbose}}
+\item 
+\begin{tabbing}
+xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=\kill
+struct \{\\
+\>unsigned \mbox{\hyperlink{dynamic__debug_8c_a2e4b50abfcf3e6796bdcbbc4a8eaac70}{flag}}:8\\
+\>char \mbox{\hyperlink{dynamic__debug_8c_a749a1452e6dd872cb669ea3dc0c9f784}{opt\_char}}\\
+\} \mbox{\hyperlink{dynamic__debug_8c_ac50e4231293392586061ca66d93c4943}{opt\_array}} \mbox{[}$\,$\mbox{]}\\
+
+\end{tabbing}\item 
+static \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} char \mbox{\hyperlink{dynamic__debug_8c_a5b24186f72c3ee5d4fe8bfd398ec8050}{ddebug\+\_\+setup\+\_\+string}} \mbox{[}\mbox{\hyperlink{dynamic__debug_8c_a5bd314b92d3496918dfca7ee248fe1b0}{D\+D\+E\+B\+U\+G\+\_\+\+S\+T\+R\+I\+N\+G\+\_\+\+S\+I\+ZE}}\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} \mbox{\hyperlink{dynamic__debug_8c_ad2e6386bbdf5414cce5d4cb8c3ffb50e}{ddebug\+\_\+proc\+\_\+seqops}}
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{dynamic__debug_8c_afd6eaebddf7cd814b3fddaf2ee7982f0}{ddebug\+\_\+proc\+\_\+fops}}
+\item 
+static const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} \mbox{\hyperlink{dynamic__debug_8c_ae9b665fd9e62ad19d70a457b46f2c3ca}{proc\+\_\+fops}}
+\item 
+static \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{dynamic__debug_8c_a63235b5cfc5f88c42fb30e1b55706f9f}{ddebug\+\_\+init\+\_\+success}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{dynamic__debug_8c_a5bd314b92d3496918dfca7ee248fe1b0}\label{dynamic__debug_8c_a5bd314b92d3496918dfca7ee248fe1b0}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!DDEBUG\_STRING\_SIZE@{DDEBUG\_STRING\_SIZE}}
+\index{DDEBUG\_STRING\_SIZE@{DDEBUG\_STRING\_SIZE}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{DDEBUG\_STRING\_SIZE}{DDEBUG\_STRING\_SIZE}}
+{\footnotesize\ttfamily \#define D\+D\+E\+B\+U\+G\+\_\+\+S\+T\+R\+I\+N\+G\+\_\+\+S\+I\+ZE~1024}
+
+\mbox{\Hypertarget{dynamic__debug_8c_aa6b319146daf33409da1bbe4194553dc}\label{dynamic__debug_8c_aa6b319146daf33409da1bbe4194553dc}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!MAXWORDS@{MAXWORDS}}
+\index{MAXWORDS@{MAXWORDS}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{MAXWORDS}{MAXWORDS}}
+{\footnotesize\ttfamily \#define M\+A\+X\+W\+O\+R\+DS~9}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a1f8c165bf4196327bc3abff648276d92}\label{dynamic__debug_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}dyndbg\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{dynamic__debug_8c_abe208177340b58cb5096daabe07922d1}\label{dynamic__debug_8c_abe208177340b58cb5096daabe07922d1}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!PREFIX\_SIZE@{PREFIX\_SIZE}}
+\index{PREFIX\_SIZE@{PREFIX\_SIZE}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{PREFIX\_SIZE}{PREFIX\_SIZE}}
+{\footnotesize\ttfamily \#define P\+R\+E\+F\+I\+X\+\_\+\+S\+I\+ZE~64}
+
+\mbox{\Hypertarget{dynamic__debug_8c_ab5feda5fd9f536e7033c76b5fe7e9619}\label{dynamic__debug_8c_ab5feda5fd9f536e7033c76b5fe7e9619}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!USER\_BUF\_PAGE@{USER\_BUF\_PAGE}}
+\index{USER\_BUF\_PAGE@{USER\_BUF\_PAGE}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{USER\_BUF\_PAGE}{USER\_BUF\_PAGE}}
+{\footnotesize\ttfamily \#define U\+S\+E\+R\+\_\+\+B\+U\+F\+\_\+\+P\+A\+GE~4096}
+
+\mbox{\Hypertarget{dynamic__debug_8c_aed8e916b292194c734ce2f1fac7cfae4}\label{dynamic__debug_8c_aed8e916b292194c734ce2f1fac7cfae4}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!v2pr\_info@{v2pr\_info}}
+\index{v2pr\_info@{v2pr\_info}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{v2pr\_info}{v2pr\_info}}
+{\footnotesize\ttfamily \#define v2pr\+\_\+info(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},  }\item[{}]{... }\end{DoxyParamCaption})~\mbox{\hyperlink{dynamic__debug_8c_ae586667adee316d8057f7a0e081171ca}{vnpr\+\_\+info}}(2, \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, \#\#\+\_\+\+\_\+\+V\+A\+\_\+\+A\+R\+G\+S\+\_\+\+\_\+)}
+
+\mbox{\Hypertarget{dynamic__debug_8c_ae586667adee316d8057f7a0e081171ca}\label{dynamic__debug_8c_ae586667adee316d8057f7a0e081171ca}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!vnpr\_info@{vnpr\_info}}
+\index{vnpr\_info@{vnpr\_info}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{vnpr\_info}{vnpr\_info}}
+{\footnotesize\ttfamily \#define vnpr\+\_\+info(\begin{DoxyParamCaption}\item[{}]{lvl,  }\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},  }\item[{}]{... }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keywordflow}{do} \{                                \(\backslash\)}
+\DoxyCodeLine{    if (\mbox{\hyperlink{dynamic__debug_8c_a0b2caeb4b6f130be43e5a2f0267dd453}{verbose}} >= lvl)                  \(\backslash\)}
+\DoxyCodeLine{        pr\_info(\mbox{\hyperlink{drm__print_8h_a10aa585f6b6209b2e73ce1872f44bb2e}{fmt}}, \#\#\_\_VA\_ARGS\_\_);         \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{dynamic__debug_8c_a13990e39a15a63c0dfc31f80b89f7206}\label{dynamic__debug_8c_a13990e39a15a63c0dfc31f80b89f7206}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!vpr\_info@{vpr\_info}}
+\index{vpr\_info@{vpr\_info}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{vpr\_info}{vpr\_info}}
+{\footnotesize\ttfamily \#define vpr\+\_\+info(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},  }\item[{}]{... }\end{DoxyParamCaption})~\mbox{\hyperlink{dynamic__debug_8c_ae586667adee316d8057f7a0e081171ca}{vnpr\+\_\+info}}(1, \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, \#\#\+\_\+\+\_\+\+V\+A\+\_\+\+A\+R\+G\+S\+\_\+\+\_\+)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{dynamic__debug_8c_abb2e43302d892dbd1ec6b52d2208059c}\label{dynamic__debug_8c_abb2e43302d892dbd1ec6b52d2208059c}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!\_\_dynamic\_dev\_dbg@{\_\_dynamic\_dev\_dbg}}
+\index{\_\_dynamic\_dev\_dbg@{\_\_dynamic\_dev\_dbg}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{\_\_dynamic\_dev\_dbg()}{\_\_dynamic\_dev\_dbg()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+dynamic\+\_\+dev\+\_\+dbg (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$}]{descriptor,  }\item[{const struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{const char $\ast$}]{fmt,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{dynamic__debug_8c_a026aabd034de118aa7fa5364db61f610}\label{dynamic__debug_8c_a026aabd034de118aa7fa5364db61f610}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!\_\_dynamic\_emit\_prefix@{\_\_dynamic\_emit\_prefix}}
+\index{\_\_dynamic\_emit\_prefix@{\_\_dynamic\_emit\_prefix}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{\_\_dynamic\_emit\_prefix()}{\_\_dynamic\_emit\_prefix()}}
+{\footnotesize\ttfamily static char$\ast$ \+\_\+\+\_\+dynamic\+\_\+emit\+\_\+prefix (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$}]{desc,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 2
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{dynamic__debug_8c_a29089cf042c53e098aa80255a1e6b552}\label{dynamic__debug_8c_a29089cf042c53e098aa80255a1e6b552}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!\_\_dynamic\_pr\_debug@{\_\_dynamic\_pr\_debug}}
+\index{\_\_dynamic\_pr\_debug@{\_\_dynamic\_pr\_debug}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{\_\_dynamic\_pr\_debug()}{\_\_dynamic\_pr\_debug()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+dynamic\+\_\+pr\+\_\+debug (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$}]{descriptor,  }\item[{const char $\ast$}]{fmt,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{dynamic__debug_8c_a5708708b5264e839a7fedb573523081c}\label{dynamic__debug_8c_a5708708b5264e839a7fedb573523081c}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{dynamic__debug_8c_aae6a2e536de8f2b2e4aa81e50e09d07d}\label{dynamic__debug_8c_aae6a2e536de8f2b2e4aa81e50e09d07d}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!check\_set@{check\_set}}
+\index{check\_set@{check\_set}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{check\_set()}{check\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+set (\begin{DoxyParamCaption}\item[{const char $\ast$$\ast$}]{dest,  }\item[{char $\ast$}]{src,  }\item[{char $\ast$}]{name }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{dynamic__debug_8c_ab0ba084cd99642a8a57e73ba911dd412}\label{dynamic__debug_8c_ab0ba084cd99642a8a57e73ba911dd412}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_add\_module@{ddebug\_add\_module}}
+\index{ddebug\_add\_module@{ddebug\_add\_module}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_add\_module()}{ddebug\_add\_module()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+add\+\_\+module (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$}]{tab,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{n,  }\item[{const char $\ast$}]{name }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{dynamic__debug_8c_af1a149469a6e4301c228e0f996a39450}\label{dynamic__debug_8c_af1a149469a6e4301c228e0f996a39450}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_change@{ddebug\_change}}
+\index{ddebug\_change@{ddebug\_change}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_change()}{ddebug\_change()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+change (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$}]{query,  }\item[{struct \mbox{\hyperlink{structflag__settings}{flag\+\_\+settings}} $\ast$}]{modifiers }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{dynamic__debug_8c_ac090f75abd8b352f99c4b54f68d8ba77}\label{dynamic__debug_8c_ac090f75abd8b352f99c4b54f68d8ba77}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_describe\_flags@{ddebug\_describe\_flags}}
+\index{ddebug\_describe\_flags@{ddebug\_describe\_flags}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_describe\_flags()}{ddebug\_describe\_flags()}}
+{\footnotesize\ttfamily static char$\ast$ ddebug\+\_\+describe\+\_\+flags (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{struct \mbox{\hyperlink{structflagsbuf}{flagsbuf}} $\ast$}]{fb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{dynamic__debug_8c_a47484922639496a00b69d523bec6a39a}\label{dynamic__debug_8c_a47484922639496a00b69d523bec6a39a}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_dyndbg\_boot\_param\_cb@{ddebug\_dyndbg\_boot\_param\_cb}}
+\index{ddebug\_dyndbg\_boot\_param\_cb@{ddebug\_dyndbg\_boot\_param\_cb}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_dyndbg\_boot\_param\_cb()}{ddebug\_dyndbg\_boot\_param\_cb()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+dyndbg\+\_\+boot\+\_\+param\+\_\+cb (\begin{DoxyParamCaption}\item[{char $\ast$}]{param,  }\item[{char $\ast$}]{val,  }\item[{const char $\ast$}]{unused,  }\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{dynamic__debug_8c_a85dbcd359a87edb0fc420e0f763b24c3}\label{dynamic__debug_8c_a85dbcd359a87edb0fc420e0f763b24c3}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_dyndbg\_module\_param\_cb@{ddebug\_dyndbg\_module\_param\_cb}}
+\index{ddebug\_dyndbg\_module\_param\_cb@{ddebug\_dyndbg\_module\_param\_cb}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_dyndbg\_module\_param\_cb()}{ddebug\_dyndbg\_module\_param\_cb()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+dyndbg\+\_\+module\+\_\+param\+\_\+cb (\begin{DoxyParamCaption}\item[{char $\ast$}]{param,  }\item[{char $\ast$}]{val,  }\item[{const char $\ast$}]{module }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{dynamic__debug_8c_a7bf63b9c4c43dcdc134f5c436933e1b5}\label{dynamic__debug_8c_a7bf63b9c4c43dcdc134f5c436933e1b5}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_dyndbg\_param\_cb@{ddebug\_dyndbg\_param\_cb}}
+\index{ddebug\_dyndbg\_param\_cb@{ddebug\_dyndbg\_param\_cb}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_dyndbg\_param\_cb()}{ddebug\_dyndbg\_param\_cb()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+dyndbg\+\_\+param\+\_\+cb (\begin{DoxyParamCaption}\item[{char $\ast$}]{param,  }\item[{char $\ast$}]{val,  }\item[{const char $\ast$}]{modname,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{on\+\_\+err }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{dynamic__debug_8c_a0ce2a9b7c173ac3efc8569a0ba710312}\label{dynamic__debug_8c_a0ce2a9b7c173ac3efc8569a0ba710312}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_exec\_queries@{ddebug\_exec\_queries}}
+\index{ddebug\_exec\_queries@{ddebug\_exec\_queries}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_exec\_queries()}{ddebug\_exec\_queries()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+exec\+\_\+queries (\begin{DoxyParamCaption}\item[{char $\ast$}]{query,  }\item[{const char $\ast$}]{modname }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{dynamic__debug_8c_a548bd73dcbde39e7237e3c9f0be9c8a8}\label{dynamic__debug_8c_a548bd73dcbde39e7237e3c9f0be9c8a8}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_exec\_query@{ddebug\_exec\_query}}
+\index{ddebug\_exec\_query@{ddebug\_exec\_query}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_exec\_query()}{ddebug\_exec\_query()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+exec\+\_\+query (\begin{DoxyParamCaption}\item[{char $\ast$}]{query\+\_\+string,  }\item[{const char $\ast$}]{modname }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{dynamic__debug_8c_a5c2b1a30f49ac79a6c804b75d8208d55}\label{dynamic__debug_8c_a5c2b1a30f49ac79a6c804b75d8208d55}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_iter\_first@{ddebug\_iter\_first}}
+\index{ddebug\_iter\_first@{ddebug\_iter\_first}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_iter\_first()}{ddebug\_iter\_first()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}}$\ast$ ddebug\+\_\+iter\+\_\+first (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structddebug__iter}{ddebug\+\_\+iter}} $\ast$}]{iter }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{dynamic__debug_8c_a5c7d141498d6d343774f6ac5d61e4525}\label{dynamic__debug_8c_a5c7d141498d6d343774f6ac5d61e4525}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_iter\_next@{ddebug\_iter\_next}}
+\index{ddebug\_iter\_next@{ddebug\_iter\_next}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_iter\_next()}{ddebug\_iter\_next()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}}$\ast$ ddebug\+\_\+iter\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structddebug__iter}{ddebug\+\_\+iter}} $\ast$}]{iter }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{dynamic__debug_8c_acec18e8dfabe21a0b9566c37813655ac}\label{dynamic__debug_8c_acec18e8dfabe21a0b9566c37813655ac}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_parse\_flags@{ddebug\_parse\_flags}}
+\index{ddebug\_parse\_flags@{ddebug\_parse\_flags}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_parse\_flags()}{ddebug\_parse\_flags()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+parse\+\_\+flags (\begin{DoxyParamCaption}\item[{const char $\ast$}]{str,  }\item[{struct \mbox{\hyperlink{structflag__settings}{flag\+\_\+settings}} $\ast$}]{modifiers }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{dynamic__debug_8c_a9a3b738dd28e18992f2888e426a6d64d}\label{dynamic__debug_8c_a9a3b738dd28e18992f2888e426a6d64d}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_parse\_query@{ddebug\_parse\_query}}
+\index{ddebug\_parse\_query@{ddebug\_parse\_query}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_parse\_query()}{ddebug\_parse\_query()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+parse\+\_\+query (\begin{DoxyParamCaption}\item[{char $\ast$}]{words\mbox{[}$\,$\mbox{]},  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nwords,  }\item[{struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$}]{query,  }\item[{const char $\ast$}]{modname }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{dynamic__debug_8c_a24fcbd0bbeb0b913c99162d0dafaba68}\label{dynamic__debug_8c_a24fcbd0bbeb0b913c99162d0dafaba68}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_next@{ddebug\_proc\_next}}
+\index{ddebug\_proc\_next@{ddebug\_proc\_next}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_next()}{ddebug\_proc\_next()}}
+{\footnotesize\ttfamily static void$\ast$ ddebug\+\_\+proc\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{p,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{dynamic__debug_8c_a485849c9539ba13217ad1b540a90d037}\label{dynamic__debug_8c_a485849c9539ba13217ad1b540a90d037}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_open@{ddebug\_proc\_open}}
+\index{ddebug\_proc\_open@{ddebug\_proc\_open}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_open()}{ddebug\_proc\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+proc\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{dynamic__debug_8c_afff54f18418c20d89879c07ca31d5f60}\label{dynamic__debug_8c_afff54f18418c20d89879c07ca31d5f60}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_show@{ddebug\_proc\_show}}
+\index{ddebug\_proc\_show@{ddebug\_proc\_show}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_show()}{ddebug\_proc\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+proc\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{dynamic__debug_8c_a5e60f53f2c15dded645c610fbff743c1}\label{dynamic__debug_8c_a5e60f53f2c15dded645c610fbff743c1}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_start@{ddebug\_proc\_start}}
+\index{ddebug\_proc\_start@{ddebug\_proc\_start}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_start()}{ddebug\_proc\_start()}}
+{\footnotesize\ttfamily static void$\ast$ ddebug\+\_\+proc\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{dynamic__debug_8c_aaa4fe7ae561ef27154f47a3aefd6a965}\label{dynamic__debug_8c_aaa4fe7ae561ef27154f47a3aefd6a965}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_stop@{ddebug\_proc\_stop}}
+\index{ddebug\_proc\_stop@{ddebug\_proc\_stop}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_stop()}{ddebug\_proc\_stop()}}
+{\footnotesize\ttfamily static void ddebug\+\_\+proc\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{m,  }\item[{void $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{dynamic__debug_8c_adc3519f64ffe478986c8358446a892cc}\label{dynamic__debug_8c_adc3519f64ffe478986c8358446a892cc}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_write@{ddebug\_proc\_write}}
+\index{ddebug\_proc\_write@{ddebug\_proc\_write}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_write()}{ddebug\_proc\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} ddebug\+\_\+proc\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{ubuf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{len,  }\item[{loff\+\_\+t $\ast$}]{offp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{dynamic__debug_8c_aeda25d38f873bda30d9a7f7a131864ec}\label{dynamic__debug_8c_aeda25d38f873bda30d9a7f7a131864ec}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_remove\_all\_tables@{ddebug\_remove\_all\_tables}}
+\index{ddebug\_remove\_all\_tables@{ddebug\_remove\_all\_tables}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_remove\_all\_tables()}{ddebug\_remove\_all\_tables()}}
+{\footnotesize\ttfamily static void ddebug\+\_\+remove\+\_\+all\+\_\+tables (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{dynamic__debug_8c_afcb5dd7e298fce2aed44c44c7f754a18}\label{dynamic__debug_8c_afcb5dd7e298fce2aed44c44c7f754a18}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_remove\_module@{ddebug\_remove\_module}}
+\index{ddebug\_remove\_module@{ddebug\_remove\_module}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_remove\_module()}{ddebug\_remove\_module()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+remove\+\_\+module (\begin{DoxyParamCaption}\item[{const char $\ast$}]{mod\+\_\+name }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{dynamic__debug_8c_a729e78e5a7d9b75d1b6ff7c61d909d2c}\label{dynamic__debug_8c_a729e78e5a7d9b75d1b6ff7c61d909d2c}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_setup\_query@{ddebug\_setup\_query}}
+\index{ddebug\_setup\_query@{ddebug\_setup\_query}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_setup\_query()}{ddebug\_setup\_query()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+setup\+\_\+query (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{dynamic__debug_8c_a7e57ec65bb3c669b93eba1d974ebd3ab}\label{dynamic__debug_8c_a7e57ec65bb3c669b93eba1d974ebd3ab}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_table\_free@{ddebug\_table\_free}}
+\index{ddebug\_table\_free@{ddebug\_table\_free}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_table\_free()}{ddebug\_table\_free()}}
+{\footnotesize\ttfamily static void ddebug\+\_\+table\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structddebug__table}{ddebug\+\_\+table}} $\ast$}]{dt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{dynamic__debug_8c_ae1e4c2ed6956e12215f211d778f8313d}\label{dynamic__debug_8c_ae1e4c2ed6956e12215f211d778f8313d}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_tokenize@{ddebug\_tokenize}}
+\index{ddebug\_tokenize@{ddebug\_tokenize}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_tokenize()}{ddebug\_tokenize()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+tokenize (\begin{DoxyParamCaption}\item[{char $\ast$}]{buf,  }\item[{char $\ast$}]{words\mbox{[}$\,$\mbox{]},  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{maxwords }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{dynamic__debug_8c_abfdcecdf0a0401e8c91a87c70dc11326}\label{dynamic__debug_8c_abfdcecdf0a0401e8c91a87c70dc11326}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{ddebug\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a375870ec2b4bd5f653f084a1eebc9d28}\label{dynamic__debug_8c_a375870ec2b4bd5f653f084a1eebc9d28}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!dynamic\_debug\_exec\_queries@{dynamic\_debug\_exec\_queries}}
+\index{dynamic\_debug\_exec\_queries@{dynamic\_debug\_exec\_queries}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{dynamic\_debug\_exec\_queries()}{dynamic\_debug\_exec\_queries()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dynamic\+\_\+debug\+\_\+exec\+\_\+queries (\begin{DoxyParamCaption}\item[{const char $\ast$}]{query,  }\item[{const char $\ast$}]{modname }\end{DoxyParamCaption})}
+
+dynamic\+\_\+debug\+\_\+exec\+\_\+queries -\/ select and change dynamic-\/debug prints @query\+: query-\/string described in admin-\/guide/dynamic-\/debug-\/howto @modname\+: string containing module name, usually \&module.\+mod\+\_\+name
+
+This uses the $>$/proc/dynamic\+\_\+debug/control reader, allowing module authors to modify their dynamic-\/debug callsites. \mbox{\hyperlink{classThe}{The}} modname is canonically struct module.\+mod\+\_\+name, but can also be null or a module-\/wildcard, for example\+: \char`\"{}drm$\ast$\char`\"{}. Here is the call graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{dynamic__debug_8c_ab90825da6d113322618ada78cc771bb6}\label{dynamic__debug_8c_ab90825da6d113322618ada78cc771bb6}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!dynamic\_debug\_init@{dynamic\_debug\_init}}
+\index{dynamic\_debug\_init@{dynamic\_debug\_init}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{dynamic\_debug\_init()}{dynamic\_debug\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} dynamic\+\_\+debug\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{dynamic__debug_8c_a00edffa476b93c9166275046bcd754c3}\label{dynamic__debug_8c_a00edffa476b93c9166275046bcd754c3}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!dynamic\_debug\_init\_control@{dynamic\_debug\_init\_control}}
+\index{dynamic\_debug\_init\_control@{dynamic\_debug\_init\_control}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{dynamic\_debug\_init\_control()}{dynamic\_debug\_init\_control()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} dynamic\+\_\+debug\+\_\+init\+\_\+control (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{dynamic__debug_8c_a6a47e535e37209816e22b178c63dbf44}\label{dynamic__debug_8c_a6a47e535e37209816e22b178c63dbf44}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!dynamic\_emit\_prefix@{dynamic\_emit\_prefix}}
+\index{dynamic\_emit\_prefix@{dynamic\_emit\_prefix}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{dynamic\_emit\_prefix()}{dynamic\_emit\_prefix()}}
+{\footnotesize\ttfamily static char$\ast$ dynamic\+\_\+emit\+\_\+prefix (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} $\ast$}]{desc,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{dynamic__debug_8c_aca2b2b4a4c7584957e4fb2849aeb460d}\label{dynamic__debug_8c_aca2b2b4a4c7584957e4fb2849aeb460d}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!early\_initcall@{early\_initcall}}
+\index{early\_initcall@{early\_initcall}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{early\_initcall()}{early\_initcall()}}
+{\footnotesize\ttfamily early\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dynamic__debug_8c_ab90825da6d113322618ada78cc771bb6}{dynamic\+\_\+debug\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a6df54205578e1962d889cd1d30f51f3f}\label{dynamic__debug_8c_a6df54205578e1962d889cd1d30f51f3f}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dynamic__debug_8c_abb2e43302d892dbd1ec6b52d2208059c}{\+\_\+\+\_\+dynamic\+\_\+dev\+\_\+dbg}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a7ab6305181cb7b30364bb47a5d2629b8}\label{dynamic__debug_8c_a7ab6305181cb7b30364bb47a5d2629b8}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dynamic__debug_8c_a29089cf042c53e098aa80255a1e6b552}{\+\_\+\+\_\+dynamic\+\_\+pr\+\_\+debug}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{dynamic__debug_8c_ae93c804d4caa4f06a654407299638122}\label{dynamic__debug_8c_ae93c804d4caa4f06a654407299638122}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dynamic__debug_8c_a375870ec2b4bd5f653f084a1eebc9d28}{dynamic\+\_\+debug\+\_\+exec\+\_\+queries}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a7a5f827efbcecb99402725f4dc91a12d}\label{dynamic__debug_8c_a7a5f827efbcecb99402725f4dc91a12d}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!fs\_initcall@{fs\_initcall}}
+\index{fs\_initcall@{fs\_initcall}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{fs\_initcall()}{fs\_initcall()}}
+{\footnotesize\ttfamily fs\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dynamic__debug_8c_a00edffa476b93c9166275046bcd754c3}{dynamic\+\_\+debug\+\_\+init\+\_\+control}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a3bc975bda2b73b8c724a37ae5371c48b}\label{dynamic__debug_8c_a3bc975bda2b73b8c724a37ae5371c48b}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{ddebug\+\_\+tables}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{dynamic__debug_8c_aa82b15490d415b53ecd12a89bd540b90}\label{dynamic__debug_8c_aa82b15490d415b53ecd12a89bd540b90}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!module\_param@{module\_param}}
+\index{module\_param@{module\_param}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{module\_param()}{module\_param()}}
+{\footnotesize\ttfamily module\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a4ceebcc8b908d03c83a726b44ee92817}\label{dynamic__debug_8c_a4ceebcc8b908d03c83a726b44ee92817}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!parse\_lineno@{parse\_lineno}}
+\index{parse\_lineno@{parse\_lineno}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{parse\_lineno()}{parse\_lineno()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} parse\+\_\+lineno (\begin{DoxyParamCaption}\item[{const char $\ast$}]{str,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{dynamic__debug_8c_a1f1cd8bccbd00c9123ef99fd3d15afc2}\label{dynamic__debug_8c_a1f1cd8bccbd00c9123ef99fd3d15afc2}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!parse\_linerange@{parse\_linerange}}
+\index{parse\_linerange@{parse\_linerange}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{parse\_linerange()}{parse\_linerange()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} parse\+\_\+linerange (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$}]{query,  }\item[{const char $\ast$}]{first }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{dynamic__debug_8c_ac40ba5a1250c0f0f2864e76d2b3760e0}\label{dynamic__debug_8c_ac40ba5a1250c0f0f2864e76d2b3760e0}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!remaining@{remaining}}
+\index{remaining@{remaining}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{remaining()}{remaining()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} remaining (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{wrote }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{dynamic__debug_8c_a0243d18bf607ddd5de1d04905cabcab4}\label{dynamic__debug_8c_a0243d18bf607ddd5de1d04905cabcab4}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!trim\_prefix@{trim\_prefix}}
+\index{trim\_prefix@{trim\_prefix}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{trim\_prefix()}{trim\_prefix()}}
+{\footnotesize\ttfamily static const char$\ast$ trim\+\_\+prefix (\begin{DoxyParamCaption}\item[{const char $\ast$}]{path }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{dynamic__debug_8c_a95a09a889841bdc3032eec1bc56216d8}\label{dynamic__debug_8c_a95a09a889841bdc3032eec1bc56216d8}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!vpr\_info\_dq@{vpr\_info\_dq}}
+\index{vpr\_info\_dq@{vpr\_info\_dq}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{vpr\_info\_dq()}{vpr\_info\_dq()}}
+{\footnotesize\ttfamily static void vpr\+\_\+info\+\_\+dq (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structddebug__query}{ddebug\+\_\+query}} $\ast$}]{query,  }\item[{const char $\ast$}]{msg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{dynamic__debug_8c_ae637da22e8dc75f4cd41c9e229e45d1f}\label{dynamic__debug_8c_ae637da22e8dc75f4cd41c9e229e45d1f}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!\_\_start\_\_\_dyndbg@{\_\_start\_\_\_dyndbg}}
+\index{\_\_start\_\_\_dyndbg@{\_\_start\_\_\_dyndbg}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{\_\_start\_\_\_dyndbg}{\_\_start\_\_\_dyndbg}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} \+\_\+\+\_\+start\+\_\+\+\_\+\+\_\+dyndbg\mbox{[}$\,$\mbox{]}}
+
+\mbox{\Hypertarget{dynamic__debug_8c_ad796e96cf0a20b2aefecba2fb3b25512}\label{dynamic__debug_8c_ad796e96cf0a20b2aefecba2fb3b25512}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!\_\_stop\_\_\_dyndbg@{\_\_stop\_\_\_dyndbg}}
+\index{\_\_stop\_\_\_dyndbg@{\_\_stop\_\_\_dyndbg}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{\_\_stop\_\_\_dyndbg}{\_\_stop\_\_\_dyndbg}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{struct__ddebug}{\+\_\+ddebug}} \+\_\+\+\_\+stop\+\_\+\+\_\+\+\_\+dyndbg\mbox{[}$\,$\mbox{]}}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a63235b5cfc5f88c42fb30e1b55706f9f}\label{dynamic__debug_8c_a63235b5cfc5f88c42fb30e1b55706f9f}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_init\_success@{ddebug\_init\_success}}
+\index{ddebug\_init\_success@{ddebug\_init\_success}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_init\_success}{ddebug\_init\_success}}
+{\footnotesize\ttfamily \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ddebug\+\_\+init\+\_\+success\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{dynamic__debug_8c_afd6eaebddf7cd814b3fddaf2ee7982f0}\label{dynamic__debug_8c_afd6eaebddf7cd814b3fddaf2ee7982f0}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_fops@{ddebug\_proc\_fops}}
+\index{ddebug\_proc\_fops@{ddebug\_proc\_fops}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_fops}{ddebug\_proc\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} ddebug\+\_\+proc\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .owner = \mbox{\hyperlink{include_2linux_2export_8h_a026ecb225c8ecf49f8a6075a7071a962}{THIS\_MODULE}},}
+\DoxyCodeLine{    .open = \mbox{\hyperlink{dynamic__debug_8c_a485849c9539ba13217ad1b540a90d037}{ddebug\_proc\_open}},}
+\DoxyCodeLine{    .read = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .llseek = \mbox{\hyperlink{seq__file_8h_afb0190ee914a16a926d673a6a91949a9}{seq\_lseek}},}
+\DoxyCodeLine{    .release = \mbox{\hyperlink{seq__file_8h_ad300972da980f5128e3a80f72ea2c4fe}{seq\_release\_private}},}
+\DoxyCodeLine{    .write = \mbox{\hyperlink{dynamic__debug_8c_adc3519f64ffe478986c8358446a892cc}{ddebug\_proc\_write}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{dynamic__debug_8c_ad2e6386bbdf5414cce5d4cb8c3ffb50e}\label{dynamic__debug_8c_ad2e6386bbdf5414cce5d4cb8c3ffb50e}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_proc\_seqops@{ddebug\_proc\_seqops}}
+\index{ddebug\_proc\_seqops@{ddebug\_proc\_seqops}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_proc\_seqops}{ddebug\_proc\_seqops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} ddebug\+\_\+proc\+\_\+seqops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .start = \mbox{\hyperlink{dynamic__debug_8c_a5e60f53f2c15dded645c610fbff743c1}{ddebug\_proc\_start}},}
+\DoxyCodeLine{    .next = \mbox{\hyperlink{dynamic__debug_8c_a24fcbd0bbeb0b913c99162d0dafaba68}{ddebug\_proc\_next}},}
+\DoxyCodeLine{    .show = \mbox{\hyperlink{dynamic__debug_8c_afff54f18418c20d89879c07ca31d5f60}{ddebug\_proc\_show}},}
+\DoxyCodeLine{    .stop = \mbox{\hyperlink{dynamic__debug_8c_aaa4fe7ae561ef27154f47a3aefd6a965}{ddebug\_proc\_stop}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{dynamic__debug_8c_a5b24186f72c3ee5d4fe8bfd398ec8050}\label{dynamic__debug_8c_a5b24186f72c3ee5d4fe8bfd398ec8050}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!ddebug\_setup\_string@{ddebug\_setup\_string}}
+\index{ddebug\_setup\_string@{ddebug\_setup\_string}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{ddebug\_setup\_string}{ddebug\_setup\_string}}
+{\footnotesize\ttfamily \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} char ddebug\+\_\+setup\+\_\+string\mbox{[}\mbox{\hyperlink{dynamic__debug_8c_a5bd314b92d3496918dfca7ee248fe1b0}{D\+D\+E\+B\+U\+G\+\_\+\+S\+T\+R\+I\+N\+G\+\_\+\+S\+I\+ZE}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{dynamic__debug_8c_a2e4b50abfcf3e6796bdcbbc4a8eaac70}\label{dynamic__debug_8c_a2e4b50abfcf3e6796bdcbbc4a8eaac70}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!flag@{flag}}
+\index{flag@{flag}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{flag}{flag}}
+{\footnotesize\ttfamily unsigned flag}
+
+\mbox{\Hypertarget{dynamic__debug_8c_ac50e4231293392586061ca66d93c4943}\label{dynamic__debug_8c_ac50e4231293392586061ca66d93c4943}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!opt\_array@{opt\_array}}
+\index{opt\_array@{opt\_array}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{opt\_array}{opt\_array}}
+{\footnotesize\ttfamily struct \{ ... \}  opt\+\_\+array\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{dynamic__debug_8h_a902824cdfa33ee46feb1f12fdacd3cfb}{\_DPRINTK\_FLAGS\_PRINT}}, \textcolor{charliteral}{'p'} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{dynamic__debug_8h_a75925aa05176bb741ee2014147fc4bf3}{\_DPRINTK\_FLAGS\_INCL\_MODNAME}}, \textcolor{charliteral}{'m'} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{dynamic__debug_8h_a6bb15be04719b0bfb3861b8c67fac71e}{\_DPRINTK\_FLAGS\_INCL\_FUNCNAME}}, \textcolor{charliteral}{'f'} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{dynamic__debug_8h_ae49af28a70747c522d12071436030b1e}{\_DPRINTK\_FLAGS\_INCL\_LINENO}}, \textcolor{charliteral}{'l'} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{dynamic__debug_8h_a2504612d7ebd17780b1160734a8aaea4}{\_DPRINTK\_FLAGS\_INCL\_TID}}, \textcolor{charliteral}{'t'} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{dynamic__debug_8h_a02f5f368d20ebf0cb10b66d218da7bf5}{\_DPRINTK\_FLAGS\_NONE}}, \textcolor{charliteral}{'\_'} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{dynamic__debug_8c_a749a1452e6dd872cb669ea3dc0c9f784}\label{dynamic__debug_8c_a749a1452e6dd872cb669ea3dc0c9f784}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!opt\_char@{opt\_char}}
+\index{opt\_char@{opt\_char}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{opt\_char}{opt\_char}}
+{\footnotesize\ttfamily char opt\+\_\+char}
+
+\mbox{\Hypertarget{dynamic__debug_8c_ae9b665fd9e62ad19d70a457b46f2c3ca}\label{dynamic__debug_8c_ae9b665fd9e62ad19d70a457b46f2c3ca}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!proc\_fops@{proc\_fops}}
+\index{proc\_fops@{proc\_fops}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{proc\_fops}{proc\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structproc__ops}{proc\+\_\+ops}} proc\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .proc\_open = \mbox{\hyperlink{dynamic__debug_8c_a485849c9539ba13217ad1b540a90d037}{ddebug\_proc\_open}},}
+\DoxyCodeLine{    .proc\_read = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .proc\_lseek = \mbox{\hyperlink{seq__file_8h_afb0190ee914a16a926d673a6a91949a9}{seq\_lseek}},}
+\DoxyCodeLine{    .proc\_release = \mbox{\hyperlink{seq__file_8h_ad300972da980f5128e3a80f72ea2c4fe}{seq\_release\_private}},}
+\DoxyCodeLine{    .proc\_write = \mbox{\hyperlink{dynamic__debug_8c_adc3519f64ffe478986c8358446a892cc}{ddebug\_proc\_write}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{dynamic__debug_8c_a0b2caeb4b6f130be43e5a2f0267dd453}\label{dynamic__debug_8c_a0b2caeb4b6f130be43e5a2f0267dd453}} 
+\index{dynamic\_debug.c@{dynamic\_debug.c}!verbose@{verbose}}
+\index{verbose@{verbose}!dynamic\_debug.c@{dynamic\_debug.c}}
+\doxysubsubsection{\texorpdfstring{verbose}{verbose}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} verbose\hspace{0.3cm}{\ttfamily [static]}}
+

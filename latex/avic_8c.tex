@@ -1,0 +1,685 @@
+\hypertarget{avic_8c}{}\doxysection{arch/x86/kvm/svm/avic.c File Reference}
+\label{avic_8c}\index{arch/x86/kvm/svm/avic.c@{arch/x86/kvm/svm/avic.c}}
+{\ttfamily \#include $<$linux/kvm\+\_\+types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hashtable.\+h$>$}\newline
+{\ttfamily \#include $<$linux/amd-\/iommu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kvm\+\_\+host.\+h$>$}\newline
+{\ttfamily \#include $<$asm/irq\+\_\+remapping.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}trace.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}lapic.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}x86.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}irq.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}svm.\+h\char`\"{}}\newline
+Include dependency graph for avic.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structamd__svm__iommu__ir}{amd\+\_\+svm\+\_\+iommu\+\_\+ir}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{avic_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}S\+V\+M\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{avic_8c_a34b6c9e7491d6dab5165fbfece857b09}{S\+V\+M\+\_\+\+A\+V\+I\+C\+\_\+\+D\+O\+O\+R\+B\+E\+LL}}~0xc001011b
+\item 
+\#define \mbox{\hyperlink{avic_8c_a858fb312399a93341c0212639083ff23}{A\+V\+I\+C\+\_\+\+H\+P\+A\+\_\+\+M\+A\+SK}}~$\sim$((0x\+F\+F\+F\+U\+LL $<$$<$ 52) $\vert$ 0x\+F\+FF)
+\item 
+\#define \mbox{\hyperlink{avic_8c_af11de5d6f6ff832956b5b01bbce87ec3}{A\+V\+I\+C\+\_\+\+M\+A\+X\+\_\+\+P\+H\+Y\+S\+I\+C\+A\+L\+\_\+\+I\+D\+\_\+\+C\+O\+U\+NT}}~255
+\item 
+\#define \mbox{\hyperlink{avic_8c_a61912ae60c8195f08b300180b0582589}{A\+V\+I\+C\+\_\+\+U\+N\+A\+C\+C\+E\+L\+\_\+\+A\+C\+C\+E\+S\+S\+\_\+\+W\+R\+I\+T\+E\+\_\+\+M\+A\+SK}}~1
+\item 
+\#define \mbox{\hyperlink{avic_8c_a763ccd74b6da3dc3cdfab207cb038acf}{A\+V\+I\+C\+\_\+\+U\+N\+A\+C\+C\+E\+L\+\_\+\+A\+C\+C\+E\+S\+S\+\_\+\+O\+F\+F\+S\+E\+T\+\_\+\+M\+A\+SK}}~0x\+F\+F0
+\item 
+\#define \mbox{\hyperlink{avic_8c_a417bd61acced3ecd9f5c4f6aab4139de}{A\+V\+I\+C\+\_\+\+U\+N\+A\+C\+C\+E\+L\+\_\+\+A\+C\+C\+E\+S\+S\+\_\+\+V\+E\+C\+T\+O\+R\+\_\+\+M\+A\+SK}}~0x\+F\+F\+F\+F\+F\+F\+FF
+\item 
+\#define \mbox{\hyperlink{avic_8c_a4acd90616288810a06f2b066c7ac5f02}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}~8
+\item 
+\#define \mbox{\hyperlink{avic_8c_a85aae38c76b154dc96183124f815e5e4}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+M\+A\+SK}}~((1 $<$$<$ \mbox{\hyperlink{avic_8c_a4acd90616288810a06f2b066c7ac5f02}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{avic_8c_a71390de71a317868166da5bd578610e4}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}~24
+\item 
+\#define \mbox{\hyperlink{avic_8c_a59df53d6f30e8b5e3a9b73d842a96d6c}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+NR}}~(1 $<$$<$ \mbox{\hyperlink{avic_8c_a71390de71a317868166da5bd578610e4}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{avic_8c_aa582eb517550b4af588363963042a791}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+M\+A\+SK}}~((1 $<$$<$ \mbox{\hyperlink{avic_8c_a71390de71a317868166da5bd578610e4}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{avic_8c_a592362a0d49d73e2d0e1638044e59943}{A\+V\+I\+C\+\_\+\+G\+A\+T\+AG}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}},  \mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}})
+\item 
+\#define \mbox{\hyperlink{avic_8c_a504afac7afffff075f42d33af8c21ef0}{A\+V\+I\+C\+\_\+\+G\+A\+T\+A\+G\+\_\+\+T\+O\+\_\+\+V\+M\+ID}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ \mbox{\hyperlink{avic_8c_a4acd90616288810a06f2b066c7ac5f02}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}) \& \mbox{\hyperlink{avic_8c_aa582eb517550b4af588363963042a791}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+M\+A\+SK}})
+\item 
+\#define \mbox{\hyperlink{avic_8c_a379bb93a0924b7a44f0fa7cdd37517b1}{A\+V\+I\+C\+\_\+\+G\+A\+T\+A\+G\+\_\+\+T\+O\+\_\+\+V\+C\+P\+U\+ID}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} \& \mbox{\hyperlink{avic_8c_a85aae38c76b154dc96183124f815e5e4}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+M\+A\+SK}})
+\item 
+\#define \mbox{\hyperlink{avic_8c_a43bf45802761215fb7aeb3a0f716a429}{S\+V\+M\+\_\+\+V\+M\+\_\+\+D\+A\+T\+A\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}~8
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{avic_8c_af4d17f207d581f572738e3abc22777ae}{avic\+\_\+ipi\+\_\+failure\+\_\+cause}} \{ \mbox{\hyperlink{avic_8c_af4d17f207d581f572738e3abc22777aead64d4a95afee5af7c999359d1efd2a1a}{A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+I\+N\+V\+A\+L\+I\+D\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+PE}}, 
+\mbox{\hyperlink{avic_8c_af4d17f207d581f572738e3abc22777aea6ab1d16f1139dcb3d0c25303a28e2d26}{A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+T\+A\+R\+G\+E\+T\+\_\+\+N\+O\+T\+\_\+\+R\+U\+N\+N\+I\+NG}}, 
+\mbox{\hyperlink{avic_8c_af4d17f207d581f572738e3abc22777aea8f5ed89fb89b39571722125d49da171c}{A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+I\+N\+V\+A\+L\+I\+D\+\_\+\+T\+A\+R\+G\+ET}}, 
+\mbox{\hyperlink{avic_8c_af4d17f207d581f572738e3abc22777aeac8fbb2e9d87ad02a76f132a5ac034131}{A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+I\+N\+V\+A\+L\+I\+D\+\_\+\+B\+A\+C\+K\+I\+N\+G\+\_\+\+P\+A\+GE}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{avic_8c_aa0b824f0eb25d52b2753a0446792f7d9}{D\+E\+F\+I\+N\+E\+\_\+\+H\+A\+S\+H\+T\+A\+B\+LE}} (svm\+\_\+vm\+\_\+data\+\_\+hash, \mbox{\hyperlink{avic_8c_a43bf45802761215fb7aeb3a0f716a429}{S\+V\+M\+\_\+\+V\+M\+\_\+\+D\+A\+T\+A\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+static \mbox{\hyperlink{avic_8c_a48d73aa47db0cd13044af80a191469b6}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (svm\+\_\+vm\+\_\+data\+\_\+hash\+\_\+lock)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_af75098185942f8eb5703b2b65bf9257d}{avic\+\_\+ga\+\_\+log\+\_\+notifier}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} ga\+\_\+tag)
+\item 
+void \mbox{\hyperlink{avic_8c_a3bb736e8688ecfaa3696b347764fd37d}{avic\+\_\+vm\+\_\+destroy}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a0ddedac4b0b428928fae6bc9fe902e2a}{avic\+\_\+vm\+\_\+init}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}})
+\item 
+void \mbox{\hyperlink{avic_8c_ae1ebd7cb75f63bf110884096fd263000}{avic\+\_\+init\+\_\+vmcb}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$ \mbox{\hyperlink{avic_8c_a8cfb06497cbd5960a4a909c44e701f06}{avic\+\_\+get\+\_\+physical\+\_\+id\+\_\+entry}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a8e374b39fdc91a0a46d4c2aaac263fd8}{avic\+\_\+alloc\+\_\+access\+\_\+page}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_aefc63eafb35c1efd94f6d53e7d0b20d5}{avic\+\_\+init\+\_\+backing\+\_\+page}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static void \mbox{\hyperlink{avic_8c_a9a11e0d684ad3335a50d8ee7c38835f6}{avic\+\_\+kick\+\_\+target\+\_\+vcpus}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__lapic}{kvm\+\_\+lapic}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_af57b2622b9deca25c3fb72bd3df9b77a}{source}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} icrl, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} icrh)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a4a11c0014568405b90307ef68285e4ff}{avic\+\_\+incomplete\+\_\+ipi\+\_\+interception}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$ \mbox{\hyperlink{avic_8c_a5eaaa2d4a926c006359343ff29a9cdf7}{avic\+\_\+get\+\_\+logical\+\_\+id\+\_\+entry}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{apicdef_8h_aac7e6c5cf3e73adcebc8956fe1cecb2b}{ldr}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} flat)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a29567984054cc5e99a6d77737e52bbd8}{avic\+\_\+ldr\+\_\+write}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} g\+\_\+physical\+\_\+id, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{apicdef_8h_aac7e6c5cf3e73adcebc8956fe1cecb2b}{ldr}})
+\item 
+static void \mbox{\hyperlink{avic_8c_a2ed13621ec3f14afbf47f129e43b496d}{avic\+\_\+invalidate\+\_\+logical\+\_\+id\+\_\+entry}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a4caa86c99283af7db4f56acef36ff472}{avic\+\_\+handle\+\_\+ldr\+\_\+update}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a19ad8d411bd9d2a5d832fd830757a084}{avic\+\_\+handle\+\_\+apic\+\_\+id\+\_\+update}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static void \mbox{\hyperlink{avic_8c_aaff9720871b696bc298d89cbb27a6dc2}{avic\+\_\+handle\+\_\+dfr\+\_\+update}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a852a923aa1f7981f6b7e0ec976c178b0}{avic\+\_\+unaccel\+\_\+trap\+\_\+write}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{avic_8c_a9c7db7e1cb25acd53eb51e777934c9e8}{is\+\_\+avic\+\_\+unaccelerated\+\_\+access\+\_\+trap}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a299de3990a5ce5ce873df7afe2b3338f}{avic\+\_\+unaccelerated\+\_\+access\+\_\+interception}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a8e0a22138080054f4ac064064402f74a}{avic\+\_\+init\+\_\+vcpu}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm)
+\item 
+void \mbox{\hyperlink{avic_8c_a62e44a73c7ba97e670af89735782af54}{avic\+\_\+post\+\_\+state\+\_\+restore}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+void \mbox{\hyperlink{avic_8c_a6d08c48bb139bbdb48bf80a6b7a4c01a}{svm\+\_\+set\+\_\+virtual\+\_\+apic\+\_\+mode}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+void \mbox{\hyperlink{avic_8c_a81b59c6605c03844aea98b33b2370b64}{svm\+\_\+hwapic\+\_\+irr\+\_\+update}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+irr)
+\item 
+void \mbox{\hyperlink{avic_8c_ac42c7dedc01c2204d8a33755a081692b}{svm\+\_\+hwapic\+\_\+isr\+\_\+update}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+isr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a6688c623cb90ab7ba969c6fd1c0108c2}{svm\+\_\+set\+\_\+pi\+\_\+irte\+\_\+mode}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} activate)
+\item 
+void \mbox{\hyperlink{avic_8c_adc765207d4d0e365543bf42a598e6dab}{svm\+\_\+refresh\+\_\+apicv\+\_\+exec\+\_\+ctrl}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+void \mbox{\hyperlink{avic_8c_aa91d05acbf762b21393effd37d1860d7}{svm\+\_\+load\+\_\+eoi\+\_\+exitmap}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$eoi\+\_\+exit\+\_\+bitmap)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a1b73bc05958fa1be84d1ecc952424c96}{svm\+\_\+deliver\+\_\+avic\+\_\+intr}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} vec)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{avic_8c_a2c091f48ac37b870eea2e91b1e88e584}{svm\+\_\+dy\+\_\+apicv\+\_\+has\+\_\+pending\+\_\+interrupt}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static void \mbox{\hyperlink{avic_8c_a0573329bfb8b7a1a2ba0a4e2ce438dfa}{svm\+\_\+ir\+\_\+list\+\_\+del}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, struct \mbox{\hyperlink{structamd__iommu__pi__data}{amd\+\_\+iommu\+\_\+pi\+\_\+data}} $\ast$pi)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a0262c9f1d0d537dafa962ca68a873378}{svm\+\_\+ir\+\_\+list\+\_\+add}} (struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$svm, struct \mbox{\hyperlink{structamd__iommu__pi__data}{amd\+\_\+iommu\+\_\+pi\+\_\+data}} $\ast$pi)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a24f70312b475fe0e0858ee3cc7e3af71}{get\+\_\+pi\+\_\+vcpu\+\_\+info}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, struct \mbox{\hyperlink{structkvm__kernel__irq__routing__entry}{kvm\+\_\+kernel\+\_\+irq\+\_\+routing\+\_\+entry}} $\ast$e, struct \mbox{\hyperlink{structvcpu__data}{vcpu\+\_\+data}} $\ast$\mbox{\hyperlink{structvcpu__info}{vcpu\+\_\+info}}, struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$$\ast$svm)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_ac613e0fcba860cf69670c8dd11def60a}{svm\+\_\+update\+\_\+pi\+\_\+irte}} (struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$\mbox{\hyperlink{structkvm}{kvm}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} host\+\_\+irq, \mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}} guest\+\_\+irq, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{nl80211_8h_aa32dc92d0a8e963b0834f4f6a0f97b18}{set}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{avic_8c_a59ae569b0f5f081c7992304402f025e4}{svm\+\_\+check\+\_\+apicv\+\_\+inhibit\+\_\+reasons}} (\mbox{\hyperlink{include_2linux_2types_8h_a718b4eb2652c286f4d42dc18a8e71a1a}{ulong}} bit)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{avic_8c_a7b088623e16cec4875e37d8ce15231b2}{avic\+\_\+update\+\_\+iommu\+\_\+vcpu\+\_\+affinity}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}})
+\item 
+void \mbox{\hyperlink{avic_8c_a7decdbafc7d47b2241e68ce3c90a9779}{avic\+\_\+vcpu\+\_\+load}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+void \mbox{\hyperlink{avic_8c_a461f968598a11484e76a07fb87221bf2}{avic\+\_\+vcpu\+\_\+put}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+static void \mbox{\hyperlink{avic_8c_ac9eee3de000e588e9dd94c4a5b8c0bc8}{avic\+\_\+set\+\_\+running}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+run)
+\item 
+void \mbox{\hyperlink{avic_8c_a690dc5d01ac6cd2cbb891cdda8b7c5cc}{svm\+\_\+vcpu\+\_\+blocking}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\item 
+void \mbox{\hyperlink{avic_8c_a1baab94ecdd789190024bd047958e284}{svm\+\_\+vcpu\+\_\+unblocking}} (struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$vcpu)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{avic_8c_aebb4737cca7862427a4b94f3f086dee3}{next\+\_\+vm\+\_\+id}} = 0
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{avic_8c_a1e123c3defad20a133e56f43373b9c44}{next\+\_\+vm\+\_\+id\+\_\+wrapped}} = 0
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{avic_8c_a592362a0d49d73e2d0e1638044e59943}\label{avic_8c_a592362a0d49d73e2d0e1638044e59943}} 
+\index{avic.c@{avic.c}!AVIC\_GATAG@{AVIC\_GATAG}}
+\index{AVIC\_GATAG@{AVIC\_GATAG}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_GATAG}{AVIC\_GATAG}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+G\+A\+T\+AG(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}},  }\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                        (((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} \& \mbox{\hyperlink{avic_8c_aa582eb517550b4af588363963042a791}{AVIC\_VM\_ID\_MASK}}) << \mbox{\hyperlink{avic_8c_a4acd90616288810a06f2b066c7ac5f02}{AVIC\_VCPU\_ID\_BITS}}) | \(\backslash\)}
+\DoxyCodeLine{                        (\mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}} \& \mbox{\hyperlink{avic_8c_a85aae38c76b154dc96183124f815e5e4}{AVIC\_VCPU\_ID\_MASK}}))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{avic_8c_a379bb93a0924b7a44f0fa7cdd37517b1}\label{avic_8c_a379bb93a0924b7a44f0fa7cdd37517b1}} 
+\index{avic.c@{avic.c}!AVIC\_GATAG\_TO\_VCPUID@{AVIC\_GATAG\_TO\_VCPUID}}
+\index{AVIC\_GATAG\_TO\_VCPUID@{AVIC\_GATAG\_TO\_VCPUID}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_GATAG\_TO\_VCPUID}{AVIC\_GATAG\_TO\_VCPUID}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+G\+A\+T\+A\+G\+\_\+\+T\+O\+\_\+\+V\+C\+P\+U\+ID(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} \& \mbox{\hyperlink{avic_8c_a85aae38c76b154dc96183124f815e5e4}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+M\+A\+SK}})}
+
+\mbox{\Hypertarget{avic_8c_a504afac7afffff075f42d33af8c21ef0}\label{avic_8c_a504afac7afffff075f42d33af8c21ef0}} 
+\index{avic.c@{avic.c}!AVIC\_GATAG\_TO\_VMID@{AVIC\_GATAG\_TO\_VMID}}
+\index{AVIC\_GATAG\_TO\_VMID@{AVIC\_GATAG\_TO\_VMID}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_GATAG\_TO\_VMID}{AVIC\_GATAG\_TO\_VMID}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+G\+A\+T\+A\+G\+\_\+\+T\+O\+\_\+\+V\+M\+ID(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ \mbox{\hyperlink{avic_8c_a4acd90616288810a06f2b066c7ac5f02}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}) \& \mbox{\hyperlink{avic_8c_aa582eb517550b4af588363963042a791}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+M\+A\+SK}})}
+
+\mbox{\Hypertarget{avic_8c_a858fb312399a93341c0212639083ff23}\label{avic_8c_a858fb312399a93341c0212639083ff23}} 
+\index{avic.c@{avic.c}!AVIC\_HPA\_MASK@{AVIC\_HPA\_MASK}}
+\index{AVIC\_HPA\_MASK@{AVIC\_HPA\_MASK}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_HPA\_MASK}{AVIC\_HPA\_MASK}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+H\+P\+A\+\_\+\+M\+A\+SK~$\sim$((0x\+F\+F\+F\+U\+LL $<$$<$ 52) $\vert$ 0x\+F\+FF)}
+
+\mbox{\Hypertarget{avic_8c_af11de5d6f6ff832956b5b01bbce87ec3}\label{avic_8c_af11de5d6f6ff832956b5b01bbce87ec3}} 
+\index{avic.c@{avic.c}!AVIC\_MAX\_PHYSICAL\_ID\_COUNT@{AVIC\_MAX\_PHYSICAL\_ID\_COUNT}}
+\index{AVIC\_MAX\_PHYSICAL\_ID\_COUNT@{AVIC\_MAX\_PHYSICAL\_ID\_COUNT}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_MAX\_PHYSICAL\_ID\_COUNT}{AVIC\_MAX\_PHYSICAL\_ID\_COUNT}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+M\+A\+X\+\_\+\+P\+H\+Y\+S\+I\+C\+A\+L\+\_\+\+I\+D\+\_\+\+C\+O\+U\+NT~255}
+
+\mbox{\Hypertarget{avic_8c_a763ccd74b6da3dc3cdfab207cb038acf}\label{avic_8c_a763ccd74b6da3dc3cdfab207cb038acf}} 
+\index{avic.c@{avic.c}!AVIC\_UNACCEL\_ACCESS\_OFFSET\_MASK@{AVIC\_UNACCEL\_ACCESS\_OFFSET\_MASK}}
+\index{AVIC\_UNACCEL\_ACCESS\_OFFSET\_MASK@{AVIC\_UNACCEL\_ACCESS\_OFFSET\_MASK}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_UNACCEL\_ACCESS\_OFFSET\_MASK}{AVIC\_UNACCEL\_ACCESS\_OFFSET\_MASK}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+U\+N\+A\+C\+C\+E\+L\+\_\+\+A\+C\+C\+E\+S\+S\+\_\+\+O\+F\+F\+S\+E\+T\+\_\+\+M\+A\+SK~0x\+F\+F0}
+
+\mbox{\Hypertarget{avic_8c_a417bd61acced3ecd9f5c4f6aab4139de}\label{avic_8c_a417bd61acced3ecd9f5c4f6aab4139de}} 
+\index{avic.c@{avic.c}!AVIC\_UNACCEL\_ACCESS\_VECTOR\_MASK@{AVIC\_UNACCEL\_ACCESS\_VECTOR\_MASK}}
+\index{AVIC\_UNACCEL\_ACCESS\_VECTOR\_MASK@{AVIC\_UNACCEL\_ACCESS\_VECTOR\_MASK}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_UNACCEL\_ACCESS\_VECTOR\_MASK}{AVIC\_UNACCEL\_ACCESS\_VECTOR\_MASK}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+U\+N\+A\+C\+C\+E\+L\+\_\+\+A\+C\+C\+E\+S\+S\+\_\+\+V\+E\+C\+T\+O\+R\+\_\+\+M\+A\+SK~0x\+F\+F\+F\+F\+F\+F\+FF}
+
+\mbox{\Hypertarget{avic_8c_a61912ae60c8195f08b300180b0582589}\label{avic_8c_a61912ae60c8195f08b300180b0582589}} 
+\index{avic.c@{avic.c}!AVIC\_UNACCEL\_ACCESS\_WRITE\_MASK@{AVIC\_UNACCEL\_ACCESS\_WRITE\_MASK}}
+\index{AVIC\_UNACCEL\_ACCESS\_WRITE\_MASK@{AVIC\_UNACCEL\_ACCESS\_WRITE\_MASK}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_UNACCEL\_ACCESS\_WRITE\_MASK}{AVIC\_UNACCEL\_ACCESS\_WRITE\_MASK}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+U\+N\+A\+C\+C\+E\+L\+\_\+\+A\+C\+C\+E\+S\+S\+\_\+\+W\+R\+I\+T\+E\+\_\+\+M\+A\+SK~1}
+
+\mbox{\Hypertarget{avic_8c_a4acd90616288810a06f2b066c7ac5f02}\label{avic_8c_a4acd90616288810a06f2b066c7ac5f02}} 
+\index{avic.c@{avic.c}!AVIC\_VCPU\_ID\_BITS@{AVIC\_VCPU\_ID\_BITS}}
+\index{AVIC\_VCPU\_ID\_BITS@{AVIC\_VCPU\_ID\_BITS}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_VCPU\_ID\_BITS}{AVIC\_VCPU\_ID\_BITS}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+B\+I\+TS~8}
+
+\mbox{\Hypertarget{avic_8c_a85aae38c76b154dc96183124f815e5e4}\label{avic_8c_a85aae38c76b154dc96183124f815e5e4}} 
+\index{avic.c@{avic.c}!AVIC\_VCPU\_ID\_MASK@{AVIC\_VCPU\_ID\_MASK}}
+\index{AVIC\_VCPU\_ID\_MASK@{AVIC\_VCPU\_ID\_MASK}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_VCPU\_ID\_MASK}{AVIC\_VCPU\_ID\_MASK}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+M\+A\+SK~((1 $<$$<$ \mbox{\hyperlink{avic_8c_a4acd90616288810a06f2b066c7ac5f02}{A\+V\+I\+C\+\_\+\+V\+C\+P\+U\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}) -\/ 1)}
+
+\mbox{\Hypertarget{avic_8c_a71390de71a317868166da5bd578610e4}\label{avic_8c_a71390de71a317868166da5bd578610e4}} 
+\index{avic.c@{avic.c}!AVIC\_VM\_ID\_BITS@{AVIC\_VM\_ID\_BITS}}
+\index{AVIC\_VM\_ID\_BITS@{AVIC\_VM\_ID\_BITS}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_VM\_ID\_BITS}{AVIC\_VM\_ID\_BITS}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+B\+I\+TS~24}
+
+\mbox{\Hypertarget{avic_8c_aa582eb517550b4af588363963042a791}\label{avic_8c_aa582eb517550b4af588363963042a791}} 
+\index{avic.c@{avic.c}!AVIC\_VM\_ID\_MASK@{AVIC\_VM\_ID\_MASK}}
+\index{AVIC\_VM\_ID\_MASK@{AVIC\_VM\_ID\_MASK}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_VM\_ID\_MASK}{AVIC\_VM\_ID\_MASK}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+M\+A\+SK~((1 $<$$<$ \mbox{\hyperlink{avic_8c_a71390de71a317868166da5bd578610e4}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+B\+I\+TS}}) -\/ 1)}
+
+\mbox{\Hypertarget{avic_8c_a59df53d6f30e8b5e3a9b73d842a96d6c}\label{avic_8c_a59df53d6f30e8b5e3a9b73d842a96d6c}} 
+\index{avic.c@{avic.c}!AVIC\_VM\_ID\_NR@{AVIC\_VM\_ID\_NR}}
+\index{AVIC\_VM\_ID\_NR@{AVIC\_VM\_ID\_NR}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{AVIC\_VM\_ID\_NR}{AVIC\_VM\_ID\_NR}}
+{\footnotesize\ttfamily \#define A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+NR~(1 $<$$<$ \mbox{\hyperlink{avic_8c_a71390de71a317868166da5bd578610e4}{A\+V\+I\+C\+\_\+\+V\+M\+\_\+\+I\+D\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{avic_8c_a1f8c165bf4196327bc3abff648276d92}\label{avic_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{avic.c@{avic.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}S\+V\+M\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{avic_8c_a34b6c9e7491d6dab5165fbfece857b09}\label{avic_8c_a34b6c9e7491d6dab5165fbfece857b09}} 
+\index{avic.c@{avic.c}!SVM\_AVIC\_DOORBELL@{SVM\_AVIC\_DOORBELL}}
+\index{SVM\_AVIC\_DOORBELL@{SVM\_AVIC\_DOORBELL}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{SVM\_AVIC\_DOORBELL}{SVM\_AVIC\_DOORBELL}}
+{\footnotesize\ttfamily \#define S\+V\+M\+\_\+\+A\+V\+I\+C\+\_\+\+D\+O\+O\+R\+B\+E\+LL~0xc001011b}
+
+\mbox{\Hypertarget{avic_8c_a43bf45802761215fb7aeb3a0f716a429}\label{avic_8c_a43bf45802761215fb7aeb3a0f716a429}} 
+\index{avic.c@{avic.c}!SVM\_VM\_DATA\_HASH\_BITS@{SVM\_VM\_DATA\_HASH\_BITS}}
+\index{SVM\_VM\_DATA\_HASH\_BITS@{SVM\_VM\_DATA\_HASH\_BITS}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{SVM\_VM\_DATA\_HASH\_BITS}{SVM\_VM\_DATA\_HASH\_BITS}}
+{\footnotesize\ttfamily \#define S\+V\+M\+\_\+\+V\+M\+\_\+\+D\+A\+T\+A\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS~8}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{avic_8c_af4d17f207d581f572738e3abc22777ae}\label{avic_8c_af4d17f207d581f572738e3abc22777ae}} 
+\index{avic.c@{avic.c}!avic\_ipi\_failure\_cause@{avic\_ipi\_failure\_cause}}
+\index{avic\_ipi\_failure\_cause@{avic\_ipi\_failure\_cause}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_ipi\_failure\_cause}{avic\_ipi\_failure\_cause}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{avic_8c_af4d17f207d581f572738e3abc22777ae}{avic\+\_\+ipi\+\_\+failure\+\_\+cause}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{AVIC\_IPI\_FAILURE\_INVALID\_INT\_TYPE@{AVIC\_IPI\_FAILURE\_INVALID\_INT\_TYPE}!avic.c@{avic.c}}\index{avic.c@{avic.c}!AVIC\_IPI\_FAILURE\_INVALID\_INT\_TYPE@{AVIC\_IPI\_FAILURE\_INVALID\_INT\_TYPE}}}\mbox{\Hypertarget{avic_8c_af4d17f207d581f572738e3abc22777aead64d4a95afee5af7c999359d1efd2a1a}\label{avic_8c_af4d17f207d581f572738e3abc22777aead64d4a95afee5af7c999359d1efd2a1a}} 
+A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+I\+N\+V\+A\+L\+I\+D\+\_\+\+I\+N\+T\+\_\+\+T\+Y\+PE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{AVIC\_IPI\_FAILURE\_TARGET\_NOT\_RUNNING@{AVIC\_IPI\_FAILURE\_TARGET\_NOT\_RUNNING}!avic.c@{avic.c}}\index{avic.c@{avic.c}!AVIC\_IPI\_FAILURE\_TARGET\_NOT\_RUNNING@{AVIC\_IPI\_FAILURE\_TARGET\_NOT\_RUNNING}}}\mbox{\Hypertarget{avic_8c_af4d17f207d581f572738e3abc22777aea6ab1d16f1139dcb3d0c25303a28e2d26}\label{avic_8c_af4d17f207d581f572738e3abc22777aea6ab1d16f1139dcb3d0c25303a28e2d26}} 
+A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+T\+A\+R\+G\+E\+T\+\_\+\+N\+O\+T\+\_\+\+R\+U\+N\+N\+I\+NG&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{AVIC\_IPI\_FAILURE\_INVALID\_TARGET@{AVIC\_IPI\_FAILURE\_INVALID\_TARGET}!avic.c@{avic.c}}\index{avic.c@{avic.c}!AVIC\_IPI\_FAILURE\_INVALID\_TARGET@{AVIC\_IPI\_FAILURE\_INVALID\_TARGET}}}\mbox{\Hypertarget{avic_8c_af4d17f207d581f572738e3abc22777aea8f5ed89fb89b39571722125d49da171c}\label{avic_8c_af4d17f207d581f572738e3abc22777aea8f5ed89fb89b39571722125d49da171c}} 
+A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+I\+N\+V\+A\+L\+I\+D\+\_\+\+T\+A\+R\+G\+ET&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{AVIC\_IPI\_FAILURE\_INVALID\_BACKING\_PAGE@{AVIC\_IPI\_FAILURE\_INVALID\_BACKING\_PAGE}!avic.c@{avic.c}}\index{avic.c@{avic.c}!AVIC\_IPI\_FAILURE\_INVALID\_BACKING\_PAGE@{AVIC\_IPI\_FAILURE\_INVALID\_BACKING\_PAGE}}}\mbox{\Hypertarget{avic_8c_af4d17f207d581f572738e3abc22777aeac8fbb2e9d87ad02a76f132a5ac034131}\label{avic_8c_af4d17f207d581f572738e3abc22777aeac8fbb2e9d87ad02a76f132a5ac034131}} 
+A\+V\+I\+C\+\_\+\+I\+P\+I\+\_\+\+F\+A\+I\+L\+U\+R\+E\+\_\+\+I\+N\+V\+A\+L\+I\+D\+\_\+\+B\+A\+C\+K\+I\+N\+G\+\_\+\+P\+A\+GE&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{avic_8c_a8e374b39fdc91a0a46d4c2aaac263fd8}\label{avic_8c_a8e374b39fdc91a0a46d4c2aaac263fd8}} 
+\index{avic.c@{avic.c}!avic\_alloc\_access\_page@{avic\_alloc\_access\_page}}
+\index{avic\_alloc\_access\_page@{avic\_alloc\_access\_page}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_alloc\_access\_page()}{avic\_alloc\_access\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+alloc\+\_\+access\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{avic_8c_af75098185942f8eb5703b2b65bf9257d}\label{avic_8c_af75098185942f8eb5703b2b65bf9257d}} 
+\index{avic.c@{avic.c}!avic\_ga\_log\_notifier@{avic\_ga\_log\_notifier}}
+\index{avic\_ga\_log\_notifier@{avic\_ga\_log\_notifier}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_ga\_log\_notifier()}{avic\_ga\_log\_notifier()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+ga\+\_\+log\+\_\+notifier (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{ga\+\_\+tag }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{avic_8c_a5eaaa2d4a926c006359343ff29a9cdf7}\label{avic_8c_a5eaaa2d4a926c006359343ff29a9cdf7}} 
+\index{avic.c@{avic.c}!avic\_get\_logical\_id\_entry@{avic\_get\_logical\_id\_entry}}
+\index{avic\_get\_logical\_id\_entry@{avic\_get\_logical\_id\_entry}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_get\_logical\_id\_entry()}{avic\_get\_logical\_id\_entry()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}$\ast$ avic\+\_\+get\+\_\+logical\+\_\+id\+\_\+entry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{ldr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{flat }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{avic_8c_a8cfb06497cbd5960a4a909c44e701f06}\label{avic_8c_a8cfb06497cbd5960a4a909c44e701f06}} 
+\index{avic.c@{avic.c}!avic\_get\_physical\_id\_entry@{avic\_get\_physical\_id\_entry}}
+\index{avic\_get\_physical\_id\_entry@{avic\_get\_physical\_id\_entry}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_get\_physical\_id\_entry()}{avic\_get\_physical\_id\_entry()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}$\ast$ avic\+\_\+get\+\_\+physical\+\_\+id\+\_\+entry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{index }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{avic_8c_a19ad8d411bd9d2a5d832fd830757a084}\label{avic_8c_a19ad8d411bd9d2a5d832fd830757a084}} 
+\index{avic.c@{avic.c}!avic\_handle\_apic\_id\_update@{avic\_handle\_apic\_id\_update}}
+\index{avic\_handle\_apic\_id\_update@{avic\_handle\_apic\_id\_update}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_handle\_apic\_id\_update()}{avic\_handle\_apic\_id\_update()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+handle\+\_\+apic\+\_\+id\+\_\+update (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{avic_8c_aaff9720871b696bc298d89cbb27a6dc2}\label{avic_8c_aaff9720871b696bc298d89cbb27a6dc2}} 
+\index{avic.c@{avic.c}!avic\_handle\_dfr\_update@{avic\_handle\_dfr\_update}}
+\index{avic\_handle\_dfr\_update@{avic\_handle\_dfr\_update}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_handle\_dfr\_update()}{avic\_handle\_dfr\_update()}}
+{\footnotesize\ttfamily static void avic\+\_\+handle\+\_\+dfr\+\_\+update (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{avic_8c_a4caa86c99283af7db4f56acef36ff472}\label{avic_8c_a4caa86c99283af7db4f56acef36ff472}} 
+\index{avic.c@{avic.c}!avic\_handle\_ldr\_update@{avic\_handle\_ldr\_update}}
+\index{avic\_handle\_ldr\_update@{avic\_handle\_ldr\_update}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_handle\_ldr\_update()}{avic\_handle\_ldr\_update()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+handle\+\_\+ldr\+\_\+update (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{avic_8c_a4a11c0014568405b90307ef68285e4ff}\label{avic_8c_a4a11c0014568405b90307ef68285e4ff}} 
+\index{avic.c@{avic.c}!avic\_incomplete\_ipi\_interception@{avic\_incomplete\_ipi\_interception}}
+\index{avic\_incomplete\_ipi\_interception@{avic\_incomplete\_ipi\_interception}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_incomplete\_ipi\_interception()}{avic\_incomplete\_ipi\_interception()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+incomplete\+\_\+ipi\+\_\+interception (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{avic_8c_aefc63eafb35c1efd94f6d53e7d0b20d5}\label{avic_8c_aefc63eafb35c1efd94f6d53e7d0b20d5}} 
+\index{avic.c@{avic.c}!avic\_init\_backing\_page@{avic\_init\_backing\_page}}
+\index{avic\_init\_backing\_page@{avic\_init\_backing\_page}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_init\_backing\_page()}{avic\_init\_backing\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+init\+\_\+backing\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{avic_8c_a8e0a22138080054f4ac064064402f74a}\label{avic_8c_a8e0a22138080054f4ac064064402f74a}} 
+\index{avic.c@{avic.c}!avic\_init\_vcpu@{avic\_init\_vcpu}}
+\index{avic\_init\_vcpu@{avic\_init\_vcpu}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_init\_vcpu()}{avic\_init\_vcpu()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+init\+\_\+vcpu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{avic_8c_ae1ebd7cb75f63bf110884096fd263000}\label{avic_8c_ae1ebd7cb75f63bf110884096fd263000}} 
+\index{avic.c@{avic.c}!avic\_init\_vmcb@{avic\_init\_vmcb}}
+\index{avic\_init\_vmcb@{avic\_init\_vmcb}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_init\_vmcb()}{avic\_init\_vmcb()}}
+{\footnotesize\ttfamily void avic\+\_\+init\+\_\+vmcb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{avic_8c_a2ed13621ec3f14afbf47f129e43b496d}\label{avic_8c_a2ed13621ec3f14afbf47f129e43b496d}} 
+\index{avic.c@{avic.c}!avic\_invalidate\_logical\_id\_entry@{avic\_invalidate\_logical\_id\_entry}}
+\index{avic\_invalidate\_logical\_id\_entry@{avic\_invalidate\_logical\_id\_entry}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_invalidate\_logical\_id\_entry()}{avic\_invalidate\_logical\_id\_entry()}}
+{\footnotesize\ttfamily static void avic\+\_\+invalidate\+\_\+logical\+\_\+id\+\_\+entry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{avic_8c_a9a11e0d684ad3335a50d8ee7c38835f6}\label{avic_8c_a9a11e0d684ad3335a50d8ee7c38835f6}} 
+\index{avic.c@{avic.c}!avic\_kick\_target\_vcpus@{avic\_kick\_target\_vcpus}}
+\index{avic\_kick\_target\_vcpus@{avic\_kick\_target\_vcpus}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_kick\_target\_vcpus()}{avic\_kick\_target\_vcpus()}}
+{\footnotesize\ttfamily static void avic\+\_\+kick\+\_\+target\+\_\+vcpus (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__lapic}{kvm\+\_\+lapic}} $\ast$}]{source,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{icrl,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{icrh }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{avic_8c_a29567984054cc5e99a6d77737e52bbd8}\label{avic_8c_a29567984054cc5e99a6d77737e52bbd8}} 
+\index{avic.c@{avic.c}!avic\_ldr\_write@{avic\_ldr\_write}}
+\index{avic\_ldr\_write@{avic\_ldr\_write}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_ldr\_write()}{avic\_ldr\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+ldr\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{g\+\_\+physical\+\_\+id,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{ldr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{avic_8c_a62e44a73c7ba97e670af89735782af54}\label{avic_8c_a62e44a73c7ba97e670af89735782af54}} 
+\index{avic.c@{avic.c}!avic\_post\_state\_restore@{avic\_post\_state\_restore}}
+\index{avic\_post\_state\_restore@{avic\_post\_state\_restore}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_post\_state\_restore()}{avic\_post\_state\_restore()}}
+{\footnotesize\ttfamily void avic\+\_\+post\+\_\+state\+\_\+restore (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{avic_8c_ac9eee3de000e588e9dd94c4a5b8c0bc8}\label{avic_8c_ac9eee3de000e588e9dd94c4a5b8c0bc8}} 
+\index{avic.c@{avic.c}!avic\_set\_running@{avic\_set\_running}}
+\index{avic\_set\_running@{avic\_set\_running}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_set\_running()}{avic\_set\_running()}}
+{\footnotesize\ttfamily static void avic\+\_\+set\+\_\+running (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{is\+\_\+run }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{avic_8c_a852a923aa1f7981f6b7e0ec976c178b0}\label{avic_8c_a852a923aa1f7981f6b7e0ec976c178b0}} 
+\index{avic.c@{avic.c}!avic\_unaccel\_trap\_write@{avic\_unaccel\_trap\_write}}
+\index{avic\_unaccel\_trap\_write@{avic\_unaccel\_trap\_write}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_unaccel\_trap\_write()}{avic\_unaccel\_trap\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+unaccel\+\_\+trap\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{avic_8c_a299de3990a5ce5ce873df7afe2b3338f}\label{avic_8c_a299de3990a5ce5ce873df7afe2b3338f}} 
+\index{avic.c@{avic.c}!avic\_unaccelerated\_access\_interception@{avic\_unaccelerated\_access\_interception}}
+\index{avic\_unaccelerated\_access\_interception@{avic\_unaccelerated\_access\_interception}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_unaccelerated\_access\_interception()}{avic\_unaccelerated\_access\_interception()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+unaccelerated\+\_\+access\+\_\+interception (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{avic_8c_a7b088623e16cec4875e37d8ce15231b2}\label{avic_8c_a7b088623e16cec4875e37d8ce15231b2}} 
+\index{avic.c@{avic.c}!avic\_update\_iommu\_vcpu\_affinity@{avic\_update\_iommu\_vcpu\_affinity}}
+\index{avic\_update\_iommu\_vcpu\_affinity@{avic\_update\_iommu\_vcpu\_affinity}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_update\_iommu\_vcpu\_affinity()}{avic\_update\_iommu\_vcpu\_affinity()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+update\+\_\+iommu\+\_\+vcpu\+\_\+affinity (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{r }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{avic_8c_a7decdbafc7d47b2241e68ce3c90a9779}\label{avic_8c_a7decdbafc7d47b2241e68ce3c90a9779}} 
+\index{avic.c@{avic.c}!avic\_vcpu\_load@{avic\_vcpu\_load}}
+\index{avic\_vcpu\_load@{avic\_vcpu\_load}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_vcpu\_load()}{avic\_vcpu\_load()}}
+{\footnotesize\ttfamily void avic\+\_\+vcpu\+\_\+load (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{avic_8c_a461f968598a11484e76a07fb87221bf2}\label{avic_8c_a461f968598a11484e76a07fb87221bf2}} 
+\index{avic.c@{avic.c}!avic\_vcpu\_put@{avic\_vcpu\_put}}
+\index{avic\_vcpu\_put@{avic\_vcpu\_put}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_vcpu\_put()}{avic\_vcpu\_put()}}
+{\footnotesize\ttfamily void avic\+\_\+vcpu\+\_\+put (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{avic_8c_a3bb736e8688ecfaa3696b347764fd37d}\label{avic_8c_a3bb736e8688ecfaa3696b347764fd37d}} 
+\index{avic.c@{avic.c}!avic\_vm\_destroy@{avic\_vm\_destroy}}
+\index{avic\_vm\_destroy@{avic\_vm\_destroy}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_vm\_destroy()}{avic\_vm\_destroy()}}
+{\footnotesize\ttfamily void avic\+\_\+vm\+\_\+destroy (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{avic_8c_a0ddedac4b0b428928fae6bc9fe902e2a}\label{avic_8c_a0ddedac4b0b428928fae6bc9fe902e2a}} 
+\index{avic.c@{avic.c}!avic\_vm\_init@{avic\_vm\_init}}
+\index{avic\_vm\_init@{avic\_vm\_init}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{avic\_vm\_init()}{avic\_vm\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} avic\+\_\+vm\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{avic_8c_aa0b824f0eb25d52b2753a0446792f7d9}\label{avic_8c_aa0b824f0eb25d52b2753a0446792f7d9}} 
+\index{avic.c@{avic.c}!DEFINE\_HASHTABLE@{DEFINE\_HASHTABLE}}
+\index{DEFINE\_HASHTABLE@{DEFINE\_HASHTABLE}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_HASHTABLE()}{DEFINE\_HASHTABLE()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+H\+A\+S\+H\+T\+A\+B\+LE (\begin{DoxyParamCaption}\item[{svm\+\_\+vm\+\_\+data\+\_\+hash}]{,  }\item[{\mbox{\hyperlink{avic_8c_a43bf45802761215fb7aeb3a0f716a429}{S\+V\+M\+\_\+\+V\+M\+\_\+\+D\+A\+T\+A\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{avic_8c_a48d73aa47db0cd13044af80a191469b6}\label{avic_8c_a48d73aa47db0cd13044af80a191469b6}} 
+\index{avic.c@{avic.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{svm\+\_\+vm\+\_\+data\+\_\+hash\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{avic_8c_a24f70312b475fe0e0858ee3cc7e3af71}\label{avic_8c_a24f70312b475fe0e0858ee3cc7e3af71}} 
+\index{avic.c@{avic.c}!get\_pi\_vcpu\_info@{get\_pi\_vcpu\_info}}
+\index{get\_pi\_vcpu\_info@{get\_pi\_vcpu\_info}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{get\_pi\_vcpu\_info()}{get\_pi\_vcpu\_info()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+pi\+\_\+vcpu\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{struct \mbox{\hyperlink{structkvm__kernel__irq__routing__entry}{kvm\+\_\+kernel\+\_\+irq\+\_\+routing\+\_\+entry}} $\ast$}]{e,  }\item[{struct \mbox{\hyperlink{structvcpu__data}{vcpu\+\_\+data}} $\ast$}]{vcpu\+\_\+info,  }\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$$\ast$}]{svm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{avic_8c_a9c7db7e1cb25acd53eb51e777934c9e8}\label{avic_8c_a9c7db7e1cb25acd53eb51e777934c9e8}} 
+\index{avic.c@{avic.c}!is\_avic\_unaccelerated\_access\_trap@{is\_avic\_unaccelerated\_access\_trap}}
+\index{is\_avic\_unaccelerated\_access\_trap@{is\_avic\_unaccelerated\_access\_trap}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{is\_avic\_unaccelerated\_access\_trap()}{is\_avic\_unaccelerated\_access\_trap()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+avic\+\_\+unaccelerated\+\_\+access\+\_\+trap (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{avic_8c_a59ae569b0f5f081c7992304402f025e4}\label{avic_8c_a59ae569b0f5f081c7992304402f025e4}} 
+\index{avic.c@{avic.c}!svm\_check\_apicv\_inhibit\_reasons@{svm\_check\_apicv\_inhibit\_reasons}}
+\index{svm\_check\_apicv\_inhibit\_reasons@{svm\_check\_apicv\_inhibit\_reasons}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_check\_apicv\_inhibit\_reasons()}{svm\_check\_apicv\_inhibit\_reasons()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} svm\+\_\+check\+\_\+apicv\+\_\+inhibit\+\_\+reasons (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a718b4eb2652c286f4d42dc18a8e71a1a}{ulong}}}]{bit }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{avic_8c_a1b73bc05958fa1be84d1ecc952424c96}\label{avic_8c_a1b73bc05958fa1be84d1ecc952424c96}} 
+\index{avic.c@{avic.c}!svm\_deliver\_avic\_intr@{svm\_deliver\_avic\_intr}}
+\index{svm\_deliver\_avic\_intr@{svm\_deliver\_avic\_intr}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_deliver\_avic\_intr()}{svm\_deliver\_avic\_intr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+deliver\+\_\+avic\+\_\+intr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{vec }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{avic_8c_a2c091f48ac37b870eea2e91b1e88e584}\label{avic_8c_a2c091f48ac37b870eea2e91b1e88e584}} 
+\index{avic.c@{avic.c}!svm\_dy\_apicv\_has\_pending\_interrupt@{svm\_dy\_apicv\_has\_pending\_interrupt}}
+\index{svm\_dy\_apicv\_has\_pending\_interrupt@{svm\_dy\_apicv\_has\_pending\_interrupt}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_dy\_apicv\_has\_pending\_interrupt()}{svm\_dy\_apicv\_has\_pending\_interrupt()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} svm\+\_\+dy\+\_\+apicv\+\_\+has\+\_\+pending\+\_\+interrupt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{avic_8c_a81b59c6605c03844aea98b33b2370b64}\label{avic_8c_a81b59c6605c03844aea98b33b2370b64}} 
+\index{avic.c@{avic.c}!svm\_hwapic\_irr\_update@{svm\_hwapic\_irr\_update}}
+\index{svm\_hwapic\_irr\_update@{svm\_hwapic\_irr\_update}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_hwapic\_irr\_update()}{svm\_hwapic\_irr\_update()}}
+{\footnotesize\ttfamily void svm\+\_\+hwapic\+\_\+irr\+\_\+update (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{max\+\_\+irr }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{avic_8c_ac42c7dedc01c2204d8a33755a081692b}\label{avic_8c_ac42c7dedc01c2204d8a33755a081692b}} 
+\index{avic.c@{avic.c}!svm\_hwapic\_isr\_update@{svm\_hwapic\_isr\_update}}
+\index{svm\_hwapic\_isr\_update@{svm\_hwapic\_isr\_update}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_hwapic\_isr\_update()}{svm\_hwapic\_isr\_update()}}
+{\footnotesize\ttfamily void svm\+\_\+hwapic\+\_\+isr\+\_\+update (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{max\+\_\+isr }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{avic_8c_a0262c9f1d0d537dafa962ca68a873378}\label{avic_8c_a0262c9f1d0d537dafa962ca68a873378}} 
+\index{avic.c@{avic.c}!svm\_ir\_list\_add@{svm\_ir\_list\_add}}
+\index{svm\_ir\_list\_add@{svm\_ir\_list\_add}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_ir\_list\_add()}{svm\_ir\_list\_add()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+ir\+\_\+list\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{struct \mbox{\hyperlink{structamd__iommu__pi__data}{amd\+\_\+iommu\+\_\+pi\+\_\+data}} $\ast$}]{pi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+In some cases, the existing irte is updated and re-\/set, so we need to check here if it\textquotesingle{}s already been $\ast$ added to the ir\+\_\+list.
+
+Allocating new \mbox{\hyperlink{structamd__iommu__pi__data}{amd\+\_\+iommu\+\_\+pi\+\_\+data}}, which will get add to the per-\/vcpu ir\+\_\+list.Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{avic_8c_a0573329bfb8b7a1a2ba0a4e2ce438dfa}\label{avic_8c_a0573329bfb8b7a1a2ba0a4e2ce438dfa}} 
+\index{avic.c@{avic.c}!svm\_ir\_list\_del@{svm\_ir\_list\_del}}
+\index{svm\_ir\_list\_del@{svm\_ir\_list\_del}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_ir\_list\_del()}{svm\_ir\_list\_del()}}
+{\footnotesize\ttfamily static void svm\+\_\+ir\+\_\+list\+\_\+del (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvcpu__svm}{vcpu\+\_\+svm}} $\ast$}]{svm,  }\item[{struct \mbox{\hyperlink{structamd__iommu__pi__data}{amd\+\_\+iommu\+\_\+pi\+\_\+data}} $\ast$}]{pi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{avic_8c_aa91d05acbf762b21393effd37d1860d7}\label{avic_8c_aa91d05acbf762b21393effd37d1860d7}} 
+\index{avic.c@{avic.c}!svm\_load\_eoi\_exitmap@{svm\_load\_eoi\_exitmap}}
+\index{svm\_load\_eoi\_exitmap@{svm\_load\_eoi\_exitmap}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_load\_eoi\_exitmap()}{svm\_load\_eoi\_exitmap()}}
+{\footnotesize\ttfamily void svm\+\_\+load\+\_\+eoi\+\_\+exitmap (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{eoi\+\_\+exit\+\_\+bitmap }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{avic_8c_adc765207d4d0e365543bf42a598e6dab}\label{avic_8c_adc765207d4d0e365543bf42a598e6dab}} 
+\index{avic.c@{avic.c}!svm\_refresh\_apicv\_exec\_ctrl@{svm\_refresh\_apicv\_exec\_ctrl}}
+\index{svm\_refresh\_apicv\_exec\_ctrl@{svm\_refresh\_apicv\_exec\_ctrl}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_refresh\_apicv\_exec\_ctrl()}{svm\_refresh\_apicv\_exec\_ctrl()}}
+{\footnotesize\ttfamily void svm\+\_\+refresh\+\_\+apicv\+\_\+exec\+\_\+ctrl (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+During A\+V\+IC temporary deactivation, guest could update A\+P\+IC ID, D\+FR and L\+DR registers, which would not be trapped by \mbox{\hyperlink{avic_8c_a299de3990a5ce5ce873df7afe2b3338f}{avic\+\_\+unaccelerated\+\_\+access\+\_\+interception()}}. In this case, we need to check and update the A\+V\+IC logical A\+P\+IC ID table accordingly before re-\/activating.Here is the call graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{avic_8c_a6688c623cb90ab7ba969c6fd1c0108c2}\label{avic_8c_a6688c623cb90ab7ba969c6fd1c0108c2}} 
+\index{avic.c@{avic.c}!svm\_set\_pi\_irte\_mode@{svm\_set\_pi\_irte\_mode}}
+\index{svm\_set\_pi\_irte\_mode@{svm\_set\_pi\_irte\_mode}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_set\_pi\_irte\_mode()}{svm\_set\_pi\_irte\_mode()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+set\+\_\+pi\+\_\+irte\+\_\+mode (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{activate }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{avic_8c_a6d08c48bb139bbdb48bf80a6b7a4c01a}\label{avic_8c_a6d08c48bb139bbdb48bf80a6b7a4c01a}} 
+\index{avic.c@{avic.c}!svm\_set\_virtual\_apic\_mode@{svm\_set\_virtual\_apic\_mode}}
+\index{svm\_set\_virtual\_apic\_mode@{svm\_set\_virtual\_apic\_mode}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_set\_virtual\_apic\_mode()}{svm\_set\_virtual\_apic\_mode()}}
+{\footnotesize\ttfamily void svm\+\_\+set\+\_\+virtual\+\_\+apic\+\_\+mode (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{avic_8c_ac613e0fcba860cf69670c8dd11def60a}\label{avic_8c_ac613e0fcba860cf69670c8dd11def60a}} 
+\index{avic.c@{avic.c}!svm\_update\_pi\_irte@{svm\_update\_pi\_irte}}
+\index{svm\_update\_pi\_irte@{svm\_update\_pi\_irte}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_update\_pi\_irte()}{svm\_update\_pi\_irte()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} svm\+\_\+update\+\_\+pi\+\_\+irte (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm}{kvm}} $\ast$}]{kvm,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{host\+\_\+irq,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_a3d46c47fd044b914a2304157c63b5095}{uint32\+\_\+t}}}]{guest\+\_\+irq,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{set }\end{DoxyParamCaption})}
+
+Here, we setup with legacy mode in the following cases\+:
+\begin{DoxyEnumerate}
+\item When cannot target interrupt to a specific vcpu.
+\item Unsetting posted interrupt.
+\item A\+P\+IC virtualization is disabled for the vcpu.
+\item I\+RQ has incompatible delivery mode (S\+MI, I\+N\+IT, etc)
+\end{DoxyEnumerate}
+
+Here, we successfully setting up vcpu affinity in I\+O\+M\+MU guest mode. Now, we need to store the posted interrupt information in a per-\/vcpu ir\+\_\+list so that we can reference to them directly when we update vcpu scheduling information in I\+O\+M\+MU irte.
+
+Here, pi is used to\+:
+\begin{DoxyItemize}
+\item Tell I\+O\+M\+MU to use legacy mode for this interrupt.
+\item Retrieve ga\+\_\+tag of prior interrupt remapping data.
+\end{DoxyItemize}
+
+Check if the posted interrupt was previously setup with the guest\+\_\+mode by checking if the ga\+\_\+tag was cached. If so, we need to clean up the per-\/vcpu ir\+\_\+list.Here is the call graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{avic_8c_a690dc5d01ac6cd2cbb891cdda8b7c5cc}\label{avic_8c_a690dc5d01ac6cd2cbb891cdda8b7c5cc}} 
+\index{avic.c@{avic.c}!svm\_vcpu\_blocking@{svm\_vcpu\_blocking}}
+\index{svm\_vcpu\_blocking@{svm\_vcpu\_blocking}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_vcpu\_blocking()}{svm\_vcpu\_blocking()}}
+{\footnotesize\ttfamily void svm\+\_\+vcpu\+\_\+blocking (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{avic_8c_a1baab94ecdd789190024bd047958e284}\label{avic_8c_a1baab94ecdd789190024bd047958e284}} 
+\index{avic.c@{avic.c}!svm\_vcpu\_unblocking@{svm\_vcpu\_unblocking}}
+\index{svm\_vcpu\_unblocking@{svm\_vcpu\_unblocking}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{svm\_vcpu\_unblocking()}{svm\_vcpu\_unblocking()}}
+{\footnotesize\ttfamily void svm\+\_\+vcpu\+\_\+unblocking (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkvm__vcpu}{kvm\+\_\+vcpu}} $\ast$}]{vcpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 58
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{avic_8c_aebb4737cca7862427a4b94f3f086dee3}\label{avic_8c_aebb4737cca7862427a4b94f3f086dee3}} 
+\index{avic.c@{avic.c}!next\_vm\_id@{next\_vm\_id}}
+\index{next\_vm\_id@{next\_vm\_id}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{next\_vm\_id}{next\_vm\_id}}
+{\footnotesize\ttfamily \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} next\+\_\+vm\+\_\+id = 0\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{avic_8c_a1e123c3defad20a133e56f43373b9c44}\label{avic_8c_a1e123c3defad20a133e56f43373b9c44}} 
+\index{avic.c@{avic.c}!next\_vm\_id\_wrapped@{next\_vm\_id\_wrapped}}
+\index{next\_vm\_id\_wrapped@{next\_vm\_id\_wrapped}!avic.c@{avic.c}}
+\doxysubsubsection{\texorpdfstring{next\_vm\_id\_wrapped}{next\_vm\_id\_wrapped}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} next\+\_\+vm\+\_\+id\+\_\+wrapped = 0\hspace{0.3cm}{\ttfamily [static]}}
+

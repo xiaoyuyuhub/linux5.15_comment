@@ -1,0 +1,548 @@
+\hypertarget{iommu_8c}{}\doxysection{arch/x86/events/amd/iommu.c File Reference}
+\label{iommu_8c}\index{arch/x86/events/amd/iommu.c@{arch/x86/events/amd/iommu.c}}
+{\ttfamily \#include $<$linux/perf\+\_\+event.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpumask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/amd-\/iommu.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}../perf\+\_\+event.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}iommu.\+h\char`\"{}}\newline
+Include dependency graph for iommu.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structperf__amd__iommu}{perf\+\_\+amd\+\_\+iommu}}
+\item 
+struct \mbox{\hyperlink{structamd__iommu__event__desc}{amd\+\_\+iommu\+\_\+event\+\_\+desc}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{iommu_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}perf/amd\+\_\+iommu\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{iommu_8c_aeb34e9ec5bd9bfe66ec24168752994d1}{G\+E\+T\+\_\+\+C\+S\+O\+U\+R\+CE}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf \& 0x\+F\+F\+U\+LL)
+\item 
+\#define \mbox{\hyperlink{iommu_8c_a18931103b4b6ba0c70ed7fc5adc79e92}{G\+E\+T\+\_\+\+D\+E\+V\+ID}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf $>$$>$ 8)  \& 0x\+F\+F\+F\+F\+U\+LL)
+\item 
+\#define \mbox{\hyperlink{iommu_8c_ad7f1248c6680bd59ff638ff4f3b33ed2}{G\+E\+T\+\_\+\+D\+O\+M\+ID}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf $>$$>$ 24) \& 0x\+F\+F\+F\+F\+U\+LL)
+\item 
+\#define \mbox{\hyperlink{iommu_8c_adb6062b828f66657dcd44a46112c1886}{G\+E\+T\+\_\+\+P\+A\+S\+ID}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf $>$$>$ 40) \& 0x\+F\+F\+F\+F\+F\+U\+LL)
+\item 
+\#define \mbox{\hyperlink{iommu_8c_a9610b1e7b19b2a3bc79ec00258d11598}{G\+E\+T\+\_\+\+D\+E\+V\+I\+D\+\_\+\+M\+A\+SK}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf1  \& 0x\+F\+F\+F\+F\+U\+LL)
+\item 
+\#define \mbox{\hyperlink{iommu_8c_ae3520781f26e8258ebdfb8fb34f4ede0}{G\+E\+T\+\_\+\+D\+O\+M\+I\+D\+\_\+\+M\+A\+SK}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf1 $>$$>$ 16) \& 0x\+F\+F\+F\+F\+U\+LL)
+\item 
+\#define \mbox{\hyperlink{iommu_8c_a974edc425e26bae45d24c675cb62b7d4}{G\+E\+T\+\_\+\+P\+A\+S\+I\+D\+\_\+\+M\+A\+SK}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf1 $>$$>$ 32) \& 0x\+F\+F\+F\+F\+F\+U\+LL)
+\item 
+\#define \mbox{\hyperlink{iommu_8c_a689f4a52f0ec516be4fbaace9da67b59}{I\+O\+M\+M\+U\+\_\+\+N\+A\+M\+E\+\_\+\+S\+I\+ZE}}~16
+\item 
+\#define \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{A\+M\+D\+\_\+\+I\+O\+M\+M\+U\+\_\+\+E\+V\+E\+N\+T\+\_\+\+D\+E\+SC}}(\+\_\+name,  \+\_\+event)
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{iommu_8c_a0166ec4423a0c3f044f7255b20932b2c}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (perf\+\_\+amd\+\_\+iommu\+\_\+list)
+\item 
+\mbox{\hyperlink{iommu_8c_aca525b83559068c109fb33da5fff0712}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (csource, \char`\"{}config\+:0-\/7\char`\"{})
+\item 
+\mbox{\hyperlink{iommu_8c_a29476266c8d1dfd587201c8ec2b23e93}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (\mbox{\hyperlink{btrfs__tree_8h_a3d47b3d9e6e45ddc19d126beaa660cf7}{devid}}, \char`\"{}config\+:8-\/23\char`\"{})
+\item 
+\mbox{\hyperlink{iommu_8c_adef1cc25c6a93d6606809ee76fcbfde0}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (domid, \char`\"{}config\+:24-\/39\char`\"{})
+\item 
+\mbox{\hyperlink{iommu_8c_a75131f287cbaac8705ca49dbc039f0fe}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (\mbox{\hyperlink{idxd_8h_a91bae00003b7d702ad9efbc0c2465cf4}{pasid}}, \char`\"{}config\+:40-\/59\char`\"{})
+\item 
+\mbox{\hyperlink{iommu_8c_ac398a1be7942bf0f6a42dc6c626f9a26}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (devid\+\_\+mask, \char`\"{}config1\+:0-\/15\char`\"{})
+\item 
+\mbox{\hyperlink{iommu_8c_abc8edb31c97f7f51774c9f8304aa0d41}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (domid\+\_\+mask, \char`\"{}config1\+:16-\/31\char`\"{})
+\item 
+\mbox{\hyperlink{iommu_8c_abacf0966f083071fcfa0cb421dcc8de9}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (pasid\+\_\+mask, \char`\"{}config1\+:32-\/51\char`\"{})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{iommu_8c_ac99a0645572f375d56b2d5033e6d1710}{\+\_\+iommu\+\_\+event\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{iommu_8c_acf9ff658adaee288847b1d8981d8464c}{\+\_\+iommu\+\_\+cpumask\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{iommu_8c_ae2df04523a77fb375c5e14b944eb0928}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+TR}} (\mbox{\hyperlink{structcpumask}{cpumask}}, \mbox{\hyperlink{include_2linux_2stat_8h_acdc8b67c51df098a07f0b7705f7115fd}{S\+\_\+\+I\+R\+U\+GO}}, \mbox{\hyperlink{iommu_8c_acf9ff658adaee288847b1d8981d8464c}{\+\_\+iommu\+\_\+cpumask\+\_\+show}}, \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iommu_8c_a0a31e10e7885b8d568de95fac12c18f3}{get\+\_\+next\+\_\+avail\+\_\+iommu\+\_\+bnk\+\_\+cntr}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iommu_8c_a88964d98a8b2344f25a4a371654ea34f}{clear\+\_\+avail\+\_\+iommu\+\_\+bnk\+\_\+cntr}} (struct \mbox{\hyperlink{structperf__amd__iommu}{perf\+\_\+amd\+\_\+iommu}} $\ast$perf\+\_\+iommu, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} bank, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} cntr)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iommu_8c_ab9cf723dbb773beb589a4c663a8983e2}{perf\+\_\+iommu\+\_\+event\+\_\+init}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static struct amd\+\_\+iommu $\ast$ \mbox{\hyperlink{iommu_8c_a65bff2696f25ee11228a9b6255fd5a92}{perf\+\_\+event\+\_\+2\+\_\+iommu}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$ev)
+\item 
+static void \mbox{\hyperlink{iommu_8c_aac52433829b4886c0048e10dee812cc1}{perf\+\_\+iommu\+\_\+enable\+\_\+event}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$ev)
+\item 
+static void \mbox{\hyperlink{iommu_8c_ab5950654a1379e686d9d7d0d2cc04c15}{perf\+\_\+iommu\+\_\+disable\+\_\+event}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{iommu_8c_a07d7a1d26a2696d9b0f9a2152607d087}{perf\+\_\+iommu\+\_\+start}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{iommu_8c_aaa6f9fa905dec10c729075ead3db6107}{perf\+\_\+iommu\+\_\+read}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{iommu_8c_a62fbaab2e50a5530e842712846bde738}{perf\+\_\+iommu\+\_\+stop}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iommu_8c_a701d4d35079a81f50f31fd90b10ee56a}{perf\+\_\+iommu\+\_\+add}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{iommu_8c_a4587e5bace4e0feff96c2bb6a3c00f84}{perf\+\_\+iommu\+\_\+del}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iommu_8c_af1c68f6bffdb54bd63c58cc41726254b}{\+\_\+init\+\_\+events\+\_\+attrs}} (void)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iommu_8c_a05acf3b4459e111bd30bd48b82ddfa97}{init\+\_\+one\+\_\+iommu}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{iommu_8c_a8aa24d1f7dd5f1ed091abc5e30679a5b}{amd\+\_\+iommu\+\_\+pc\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{iommu_8c_a4ca2c4fbdeb1d0e6f751e9f8670f6f03}{device\+\_\+initcall}} (\mbox{\hyperlink{iommu_8c_a8aa24d1f7dd5f1ed091abc5e30679a5b}{amd\+\_\+iommu\+\_\+pc\+\_\+init}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{iommu_8c_a2d22a66a4acb6d67e1d4291c8dffa75f}{iommu\+\_\+format\+\_\+attrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{iommu_8c_a17cefc102def3dee399e1db1078dba50}{amd\+\_\+iommu\+\_\+format\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{iommu_8c_a00cbf18fb1d06437fcf5c2904933ecfe}{amd\+\_\+iommu\+\_\+events\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structamd__iommu__event__desc}{amd\+\_\+iommu\+\_\+event\+\_\+desc}} \mbox{\hyperlink{iommu_8c_a89273d4abfa77224b21241013bbb8f78}{amd\+\_\+iommu\+\_\+v2\+\_\+event\+\_\+descs}} \mbox{[}$\,$\mbox{]}
+\item 
+static \mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}} \mbox{\hyperlink{iommu_8c_ada781e79c40d43d93694743dec740400}{iommu\+\_\+cpumask}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{iommu_8c_ad5d91810198535b5a53c6738bb59d507}{iommu\+\_\+cpumask\+\_\+attrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{iommu_8c_aa971085f0fe03151e3cba3a94de57d40}{amd\+\_\+iommu\+\_\+cpumask\+\_\+group}}
+\item 
+static const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} $\ast$ \mbox{\hyperlink{iommu_8c_a3aafaf7a587fbed47da59320b6e9c962}{amd\+\_\+iommu\+\_\+attr\+\_\+groups}} \mbox{[}$\,$\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structpmu}{pmu}} iommu\+\_\+pmu \mbox{\hyperlink{iommu_8c_afc010f6ee50a447b165c60d711ddfa02}{\+\_\+\+\_\+initconst}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}\label{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}} 
+\index{iommu.c@{iommu.c}!AMD\_IOMMU\_EVENT\_DESC@{AMD\_IOMMU\_EVENT\_DESC}}
+\index{AMD\_IOMMU\_EVENT\_DESC@{AMD\_IOMMU\_EVENT\_DESC}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{AMD\_IOMMU\_EVENT\_DESC}{AMD\_IOMMU\_EVENT\_DESC}}
+{\footnotesize\ttfamily \#define A\+M\+D\+\_\+\+I\+O\+M\+M\+U\+\_\+\+E\+V\+E\+N\+T\+\_\+\+D\+E\+SC(\begin{DoxyParamCaption}\item[{}]{\+\_\+name,  }\item[{}]{\+\_\+event }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\{                               \(\backslash\)}
+\DoxyCodeLine{    .attr  = \mbox{\hyperlink{sysfs_8h_afea83f0adf2905a4737f103d7327f947}{\_\_ATTR}}(\_name, 0444, \mbox{\hyperlink{iommu_8c_ac99a0645572f375d56b2d5033e6d1710}{\_iommu\_event\_show}}, \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}}),   \(\backslash\)}
+\DoxyCodeLine{    .event = \_event,                    \(\backslash\)}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_aeb34e9ec5bd9bfe66ec24168752994d1}\label{iommu_8c_aeb34e9ec5bd9bfe66ec24168752994d1}} 
+\index{iommu.c@{iommu.c}!GET\_CSOURCE@{GET\_CSOURCE}}
+\index{GET\_CSOURCE@{GET\_CSOURCE}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{GET\_CSOURCE}{GET\_CSOURCE}}
+{\footnotesize\ttfamily \#define G\+E\+T\+\_\+\+C\+S\+O\+U\+R\+CE(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf \& 0x\+F\+F\+U\+LL)}
+
+\mbox{\Hypertarget{iommu_8c_a18931103b4b6ba0c70ed7fc5adc79e92}\label{iommu_8c_a18931103b4b6ba0c70ed7fc5adc79e92}} 
+\index{iommu.c@{iommu.c}!GET\_DEVID@{GET\_DEVID}}
+\index{GET\_DEVID@{GET\_DEVID}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{GET\_DEVID}{GET\_DEVID}}
+{\footnotesize\ttfamily \#define G\+E\+T\+\_\+\+D\+E\+V\+ID(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf $>$$>$ 8)  \& 0x\+F\+F\+F\+F\+U\+LL)}
+
+\mbox{\Hypertarget{iommu_8c_a9610b1e7b19b2a3bc79ec00258d11598}\label{iommu_8c_a9610b1e7b19b2a3bc79ec00258d11598}} 
+\index{iommu.c@{iommu.c}!GET\_DEVID\_MASK@{GET\_DEVID\_MASK}}
+\index{GET\_DEVID\_MASK@{GET\_DEVID\_MASK}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{GET\_DEVID\_MASK}{GET\_DEVID\_MASK}}
+{\footnotesize\ttfamily \#define G\+E\+T\+\_\+\+D\+E\+V\+I\+D\+\_\+\+M\+A\+SK(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf1  \& 0x\+F\+F\+F\+F\+U\+LL)}
+
+\mbox{\Hypertarget{iommu_8c_ad7f1248c6680bd59ff638ff4f3b33ed2}\label{iommu_8c_ad7f1248c6680bd59ff638ff4f3b33ed2}} 
+\index{iommu.c@{iommu.c}!GET\_DOMID@{GET\_DOMID}}
+\index{GET\_DOMID@{GET\_DOMID}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{GET\_DOMID}{GET\_DOMID}}
+{\footnotesize\ttfamily \#define G\+E\+T\+\_\+\+D\+O\+M\+ID(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf $>$$>$ 24) \& 0x\+F\+F\+F\+F\+U\+LL)}
+
+\mbox{\Hypertarget{iommu_8c_ae3520781f26e8258ebdfb8fb34f4ede0}\label{iommu_8c_ae3520781f26e8258ebdfb8fb34f4ede0}} 
+\index{iommu.c@{iommu.c}!GET\_DOMID\_MASK@{GET\_DOMID\_MASK}}
+\index{GET\_DOMID\_MASK@{GET\_DOMID\_MASK}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{GET\_DOMID\_MASK}{GET\_DOMID\_MASK}}
+{\footnotesize\ttfamily \#define G\+E\+T\+\_\+\+D\+O\+M\+I\+D\+\_\+\+M\+A\+SK(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf1 $>$$>$ 16) \& 0x\+F\+F\+F\+F\+U\+LL)}
+
+\mbox{\Hypertarget{iommu_8c_adb6062b828f66657dcd44a46112c1886}\label{iommu_8c_adb6062b828f66657dcd44a46112c1886}} 
+\index{iommu.c@{iommu.c}!GET\_PASID@{GET\_PASID}}
+\index{GET\_PASID@{GET\_PASID}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{GET\_PASID}{GET\_PASID}}
+{\footnotesize\ttfamily \#define G\+E\+T\+\_\+\+P\+A\+S\+ID(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf $>$$>$ 40) \& 0x\+F\+F\+F\+F\+F\+U\+LL)}
+
+\mbox{\Hypertarget{iommu_8c_a974edc425e26bae45d24c675cb62b7d4}\label{iommu_8c_a974edc425e26bae45d24c675cb62b7d4}} 
+\index{iommu.c@{iommu.c}!GET\_PASID\_MASK@{GET\_PASID\_MASK}}
+\index{GET\_PASID\_MASK@{GET\_PASID\_MASK}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{GET\_PASID\_MASK}{GET\_PASID\_MASK}}
+{\footnotesize\ttfamily \#define G\+E\+T\+\_\+\+P\+A\+S\+I\+D\+\_\+\+M\+A\+SK(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})-\/$>$conf1 $>$$>$ 32) \& 0x\+F\+F\+F\+F\+F\+U\+LL)}
+
+\mbox{\Hypertarget{iommu_8c_a689f4a52f0ec516be4fbaace9da67b59}\label{iommu_8c_a689f4a52f0ec516be4fbaace9da67b59}} 
+\index{iommu.c@{iommu.c}!IOMMU\_NAME\_SIZE@{IOMMU\_NAME\_SIZE}}
+\index{IOMMU\_NAME\_SIZE@{IOMMU\_NAME\_SIZE}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{IOMMU\_NAME\_SIZE}{IOMMU\_NAME\_SIZE}}
+{\footnotesize\ttfamily \#define I\+O\+M\+M\+U\+\_\+\+N\+A\+M\+E\+\_\+\+S\+I\+ZE~16}
+
+\mbox{\Hypertarget{iommu_8c_a1f8c165bf4196327bc3abff648276d92}\label{iommu_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{iommu.c@{iommu.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}perf/amd\+\_\+iommu\+: \char`\"{} fmt}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{iommu_8c_af1c68f6bffdb54bd63c58cc41726254b}\label{iommu_8c_af1c68f6bffdb54bd63c58cc41726254b}} 
+\index{iommu.c@{iommu.c}!\_init\_events\_attrs@{\_init\_events\_attrs}}
+\index{\_init\_events\_attrs@{\_init\_events\_attrs}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{\_init\_events\_attrs()}{\_init\_events\_attrs()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+init\+\_\+events\+\_\+attrs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{iommu_8c_acf9ff658adaee288847b1d8981d8464c}\label{iommu_8c_acf9ff658adaee288847b1d8981d8464c}} 
+\index{iommu.c@{iommu.c}!\_iommu\_cpumask\_show@{\_iommu\_cpumask\_show}}
+\index{\_iommu\_cpumask\_show@{\_iommu\_cpumask\_show}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{\_iommu\_cpumask\_show()}{\_iommu\_cpumask\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \+\_\+iommu\+\_\+cpumask\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{iommu_8c_ac99a0645572f375d56b2d5033e6d1710}\label{iommu_8c_ac99a0645572f375d56b2d5033e6d1710}} 
+\index{iommu.c@{iommu.c}!\_iommu\_event\_show@{\_iommu\_event\_show}}
+\index{\_iommu\_event\_show@{\_iommu\_event\_show}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{\_iommu\_event\_show()}{\_iommu\_event\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \+\_\+iommu\+\_\+event\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{iommu_8c_a8aa24d1f7dd5f1ed091abc5e30679a5b}\label{iommu_8c_a8aa24d1f7dd5f1ed091abc5e30679a5b}} 
+\index{iommu.c@{iommu.c}!amd\_iommu\_pc\_init@{amd\_iommu\_pc\_init}}
+\index{amd\_iommu\_pc\_init@{amd\_iommu\_pc\_init}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_iommu\_pc\_init()}{amd\_iommu\_pc\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} amd\+\_\+iommu\+\_\+pc\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{iommu_8c_a88964d98a8b2344f25a4a371654ea34f}\label{iommu_8c_a88964d98a8b2344f25a4a371654ea34f}} 
+\index{iommu.c@{iommu.c}!clear\_avail\_iommu\_bnk\_cntr@{clear\_avail\_iommu\_bnk\_cntr}}
+\index{clear\_avail\_iommu\_bnk\_cntr@{clear\_avail\_iommu\_bnk\_cntr}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{clear\_avail\_iommu\_bnk\_cntr()}{clear\_avail\_iommu\_bnk\_cntr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear\+\_\+avail\+\_\+iommu\+\_\+bnk\+\_\+cntr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__amd__iommu}{perf\+\_\+amd\+\_\+iommu}} $\ast$}]{perf\+\_\+iommu,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{bank,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{cntr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{iommu_8c_ae2df04523a77fb375c5e14b944eb0928}\label{iommu_8c_ae2df04523a77fb375c5e14b944eb0928}} 
+\index{iommu.c@{iommu.c}!DEVICE\_ATTR@{DEVICE\_ATTR}}
+\index{DEVICE\_ATTR@{DEVICE\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR()}{DEVICE\_ATTR()}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structcpumask}{cpumask}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2stat_8h_acdc8b67c51df098a07f0b7705f7115fd}{S\+\_\+\+I\+R\+U\+GO}}}]{,  }\item[{\mbox{\hyperlink{iommu_8c_acf9ff658adaee288847b1d8981d8464c}{\+\_\+iommu\+\_\+cpumask\+\_\+show}}}]{,  }\item[{\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{iommu_8c_a4ca2c4fbdeb1d0e6f751e9f8670f6f03}\label{iommu_8c_a4ca2c4fbdeb1d0e6f751e9f8670f6f03}} 
+\index{iommu.c@{iommu.c}!device\_initcall@{device\_initcall}}
+\index{device\_initcall@{device\_initcall}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{device\_initcall()}{device\_initcall()}}
+{\footnotesize\ttfamily device\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{iommu_8c_a8aa24d1f7dd5f1ed091abc5e30679a5b}{amd\+\_\+iommu\+\_\+pc\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{iommu_8c_a0a31e10e7885b8d568de95fac12c18f3}\label{iommu_8c_a0a31e10e7885b8d568de95fac12c18f3}} 
+\index{iommu.c@{iommu.c}!get\_next\_avail\_iommu\_bnk\_cntr@{get\_next\_avail\_iommu\_bnk\_cntr}}
+\index{get\_next\_avail\_iommu\_bnk\_cntr@{get\_next\_avail\_iommu\_bnk\_cntr}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{get\_next\_avail\_iommu\_bnk\_cntr()}{get\_next\_avail\_iommu\_bnk\_cntr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+next\+\_\+avail\+\_\+iommu\+\_\+bnk\+\_\+cntr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{iommu_8c_a05acf3b4459e111bd30bd48b82ddfa97}\label{iommu_8c_a05acf3b4459e111bd30bd48b82ddfa97}} 
+\index{iommu.c@{iommu.c}!init\_one\_iommu@{init\_one\_iommu}}
+\index{init\_one\_iommu@{init\_one\_iommu}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{init\_one\_iommu()}{init\_one\_iommu()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} init\+\_\+one\+\_\+iommu (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{iommu_8c_a0166ec4423a0c3f044f7255b20932b2c}\label{iommu_8c_a0166ec4423a0c3f044f7255b20932b2c}} 
+\index{iommu.c@{iommu.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{perf\+\_\+amd\+\_\+iommu\+\_\+list}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{iommu_8c_a65bff2696f25ee11228a9b6255fd5a92}\label{iommu_8c_a65bff2696f25ee11228a9b6255fd5a92}} 
+\index{iommu.c@{iommu.c}!perf\_event\_2\_iommu@{perf\_event\_2\_iommu}}
+\index{perf\_event\_2\_iommu@{perf\_event\_2\_iommu}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_event\_2\_iommu()}{perf\_event\_2\_iommu()}}
+{\footnotesize\ttfamily static struct amd\+\_\+iommu$\ast$ perf\+\_\+event\+\_\+2\+\_\+iommu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{ev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{iommu_8c_a701d4d35079a81f50f31fd90b10ee56a}\label{iommu_8c_a701d4d35079a81f50f31fd90b10ee56a}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_add@{perf\_iommu\_add}}
+\index{perf\_iommu\_add@{perf\_iommu\_add}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_add()}{perf\_iommu\_add()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} perf\+\_\+iommu\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{iommu_8c_a4587e5bace4e0feff96c2bb6a3c00f84}\label{iommu_8c_a4587e5bace4e0feff96c2bb6a3c00f84}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_del@{perf\_iommu\_del}}
+\index{perf\_iommu\_del@{perf\_iommu\_del}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_del()}{perf\_iommu\_del()}}
+{\footnotesize\ttfamily static void perf\+\_\+iommu\+\_\+del (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{iommu_8c_ab5950654a1379e686d9d7d0d2cc04c15}\label{iommu_8c_ab5950654a1379e686d9d7d0d2cc04c15}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_disable\_event@{perf\_iommu\_disable\_event}}
+\index{perf\_iommu\_disable\_event@{perf\_iommu\_disable\_event}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_disable\_event()}{perf\_iommu\_disable\_event()}}
+{\footnotesize\ttfamily static void perf\+\_\+iommu\+\_\+disable\+\_\+event (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{iommu_8c_aac52433829b4886c0048e10dee812cc1}\label{iommu_8c_aac52433829b4886c0048e10dee812cc1}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_enable\_event@{perf\_iommu\_enable\_event}}
+\index{perf\_iommu\_enable\_event@{perf\_iommu\_enable\_event}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_enable\_event()}{perf\_iommu\_enable\_event()}}
+{\footnotesize\ttfamily static void perf\+\_\+iommu\+\_\+enable\+\_\+event (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{ev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{iommu_8c_ab9cf723dbb773beb589a4c663a8983e2}\label{iommu_8c_ab9cf723dbb773beb589a4c663a8983e2}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_event\_init@{perf\_iommu\_event\_init}}
+\index{perf\_iommu\_event\_init@{perf\_iommu\_event\_init}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_event\_init()}{perf\_iommu\_event\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} perf\+\_\+iommu\+\_\+event\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{iommu_8c_aaa6f9fa905dec10c729075ead3db6107}\label{iommu_8c_aaa6f9fa905dec10c729075ead3db6107}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_read@{perf\_iommu\_read}}
+\index{perf\_iommu\_read@{perf\_iommu\_read}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_read()}{perf\_iommu\_read()}}
+{\footnotesize\ttfamily static void perf\+\_\+iommu\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{iommu_8c_a07d7a1d26a2696d9b0f9a2152607d087}\label{iommu_8c_a07d7a1d26a2696d9b0f9a2152607d087}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_start@{perf\_iommu\_start}}
+\index{perf\_iommu\_start@{perf\_iommu\_start}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_start()}{perf\_iommu\_start()}}
+{\footnotesize\ttfamily static void perf\+\_\+iommu\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{iommu_8c_a62fbaab2e50a5530e842712846bde738}\label{iommu_8c_a62fbaab2e50a5530e842712846bde738}} 
+\index{iommu.c@{iommu.c}!perf\_iommu\_stop@{perf\_iommu\_stop}}
+\index{perf\_iommu\_stop@{perf\_iommu\_stop}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{perf\_iommu\_stop()}{perf\_iommu\_stop()}}
+{\footnotesize\ttfamily static void perf\+\_\+iommu\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{iommu_8c_aca525b83559068c109fb33da5fff0712}\label{iommu_8c_aca525b83559068c109fb33da5fff0712}} 
+\index{iommu.c@{iommu.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [1/7]}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{csource}]{,  }\item[{\char`\"{}config\+:0-\/7\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{iommu_8c_a29476266c8d1dfd587201c8ec2b23e93}\label{iommu_8c_a29476266c8d1dfd587201c8ec2b23e93}} 
+\index{iommu.c@{iommu.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [2/7]}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{btrfs__tree_8h_a3d47b3d9e6e45ddc19d126beaa660cf7}{devid}}}]{,  }\item[{\char`\"{}config\+:8-\/23\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{iommu_8c_ac398a1be7942bf0f6a42dc6c626f9a26}\label{iommu_8c_ac398a1be7942bf0f6a42dc6c626f9a26}} 
+\index{iommu.c@{iommu.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [3/7]}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{devid\+\_\+mask}]{,  }\item[{\char`\"{}config1\+:0-\/15\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{iommu_8c_adef1cc25c6a93d6606809ee76fcbfde0}\label{iommu_8c_adef1cc25c6a93d6606809ee76fcbfde0}} 
+\index{iommu.c@{iommu.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [4/7]}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{domid}]{,  }\item[{\char`\"{}config\+:24-\/39\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{iommu_8c_abc8edb31c97f7f51774c9f8304aa0d41}\label{iommu_8c_abc8edb31c97f7f51774c9f8304aa0d41}} 
+\index{iommu.c@{iommu.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [5/7]}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{domid\+\_\+mask}]{,  }\item[{\char`\"{}config1\+:16-\/31\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{iommu_8c_a75131f287cbaac8705ca49dbc039f0fe}\label{iommu_8c_a75131f287cbaac8705ca49dbc039f0fe}} 
+\index{iommu.c@{iommu.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [6/7]}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{idxd_8h_a91bae00003b7d702ad9efbc0c2465cf4}{pasid}}}]{,  }\item[{\char`\"{}config\+:40-\/59\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{iommu_8c_abacf0966f083071fcfa0cb421dcc8de9}\label{iommu_8c_abacf0966f083071fcfa0cb421dcc8de9}} 
+\index{iommu.c@{iommu.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}\hspace{0.1cm}{\footnotesize\ttfamily [7/7]}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{pasid\+\_\+mask}]{,  }\item[{\char`\"{}config1\+:32-\/51\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{iommu_8c_afc010f6ee50a447b165c60d711ddfa02}\label{iommu_8c_afc010f6ee50a447b165c60d711ddfa02}} 
+\index{iommu.c@{iommu.c}!\_\_initconst@{\_\_initconst}}
+\index{\_\_initconst@{\_\_initconst}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initconst}{\_\_initconst}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structpmu}{pmu}} iommu\+\_\+pmu \+\_\+\+\_\+initconst\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .event\_init = \mbox{\hyperlink{iommu_8c_ab9cf723dbb773beb589a4c663a8983e2}{perf\_iommu\_event\_init}},}
+\DoxyCodeLine{    .add        = \mbox{\hyperlink{iommu_8c_a701d4d35079a81f50f31fd90b10ee56a}{perf\_iommu\_add}},}
+\DoxyCodeLine{    .del        = \mbox{\hyperlink{iommu_8c_a4587e5bace4e0feff96c2bb6a3c00f84}{perf\_iommu\_del}},}
+\DoxyCodeLine{    .start      = \mbox{\hyperlink{iommu_8c_a07d7a1d26a2696d9b0f9a2152607d087}{perf\_iommu\_start}},}
+\DoxyCodeLine{    .stop       = \mbox{\hyperlink{iommu_8c_a62fbaab2e50a5530e842712846bde738}{perf\_iommu\_stop}},}
+\DoxyCodeLine{    .read       = \mbox{\hyperlink{iommu_8c_aaa6f9fa905dec10c729075ead3db6107}{perf\_iommu\_read}},}
+\DoxyCodeLine{    .task\_ctx\_nr    = perf\_invalid\_context,}
+\DoxyCodeLine{    .attr\_groups    = \mbox{\hyperlink{iommu_8c_a3aafaf7a587fbed47da59320b6e9c962}{amd\_iommu\_attr\_groups}},}
+\DoxyCodeLine{    .capabilities   = \mbox{\hyperlink{include_2linux_2perf__event_8h_a9f69cef6e9618fd838c5e2e135d4660e}{PERF\_PMU\_CAP\_NO\_EXCLUDE}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_a3aafaf7a587fbed47da59320b6e9c962}\label{iommu_8c_a3aafaf7a587fbed47da59320b6e9c962}} 
+\index{iommu.c@{iommu.c}!amd\_iommu\_attr\_groups@{amd\_iommu\_attr\_groups}}
+\index{amd\_iommu\_attr\_groups@{amd\_iommu\_attr\_groups}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_iommu\_attr\_groups}{amd\_iommu\_attr\_groups}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}}$\ast$ amd\+\_\+iommu\+\_\+attr\+\_\+groups\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&\mbox{\hyperlink{iommu_8c_a17cefc102def3dee399e1db1078dba50}{amd\_iommu\_format\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{iommu_8c_aa971085f0fe03151e3cba3a94de57d40}{amd\_iommu\_cpumask\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{iommu_8c_a00cbf18fb1d06437fcf5c2904933ecfe}{amd\_iommu\_events\_group}},}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_aa971085f0fe03151e3cba3a94de57d40}\label{iommu_8c_aa971085f0fe03151e3cba3a94de57d40}} 
+\index{iommu.c@{iommu.c}!amd\_iommu\_cpumask\_group@{amd\_iommu\_cpumask\_group}}
+\index{amd\_iommu\_cpumask\_group@{amd\_iommu\_cpumask\_group}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_iommu\_cpumask\_group}{amd\_iommu\_cpumask\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} amd\+\_\+iommu\+\_\+cpumask\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{iommu_8c_ad5d91810198535b5a53c6738bb59d507}{iommu\_cpumask\_attrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_a00cbf18fb1d06437fcf5c2904933ecfe}\label{iommu_8c_a00cbf18fb1d06437fcf5c2904933ecfe}} 
+\index{iommu.c@{iommu.c}!amd\_iommu\_events\_group@{amd\_iommu\_events\_group}}
+\index{amd\_iommu\_events\_group@{amd\_iommu\_events\_group}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_iommu\_events\_group}{amd\_iommu\_events\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} amd\+\_\+iommu\+\_\+events\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name = \textcolor{stringliteral}{"events"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_a17cefc102def3dee399e1db1078dba50}\label{iommu_8c_a17cefc102def3dee399e1db1078dba50}} 
+\index{iommu.c@{iommu.c}!amd\_iommu\_format\_group@{amd\_iommu\_format\_group}}
+\index{amd\_iommu\_format\_group@{amd\_iommu\_format\_group}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_iommu\_format\_group}{amd\_iommu\_format\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} amd\+\_\+iommu\+\_\+format\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name = \textcolor{stringliteral}{"format"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{iommu_8c_a2d22a66a4acb6d67e1d4291c8dffa75f}{iommu\_format\_attrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_a89273d4abfa77224b21241013bbb8f78}\label{iommu_8c_a89273d4abfa77224b21241013bbb8f78}} 
+\index{iommu.c@{iommu.c}!amd\_iommu\_v2\_event\_descs@{amd\_iommu\_v2\_event\_descs}}
+\index{amd\_iommu\_v2\_event\_descs@{amd\_iommu\_v2\_event\_descs}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{amd\_iommu\_v2\_event\_descs}{amd\_iommu\_v2\_event\_descs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structamd__iommu__event__desc}{amd\+\_\+iommu\+\_\+event\+\_\+desc}} amd\+\_\+iommu\+\_\+v2\+\_\+event\+\_\+descs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_pass\_untrans,        \textcolor{stringliteral}{"csource=0x01"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_pass\_pretrans,       \textcolor{stringliteral}{"csource=0x02"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_pass\_excl,           \textcolor{stringliteral}{"csource=0x03"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_target\_abort,        \textcolor{stringliteral}{"csource=0x04"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_trans\_total,         \textcolor{stringliteral}{"csource=0x05"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_iommu\_tlb\_pte\_hit,   \textcolor{stringliteral}{"csource=0x06"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_iommu\_tlb\_pte\_mis,   \textcolor{stringliteral}{"csource=0x07"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_iommu\_tlb\_pde\_hit,   \textcolor{stringliteral}{"csource=0x08"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_iommu\_tlb\_pde\_mis,   \textcolor{stringliteral}{"csource=0x09"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_dte\_hit,             \textcolor{stringliteral}{"csource=0x0a"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(mem\_dte\_mis,             \textcolor{stringliteral}{"csource=0x0b"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(page\_tbl\_read\_tot,       \textcolor{stringliteral}{"csource=0x0c"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(page\_tbl\_read\_nst,       \textcolor{stringliteral}{"csource=0x0d"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(page\_tbl\_read\_gst,       \textcolor{stringliteral}{"csource=0x0e"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(int\_dte\_hit,             \textcolor{stringliteral}{"csource=0x0f"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(int\_dte\_mis,             \textcolor{stringliteral}{"csource=0x10"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(cmd\_processed,           \textcolor{stringliteral}{"csource=0x11"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(cmd\_processed\_inv,       \textcolor{stringliteral}{"csource=0x12"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(tlb\_inv,                 \textcolor{stringliteral}{"csource=0x13"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(ign\_rd\_wr\_mmio\_1ff8h,    \textcolor{stringliteral}{"csource=0x14"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(vapic\_int\_non\_guest,     \textcolor{stringliteral}{"csource=0x15"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(vapic\_int\_guest,         \textcolor{stringliteral}{"csource=0x16"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(smi\_recv,                \textcolor{stringliteral}{"csource=0x17"}),}
+\DoxyCodeLine{    \mbox{\hyperlink{iommu_8c_a47bcbbdd5941b0ddccd7c136ed31da01}{AMD\_IOMMU\_EVENT\_DESC}}(smi\_blk,                 \textcolor{stringliteral}{"csource=0x18"}),}
+\DoxyCodeLine{    \{  \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_ada781e79c40d43d93694743dec740400}\label{iommu_8c_ada781e79c40d43d93694743dec740400}} 
+\index{iommu.c@{iommu.c}!iommu\_cpumask@{iommu\_cpumask}}
+\index{iommu\_cpumask@{iommu\_cpumask}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{iommu\_cpumask}{iommu\_cpumask}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}} iommu\+\_\+cpumask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{iommu_8c_ad5d91810198535b5a53c6738bb59d507}\label{iommu_8c_ad5d91810198535b5a53c6738bb59d507}} 
+\index{iommu.c@{iommu.c}!iommu\_cpumask\_attrs@{iommu\_cpumask\_attrs}}
+\index{iommu\_cpumask\_attrs@{iommu\_cpumask\_attrs}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{iommu\_cpumask\_attrs}{iommu\_cpumask\_attrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ iommu\+\_\+cpumask\+\_\+attrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&dev\_attr\_cpumask.attr,}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{iommu_8c_a2d22a66a4acb6d67e1d4291c8dffa75f}\label{iommu_8c_a2d22a66a4acb6d67e1d4291c8dffa75f}} 
+\index{iommu.c@{iommu.c}!iommu\_format\_attrs@{iommu\_format\_attrs}}
+\index{iommu\_format\_attrs@{iommu\_format\_attrs}!iommu.c@{iommu.c}}
+\doxysubsubsection{\texorpdfstring{iommu\_format\_attrs}{iommu\_format\_attrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ iommu\+\_\+format\+\_\+attrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&format\_attr\_csource.attr,}
+\DoxyCodeLine{    \&format\_attr\_devid.attr,}
+\DoxyCodeLine{    \&format\_attr\_pasid.attr,}
+\DoxyCodeLine{    \&format\_attr\_domid.attr,}
+\DoxyCodeLine{    \&format\_attr\_devid\_mask.attr,}
+\DoxyCodeLine{    \&format\_attr\_pasid\_mask.attr,}
+\DoxyCodeLine{    \&format\_attr\_domid\_mask.attr,}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

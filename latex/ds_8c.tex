@@ -1,0 +1,1253 @@
+\hypertarget{ds_8c}{}\doxysection{arch/x86/events/intel/ds.c File Reference}
+\label{ds_8c}\index{arch/x86/events/intel/ds.c@{arch/x86/events/intel/ds.c}}
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu\+\_\+entry\+\_\+area.\+h$>$}\newline
+{\ttfamily \#include $<$asm/perf\+\_\+event.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/insn.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}../perf\+\_\+event.\+h\char`\"{}}\newline
+Include dependency graph for ds.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+union \mbox{\hyperlink{unionintel__x86__pebs__dse}{intel\+\_\+x86\+\_\+pebs\+\_\+dse}}
+\item 
+struct \mbox{\hyperlink{structpebs__record__core}{pebs\+\_\+record\+\_\+core}}
+\item 
+struct \mbox{\hyperlink{structpebs__record__nhm}{pebs\+\_\+record\+\_\+nhm}}
+\item 
+struct \mbox{\hyperlink{structpebs__record__hsw}{pebs\+\_\+record\+\_\+hsw}}
+\item 
+union \mbox{\hyperlink{unionhsw__tsx__tuning}{hsw\+\_\+tsx\+\_\+tuning}}
+\item 
+struct \mbox{\hyperlink{structpebs__record__skl}{pebs\+\_\+record\+\_\+skl}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{ds_8c_ae34762f024c25f4fabe710e59b225f06}{B\+T\+S\+\_\+\+R\+E\+C\+O\+R\+D\+\_\+\+S\+I\+ZE}}~24
+\item 
+\#define \mbox{\hyperlink{ds_8c_aa06d1b521b8d450117c0cb969e7dd632}{P\+E\+B\+S\+\_\+\+F\+I\+X\+U\+P\+\_\+\+S\+I\+ZE}}~\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}}
+\item 
+\#define \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(a,  \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})~\mbox{\hyperlink{include_2uapi_2linux_2perf__event_8h_a849501de5349cd75f22a8a151311a78a}{P\+E\+R\+F\+\_\+\+M\+E\+M\+\_\+S}}(a, \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})
+\item 
+\#define \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{O\+P\+\_\+\+LH}}~(\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(OP, \mbox{\hyperlink{zlib__inflate_2inflate_8c_a03dae42536f97b08183620a910f9b204}{L\+O\+AD}}) $\vert$ \mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(L\+VL, H\+IT))
+\item 
+\#define \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{L\+E\+V\+EL}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(L\+V\+L\+N\+UM, \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})
+\item 
+\#define \mbox{\hyperlink{ds_8c_a4c0be4e2e15f7167f711d5769b01a049}{R\+EM}}~\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(R\+E\+M\+O\+TE, R\+E\+M\+O\+TE)
+\item 
+\#define \mbox{\hyperlink{ds_8c_a1ef521c619f2e52294083ccdc3073ff8}{S\+N\+O\+O\+P\+\_\+\+N\+O\+N\+E\+\_\+\+M\+I\+SS}}~(\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(S\+N\+O\+OP, \mbox{\hyperlink{scmi__protocol_8h_a14c141359655f18b7d11d250c1ea0794ac157bdf0b85a40d2619cbc8bc1ae5fe2}{N\+O\+NE}}) $\vert$ \mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(S\+N\+O\+OP, M\+I\+SS))
+\item 
+\#define \mbox{\hyperlink{ds_8c_a8f7efccde4df6d243c949f6b2b8dbe8c}{P\+E\+B\+S\+\_\+\+H\+S\+W\+\_\+\+T\+S\+X\+\_\+\+F\+L\+A\+GS}}~0xff00000000\+U\+LL
+\item 
+\#define \mbox{\hyperlink{ds_8c_aafc05a2f7a2863b81e1aa629d2540fe5}{P\+E\+R\+F\+\_\+\+P\+E\+B\+S\+\_\+\+M\+E\+M\+I\+N\+F\+O\+\_\+\+T\+Y\+PE}}
+\item 
+\#define \mbox{\hyperlink{ds_8c_a3f84045397b721883d6981cec38bc6de}{P\+E\+R\+F\+\_\+\+X86\+\_\+\+E\+V\+E\+N\+T\+\_\+\+P\+E\+B\+S\+\_\+\+H\+S\+W\+\_\+\+P\+R\+EC}}
+\item 
+\#define \mbox{\hyperlink{ds_8c_a53fe38bf62c937d9c00c3fe8c6f166c6}{P\+E\+R\+F\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+A\+D\+D\+R\+\_\+\+T\+Y\+PE}}
+\item 
+\#define \mbox{\hyperlink{ds_8c_ac353d12298d0a97b81a6ee0eed0f3844}{P\+E\+B\+S\+\_\+\+L\+A\+T\+E\+N\+C\+Y\+\_\+\+M\+A\+SK}}~0xffff
+\item 
+\#define \mbox{\hyperlink{ds_8c_a155242fe4e55ffe0940766aecd45793c}{P\+E\+B\+S\+\_\+\+C\+A\+C\+H\+E\+\_\+\+L\+A\+T\+E\+N\+C\+Y\+\_\+\+O\+F\+F\+S\+ET}}~32
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{ds_8c_add74787daf915bafd56f0e177b0705b1}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+P\+A\+G\+E\+\_\+\+A\+L\+I\+G\+N\+ED}} (struct \mbox{\hyperlink{structdebug__store}{debug\+\_\+store}}, cpu\+\_\+debug\+\_\+store)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{ds_8c_af884867f02bb8efdfe5f3b6c17a4c750}{intel\+\_\+pmu\+\_\+pebs\+\_\+data\+\_\+source\+\_\+nhm}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{ds_8c_abcf45b701b0de1f21e4954fa136724b8}{intel\+\_\+pmu\+\_\+pebs\+\_\+data\+\_\+source\+\_\+skl}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pmem)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_a41fdab157e7e84abfd91bb10cbdadc6a}{precise\+\_\+store\+\_\+data}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{virtio__scsi_8h_afff5af38f43b41844351f5397c1bd0f5}{status}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_a8390ff438b5d558a4f7452afc4be8c82}{precise\+\_\+datala\+\_\+hsw}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{virtio__scsi_8h_afff5af38f43b41844351f5397c1bd0f5}{status}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_afd967b474376674a304f59512a430e69}{load\+\_\+latency\+\_\+data}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{virtio__scsi_8h_afff5af38f43b41844351f5397c1bd0f5}{status}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_ac9cc687e346d9902f052cef7c23ae4a0}{store\+\_\+latency\+\_\+data}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{virtio__scsi_8h_afff5af38f43b41844351f5397c1bd0f5}{status}})
+\item 
+void \mbox{\hyperlink{ds_8c_a2c348cd1f79650b65eaa723b7f7baded}{init\+\_\+debug\+\_\+store\+\_\+on\+\_\+cpu}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+void \mbox{\hyperlink{ds_8c_af735ad1d7a379a3b6bd7b673d5c24d3b}{fini\+\_\+debug\+\_\+store\+\_\+on\+\_\+cpu}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{ds_8c_a275a24ebaa63a8ec4c2763b87e56074e}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (void $\ast$, insn\+\_\+buffer)
+\item 
+static void \mbox{\hyperlink{ds_8c_a67cc6073d3db2021832abc87a13a5f42}{ds\+\_\+update\+\_\+cea}} (void $\ast$cea, void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}} \mbox{\hyperlink{lsm__hook__defs_8h_a94083e0b9362834ba5a89ad840f763c9}{prot}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a124f74e94f3a19e57c0531e8d9d271d8}{ds\+\_\+clear\+\_\+cea}} (void $\ast$cea, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void $\ast$ \mbox{\hyperlink{ds_8c_a8e0e222453980dccd5af2f118f7b7014}{dsalloc\+\_\+pages}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a96e4ef0f9592729511a1ebebc3b10031}{dsfree\+\_\+pages}} (const void $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ds_8c_a4eb3470c6352501e9fbe882d69ab4295}{alloc\+\_\+pebs\+\_\+buffer}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{ds_8c_abd05377303d6c36360b498c07d5673f8}{release\+\_\+pebs\+\_\+buffer}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ds_8c_afa7a9769e33d1d4d67fdcb57f9e2ffe2}{alloc\+\_\+bts\+\_\+buffer}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a559c0ec890c0f6355081ef8518374dc3}{release\+\_\+bts\+\_\+buffer}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ds_8c_ab77a5f05912a56ef7b84d644b8bcceb9}{alloc\+\_\+ds\+\_\+buffer}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a06163fda11e1ea0a6cda2d344e87878b}{release\+\_\+ds\+\_\+buffer}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+void \mbox{\hyperlink{ds_8c_a2a8d62bd92aad16893cdc5bd1d45dd69}{release\+\_\+ds\+\_\+buffers}} (void)
+\item 
+void \mbox{\hyperlink{ds_8c_a7303f54d2d8ba1b58067538a98e02aca}{reserve\+\_\+ds\+\_\+buffers}} (void)
+\item 
+void \mbox{\hyperlink{ds_8c_a02e97360064589461caae30e4b505b7e}{intel\+\_\+pmu\+\_\+enable\+\_\+bts}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{deflate_8c_a2e56afa64412e0b968cb288a6d1278ba}{config}})
+\item 
+void \mbox{\hyperlink{ds_8c_a4bea74be22e65ba47254f94b6fcdd6af}{intel\+\_\+pmu\+\_\+disable\+\_\+bts}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ds_8c_a91723370a63b51f45f34fa518bc9be5a}{intel\+\_\+pmu\+\_\+drain\+\_\+bts\+\_\+buffer}} (void)
+\item 
+static void \mbox{\hyperlink{ds_8c_a547cc7836b0433905d0c3e85b223f35e}{intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+buffer}} (void)
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} $\ast$ \mbox{\hyperlink{ds_8c_a1f6d3ecbacaded01813dca97824ca85e}{intel\+\_\+pebs\+\_\+constraints}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{ds_8c_a6699e7bbffe151223c95a5e800db39be}{pebs\+\_\+needs\+\_\+sched\+\_\+cb}} (struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$cpuc)
+\item 
+void \mbox{\hyperlink{ds_8c_a31a4d83ba247b49af7952cbeb45fd6c0}{intel\+\_\+pmu\+\_\+pebs\+\_\+sched\+\_\+task}} (struct \mbox{\hyperlink{structperf__event__context}{perf\+\_\+event\+\_\+context}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} sched\+\_\+in)
+\item 
+static void \mbox{\hyperlink{ds_8c_a100d456b68ff3f3c71203a5c0711ac3e}{pebs\+\_\+update\+\_\+threshold}} (struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$cpuc)
+\item 
+static void \mbox{\hyperlink{ds_8c_aee1bfa2c00f6f3162ee8eee98bcbb4e8}{adaptive\+\_\+pebs\+\_\+record\+\_\+size\+\_\+update}} (void)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_a9392c83a6526a92b9c8b182f66b5f614}{pebs\+\_\+update\+\_\+adaptive\+\_\+cfg}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a0e03dda93b4767c8a2899723b99f49af}{pebs\+\_\+update\+\_\+state}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} needed\+\_\+cb, struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$cpuc, struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} add)
+\item 
+void \mbox{\hyperlink{ds_8c_a2857007b9e9c6197d25a0905a33dbe5c}{intel\+\_\+pmu\+\_\+pebs\+\_\+add}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a28298f81aefc6c264c5d0ea0176d6575}{intel\+\_\+pmu\+\_\+pebs\+\_\+via\+\_\+pt\+\_\+disable}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{ds_8c_ac3a0a3d9b5c91307ebe42958ed3c43f5}{intel\+\_\+pmu\+\_\+pebs\+\_\+via\+\_\+pt\+\_\+enable}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+void \mbox{\hyperlink{ds_8c_aa5f28d19680c278a93e1f23380113810}{intel\+\_\+pmu\+\_\+pebs\+\_\+enable}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+void \mbox{\hyperlink{ds_8c_a84d4dfc888df49962f0c73f4fecdcb0d}{intel\+\_\+pmu\+\_\+pebs\+\_\+del}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+void \mbox{\hyperlink{ds_8c_a56e904db8c198dbcb16c8473f0ec3472}{intel\+\_\+pmu\+\_\+pebs\+\_\+disable}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+void \mbox{\hyperlink{ds_8c_a8233012b9efbb5247b550f2bbe5d944d}{intel\+\_\+pmu\+\_\+pebs\+\_\+enable\+\_\+all}} (void)
+\item 
+void \mbox{\hyperlink{ds_8c_a7dcbbdc49b14ba66c05168d3f8ec21e3}{intel\+\_\+pmu\+\_\+pebs\+\_\+disable\+\_\+all}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ds_8c_abc80d0728023854e989fe3d8d136d128}{intel\+\_\+pmu\+\_\+pebs\+\_\+fixup\+\_\+ip}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_a0fc3c5877ce73f9ddcf84d2fd7fe11d2}{intel\+\_\+get\+\_\+tsx\+\_\+weight}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} tsx\+\_\+tuning)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_aea4abdda660b75c30ca5e21440b5a2da}{intel\+\_\+get\+\_\+tsx\+\_\+transaction}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} tsx\+\_\+tuning, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} ax)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_a66eb8e06607847fdb872f615c0c43d90}{get\+\_\+pebs\+\_\+status}} (void $\ast$n)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_a49f577edc04a6f717852ec3d36b2e21b}{get\+\_\+data\+\_\+src}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} aux)
+\item 
+static void \mbox{\hyperlink{ds_8c_a2f0f1e323b196d88a6fcea77c0c48cd5}{setup\+\_\+pebs\+\_\+fixed\+\_\+sample\+\_\+data}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$iregs, void $\ast$\+\_\+\+\_\+pebs, struct perf\+\_\+sample\+\_\+data $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{ds_8c_ab81f4139c6546e9971b790e9920174ba}{adaptive\+\_\+pebs\+\_\+save\+\_\+regs}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, struct \mbox{\hyperlink{structpebs__gprs}{pebs\+\_\+gprs}} $\ast$gprs)
+\item 
+static void \mbox{\hyperlink{ds_8c_a37f5950ff452c1a6bc26e601214764c0}{setup\+\_\+pebs\+\_\+adaptive\+\_\+sample\+\_\+data}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$iregs, void $\ast$\+\_\+\+\_\+pebs, struct perf\+\_\+sample\+\_\+data $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void $\ast$ \mbox{\hyperlink{ds_8c_a41a1f885c3a87fdffa53ff4fac76c758}{get\+\_\+next\+\_\+pebs\+\_\+record\+\_\+by\+\_\+bit}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, void $\ast$\mbox{\hyperlink{fpu__system_8h_a8bc1c1613a2c9744c3cbccce70f53b86}{top}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bit)
+\item 
+void \mbox{\hyperlink{ds_8c_a722f07d7fef79ff7f5d49f1cbeaf24fe}{intel\+\_\+pmu\+\_\+auto\+\_\+reload\+\_\+read}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ds_8c_a9db326477e115f6a825f2f948b3d2de9}{intel\+\_\+pmu\+\_\+save\+\_\+and\+\_\+restart\+\_\+reload}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \mbox{\hyperlink{ds_8c_a1968401f08903d03a9764ba165afe548}{\+\_\+\+\_\+intel\+\_\+pmu\+\_\+pebs\+\_\+event}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$iregs, struct perf\+\_\+sample\+\_\+data $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}}, void $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, void $\ast$\mbox{\hyperlink{fpu__system_8h_a8bc1c1613a2c9744c3cbccce70f53b86}{top}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bit, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}}, void($\ast$setup\+\_\+sample)(struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$, void $\ast$, struct perf\+\_\+sample\+\_\+data $\ast$, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$))
+\item 
+static void \mbox{\hyperlink{ds_8c_ae65216172b488ba17e890a8612aa53e1}{intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+core}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$iregs, struct perf\+\_\+sample\+\_\+data $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a00523db7e7050cff62b335c2da7e865e}{intel\+\_\+pmu\+\_\+pebs\+\_\+event\+\_\+update\+\_\+no\+\_\+drain}} (struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$cpuc, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{ds_8c_a572889fbade12544788460a821a64bb0}{intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+nhm}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$iregs, struct perf\+\_\+sample\+\_\+data $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{ds_8c_acb62607f55aca9ba702a0d1cddec52b7}{intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+icl}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$iregs, struct perf\+\_\+sample\+\_\+data $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{ds_8c_ae16b8ec3d292297e46fbe4b6760e3a75}{intel\+\_\+ds\+\_\+init}} (void)
+\item 
+void \mbox{\hyperlink{ds_8c_aac043c672eec2356490de01474510830}{perf\+\_\+restore\+\_\+debug\+\_\+store}} (void)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{ds_8c_a4b55955c462e3cb2ae7eec9bbdf73432}{pebs\+\_\+data\+\_\+source}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_adbc5da02582e4277e9d31c70f5386ec9}{bts\+\_\+constraint}}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a2f35c35c1a3dbafb94cc02cfcfa77d25}{intel\+\_\+core2\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_acb7a3ff6446d30f63c75400001927f2d}{intel\+\_\+atom\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a4f170c43c87e4a22d30d13ac764b5181}{intel\+\_\+slm\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a3858e38e0aaa252f14ec017dfdbf013b}{intel\+\_\+glm\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a967b469613b84ea07ae10f755865f2d0}{intel\+\_\+grt\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_ada1106ebdf66c1dcc434032aafe2d772}{intel\+\_\+nehalem\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a624ee3d7dcc9b5119c97f19cf4c0c274}{intel\+\_\+westmere\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a1c020b3eb7e20898336b38a673698d49}{intel\+\_\+snb\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a30df5c31e5d9b7f8e903038385abc5a4}{intel\+\_\+ivb\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_aacffd1e7f53de0efe2f22b61f0d1636b}{intel\+\_\+hsw\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a9ea79f2e6d3ad6c0c53170e68d20b2aa}{intel\+\_\+bdw\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a0a98f5e22a3bacf8962df16974f29ab5}{intel\+\_\+skl\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_a6083e11a3977a8530e3de1fd77d45207}{intel\+\_\+icl\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\item 
+struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} \mbox{\hyperlink{ds_8c_ac13b87a0105a9bc63b36fd0cb19a5b65}{intel\+\_\+spr\+\_\+pebs\+\_\+event\+\_\+constraints}} \mbox{[}$\,$\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{ds_8c_ae34762f024c25f4fabe710e59b225f06}\label{ds_8c_ae34762f024c25f4fabe710e59b225f06}} 
+\index{ds.c@{ds.c}!BTS\_RECORD\_SIZE@{BTS\_RECORD\_SIZE}}
+\index{BTS\_RECORD\_SIZE@{BTS\_RECORD\_SIZE}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{BTS\_RECORD\_SIZE}{BTS\_RECORD\_SIZE}}
+{\footnotesize\ttfamily \#define B\+T\+S\+\_\+\+R\+E\+C\+O\+R\+D\+\_\+\+S\+I\+ZE~24}
+
+\mbox{\Hypertarget{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}\label{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}} 
+\index{ds.c@{ds.c}!LEVEL@{LEVEL}}
+\index{LEVEL@{LEVEL}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{LEVEL}{LEVEL}}
+{\footnotesize\ttfamily \#define L\+E\+V\+EL(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(L\+V\+L\+N\+UM, \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})}
+
+\mbox{\Hypertarget{ds_8c_a4c3bc807944700d21139411bdf89d140}\label{ds_8c_a4c3bc807944700d21139411bdf89d140}} 
+\index{ds.c@{ds.c}!OP\_LH@{OP\_LH}}
+\index{OP\_LH@{OP\_LH}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{OP\_LH}{OP\_LH}}
+{\footnotesize\ttfamily \#define O\+P\+\_\+\+LH~(\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(OP, \mbox{\hyperlink{zlib__inflate_2inflate_8c_a03dae42536f97b08183620a910f9b204}{L\+O\+AD}}) $\vert$ \mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(L\+VL, H\+IT))}
+
+\mbox{\Hypertarget{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}\label{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}} 
+\index{ds.c@{ds.c}!P@{P}}
+\index{P@{P}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{P}{P}}
+{\footnotesize\ttfamily \#define P(\begin{DoxyParamCaption}\item[{}]{a,  }\item[{}]{\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}} }\end{DoxyParamCaption})~\mbox{\hyperlink{include_2uapi_2linux_2perf__event_8h_a849501de5349cd75f22a8a151311a78a}{P\+E\+R\+F\+\_\+\+M\+E\+M\+\_\+S}}(a, \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})}
+
+\mbox{\Hypertarget{ds_8c_a155242fe4e55ffe0940766aecd45793c}\label{ds_8c_a155242fe4e55ffe0940766aecd45793c}} 
+\index{ds.c@{ds.c}!PEBS\_CACHE\_LATENCY\_OFFSET@{PEBS\_CACHE\_LATENCY\_OFFSET}}
+\index{PEBS\_CACHE\_LATENCY\_OFFSET@{PEBS\_CACHE\_LATENCY\_OFFSET}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{PEBS\_CACHE\_LATENCY\_OFFSET}{PEBS\_CACHE\_LATENCY\_OFFSET}}
+{\footnotesize\ttfamily \#define P\+E\+B\+S\+\_\+\+C\+A\+C\+H\+E\+\_\+\+L\+A\+T\+E\+N\+C\+Y\+\_\+\+O\+F\+F\+S\+ET~32}
+
+\mbox{\Hypertarget{ds_8c_aa06d1b521b8d450117c0cb969e7dd632}\label{ds_8c_aa06d1b521b8d450117c0cb969e7dd632}} 
+\index{ds.c@{ds.c}!PEBS\_FIXUP\_SIZE@{PEBS\_FIXUP\_SIZE}}
+\index{PEBS\_FIXUP\_SIZE@{PEBS\_FIXUP\_SIZE}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{PEBS\_FIXUP\_SIZE}{PEBS\_FIXUP\_SIZE}}
+{\footnotesize\ttfamily \#define P\+E\+B\+S\+\_\+\+F\+I\+X\+U\+P\+\_\+\+S\+I\+ZE~\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}}}
+
+\mbox{\Hypertarget{ds_8c_a8f7efccde4df6d243c949f6b2b8dbe8c}\label{ds_8c_a8f7efccde4df6d243c949f6b2b8dbe8c}} 
+\index{ds.c@{ds.c}!PEBS\_HSW\_TSX\_FLAGS@{PEBS\_HSW\_TSX\_FLAGS}}
+\index{PEBS\_HSW\_TSX\_FLAGS@{PEBS\_HSW\_TSX\_FLAGS}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{PEBS\_HSW\_TSX\_FLAGS}{PEBS\_HSW\_TSX\_FLAGS}}
+{\footnotesize\ttfamily \#define P\+E\+B\+S\+\_\+\+H\+S\+W\+\_\+\+T\+S\+X\+\_\+\+F\+L\+A\+GS~0xff00000000\+U\+LL}
+
+\mbox{\Hypertarget{ds_8c_ac353d12298d0a97b81a6ee0eed0f3844}\label{ds_8c_ac353d12298d0a97b81a6ee0eed0f3844}} 
+\index{ds.c@{ds.c}!PEBS\_LATENCY\_MASK@{PEBS\_LATENCY\_MASK}}
+\index{PEBS\_LATENCY\_MASK@{PEBS\_LATENCY\_MASK}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{PEBS\_LATENCY\_MASK}{PEBS\_LATENCY\_MASK}}
+{\footnotesize\ttfamily \#define P\+E\+B\+S\+\_\+\+L\+A\+T\+E\+N\+C\+Y\+\_\+\+M\+A\+SK~0xffff}
+
+\mbox{\Hypertarget{ds_8c_aafc05a2f7a2863b81e1aa629d2540fe5}\label{ds_8c_aafc05a2f7a2863b81e1aa629d2540fe5}} 
+\index{ds.c@{ds.c}!PERF\_PEBS\_MEMINFO\_TYPE@{PERF\_PEBS\_MEMINFO\_TYPE}}
+\index{PERF\_PEBS\_MEMINFO\_TYPE@{PERF\_PEBS\_MEMINFO\_TYPE}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{PERF\_PEBS\_MEMINFO\_TYPE}{PERF\_PEBS\_MEMINFO\_TYPE}}
+{\footnotesize\ttfamily \#define P\+E\+R\+F\+\_\+\+P\+E\+B\+S\+\_\+\+M\+E\+M\+I\+N\+F\+O\+\_\+\+T\+Y\+PE}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                (\mbox{\hyperlink{include_2uapi_2linux_2perf__event_8h_a215644f0e6f5cfffef2e0ffefacef974af23fdb2e8be5ea014c4ed7a23248f6f0}{PERF\_SAMPLE\_ADDR}} | \mbox{\hyperlink{include_2uapi_2linux_2perf__event_8h_a215644f0e6f5cfffef2e0ffefacef974aa3351c87a5494553c921b8455b0877b3}{PERF\_SAMPLE\_DATA\_SRC}} |   \(\backslash\)}
+\DoxyCodeLine{                PERF\_SAMPLE\_PHYS\_ADDR |              \(\backslash\)}
+\DoxyCodeLine{                PERF\_SAMPLE\_WEIGHT\_TYPE |            \(\backslash\)}
+\DoxyCodeLine{                PERF\_SAMPLE\_TRANSACTION |            \(\backslash\)}
+\DoxyCodeLine{                PERF\_SAMPLE\_DATA\_PAGE\_SIZE)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a53fe38bf62c937d9c00c3fe8c6f166c6}\label{ds_8c_a53fe38bf62c937d9c00c3fe8c6f166c6}} 
+\index{ds.c@{ds.c}!PERF\_SAMPLE\_ADDR\_TYPE@{PERF\_SAMPLE\_ADDR\_TYPE}}
+\index{PERF\_SAMPLE\_ADDR\_TYPE@{PERF\_SAMPLE\_ADDR\_TYPE}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{PERF\_SAMPLE\_ADDR\_TYPE}{PERF\_SAMPLE\_ADDR\_TYPE}}
+{\footnotesize\ttfamily \#define P\+E\+R\+F\+\_\+\+S\+A\+M\+P\+L\+E\+\_\+\+A\+D\+D\+R\+\_\+\+T\+Y\+PE}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                 (\mbox{\hyperlink{include_2uapi_2linux_2perf__event_8h_a215644f0e6f5cfffef2e0ffefacef974af23fdb2e8be5ea014c4ed7a23248f6f0}{PERF\_SAMPLE\_ADDR}} |        \(\backslash\)}
+\DoxyCodeLine{                 PERF\_SAMPLE\_PHYS\_ADDR |    \(\backslash\)}
+\DoxyCodeLine{                 PERF\_SAMPLE\_DATA\_PAGE\_SIZE)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a3f84045397b721883d6981cec38bc6de}\label{ds_8c_a3f84045397b721883d6981cec38bc6de}} 
+\index{ds.c@{ds.c}!PERF\_X86\_EVENT\_PEBS\_HSW\_PREC@{PERF\_X86\_EVENT\_PEBS\_HSW\_PREC}}
+\index{PERF\_X86\_EVENT\_PEBS\_HSW\_PREC@{PERF\_X86\_EVENT\_PEBS\_HSW\_PREC}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{PERF\_X86\_EVENT\_PEBS\_HSW\_PREC}{PERF\_X86\_EVENT\_PEBS\_HSW\_PREC}}
+{\footnotesize\ttfamily \#define P\+E\+R\+F\+\_\+\+X86\+\_\+\+E\+V\+E\+N\+T\+\_\+\+P\+E\+B\+S\+\_\+\+H\+S\+W\+\_\+\+P\+R\+EC}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{        (\mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a4d9b83559219235a618db957e6a29d35}{PERF\_X86\_EVENT\_PEBS\_ST\_HSW}} | \(\backslash\)}
+\DoxyCodeLine{         PERF\_X86\_EVENT\_PEBS\_LD\_HSW | \(\backslash\)}
+\DoxyCodeLine{         PERF\_X86\_EVENT\_PEBS\_NA\_HSW)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a4c0be4e2e15f7167f711d5769b01a049}\label{ds_8c_a4c0be4e2e15f7167f711d5769b01a049}} 
+\index{ds.c@{ds.c}!REM@{REM}}
+\index{REM@{REM}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{REM}{REM}}
+{\footnotesize\ttfamily \#define R\+EM~\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(R\+E\+M\+O\+TE, R\+E\+M\+O\+TE)}
+
+\mbox{\Hypertarget{ds_8c_a1ef521c619f2e52294083ccdc3073ff8}\label{ds_8c_a1ef521c619f2e52294083ccdc3073ff8}} 
+\index{ds.c@{ds.c}!SNOOP\_NONE\_MISS@{SNOOP\_NONE\_MISS}}
+\index{SNOOP\_NONE\_MISS@{SNOOP\_NONE\_MISS}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{SNOOP\_NONE\_MISS}{SNOOP\_NONE\_MISS}}
+{\footnotesize\ttfamily \#define S\+N\+O\+O\+P\+\_\+\+N\+O\+N\+E\+\_\+\+M\+I\+SS~(\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(S\+N\+O\+OP, \mbox{\hyperlink{scmi__protocol_8h_a14c141359655f18b7d11d250c1ea0794ac157bdf0b85a40d2619cbc8bc1ae5fe2}{N\+O\+NE}}) $\vert$ \mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}(S\+N\+O\+OP, M\+I\+SS))}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{ds_8c_a1968401f08903d03a9764ba165afe548}\label{ds_8c_a1968401f08903d03a9764ba165afe548}} 
+\index{ds.c@{ds.c}!\_\_intel\_pmu\_pebs\_event@{\_\_intel\_pmu\_pebs\_event}}
+\index{\_\_intel\_pmu\_pebs\_event@{\_\_intel\_pmu\_pebs\_event}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{\_\_intel\_pmu\_pebs\_event()}{\_\_intel\_pmu\_pebs\_event()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{uapi_2linux_2stddef_8h_a6034e8cd4bcd5bacfd060abd01bbd8a8}{\+\_\+\+\_\+always\+\_\+inline}} void \+\_\+\+\_\+intel\+\_\+pmu\+\_\+pebs\+\_\+event (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{iregs,  }\item[{struct perf\+\_\+sample\+\_\+data $\ast$}]{data,  }\item[{void $\ast$}]{base,  }\item[{void $\ast$}]{top,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bit,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{count,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$, void $\ast$, struct perf\+\_\+sample\+\_\+data $\ast$, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$)}]{setup\+\_\+sample }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{ds_8c_aee1bfa2c00f6f3162ee8eee98bcbb4e8}\label{ds_8c_aee1bfa2c00f6f3162ee8eee98bcbb4e8}} 
+\index{ds.c@{ds.c}!adaptive\_pebs\_record\_size\_update@{adaptive\_pebs\_record\_size\_update}}
+\index{adaptive\_pebs\_record\_size\_update@{adaptive\_pebs\_record\_size\_update}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{adaptive\_pebs\_record\_size\_update()}{adaptive\_pebs\_record\_size\_update()}}
+{\footnotesize\ttfamily static void adaptive\+\_\+pebs\+\_\+record\+\_\+size\+\_\+update (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{ds_8c_ab81f4139c6546e9971b790e9920174ba}\label{ds_8c_ab81f4139c6546e9971b790e9920174ba}} 
+\index{ds.c@{ds.c}!adaptive\_pebs\_save\_regs@{adaptive\_pebs\_save\_regs}}
+\index{adaptive\_pebs\_save\_regs@{adaptive\_pebs\_save\_regs}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{adaptive\_pebs\_save\_regs()}{adaptive\_pebs\_save\_regs()}}
+{\footnotesize\ttfamily static void adaptive\+\_\+pebs\+\_\+save\+\_\+regs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{struct \mbox{\hyperlink{structpebs__gprs}{pebs\+\_\+gprs}} $\ast$}]{gprs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{ds_8c_afa7a9769e33d1d4d67fdcb57f9e2ffe2}\label{ds_8c_afa7a9769e33d1d4d67fdcb57f9e2ffe2}} 
+\index{ds.c@{ds.c}!alloc\_bts\_buffer@{alloc\_bts\_buffer}}
+\index{alloc\_bts\_buffer@{alloc\_bts\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_bts\_buffer()}{alloc\_bts\_buffer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+bts\+\_\+buffer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{ds_8c_ab77a5f05912a56ef7b84d644b8bcceb9}\label{ds_8c_ab77a5f05912a56ef7b84d644b8bcceb9}} 
+\index{ds.c@{ds.c}!alloc\_ds\_buffer@{alloc\_ds\_buffer}}
+\index{alloc\_ds\_buffer@{alloc\_ds\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_ds\_buffer()}{alloc\_ds\_buffer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+ds\+\_\+buffer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{ds_8c_a4eb3470c6352501e9fbe882d69ab4295}\label{ds_8c_a4eb3470c6352501e9fbe882d69ab4295}} 
+\index{ds.c@{ds.c}!alloc\_pebs\_buffer@{alloc\_pebs\_buffer}}
+\index{alloc\_pebs\_buffer@{alloc\_pebs\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_pebs\_buffer()}{alloc\_pebs\_buffer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+pebs\+\_\+buffer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{ds_8c_a275a24ebaa63a8ec4c2763b87e56074e}\label{ds_8c_a275a24ebaa63a8ec4c2763b87e56074e}} 
+\index{ds.c@{ds.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{void $\ast$}]{,  }\item[{insn\+\_\+buffer}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{ds_8c_add74787daf915bafd56f0e177b0705b1}\label{ds_8c_add74787daf915bafd56f0e177b0705b1}} 
+\index{ds.c@{ds.c}!DEFINE\_PER\_CPU\_PAGE\_ALIGNED@{DEFINE\_PER\_CPU\_PAGE\_ALIGNED}}
+\index{DEFINE\_PER\_CPU\_PAGE\_ALIGNED@{DEFINE\_PER\_CPU\_PAGE\_ALIGNED}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU\_PAGE\_ALIGNED()}{DEFINE\_PER\_CPU\_PAGE\_ALIGNED()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+P\+U\+\_\+\+P\+A\+G\+E\+\_\+\+A\+L\+I\+G\+N\+ED (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdebug__store}{debug\+\_\+store}}}]{,  }\item[{cpu\+\_\+debug\+\_\+store}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{ds_8c_a124f74e94f3a19e57c0531e8d9d271d8}\label{ds_8c_a124f74e94f3a19e57c0531e8d9d271d8}} 
+\index{ds.c@{ds.c}!ds\_clear\_cea@{ds\_clear\_cea}}
+\index{ds\_clear\_cea@{ds\_clear\_cea}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{ds\_clear\_cea()}{ds\_clear\_cea()}}
+{\footnotesize\ttfamily static void ds\+\_\+clear\+\_\+cea (\begin{DoxyParamCaption}\item[{void $\ast$}]{cea,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{ds_8c_a67cc6073d3db2021832abc87a13a5f42}\label{ds_8c_a67cc6073d3db2021832abc87a13a5f42}} 
+\index{ds.c@{ds.c}!ds\_update\_cea@{ds\_update\_cea}}
+\index{ds\_update\_cea@{ds\_update\_cea}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{ds\_update\_cea()}{ds\_update\_cea()}}
+{\footnotesize\ttfamily static void ds\+\_\+update\+\_\+cea (\begin{DoxyParamCaption}\item[{void $\ast$}]{cea,  }\item[{void $\ast$}]{addr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{structpgprot__t}{pgprot\+\_\+t}}}]{prot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{ds_8c_a8e0e222453980dccd5af2f118f7b7014}\label{ds_8c_a8e0e222453980dccd5af2f118f7b7014}} 
+\index{ds.c@{ds.c}!dsalloc\_pages@{dsalloc\_pages}}
+\index{dsalloc\_pages@{dsalloc\_pages}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{dsalloc\_pages()}{dsalloc\_pages()}}
+{\footnotesize\ttfamily static void$\ast$ dsalloc\+\_\+pages (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{ds_8c_a96e4ef0f9592729511a1ebebc3b10031}\label{ds_8c_a96e4ef0f9592729511a1ebebc3b10031}} 
+\index{ds.c@{ds.c}!dsfree\_pages@{dsfree\_pages}}
+\index{dsfree\_pages@{dsfree\_pages}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{dsfree\_pages()}{dsfree\_pages()}}
+{\footnotesize\ttfamily static void dsfree\+\_\+pages (\begin{DoxyParamCaption}\item[{const void $\ast$}]{buffer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{ds_8c_af735ad1d7a379a3b6bd7b673d5c24d3b}\label{ds_8c_af735ad1d7a379a3b6bd7b673d5c24d3b}} 
+\index{ds.c@{ds.c}!fini\_debug\_store\_on\_cpu@{fini\_debug\_store\_on\_cpu}}
+\index{fini\_debug\_store\_on\_cpu@{fini\_debug\_store\_on\_cpu}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{fini\_debug\_store\_on\_cpu()}{fini\_debug\_store\_on\_cpu()}}
+{\footnotesize\ttfamily void fini\+\_\+debug\+\_\+store\+\_\+on\+\_\+cpu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{ds_8c_a49f577edc04a6f717852ec3d36b2e21b}\label{ds_8c_a49f577edc04a6f717852ec3d36b2e21b}} 
+\index{ds.c@{ds.c}!get\_data\_src@{get\_data\_src}}
+\index{get\_data\_src@{get\_data\_src}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{get\_data\_src()}{get\_data\_src()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} get\+\_\+data\+\_\+src (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{aux }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{ds_8c_a41a1f885c3a87fdffa53ff4fac76c758}\label{ds_8c_a41a1f885c3a87fdffa53ff4fac76c758}} 
+\index{ds.c@{ds.c}!get\_next\_pebs\_record\_by\_bit@{get\_next\_pebs\_record\_by\_bit}}
+\index{get\_next\_pebs\_record\_by\_bit@{get\_next\_pebs\_record\_by\_bit}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{get\_next\_pebs\_record\_by\_bit()}{get\_next\_pebs\_record\_by\_bit()}}
+{\footnotesize\ttfamily static void$\ast$ get\+\_\+next\+\_\+pebs\+\_\+record\+\_\+by\+\_\+bit (\begin{DoxyParamCaption}\item[{void $\ast$}]{base,  }\item[{void $\ast$}]{top,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{ds_8c_a66eb8e06607847fdb872f615c0c43d90}\label{ds_8c_a66eb8e06607847fdb872f615c0c43d90}} 
+\index{ds.c@{ds.c}!get\_pebs\_status@{get\_pebs\_status}}
+\index{get\_pebs\_status@{get\_pebs\_status}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{get\_pebs\_status()}{get\_pebs\_status()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} get\+\_\+pebs\+\_\+status (\begin{DoxyParamCaption}\item[{void $\ast$}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{ds_8c_a2c348cd1f79650b65eaa723b7f7baded}\label{ds_8c_a2c348cd1f79650b65eaa723b7f7baded}} 
+\index{ds.c@{ds.c}!init\_debug\_store\_on\_cpu@{init\_debug\_store\_on\_cpu}}
+\index{init\_debug\_store\_on\_cpu@{init\_debug\_store\_on\_cpu}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{init\_debug\_store\_on\_cpu()}{init\_debug\_store\_on\_cpu()}}
+{\footnotesize\ttfamily void init\+\_\+debug\+\_\+store\+\_\+on\+\_\+cpu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{ds_8c_ae16b8ec3d292297e46fbe4b6760e3a75}\label{ds_8c_ae16b8ec3d292297e46fbe4b6760e3a75}} 
+\index{ds.c@{ds.c}!intel\_ds\_init@{intel\_ds\_init}}
+\index{intel\_ds\_init@{intel\_ds\_init}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_ds\_init()}{intel\_ds\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} intel\+\_\+ds\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{ds_8c_aea4abdda660b75c30ca5e21440b5a2da}\label{ds_8c_aea4abdda660b75c30ca5e21440b5a2da}} 
+\index{ds.c@{ds.c}!intel\_get\_tsx\_transaction@{intel\_get\_tsx\_transaction}}
+\index{intel\_get\_tsx\_transaction@{intel\_get\_tsx\_transaction}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_get\_tsx\_transaction()}{intel\_get\_tsx\_transaction()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} intel\+\_\+get\+\_\+tsx\+\_\+transaction (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{tsx\+\_\+tuning,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{ax }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{ds_8c_a0fc3c5877ce73f9ddcf84d2fd7fe11d2}\label{ds_8c_a0fc3c5877ce73f9ddcf84d2fd7fe11d2}} 
+\index{ds.c@{ds.c}!intel\_get\_tsx\_weight@{intel\_get\_tsx\_weight}}
+\index{intel\_get\_tsx\_weight@{intel\_get\_tsx\_weight}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_get\_tsx\_weight()}{intel\_get\_tsx\_weight()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} intel\+\_\+get\+\_\+tsx\+\_\+weight (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{tsx\+\_\+tuning }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{ds_8c_a1f6d3ecbacaded01813dca97824ca85e}\label{ds_8c_a1f6d3ecbacaded01813dca97824ca85e}} 
+\index{ds.c@{ds.c}!intel\_pebs\_constraints@{intel\_pebs\_constraints}}
+\index{intel\_pebs\_constraints@{intel\_pebs\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pebs\_constraints()}{intel\_pebs\_constraints()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}}$\ast$ intel\+\_\+pebs\+\_\+constraints (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{ds_8c_a722f07d7fef79ff7f5d49f1cbeaf24fe}\label{ds_8c_a722f07d7fef79ff7f5d49f1cbeaf24fe}} 
+\index{ds.c@{ds.c}!intel\_pmu\_auto\_reload\_read@{intel\_pmu\_auto\_reload\_read}}
+\index{intel\_pmu\_auto\_reload\_read@{intel\_pmu\_auto\_reload\_read}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_auto\_reload\_read()}{intel\_pmu\_auto\_reload\_read()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+auto\+\_\+reload\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{ds_8c_a4bea74be22e65ba47254f94b6fcdd6af}\label{ds_8c_a4bea74be22e65ba47254f94b6fcdd6af}} 
+\index{ds.c@{ds.c}!intel\_pmu\_disable\_bts@{intel\_pmu\_disable\_bts}}
+\index{intel\_pmu\_disable\_bts@{intel\_pmu\_disable\_bts}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_disable\_bts()}{intel\_pmu\_disable\_bts()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+disable\+\_\+bts (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{ds_8c_a91723370a63b51f45f34fa518bc9be5a}\label{ds_8c_a91723370a63b51f45f34fa518bc9be5a}} 
+\index{ds.c@{ds.c}!intel\_pmu\_drain\_bts\_buffer@{intel\_pmu\_drain\_bts\_buffer}}
+\index{intel\_pmu\_drain\_bts\_buffer@{intel\_pmu\_drain\_bts\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_drain\_bts\_buffer()}{intel\_pmu\_drain\_bts\_buffer()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} intel\+\_\+pmu\+\_\+drain\+\_\+bts\+\_\+buffer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{ds_8c_a547cc7836b0433905d0c3e85b223f35e}\label{ds_8c_a547cc7836b0433905d0c3e85b223f35e}} 
+\index{ds.c@{ds.c}!intel\_pmu\_drain\_pebs\_buffer@{intel\_pmu\_drain\_pebs\_buffer}}
+\index{intel\_pmu\_drain\_pebs\_buffer@{intel\_pmu\_drain\_pebs\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_drain\_pebs\_buffer()}{intel\_pmu\_drain\_pebs\_buffer()}}
+{\footnotesize\ttfamily static void intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+buffer (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{ds_8c_ae65216172b488ba17e890a8612aa53e1}\label{ds_8c_ae65216172b488ba17e890a8612aa53e1}} 
+\index{ds.c@{ds.c}!intel\_pmu\_drain\_pebs\_core@{intel\_pmu\_drain\_pebs\_core}}
+\index{intel\_pmu\_drain\_pebs\_core@{intel\_pmu\_drain\_pebs\_core}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_drain\_pebs\_core()}{intel\_pmu\_drain\_pebs\_core()}}
+{\footnotesize\ttfamily static void intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+core (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{iregs,  }\item[{struct perf\+\_\+sample\+\_\+data $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{ds_8c_acb62607f55aca9ba702a0d1cddec52b7}\label{ds_8c_acb62607f55aca9ba702a0d1cddec52b7}} 
+\index{ds.c@{ds.c}!intel\_pmu\_drain\_pebs\_icl@{intel\_pmu\_drain\_pebs\_icl}}
+\index{intel\_pmu\_drain\_pebs\_icl@{intel\_pmu\_drain\_pebs\_icl}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_drain\_pebs\_icl()}{intel\_pmu\_drain\_pebs\_icl()}}
+{\footnotesize\ttfamily static void intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+icl (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{iregs,  }\item[{struct perf\+\_\+sample\+\_\+data $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{ds_8c_a572889fbade12544788460a821a64bb0}\label{ds_8c_a572889fbade12544788460a821a64bb0}} 
+\index{ds.c@{ds.c}!intel\_pmu\_drain\_pebs\_nhm@{intel\_pmu\_drain\_pebs\_nhm}}
+\index{intel\_pmu\_drain\_pebs\_nhm@{intel\_pmu\_drain\_pebs\_nhm}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_drain\_pebs\_nhm()}{intel\_pmu\_drain\_pebs\_nhm()}}
+{\footnotesize\ttfamily static void intel\+\_\+pmu\+\_\+drain\+\_\+pebs\+\_\+nhm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{iregs,  }\item[{struct perf\+\_\+sample\+\_\+data $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{ds_8c_a02e97360064589461caae30e4b505b7e}\label{ds_8c_a02e97360064589461caae30e4b505b7e}} 
+\index{ds.c@{ds.c}!intel\_pmu\_enable\_bts@{intel\_pmu\_enable\_bts}}
+\index{intel\_pmu\_enable\_bts@{intel\_pmu\_enable\_bts}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_enable\_bts()}{intel\_pmu\_enable\_bts()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+enable\+\_\+bts (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{config }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{ds_8c_a2857007b9e9c6197d25a0905a33dbe5c}\label{ds_8c_a2857007b9e9c6197d25a0905a33dbe5c}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_add@{intel\_pmu\_pebs\_add}}
+\index{intel\_pmu\_pebs\_add@{intel\_pmu\_pebs\_add}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_add()}{intel\_pmu\_pebs\_add()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+pebs\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{ds_8c_af884867f02bb8efdfe5f3b6c17a4c750}\label{ds_8c_af884867f02bb8efdfe5f3b6c17a4c750}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_data\_source\_nhm@{intel\_pmu\_pebs\_data\_source\_nhm}}
+\index{intel\_pmu\_pebs\_data\_source\_nhm@{intel\_pmu\_pebs\_data\_source\_nhm}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_data\_source\_nhm()}{intel\_pmu\_pebs\_data\_source\_nhm()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} intel\+\_\+pmu\+\_\+pebs\+\_\+data\+\_\+source\+\_\+nhm (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{ds_8c_abcf45b701b0de1f21e4954fa136724b8}\label{ds_8c_abcf45b701b0de1f21e4954fa136724b8}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_data\_source\_skl@{intel\_pmu\_pebs\_data\_source\_skl}}
+\index{intel\_pmu\_pebs\_data\_source\_skl@{intel\_pmu\_pebs\_data\_source\_skl}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_data\_source\_skl()}{intel\_pmu\_pebs\_data\_source\_skl()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} intel\+\_\+pmu\+\_\+pebs\+\_\+data\+\_\+source\+\_\+skl (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{pmem }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{ds_8c_a84d4dfc888df49962f0c73f4fecdcb0d}\label{ds_8c_a84d4dfc888df49962f0c73f4fecdcb0d}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_del@{intel\_pmu\_pebs\_del}}
+\index{intel\_pmu\_pebs\_del@{intel\_pmu\_pebs\_del}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_del()}{intel\_pmu\_pebs\_del()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+pebs\+\_\+del (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{ds_8c_a56e904db8c198dbcb16c8473f0ec3472}\label{ds_8c_a56e904db8c198dbcb16c8473f0ec3472}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_disable@{intel\_pmu\_pebs\_disable}}
+\index{intel\_pmu\_pebs\_disable@{intel\_pmu\_pebs\_disable}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_disable()}{intel\_pmu\_pebs\_disable()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+pebs\+\_\+disable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{ds_8c_a7dcbbdc49b14ba66c05168d3f8ec21e3}\label{ds_8c_a7dcbbdc49b14ba66c05168d3f8ec21e3}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_disable\_all@{intel\_pmu\_pebs\_disable\_all}}
+\index{intel\_pmu\_pebs\_disable\_all@{intel\_pmu\_pebs\_disable\_all}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_disable\_all()}{intel\_pmu\_pebs\_disable\_all()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+pebs\+\_\+disable\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{ds_8c_aa5f28d19680c278a93e1f23380113810}\label{ds_8c_aa5f28d19680c278a93e1f23380113810}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_enable@{intel\_pmu\_pebs\_enable}}
+\index{intel\_pmu\_pebs\_enable@{intel\_pmu\_pebs\_enable}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_enable()}{intel\_pmu\_pebs\_enable()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+pebs\+\_\+enable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{ds_8c_a8233012b9efbb5247b550f2bbe5d944d}\label{ds_8c_a8233012b9efbb5247b550f2bbe5d944d}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_enable\_all@{intel\_pmu\_pebs\_enable\_all}}
+\index{intel\_pmu\_pebs\_enable\_all@{intel\_pmu\_pebs\_enable\_all}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_enable\_all()}{intel\_pmu\_pebs\_enable\_all()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+pebs\+\_\+enable\+\_\+all (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{ds_8c_a00523db7e7050cff62b335c2da7e865e}\label{ds_8c_a00523db7e7050cff62b335c2da7e865e}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_event\_update\_no\_drain@{intel\_pmu\_pebs\_event\_update\_no\_drain}}
+\index{intel\_pmu\_pebs\_event\_update\_no\_drain@{intel\_pmu\_pebs\_event\_update\_no\_drain}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_event\_update\_no\_drain()}{intel\_pmu\_pebs\_event\_update\_no\_drain()}}
+{\footnotesize\ttfamily static void intel\+\_\+pmu\+\_\+pebs\+\_\+event\+\_\+update\+\_\+no\+\_\+drain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$}]{cpuc,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{ds_8c_abc80d0728023854e989fe3d8d136d128}\label{ds_8c_abc80d0728023854e989fe3d8d136d128}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_fixup\_ip@{intel\_pmu\_pebs\_fixup\_ip}}
+\index{intel\_pmu\_pebs\_fixup\_ip@{intel\_pmu\_pebs\_fixup\_ip}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_fixup\_ip()}{intel\_pmu\_pebs\_fixup\_ip()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} intel\+\_\+pmu\+\_\+pebs\+\_\+fixup\+\_\+ip (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{ds_8c_a31a4d83ba247b49af7952cbeb45fd6c0}\label{ds_8c_a31a4d83ba247b49af7952cbeb45fd6c0}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_sched\_task@{intel\_pmu\_pebs\_sched\_task}}
+\index{intel\_pmu\_pebs\_sched\_task@{intel\_pmu\_pebs\_sched\_task}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_sched\_task()}{intel\_pmu\_pebs\_sched\_task()}}
+{\footnotesize\ttfamily void intel\+\_\+pmu\+\_\+pebs\+\_\+sched\+\_\+task (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event__context}{perf\+\_\+event\+\_\+context}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{sched\+\_\+in }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{ds_8c_a28298f81aefc6c264c5d0ea0176d6575}\label{ds_8c_a28298f81aefc6c264c5d0ea0176d6575}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_via\_pt\_disable@{intel\_pmu\_pebs\_via\_pt\_disable}}
+\index{intel\_pmu\_pebs\_via\_pt\_disable@{intel\_pmu\_pebs\_via\_pt\_disable}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_via\_pt\_disable()}{intel\_pmu\_pebs\_via\_pt\_disable()}}
+{\footnotesize\ttfamily static void intel\+\_\+pmu\+\_\+pebs\+\_\+via\+\_\+pt\+\_\+disable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{ds_8c_ac3a0a3d9b5c91307ebe42958ed3c43f5}\label{ds_8c_ac3a0a3d9b5c91307ebe42958ed3c43f5}} 
+\index{ds.c@{ds.c}!intel\_pmu\_pebs\_via\_pt\_enable@{intel\_pmu\_pebs\_via\_pt\_enable}}
+\index{intel\_pmu\_pebs\_via\_pt\_enable@{intel\_pmu\_pebs\_via\_pt\_enable}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_pebs\_via\_pt\_enable()}{intel\_pmu\_pebs\_via\_pt\_enable()}}
+{\footnotesize\ttfamily static void intel\+\_\+pmu\+\_\+pebs\+\_\+via\+\_\+pt\+\_\+enable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{ds_8c_a9db326477e115f6a825f2f948b3d2de9}\label{ds_8c_a9db326477e115f6a825f2f948b3d2de9}} 
+\index{ds.c@{ds.c}!intel\_pmu\_save\_and\_restart\_reload@{intel\_pmu\_save\_and\_restart\_reload}}
+\index{intel\_pmu\_save\_and\_restart\_reload@{intel\_pmu\_save\_and\_restart\_reload}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_pmu\_save\_and\_restart\_reload()}{intel\_pmu\_save\_and\_restart\_reload()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} intel\+\_\+pmu\+\_\+save\+\_\+and\+\_\+restart\+\_\+reload (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{ds_8c_afd967b474376674a304f59512a430e69}\label{ds_8c_afd967b474376674a304f59512a430e69}} 
+\index{ds.c@{ds.c}!load\_latency\_data@{load\_latency\_data}}
+\index{load\_latency\_data@{load\_latency\_data}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{load\_latency\_data()}{load\_latency\_data()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} load\+\_\+latency\+\_\+data (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{status }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{ds_8c_a6699e7bbffe151223c95a5e800db39be}\label{ds_8c_a6699e7bbffe151223c95a5e800db39be}} 
+\index{ds.c@{ds.c}!pebs\_needs\_sched\_cb@{pebs\_needs\_sched\_cb}}
+\index{pebs\_needs\_sched\_cb@{pebs\_needs\_sched\_cb}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{pebs\_needs\_sched\_cb()}{pebs\_needs\_sched\_cb()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pebs\+\_\+needs\+\_\+sched\+\_\+cb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$}]{cpuc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{ds_8c_a9392c83a6526a92b9c8b182f66b5f614}\label{ds_8c_a9392c83a6526a92b9c8b182f66b5f614}} 
+\index{ds.c@{ds.c}!pebs\_update\_adaptive\_cfg@{pebs\_update\_adaptive\_cfg}}
+\index{pebs\_update\_adaptive\_cfg@{pebs\_update\_adaptive\_cfg}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{pebs\_update\_adaptive\_cfg()}{pebs\_update\_adaptive\_cfg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} pebs\+\_\+update\+\_\+adaptive\+\_\+cfg (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{ds_8c_a0e03dda93b4767c8a2899723b99f49af}\label{ds_8c_a0e03dda93b4767c8a2899723b99f49af}} 
+\index{ds.c@{ds.c}!pebs\_update\_state@{pebs\_update\_state}}
+\index{pebs\_update\_state@{pebs\_update\_state}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{pebs\_update\_state()}{pebs\_update\_state()}}
+{\footnotesize\ttfamily static void pebs\+\_\+update\+\_\+state (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{needed\+\_\+cb,  }\item[{struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$}]{cpuc,  }\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{add }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{ds_8c_a100d456b68ff3f3c71203a5c0711ac3e}\label{ds_8c_a100d456b68ff3f3c71203a5c0711ac3e}} 
+\index{ds.c@{ds.c}!pebs\_update\_threshold@{pebs\_update\_threshold}}
+\index{pebs\_update\_threshold@{pebs\_update\_threshold}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{pebs\_update\_threshold()}{pebs\_update\_threshold()}}
+{\footnotesize\ttfamily static void pebs\+\_\+update\+\_\+threshold (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpu__hw__events}{cpu\+\_\+hw\+\_\+events}} $\ast$}]{cpuc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{ds_8c_aac043c672eec2356490de01474510830}\label{ds_8c_aac043c672eec2356490de01474510830}} 
+\index{ds.c@{ds.c}!perf\_restore\_debug\_store@{perf\_restore\_debug\_store}}
+\index{perf\_restore\_debug\_store@{perf\_restore\_debug\_store}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{perf\_restore\_debug\_store()}{perf\_restore\_debug\_store()}}
+{\footnotesize\ttfamily void perf\+\_\+restore\+\_\+debug\+\_\+store (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{ds_8c_a8390ff438b5d558a4f7452afc4be8c82}\label{ds_8c_a8390ff438b5d558a4f7452afc4be8c82}} 
+\index{ds.c@{ds.c}!precise\_datala\_hsw@{precise\_datala\_hsw}}
+\index{precise\_datala\_hsw@{precise\_datala\_hsw}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{precise\_datala\_hsw()}{precise\_datala\_hsw()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} precise\+\_\+datala\+\_\+hsw (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{status }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{ds_8c_a41fdab157e7e84abfd91bb10cbdadc6a}\label{ds_8c_a41fdab157e7e84abfd91bb10cbdadc6a}} 
+\index{ds.c@{ds.c}!precise\_store\_data@{precise\_store\_data}}
+\index{precise\_store\_data@{precise\_store\_data}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{precise\_store\_data()}{precise\_store\_data()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} precise\+\_\+store\+\_\+data (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{status }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{ds_8c_a559c0ec890c0f6355081ef8518374dc3}\label{ds_8c_a559c0ec890c0f6355081ef8518374dc3}} 
+\index{ds.c@{ds.c}!release\_bts\_buffer@{release\_bts\_buffer}}
+\index{release\_bts\_buffer@{release\_bts\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{release\_bts\_buffer()}{release\_bts\_buffer()}}
+{\footnotesize\ttfamily static void release\+\_\+bts\+\_\+buffer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 85
+Here is the caller graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{ds_8c_a06163fda11e1ea0a6cda2d344e87878b}\label{ds_8c_a06163fda11e1ea0a6cda2d344e87878b}} 
+\index{ds.c@{ds.c}!release\_ds\_buffer@{release\_ds\_buffer}}
+\index{release\_ds\_buffer@{release\_ds\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{release\_ds\_buffer()}{release\_ds\_buffer()}}
+{\footnotesize\ttfamily static void release\+\_\+ds\+\_\+buffer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{ds_8c_a2a8d62bd92aad16893cdc5bd1d45dd69}\label{ds_8c_a2a8d62bd92aad16893cdc5bd1d45dd69}} 
+\index{ds.c@{ds.c}!release\_ds\_buffers@{release\_ds\_buffers}}
+\index{release\_ds\_buffers@{release\_ds\_buffers}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{release\_ds\_buffers()}{release\_ds\_buffers()}}
+{\footnotesize\ttfamily void release\+\_\+ds\+\_\+buffers (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{ds_8c_abd05377303d6c36360b498c07d5673f8}\label{ds_8c_abd05377303d6c36360b498c07d5673f8}} 
+\index{ds.c@{ds.c}!release\_pebs\_buffer@{release\_pebs\_buffer}}
+\index{release\_pebs\_buffer@{release\_pebs\_buffer}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{release\_pebs\_buffer()}{release\_pebs\_buffer()}}
+{\footnotesize\ttfamily static void release\+\_\+pebs\+\_\+buffer (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 90
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{ds_8c_a7303f54d2d8ba1b58067538a98e02aca}\label{ds_8c_a7303f54d2d8ba1b58067538a98e02aca}} 
+\index{ds.c@{ds.c}!reserve\_ds\_buffers@{reserve\_ds\_buffers}}
+\index{reserve\_ds\_buffers@{reserve\_ds\_buffers}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{reserve\_ds\_buffers()}{reserve\_ds\_buffers()}}
+{\footnotesize\ttfamily void reserve\+\_\+ds\+\_\+buffers (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 92
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{ds_8c_a37f5950ff452c1a6bc26e601214764c0}\label{ds_8c_a37f5950ff452c1a6bc26e601214764c0}} 
+\index{ds.c@{ds.c}!setup\_pebs\_adaptive\_sample\_data@{setup\_pebs\_adaptive\_sample\_data}}
+\index{setup\_pebs\_adaptive\_sample\_data@{setup\_pebs\_adaptive\_sample\_data}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{setup\_pebs\_adaptive\_sample\_data()}{setup\_pebs\_adaptive\_sample\_data()}}
+{\footnotesize\ttfamily static void setup\+\_\+pebs\+\_\+adaptive\+\_\+sample\+\_\+data (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{iregs,  }\item[{void $\ast$}]{\+\_\+\+\_\+pebs,  }\item[{struct perf\+\_\+sample\+\_\+data $\ast$}]{data,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{ds_8c_a2f0f1e323b196d88a6fcea77c0c48cd5}\label{ds_8c_a2f0f1e323b196d88a6fcea77c0c48cd5}} 
+\index{ds.c@{ds.c}!setup\_pebs\_fixed\_sample\_data@{setup\_pebs\_fixed\_sample\_data}}
+\index{setup\_pebs\_fixed\_sample\_data@{setup\_pebs\_fixed\_sample\_data}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{setup\_pebs\_fixed\_sample\_data()}{setup\_pebs\_fixed\_sample\_data()}}
+{\footnotesize\ttfamily static void setup\+\_\+pebs\+\_\+fixed\+\_\+sample\+\_\+data (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{iregs,  }\item[{void $\ast$}]{\+\_\+\+\_\+pebs,  }\item[{struct perf\+\_\+sample\+\_\+data $\ast$}]{data,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{ds_8c_ac9cc687e346d9902f052cef7c23ae4a0}\label{ds_8c_ac9cc687e346d9902f052cef7c23ae4a0}} 
+\index{ds.c@{ds.c}!store\_latency\_data@{store\_latency\_data}}
+\index{store\_latency\_data@{store\_latency\_data}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{store\_latency\_data()}{store\_latency\_data()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} store\+\_\+latency\+\_\+data (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{status }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 98
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{ds_8c_adbc5da02582e4277e9d31c70f5386ec9}\label{ds_8c_adbc5da02582e4277e9d31c70f5386ec9}} 
+\index{ds.c@{ds.c}!bts\_constraint@{bts\_constraint}}
+\index{bts\_constraint@{bts\_constraint}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{bts\_constraint}{bts\_constraint}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} bts\+\_\+constraint}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{=}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a4751bc344a0aef9fcdb9461f4b6d7d05}{EVENT\_CONSTRAINT}}(0, 1\mbox{\hyperlink{vdso_2const_8h_ae7289206560e57188eb393096c91e575}{ULL}} << \mbox{\hyperlink{arch_2x86_2include_2asm_2perf__event_8h_a3846e6d6b57f649c0c6a2551cb4149aa}{INTEL\_PMC\_IDX\_FIXED\_BTS}}, 0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_acb7a3ff6446d30f63c75400001927f2d}\label{ds_8c_acb7a3ff6446d30f63c75400001927f2d}} 
+\index{ds.c@{ds.c}!intel\_atom\_pebs\_event\_constraints@{intel\_atom\_pebs\_event\_constraints}}
+\index{intel\_atom\_pebs\_event\_constraints@{intel\_atom\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_atom\_pebs\_event\_constraints}{intel\_atom\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+atom\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x00c0, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x00c5, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xcb, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108000c0, 0x01),}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a9ea79f2e6d3ad6c0c53170e68d20b2aa}\label{ds_8c_a9ea79f2e6d3ad6c0c53170e68d20b2aa}} 
+\index{ds.c@{ds.c}!intel\_bdw\_pebs\_event\_constraints@{intel\_bdw\_pebs\_event\_constraints}}
+\index{intel\_bdw\_pebs\_event\_constraints@{intel\_bdw\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_bdw\_pebs\_event\_constraints}{intel\_bdw\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+bdw\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x01c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x01cd, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c2, 0xf),}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_afd6df61a36175d6923dfcc0b3c56063d}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_NA}}(0x01c2, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x11d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x21d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x41d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x81d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x12d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x42d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x82d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aeefa688dbe14e51d0d83b07930b8756b}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD}}(0xd1, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aeefa688dbe14e51d0d83b07930b8756b}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD}}(0xd2, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aeefa688dbe14e51d0d83b07930b8756b}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD}}(0xd3, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0xf),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a2f35c35c1a3dbafb94cc02cfcfa77d25}\label{ds_8c_a2f35c35c1a3dbafb94cc02cfcfa77d25}} 
+\index{ds.c@{ds.c}!intel\_core2\_pebs\_event\_constraints@{intel\_core2\_pebs\_event\_constraints}}
+\index{intel\_core2\_pebs\_event\_constraints@{intel\_core2\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_core2\_pebs\_event\_constraints}{intel\_core2\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+core2\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x00c0, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0xfec1, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x00c5, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x1fc7, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xcb, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108000c0, 0x01),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a3858e38e0aaa252f14ec017dfdbf013b}\label{ds_8c_a3858e38e0aaa252f14ec017dfdbf013b}} 
+\index{ds.c@{ds.c}!intel\_glm\_pebs\_event\_constraints@{intel\_glm\_pebs\_event\_constraints}}
+\index{intel\_glm\_pebs\_event\_constraints@{intel\_glm\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_glm\_pebs\_event\_constraints}{intel\_glm\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+glm\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a967b469613b84ea07ae10f755865f2d0}\label{ds_8c_a967b469613b84ea07ae10f755865f2d0}} 
+\index{ds.c@{ds.c}!intel\_grt\_pebs\_event\_constraints@{intel\_grt\_pebs\_event\_constraints}}
+\index{intel\_grt\_pebs\_event\_constraints@{intel\_grt\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_grt\_pebs\_event\_constraints}{intel\_grt\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+grt\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x5d0, 0xf),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a232b0e599014817a478475aa03589f82}{INTEL\_PSD\_CONSTRAINT}}(0x6d0, 0xf),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_aacffd1e7f53de0efe2f22b61f0d1636b}\label{ds_8c_aacffd1e7f53de0efe2f22b61f0d1636b}} 
+\index{ds.c@{ds.c}!intel\_hsw\_pebs\_event\_constraints@{intel\_hsw\_pebs\_event\_constraints}}
+\index{intel\_hsw\_pebs\_event\_constraints@{intel\_hsw\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_hsw\_pebs\_event\_constraints}{intel\_hsw\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+hsw\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x01c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x01cd, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c2, 0xf),}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_afd6df61a36175d6923dfcc0b3c56063d}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_NA}}(0x01c2, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ac664d0d2f07fe1b72d62f7f5c339f22d}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_XLD}}(0x11d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ac664d0d2f07fe1b72d62f7f5c339f22d}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_XLD}}(0x21d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ac664d0d2f07fe1b72d62f7f5c339f22d}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_XLD}}(0x41d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ac664d0d2f07fe1b72d62f7f5c339f22d}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_XLD}}(0x81d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ad96f25ec124cfbb0bfb8f91d190cab9c}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_XST}}(0x12d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ad96f25ec124cfbb0bfb8f91d190cab9c}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_XST}}(0x42d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ad96f25ec124cfbb0bfb8f91d190cab9c}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_XST}}(0x82d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_add64a4828efcbbc375e38d160f983c92}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_XLD}}(0xd1, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_add64a4828efcbbc375e38d160f983c92}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_XLD}}(0xd2, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_add64a4828efcbbc375e38d160f983c92}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_XLD}}(0xd3, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0xf),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a6083e11a3977a8530e3de1fd77d45207}\label{ds_8c_a6083e11a3977a8530e3de1fd77d45207}} 
+\index{ds.c@{ds.c}!intel\_icl\_pebs\_event\_constraints@{intel\_icl\_pebs\_event\_constraints}}
+\index{intel\_icl\_pebs\_event\_constraints@{intel\_icl\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_icl\_pebs\_event\_constraints}{intel\_icl\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+icl\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x1c0, 0x100000000ULL),  }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x0400, 0x800000000ULL), }
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x1cd, 0xff),          }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x1d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x2d0, 0xf), }
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a4839e5307bce626c064c9a45fb396784}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD\_RANGE}}(0xd1, 0xd4, 0xf), }
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xd0, 0xf),        }
+\DoxyCodeLine{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a30df5c31e5d9b7f8e903038385abc5a4}\label{ds_8c_a30df5c31e5d9b7f8e903038385abc5a4}} 
+\index{ds.c@{ds.c}!intel\_ivb\_pebs\_event\_constraints@{intel\_ivb\_pebs\_event\_constraints}}
+\index{intel\_ivb\_pebs\_event\_constraints@{intel\_ivb\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_ivb\_pebs\_event\_constraints}{intel\_ivb\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+ivb\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{        \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x01c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}), }
+\DoxyCodeLine{        \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x01cd, 0x8),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7518c621fe939e7a50543d5873c77aee}{INTEL\_PST\_CONSTRAINT}}(0x02cd, 0x8),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c2, 0xf),}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd0, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd1, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd2, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd3, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0xf),}
+\DoxyCodeLine{        \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_ada1106ebdf66c1dcc434032aafe2d772}\label{ds_8c_ada1106ebdf66c1dcc434032aafe2d772}} 
+\index{ds.c@{ds.c}!intel\_nehalem\_pebs\_event\_constraints@{intel\_nehalem\_pebs\_event\_constraints}}
+\index{intel\_nehalem\_pebs\_event\_constraints@{intel\_nehalem\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_nehalem\_pebs\_event\_constraints}{intel\_nehalem\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+nehalem\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x100b, 0xf),      }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0x0f, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x010c, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc0, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aa26d48a11ecd6d7e80a5161b0adb4950}{INTEL\_EVENT\_CONSTRAINT}}(0xc2, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc4, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x02c5, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc7, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x20c8, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xcb, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xf7, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108000c0, 0x0f),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a0a98f5e22a3bacf8962df16974f29ab5}\label{ds_8c_a0a98f5e22a3bacf8962df16974f29ab5}} 
+\index{ds.c@{ds.c}!intel\_skl\_pebs\_event\_constraints@{intel\_skl\_pebs\_event\_constraints}}
+\index{intel\_skl\_pebs\_event\_constraints@{intel\_skl\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_skl\_pebs\_event\_constraints}{intel\_skl\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+skl\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x1c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}),   }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}),}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108000c0, 0x0f),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x1cd, 0xf),             }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x11d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x12d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x21d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x22d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x41d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x42d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x81d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x82d0, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aeefa688dbe14e51d0d83b07930b8756b}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD}}(0xd1, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aeefa688dbe14e51d0d83b07930b8756b}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD}}(0xd2, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aeefa688dbe14e51d0d83b07930b8756b}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD}}(0xd3, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0xf),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a4f170c43c87e4a22d30d13ac764b5181}\label{ds_8c_a4f170c43c87e4a22d30d13ac764b5181}} 
+\index{ds.c@{ds.c}!intel\_slm\_pebs\_event\_constraints@{intel\_slm\_pebs\_event\_constraints}}
+\index{intel\_slm\_pebs\_event\_constraints@{intel\_slm\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_slm\_pebs\_event\_constraints}{intel\_slm\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+slm\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108000c0, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}),}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a1c020b3eb7e20898336b38a673698d49}\label{ds_8c_a1c020b3eb7e20898336b38a673698d49}} 
+\index{ds.c@{ds.c}!intel\_snb\_pebs\_event\_constraints@{intel\_snb\_pebs\_event\_constraints}}
+\index{intel\_snb\_pebs\_event\_constraints@{intel\_snb\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_snb\_pebs\_event\_constraints}{intel\_snb\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+snb\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x01c0, 0\mbox{\hyperlink{ec_8c_ab24e1cc331c488f6a1623cde1564c644}{x2}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x01cd, 0x8),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7518c621fe939e7a50543d5873c77aee}{INTEL\_PST\_CONSTRAINT}}(0x02cd, 0x8),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108001c2, 0xf),}
+\DoxyCodeLine{        \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd0, 0xf),    }
+\DoxyCodeLine{        \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd1, 0xf),    }
+\DoxyCodeLine{        \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd2, 0xf),    }
+\DoxyCodeLine{        \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_af6c7c43d514217e089cd1883e375c407}{INTEL\_EXCLEVT\_CONSTRAINT}}(0xd3, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a281fb5f6b7b3c2895bcdb124ace3c8bb}{INTEL\_ALL\_EVENT\_CONSTRAINT}}(0, 0xf),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_ac13b87a0105a9bc63b36fd0cb19a5b65}\label{ds_8c_ac13b87a0105a9bc63b36fd0cb19a5b65}} 
+\index{ds.c@{ds.c}!intel\_spr\_pebs\_event\_constraints@{intel\_spr\_pebs\_event\_constraints}}
+\index{intel\_spr\_pebs\_event\_constraints@{intel\_spr\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_spr\_pebs\_event\_constraints}{intel\_spr\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+spr\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x1c0, 0x100000000ULL),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x0400, 0x800000000ULL),}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc0, 0xfe),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x1cd, 0xfe),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a232b0e599014817a478475aa03589f82}{INTEL\_PSD\_CONSTRAINT}}(0x2cd, 0\mbox{\hyperlink{ec_8c_a3818b7c50ae3cf2e9ae39316586a1aa4}{x1}}),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a320126952a92c728d5fea863001b69cb}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_LD}}(0x1d0, 0xf),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a96e58f64dcf98a8be4ae775111e20e9e}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT\_DATALA\_ST}}(0x2d0, 0xf),}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a4839e5307bce626c064c9a45fb396784}{INTEL\_FLAGS\_EVENT\_CONSTRAINT\_DATALA\_LD\_RANGE}}(0xd1, 0xd4, 0xf),}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xd0, 0xf),}
+\DoxyCodeLine{}
+\DoxyCodeLine{    }
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a624ee3d7dcc9b5119c97f19cf4c0c274}\label{ds_8c_a624ee3d7dcc9b5119c97f19cf4c0c274}} 
+\index{ds.c@{ds.c}!intel\_westmere\_pebs\_event\_constraints@{intel\_westmere\_pebs\_event\_constraints}}
+\index{intel\_westmere\_pebs\_event\_constraints@{intel\_westmere\_pebs\_event\_constraints}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{intel\_westmere\_pebs\_event\_constraints}{intel\_westmere\_pebs\_event\_constraints}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structevent__constraint}{event\+\_\+constraint}} intel\+\_\+westmere\+\_\+pebs\+\_\+event\+\_\+constraints\mbox{[}$\,$\mbox{]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a1c0cc0ec00d7cdf96912b3460375c9e3}{INTEL\_PLD\_CONSTRAINT}}(0x100b, 0xf),      }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0x0f, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x010c, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc0, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_aa26d48a11ecd6d7e80a5161b0adb4950}{INTEL\_EVENT\_CONSTRAINT}}(0xc2, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc4, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc5, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xc7, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x20c8, 0xf), }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xcb, 0xf),    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7328f1291349b5677a3d83fac67deb9c}{INTEL\_FLAGS\_EVENT\_CONSTRAINT}}(0xf7, 0xf),    }
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a7ba255dfb693f64359d5d92d01fce7b2}{INTEL\_FLAGS\_UEVENT\_CONSTRAINT}}(0x108000c0, 0x0f),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_a9e96e4e4f946696b91667bd3135f473d}{EVENT\_CONSTRAINT\_END}}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{ds_8c_a4b55955c462e3cb2ae7eec9bbdf73432}\label{ds_8c_a4b55955c462e3cb2ae7eec9bbdf73432}} 
+\index{ds.c@{ds.c}!pebs\_data\_source@{pebs\_data\_source}}
+\index{pebs\_data\_source@{pebs\_data\_source}!ds.c@{ds.c}}
+\doxysubsubsection{\texorpdfstring{pebs\_data\_source}{pebs\_data\_source}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} pebs\+\_\+data\+\_\+source\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(OP, \mbox{\hyperlink{zlib__inflate_2inflate_8c_a03dae42536f97b08183620a910f9b204}{LOAD}}) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, MISS) | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, NA),}
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, L1)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L1) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, \mbox{\hyperlink{vsyscall__64_8c_a16af7b253440dadd46a80a4b9fddba4dac157bdf0b85a40d2619cbc8bc1ae5fe2}{NONE}}),  }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, LFB) | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(LFB) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, \mbox{\hyperlink{vsyscall__64_8c_a16af7b253440dadd46a80a4b9fddba4dac157bdf0b85a40d2619cbc8bc1ae5fe2}{NONE}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, L2)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L2) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, \mbox{\hyperlink{vsyscall__64_8c_a16af7b253440dadd46a80a4b9fddba4dac157bdf0b85a40d2619cbc8bc1ae5fe2}{NONE}}),  }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, L3)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, \mbox{\hyperlink{vsyscall__64_8c_a16af7b253440dadd46a80a4b9fddba4dac157bdf0b85a40d2619cbc8bc1ae5fe2}{NONE}}),  }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, L3)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, MISS),  }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, L3)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, HIT),   }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, L3)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, HITM),  }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, REM\_CCE1) | \mbox{\hyperlink{ds_8c_a4c0be4e2e15f7167f711d5769b01a049}{REM}} | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, HIT),  }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, REM\_CCE1) | \mbox{\hyperlink{ds_8c_a4c0be4e2e15f7167f711d5769b01a049}{REM}} | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, HITM), }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, LOC\_RAM)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(RAM) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, HIT),       }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, REM\_RAM1) | \mbox{\hyperlink{ds_8c_a4c0be4e2e15f7167f711d5769b01a049}{REM}} | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(L3) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, HIT),  }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, LOC\_RAM)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(RAM) | \mbox{\hyperlink{ds_8c_a1ef521c619f2e52294083ccdc3073ff8}{SNOOP\_NONE\_MISS}},     }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, REM\_RAM1) | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(RAM) | \mbox{\hyperlink{ds_8c_a4c0be4e2e15f7167f711d5769b01a049}{REM}} | \mbox{\hyperlink{ds_8c_a1ef521c619f2e52294083ccdc3073ff8}{SNOOP\_NONE\_MISS}}, }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, IO)  | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(NA) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, \mbox{\hyperlink{vsyscall__64_8c_a16af7b253440dadd46a80a4b9fddba4dac157bdf0b85a40d2619cbc8bc1ae5fe2}{NONE}}), }
+\DoxyCodeLine{    \mbox{\hyperlink{ds_8c_a4c3bc807944700d21139411bdf89d140}{OP\_LH}} | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(LVL, UNC) | \mbox{\hyperlink{ds_8c_aa243b27d7c8f3c0edf28b91220cd8532}{LEVEL}}(NA) | \mbox{\hyperlink{ds_8c_ab6d3e4da1fd706061f451d27ea10d40d}{P}}(SNOOP, \mbox{\hyperlink{vsyscall__64_8c_a16af7b253440dadd46a80a4b9fddba4dac157bdf0b85a40d2619cbc8bc1ae5fe2}{NONE}}), }
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

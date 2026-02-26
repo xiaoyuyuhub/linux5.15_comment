@@ -1,0 +1,89 @@
+\hypertarget{list__sort_8c}{}\doxysection{lib/list\+\_\+sort.c File Reference}
+\label{list__sort_8c}\index{lib/list\_sort.c@{lib/list\_sort.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/compiler.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list\+\_\+sort.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+Include dependency graph for list\+\_\+sort.\+c\+:
+% FIG 0
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{list__sort_8c_a98841e28757a4fbcb32948f4ab952c56}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} ((nonnull(2, 3, 4)))
+\item 
+\mbox{\hyperlink{list__sort_8c_a3fd3f49d3532684085533b9ee93e66d1}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} ((nonnull(2, 3, 4, 5)))
+\item 
+\mbox{\hyperlink{list__sort_8c_a71fd8859db7cc4da43620e89e4def67b}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} ((nonnull(2, 3)))
+\item 
+\mbox{\hyperlink{list__sort_8c_ad7f2ee5df59b05eaaf5285dbd43306dd}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (list\+\_\+sort)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{list__sort_8c_a71fd8859db7cc4da43620e89e4def67b}\label{list__sort_8c_a71fd8859db7cc4da43620e89e4def67b}} 
+\index{list\_sort.c@{list\_sort.c}!\_\_attribute\_\_@{\_\_attribute\_\_}}
+\index{\_\_attribute\_\_@{\_\_attribute\_\_}!list\_sort.c@{list\_sort.c}}
+\doxysubsubsection{\texorpdfstring{\_\_attribute\_\_()}{\_\_attribute\_\_()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily \mbox{\hyperlink{struct____attribute____}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} (\begin{DoxyParamCaption}\item[{(nonnull(2, 3))}]{ }\end{DoxyParamCaption})}
+
+list\+\_\+sort -\/ sort a list @priv\+: private data, opaque to list\+\_\+sort(), passed to @cmp @head\+: the list to sort @cmp\+: the elements comparison function
+
+\mbox{\hyperlink{classThe}{The}} comparison function @cmp must return $>$ 0 if {\itshape should} sort after {\bfseries{}}(\char`\"{}@a $>$ @b\char`\"{} if you want an ascending sort), and $<$= 0 if {\itshape should} sort before {\bfseries{{\itshape or}}} their original order should be preserved. It is always called with the element that came first in the input in {\itshape }, and list\+\_\+sort is a stable sort, so it is not necessary to distinguish the {\itshape $<$} {\bfseries{and}} {\itshape ==} {\bfseries{cases}}.
+
+This is compatible with two styles of @cmp function\+:
+\begin{DoxyItemize}
+\item \mbox{\hyperlink{classThe}{The}} traditional style which returns $<$0 / =0 / $>$0, or
+\item Returning a boolean 0/1. \mbox{\hyperlink{classThe}{The}} latter offers a chance to save a few cycles in the comparison (which is used by e.\+g. plug\+\_\+ctx\+\_\+cmp() in block/blk-\/mq.\+c).
+\end{DoxyItemize}
+
+A good way to write a multi-\/word comparison is\+:\+:
+
+if (a-\/$>$high != b-\/$>$high) return a-\/$>$high $>$ b-\/$>$high; if (a-\/$>$middle != b-\/$>$middle) return a-\/$>$middle $>$ b-\/$>$middle; return a-\/$>$low $>$ b-\/$>$low;
+
+This mergesort is as eager as possible while always performing at least 2\+:1 balanced merges. Given two pending sublists of size 2$^\wedge$k, they are merged to a size-\/2$^\wedge$(k+1) list as soon as we have 2$^\wedge$k following elements.
+
+Thus, it will avoid cache thrashing as long as 3$\ast$2$^\wedge$k elements can fit into the cache. Not quite as good as a fully-\/eager bottom-\/up mergesort, but it does use 0.\+2$\ast$n fewer comparisons, so is faster in the common case that everything fits into L1.
+
+\mbox{\hyperlink{classThe}{The}} merging is controlled by \char`\"{}count\char`\"{}, the number of elements in the pending lists. This is beautifully simple code, but rather subtle.
+
+Each time we increment \char`\"{}count\char`\"{}, we set one bit (bit k) and clear bits k-\/1 .. 0. Each time this happens (except the very first time for each bit, when count increments to 2$^\wedge$k), we merge two lists of size 2$^\wedge$k into one list of size 2$^\wedge$(k+1).
+
+This merge happens exactly when the count reaches an odd multiple of 2$^\wedge$k, which is when we have 2$^\wedge$k elements pending in smaller lists, so it\textquotesingle{}s safe to merge away two lists of size 2$^\wedge$k.
+
+After this happens twice, we have created two lists of size 2$^\wedge$(k+1), which will be merged into a list of size 2$^\wedge$(k+2) before we create a third list of size 2$^\wedge$(k+1), so there are never more than two pending.
+
+\mbox{\hyperlink{classThe}{The}} number of pending lists of size 2$^\wedge$k is determined by the state of bit k of \char`\"{}count\char`\"{} plus two extra pieces of information\+:
+
+
+\begin{DoxyItemize}
+\item \mbox{\hyperlink{classThe}{The}} state of bit k-\/1 (when k == 0, consider bit -\/1 always set), and
+\item Whether the higher-\/order bits are zero or non-\/zero (i.\+e. is count $>$= 2$^\wedge$(k+1)).
+\end{DoxyItemize}
+
+There are six states we distinguish. \char`\"{}x\char`\"{} represents some arbitrary bits, and \char`\"{}y\char`\"{} represents some arbitrary non-\/zero bits\+: 0\+: 00x\+: 0 pending of size 2$^\wedge$k; x pending of sizes $<$ 2$^\wedge$k 1\+: 01x\+: 0 pending of size 2$^\wedge$k; 2$^\wedge$(k-\/1) + x pending of sizes $<$ 2$^\wedge$k 2\+: x10x\+: 0 pending of size 2$^\wedge$k; 2$^\wedge$k + x pending of sizes $<$ 2$^\wedge$k 3\+: x11x\+: 1 pending of size 2$^\wedge$k; 2$^\wedge$(k-\/1) + x pending of sizes $<$ 2$^\wedge$k 4\+: y00x\+: 1 pending of size 2$^\wedge$k; 2$^\wedge$k + x pending of sizes $<$ 2$^\wedge$k 5\+: y01x\+: 2 pending of size 2$^\wedge$k; 2$^\wedge$(k-\/1) + x pending of sizes $<$ 2$^\wedge$k (merge and loop back to state 2)
+
+We gain lists of size 2$^\wedge$k in the 2-\/$>$3 and 4-\/$>$5 transitions (because bit k-\/1 is set while the more significant bits are non-\/zero) and merge them away in the 5-\/$>$2 transition. Note in particular that just before the 5-\/$>$2 transition, all lower-\/order bits are 11 (state 3), so there is one list of each smaller size.
+
+When we reach the end of the input, we merge all the pending lists, from smallest to largest. If you work through cases 2 to 5 above, you can see that the number of elements we merge with a list of size 2$^\wedge$k varies from 2$^\wedge$(k-\/1) (cases 3 and 5 when x == 0) to 2$^\wedge$(k+1) -\/ 1 (second merge of case 5 when x == 2$^\wedge$(k-\/1) -\/ 1). Here is the call graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{list__sort_8c_a98841e28757a4fbcb32948f4ab952c56}\label{list__sort_8c_a98841e28757a4fbcb32948f4ab952c56}} 
+\index{list\_sort.c@{list\_sort.c}!\_\_attribute\_\_@{\_\_attribute\_\_}}
+\index{\_\_attribute\_\_@{\_\_attribute\_\_}!list\_sort.c@{list\_sort.c}}
+\doxysubsubsection{\texorpdfstring{\_\_attribute\_\_()}{\_\_attribute\_\_()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily \mbox{\hyperlink{struct____attribute____}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} (\begin{DoxyParamCaption}\item[{(nonnull(2, 3, 4))}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{list__sort_8c_a3fd3f49d3532684085533b9ee93e66d1}\label{list__sort_8c_a3fd3f49d3532684085533b9ee93e66d1}} 
+\index{list\_sort.c@{list\_sort.c}!\_\_attribute\_\_@{\_\_attribute\_\_}}
+\index{\_\_attribute\_\_@{\_\_attribute\_\_}!list\_sort.c@{list\_sort.c}}
+\doxysubsubsection{\texorpdfstring{\_\_attribute\_\_()}{\_\_attribute\_\_()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily \mbox{\hyperlink{struct____attribute____}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} (\begin{DoxyParamCaption}\item[{(nonnull(2, 3, 4, 5))}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{list__sort_8c_ad7f2ee5df59b05eaaf5285dbd43306dd}\label{list__sort_8c_ad7f2ee5df59b05eaaf5285dbd43306dd}} 
+\index{list\_sort.c@{list\_sort.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!list\_sort.c@{list\_sort.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{list\+\_\+sort}]{ }\end{DoxyParamCaption})}
+

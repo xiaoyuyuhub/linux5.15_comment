@@ -1,0 +1,1176 @@
+\hypertarget{kprobes_8c}{}\doxysection{kernel/kprobes.c File Reference}
+\label{kprobes_8c}\index{kernel/kprobes.c@{kernel/kprobes.c}}
+{\ttfamily \#include $<$linux/kprobes.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hash.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stddef.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/moduleloader.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kallsyms.\+h$>$}\newline
+{\ttfamily \#include $<$linux/freezer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sysctl.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kdebug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memory.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ftrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jump\+\_\+label.\+h$>$}\newline
+{\ttfamily \#include $<$linux/static\+\_\+call.\+h$>$}\newline
+{\ttfamily \#include $<$linux/perf\+\_\+event.\+h$>$}\newline
+{\ttfamily \#include $<$asm/sections.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cacheflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/errno.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+Include dependency graph for kprobes.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_ad856120db0f733e04aae771c50d41c39}{K\+P\+R\+O\+B\+E\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}~6
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_a0e49b737693e316c27c9c87d6d48aa6d}{K\+P\+R\+O\+B\+E\+\_\+\+T\+A\+B\+L\+E\+\_\+\+S\+I\+ZE}}~(1 $<$$<$ \mbox{\hyperlink{kprobes_8c_ad856120db0f733e04aae771c50d41c39}{K\+P\+R\+O\+B\+E\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_a6b2b433e78a4cb112f2c187eb5f6296f}{optimize\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_abf9b6d6978b931d9783f79163cbedb12}{unoptimize\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}},  \mbox{\hyperlink{net_2netfilter_2nf__log_8h_add955a53b78465a0b2e692b0795c9bd2}{f}})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_aa99ff8284c5e2820324a2834874c7b45}{kill\+\_\+optimized\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_a1d7450526823b73c8e0c410d7a7705d6}{prepare\+\_\+optimized\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_a23ecaf7bf800cbf207248cea59e9878f}{try\+\_\+to\+\_\+optimize\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_abf825a10021db42513288e769980a7e4}{\+\_\+\+\_\+arm\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~\mbox{\hyperlink{arch_2x86_2kernel_2kprobes_2core_8c_a52d31eb843c936b779df61d1abdf1866}{arch\+\_\+arm\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_a169749af00ec1c44c3ebdfb4c30cc90f}{\+\_\+\+\_\+disarm\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}},  o)~\mbox{\hyperlink{arch_2x86_2kernel_2kprobes_2core_8c_a2d46d12fd72dd6c65ffdc770fc1c185c}{arch\+\_\+disarm\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_ae328aaa9f8f6082e2c940416a2d19c3f}{kprobe\+\_\+disarmed}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~\mbox{\hyperlink{include_2linux_2kprobes_8h_aa5f8e684e3032f883540928557701de7}{kprobe\+\_\+disabled}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\#define \mbox{\hyperlink{kprobes_8c_aeade854e9166dbc3f5a7d17dd1534c1e}{wait\+\_\+for\+\_\+kprobe\+\_\+optimizer}}()~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{kprobes_8c_a3fef87003940b1ad9b6eefa51d369d64}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (kprobe\+\_\+mutex)
+\item 
+static \mbox{\hyperlink{kprobes_8c_a10562d58b85f4dd729b42dcc8506c9ce}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$, kprobe\+\_\+instance)
+\item 
+\mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}} $\ast$\mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kprobes_8c_a76bd84f429cbee9c4661102518a09131}{kprobe\+\_\+lookup\+\_\+name}} (const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+unused)
+\item 
+static \mbox{\hyperlink{kprobes_8c_a9f5cea4a582bd25504cb1337bd968227}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (kprobe\+\_\+blacklist)
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a98397bf7ecb003829aa98af3f2314f2d}{set\+\_\+kprobe\+\_\+instance}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a33d10db68fb160a0ea758a37f1b06ef3}{reset\+\_\+kprobe\+\_\+instance}} (void)
+\item 
+struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$ \mbox{\hyperlink{kprobes_8c_aeed3b8998bea091f40bea42050efba5b}{get\+\_\+kprobe}} (void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a1074708f4c2a6f537f4c5a626a5bf315}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a66ddbfefaf32e30605dd1a857e2e8199}{get\+\_\+kprobe}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a2b915a40ee56179f98198b8c3c810d98}{aggr\+\_\+pre\+\_\+handler}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_af6b4e62940405f3e82737b9658a7ee5a}{kprobe\+\_\+aggrprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_ab435fce9fdbdfe6929714e8dbdebedf2}{kprobe\+\_\+unused}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a51f83397f0d2de316196b54f71859960}{copy\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{linux_2kernel_8h_aa5fda1c9370693a5da8882cb44ef8aa5}{ap}}, struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_ab7e14dc5f84265a72f313725b68ab6ee}{reuse\+\_\+unused\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{linux_2kernel_8h_aa5fda1c9370693a5da8882cb44ef8aa5}{ap}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_ac6805f365654c1205113c4dad57b3744}{free\+\_\+aggr\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$ \mbox{\hyperlink{kprobes_8c_a2b51850743e3b7dfbc5d14f7d27789e3}{alloc\+\_\+aggr\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a35555e342fc78fa9c9b89f703a12ad98}{prepare\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a1d6623fd187fe879cda0ce8e976c151a}{arm\+\_\+kprobe\+\_\+ftrace}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a9a9346fd3fb909b118e0b1ef1df34448}{disarm\+\_\+kprobe\+\_\+ftrace}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a165038e4e08da6ddb92d260289161867}{arm\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a32f4a578b3351b0710f464e7b3a1daad}{disarm\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} reopt)
+\item 
+\mbox{\hyperlink{kprobes_8c_ac2263fc555983a83a41ea4202f8099d5}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_a2b915a40ee56179f98198b8c3c810d98}{aggr\+\_\+pre\+\_\+handler}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a73d6d6eba25d569c533e17f0c171a717}{aggr\+\_\+post\+\_\+handler}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, unsigned long \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+\mbox{\hyperlink{kprobes_8c_ae2c512492e452694b0fa2d158f1596fa}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_a73d6d6eba25d569c533e17f0c171a717}{aggr\+\_\+post\+\_\+handler}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_a5c598428432f8f551a7b79bd7ecac9b7}{kprobes\+\_\+inc\+\_\+nmissed\+\_\+count}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{kprobes_8c_ae92e67ed3b72256f1ab06dccf077663e}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_a5c598428432f8f551a7b79bd7ecac9b7}{kprobes\+\_\+inc\+\_\+nmissed\+\_\+count}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_ae273c9390b079e8bd9721c792ed5bdef}{free\+\_\+rp\+\_\+inst\+\_\+rcu}} (struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}})
+\item 
+\mbox{\hyperlink{kprobes_8c_add41582b4c5090927dae37905c429c34}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_ae273c9390b079e8bd9721c792ed5bdef}{free\+\_\+rp\+\_\+inst\+\_\+rcu}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a16a923769c0c9992b7fd3bc64ae0dc10}{recycle\+\_\+rp\+\_\+inst}} (struct \mbox{\hyperlink{structkretprobe__instance}{kretprobe\+\_\+instance}} $\ast$ri)
+\item 
+\mbox{\hyperlink{kprobes_8c_aaa325c59b52b8d35bef38410cfd89d6b}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_a16a923769c0c9992b7fd3bc64ae0dc10}{recycle\+\_\+rp\+\_\+inst}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_a925767a31294ff7fed27d2b1d74b5956}{kprobe\+\_\+busy\+\_\+begin}} (void)
+\item 
+void \mbox{\hyperlink{kprobes_8c_aeb77a02c1fdbf368b01a0c476519725e}{kprobe\+\_\+busy\+\_\+end}} (void)
+\item 
+void \mbox{\hyperlink{kprobes_8c_a1396f946c9671fd107e6ff85013e0b12}{kprobe\+\_\+flush\+\_\+task}} (struct task\+\_\+struct $\ast$tk)
+\item 
+\mbox{\hyperlink{kprobes_8c_a0f6bd4b13119309756096e7e8ff9cbd0}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a4a63c82b5aa34b1bb62a42fe34b263cd}{kprobe\+\_\+flush\+\_\+task}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a7de777bdb4df1c813b712993275b25e4}{free\+\_\+rp\+\_\+inst}} (struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$rp)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a647e7963e9257694c69683ceacec54e7}{add\+\_\+new\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{linux_2kernel_8h_aa5fda1c9370693a5da8882cb44ef8aa5}{ap}}, struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_ae4c845711e1243b48ff364928f4d939c}{init\+\_\+aggr\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{linux_2kernel_8h_aa5fda1c9370693a5da8882cb44ef8aa5}{ap}}, struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a264e297288f209a03a0ce2d04995fee5}{register\+\_\+aggr\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$orig\+\_\+p, struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kprobes_8c_af47d8664e4cf03b9e3f71b45aa936a15}{arch\+\_\+within\+\_\+kprobe\+\_\+blacklist}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kprobes_8c_a5bb45146e8a5e675b33b525721eb22c0}{\+\_\+\+\_\+within\+\_\+kprobe\+\_\+blacklist}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kprobes_8c_a1f8cec8a63bc1ddea91bb62744b6ef50}{within\+\_\+kprobe\+\_\+blacklist}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}} $\ast$ \mbox{\hyperlink{kprobes_8c_a56f4190f7a0df1ce1785ce691c65f3c5}{\+\_\+kprobe\+\_\+addr}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}} $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, const char $\ast$symbol\+\_\+name, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static \mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}} $\ast$ \mbox{\hyperlink{kprobes_8c_ad554cd74f26c9994e4610c12d19281e8}{kprobe\+\_\+addr}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$ \mbox{\hyperlink{kprobes_8c_a0a7a7f728d294df0d9045509d741b93f}{\+\_\+\+\_\+get\+\_\+valid\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_abedf915ecb5875ae61b3aa6911b9a2c5}{warn\+\_\+kprobe\+\_\+rereg}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kprobes_8c_a21191a87fb1ec43a0fcb148789f95d99}{arch\+\_\+check\+\_\+ftrace\+\_\+location}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_aa949243a365914606affbcae86caa3c5}{check\+\_\+kprobe\+\_\+address\+\_\+safe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, struct module $\ast$$\ast$probed\+\_\+mod)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a9cc7fd864e295ad281d6ea4b5eaf214a}{register\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a9b34846e047d567ed032f2b675dc2fc2}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_ae322f6eabe0c42f49c44cd727d72a281}{register\+\_\+kprobe}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_ac15b2ba7028673c5c4f2e348300c1c61}{aggr\+\_\+kprobe\+\_\+disabled}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{linux_2kernel_8h_aa5fda1c9370693a5da8882cb44ef8aa5}{ap}})
+\item 
+static struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$ \mbox{\hyperlink{kprobes_8c_a0b8dd2598bdbb065f76a068d1f320424}{\+\_\+\+\_\+disable\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a3e7817a4c43a2ed103bdfda2455bdc14}{\+\_\+\+\_\+unregister\+\_\+kprobe\+\_\+top}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a9083dce91e1c3e3989c5ec3c2fe64050}{\+\_\+\+\_\+unregister\+\_\+kprobe\+\_\+bottom}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a05e8c37f42ce32403039ec5dd65d7eea}{register\+\_\+kprobes}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$$\ast$kps, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__params_8h_ae06f3b28b0b6ade08b4174fbcc7d4672}{num}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a2a3a540653acce9f0b168f8d2a17b118}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a15927c9ff98d5aac850656df017c40aa}{register\+\_\+kprobes}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_ab233ea653b405879432eaa779bbf6d62}{unregister\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{kprobes_8c_ac72251f3bf44c71e11d116ddf6b5b6a3}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_aeb6eedfa108c533fe7ea981cf0b41c9d}{unregister\+\_\+kprobe}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_a426a0946a50117ad51870c8e44f0b9bb}{unregister\+\_\+kprobes}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$$\ast$kps, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__params_8h_ae06f3b28b0b6ade08b4174fbcc7d4672}{num}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a71726e53033c90a36649fd0b2d89fdae}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_ab1f87e3eed48262ff9d0b8ae0d70d7d4}{unregister\+\_\+kprobes}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kprobes_8c_aab3d649f65870884ca1d25535c6eac9c}{kprobe\+\_\+exceptions\+\_\+notify}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$self, unsigned long \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a8ae1ffcf78dc6fe85732fa1145a80894}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_aab3d649f65870884ca1d25535c6eac9c}{kprobe\+\_\+exceptions\+\_\+notify}})
+\item 
+unsigned long \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kprobes_8c_a640d41362a4069d7d899885c5285dc32}{arch\+\_\+deref\+\_\+entry\+\_\+point}} (void $\ast$entry)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a6ea5bfcf63020ad0e997cc4d7baa45c0}{register\+\_\+kretprobe}} (struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$rp)
+\item 
+\mbox{\hyperlink{kprobes_8c_a629513747191d4eeb9399abeee1a69dc}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a669931db00f6361f3ef429dd8d9c4d50}{register\+\_\+kretprobe}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a1624c18da0355e02753d3e10e69b340e}{register\+\_\+kretprobes}} (struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$$\ast$rps, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__params_8h_ae06f3b28b0b6ade08b4174fbcc7d4672}{num}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a6067fe263d9d82a46762399bcd7af86e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_af2e68f9a9611c7a5ae966cc8ca994fad}{register\+\_\+kretprobes}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_a4ed7b9b59ee1ffa560de9cb28b19db42}{unregister\+\_\+kretprobe}} (struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$rp)
+\item 
+\mbox{\hyperlink{kprobes_8c_a899145cb25bc572b6b273071b930bdb3}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a4c4391c1a15f4530d4c35ec4094e4e02}{unregister\+\_\+kretprobe}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_a167f2dae0719bab9bcae5f71205ad5f9}{unregister\+\_\+kretprobes}} (struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$$\ast$rps, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__params_8h_ae06f3b28b0b6ade08b4174fbcc7d4672}{num}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a6b6e01122d8e1d7852d5ffa6a8625f8b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a09713699895e295b959b0b9ed7e74861}{unregister\+\_\+kretprobes}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a22b313636e8a9893af4cd703de77e78c}{pre\+\_\+handler\+\_\+kretprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a5de5e328b47ec257aa879055b49b7bbb}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_a22b313636e8a9893af4cd703de77e78c}{pre\+\_\+handler\+\_\+kretprobe}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_ab65ce96711193a64a45819f1db2be39c}{kill\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a63266d3b2fb8a39f1cb9a47ea9a2ab16}{disable\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+\mbox{\hyperlink{kprobes_8c_adb0a06906fdb9832ea7304444fce3851}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a5fce3d9b52365b121ba0743f72acd26b}{disable\+\_\+kprobe}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_ac1fa458d26fd66b7d0cf64eb69cec10f}{enable\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a041622bb6a9edb1994c73e14e0ad73f8}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2kprobes_8h_a7eecfb4cf39030adcf7633ed3b76a709}{enable\+\_\+kprobe}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_a652a13227d7d4408165d6aa12ca89fd4}{dump\+\_\+kprobe}} (struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+\mbox{\hyperlink{kprobes_8c_a0455861305e888c8a6ceb053f1a36e37}{N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kprobes_8c_a652a13227d7d4408165d6aa12ca89fd4}{dump\+\_\+kprobe}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_af0f87a403163c1a61083fe03efe66dcd}{kprobe\+\_\+add\+\_\+ksym\+\_\+blacklist}} (unsigned long entry)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_aec4428837b648f0505541c5c3331c214}{kprobe\+\_\+add\+\_\+area\+\_\+blacklist}} (unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a828e4b2ff13416b0c94fe2c4fd1dbb60}{kprobe\+\_\+remove\+\_\+area\+\_\+blacklist}} (unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a48188a938f804aced47bbc6aee234991}{kprobe\+\_\+remove\+\_\+ksym\+\_\+blacklist}} (unsigned long entry)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kprobes_8c_a523a02e696c25f50b7b3131f3db22b17}{arch\+\_\+kprobe\+\_\+get\+\_\+kallsym}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$symnum, unsigned long $\ast$\mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}}, char $\ast$\mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, char $\ast$sym)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a98e5464da983c132dca45cdcb98960d2}{kprobe\+\_\+get\+\_\+kallsym}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} symnum, unsigned long $\ast$\mbox{\hyperlink{compress__offload_8h_a619777aef84bb7e40edfb56600cd6fe5}{value}}, char $\ast$\mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, char $\ast$sym)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} \mbox{\hyperlink{kprobes_8c_a88fa31c21d0eb7e10885395b198dd54b}{arch\+\_\+populate\+\_\+kprobe\+\_\+blacklist}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kprobes_8c_a3e9b5e2fe15fc8fe4f73aea75e81bedf}{populate\+\_\+kprobe\+\_\+blacklist}} (unsigned long $\ast$\mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long $\ast$\mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static void \mbox{\hyperlink{kprobes_8c_a849554f878fb66995d73bc6bbd185ffe}{add\+\_\+module\+\_\+kprobe\+\_\+blacklist}} (struct module $\ast$mod)
+\item 
+static void \mbox{\hyperlink{kprobes_8c_ac111b32c0c262667fbfa83124e5f140a}{remove\+\_\+module\+\_\+kprobe\+\_\+blacklist}} (struct module $\ast$mod)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a9d6b16b8e9fd7b06d89fdbc35fbc31e5}{kprobes\+\_\+module\+\_\+callback}} (struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$nb, unsigned long \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+void \mbox{\hyperlink{kprobes_8c_a01f99e60ab30ad32167825886c4e854d}{kprobe\+\_\+free\+\_\+init\+\_\+mem}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kprobes_8c_acc06dfb4d93c2cc31c06cc54cae57cda}{init\+\_\+kprobes}} (void)
+\item 
+\mbox{\hyperlink{kprobes_8c_af4732f998a49572afda5c0e05ff97395}{early\+\_\+initcall}} (\mbox{\hyperlink{kprobes_8c_acc06dfb4d93c2cc31c06cc54cae57cda}{init\+\_\+kprobes}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kprobes_8c_a4738e17c5640b4c2470732a0c2245d97}{kprobes\+\_\+initialized}}
+\item 
+static struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} \mbox{\hyperlink{kprobes_8c_a41cd77d4f8f80fa7c2241111ce46e5f5}{kprobe\+\_\+table}} \mbox{[}\mbox{\hyperlink{kprobes_8c_a0e49b737693e316c27c9c87d6d48aa6d}{K\+P\+R\+O\+B\+E\+\_\+\+T\+A\+B\+L\+E\+\_\+\+S\+I\+ZE}}\mbox{]}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kprobes_8c_a586a3e12af713f5f241203e523f18f6e}{kprobes\+\_\+all\+\_\+disarmed}}
+\item 
+static struct \mbox{\hyperlink{structkprobe}{kprobe}} \mbox{\hyperlink{kprobes_8c_a7111b3ef8b8d629354ce2e90fd19721b}{kprobe\+\_\+busy}}
+\item 
+static struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} \mbox{\hyperlink{kprobes_8c_ac442ac259230f5b108942a5559aa5cd2}{kprobe\+\_\+exceptions\+\_\+nb}}
+\item 
+static struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} \mbox{\hyperlink{kprobes_8c_afe2d1dd6ad7dd6b85391abb7338add8d}{kprobe\+\_\+module\+\_\+nb}}
+\item 
+unsigned long \mbox{\hyperlink{kprobes_8c_a654892fc8fb326ca17909014d7c6662f}{\+\_\+\+\_\+start\+\_\+kprobe\+\_\+blacklist}} \mbox{[}$\,$\mbox{]}
+\item 
+unsigned long \mbox{\hyperlink{kprobes_8c_a56659d1c1f975d9e921a760b4d17695f}{\+\_\+\+\_\+stop\+\_\+kprobe\+\_\+blacklist}} \mbox{[}$\,$\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kprobes_8c_abf825a10021db42513288e769980a7e4}\label{kprobes_8c_abf825a10021db42513288e769980a7e4}} 
+\index{kprobes.c@{kprobes.c}!\_\_arm\_kprobe@{\_\_arm\_kprobe}}
+\index{\_\_arm\_kprobe@{\_\_arm\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_arm\_kprobe}{\_\_arm\_kprobe}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+arm\+\_\+kprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~\mbox{\hyperlink{arch_2x86_2kernel_2kprobes_2core_8c_a52d31eb843c936b779df61d1abdf1866}{arch\+\_\+arm\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})}
+
+\mbox{\Hypertarget{kprobes_8c_a169749af00ec1c44c3ebdfb4c30cc90f}\label{kprobes_8c_a169749af00ec1c44c3ebdfb4c30cc90f}} 
+\index{kprobes.c@{kprobes.c}!\_\_disarm\_kprobe@{\_\_disarm\_kprobe}}
+\index{\_\_disarm\_kprobe@{\_\_disarm\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_disarm\_kprobe}{\_\_disarm\_kprobe}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+disarm\+\_\+kprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}},  }\item[{}]{o }\end{DoxyParamCaption})~\mbox{\hyperlink{arch_2x86_2kernel_2kprobes_2core_8c_a2d46d12fd72dd6c65ffdc770fc1c185c}{arch\+\_\+disarm\+\_\+kprobe}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})}
+
+\mbox{\Hypertarget{kprobes_8c_aa99ff8284c5e2820324a2834874c7b45}\label{kprobes_8c_aa99ff8284c5e2820324a2834874c7b45}} 
+\index{kprobes.c@{kprobes.c}!kill\_optimized\_kprobe@{kill\_optimized\_kprobe}}
+\index{kill\_optimized\_kprobe@{kill\_optimized\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kill\_optimized\_kprobe}{kill\_optimized\_kprobe}}
+{\footnotesize\ttfamily \#define kill\+\_\+optimized\+\_\+kprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{kprobes_8c_ae328aaa9f8f6082e2c940416a2d19c3f}\label{kprobes_8c_ae328aaa9f8f6082e2c940416a2d19c3f}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_disarmed@{kprobe\_disarmed}}
+\index{kprobe\_disarmed@{kprobe\_disarmed}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_disarmed}{kprobe\_disarmed}}
+{\footnotesize\ttfamily \#define kprobe\+\_\+disarmed(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~\mbox{\hyperlink{include_2linux_2kprobes_8h_aa5f8e684e3032f883540928557701de7}{kprobe\+\_\+disabled}}(\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})}
+
+\mbox{\Hypertarget{kprobes_8c_ad856120db0f733e04aae771c50d41c39}\label{kprobes_8c_ad856120db0f733e04aae771c50d41c39}} 
+\index{kprobes.c@{kprobes.c}!KPROBE\_HASH\_BITS@{KPROBE\_HASH\_BITS}}
+\index{KPROBE\_HASH\_BITS@{KPROBE\_HASH\_BITS}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{KPROBE\_HASH\_BITS}{KPROBE\_HASH\_BITS}}
+{\footnotesize\ttfamily \#define K\+P\+R\+O\+B\+E\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS~6}
+
+\mbox{\Hypertarget{kprobes_8c_a0e49b737693e316c27c9c87d6d48aa6d}\label{kprobes_8c_a0e49b737693e316c27c9c87d6d48aa6d}} 
+\index{kprobes.c@{kprobes.c}!KPROBE\_TABLE\_SIZE@{KPROBE\_TABLE\_SIZE}}
+\index{KPROBE\_TABLE\_SIZE@{KPROBE\_TABLE\_SIZE}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{KPROBE\_TABLE\_SIZE}{KPROBE\_TABLE\_SIZE}}
+{\footnotesize\ttfamily \#define K\+P\+R\+O\+B\+E\+\_\+\+T\+A\+B\+L\+E\+\_\+\+S\+I\+ZE~(1 $<$$<$ \mbox{\hyperlink{kprobes_8c_ad856120db0f733e04aae771c50d41c39}{K\+P\+R\+O\+B\+E\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{kprobes_8c_a6b2b433e78a4cb112f2c187eb5f6296f}\label{kprobes_8c_a6b2b433e78a4cb112f2c187eb5f6296f}} 
+\index{kprobes.c@{kprobes.c}!optimize\_kprobe@{optimize\_kprobe}}
+\index{optimize\_kprobe@{optimize\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{optimize\_kprobe}{optimize\_kprobe}}
+{\footnotesize\ttfamily \#define optimize\+\_\+kprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{kprobes_8c_a1d7450526823b73c8e0c410d7a7705d6}\label{kprobes_8c_a1d7450526823b73c8e0c410d7a7705d6}} 
+\index{kprobes.c@{kprobes.c}!prepare\_optimized\_kprobe@{prepare\_optimized\_kprobe}}
+\index{prepare\_optimized\_kprobe@{prepare\_optimized\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{prepare\_optimized\_kprobe}{prepare\_optimized\_kprobe}}
+{\footnotesize\ttfamily \#define prepare\+\_\+optimized\+\_\+kprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{kprobes_8c_a23ecaf7bf800cbf207248cea59e9878f}\label{kprobes_8c_a23ecaf7bf800cbf207248cea59e9878f}} 
+\index{kprobes.c@{kprobes.c}!try\_to\_optimize\_kprobe@{try\_to\_optimize\_kprobe}}
+\index{try\_to\_optimize\_kprobe@{try\_to\_optimize\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{try\_to\_optimize\_kprobe}{try\_to\_optimize\_kprobe}}
+{\footnotesize\ttfamily \#define try\+\_\+to\+\_\+optimize\+\_\+kprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{kprobes_8c_abf9b6d6978b931d9783f79163cbedb12}\label{kprobes_8c_abf9b6d6978b931d9783f79163cbedb12}} 
+\index{kprobes.c@{kprobes.c}!unoptimize\_kprobe@{unoptimize\_kprobe}}
+\index{unoptimize\_kprobe@{unoptimize\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{unoptimize\_kprobe}{unoptimize\_kprobe}}
+{\footnotesize\ttfamily \#define unoptimize\+\_\+kprobe(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}},  }\item[{}]{\mbox{\hyperlink{net_2netfilter_2nf__log_8h_add955a53b78465a0b2e692b0795c9bd2}{f}} }\end{DoxyParamCaption})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+\mbox{\Hypertarget{kprobes_8c_aeade854e9166dbc3f5a7d17dd1534c1e}\label{kprobes_8c_aeade854e9166dbc3f5a7d17dd1534c1e}} 
+\index{kprobes.c@{kprobes.c}!wait\_for\_kprobe\_optimizer@{wait\_for\_kprobe\_optimizer}}
+\index{wait\_for\_kprobe\_optimizer@{wait\_for\_kprobe\_optimizer}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{wait\_for\_kprobe\_optimizer}{wait\_for\_kprobe\_optimizer}}
+{\footnotesize\ttfamily \#define wait\+\_\+for\+\_\+kprobe\+\_\+optimizer(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})~do \{\} \mbox{\hyperlink{decode__rs_8c_a1761c7dde471cf88247e7c0255afca66}{while}} (0)}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kprobes_8c_a0b8dd2598bdbb065f76a068d1f320424}\label{kprobes_8c_a0b8dd2598bdbb065f76a068d1f320424}} 
+\index{kprobes.c@{kprobes.c}!\_\_disable\_kprobe@{\_\_disable\_kprobe}}
+\index{\_\_disable\_kprobe@{\_\_disable\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_disable\_kprobe()}{\_\_disable\_kprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkprobe}{kprobe}}$\ast$ \+\_\+\+\_\+disable\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kprobes_8c_a0a7a7f728d294df0d9045509d741b93f}\label{kprobes_8c_a0a7a7f728d294df0d9045509d741b93f}} 
+\index{kprobes.c@{kprobes.c}!\_\_get\_valid\_kprobe@{\_\_get\_valid\_kprobe}}
+\index{\_\_get\_valid\_kprobe@{\_\_get\_valid\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_get\_valid\_kprobe()}{\_\_get\_valid\_kprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkprobe}{kprobe}}$\ast$ \+\_\+\+\_\+get\+\_\+valid\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kprobes_8c_a9083dce91e1c3e3989c5ec3c2fe64050}\label{kprobes_8c_a9083dce91e1c3e3989c5ec3c2fe64050}} 
+\index{kprobes.c@{kprobes.c}!\_\_unregister\_kprobe\_bottom@{\_\_unregister\_kprobe\_bottom}}
+\index{\_\_unregister\_kprobe\_bottom@{\_\_unregister\_kprobe\_bottom}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_unregister\_kprobe\_bottom()}{\_\_unregister\_kprobe\_bottom()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+unregister\+\_\+kprobe\+\_\+bottom (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{kprobes_8c_a3e7817a4c43a2ed103bdfda2455bdc14}\label{kprobes_8c_a3e7817a4c43a2ed103bdfda2455bdc14}} 
+\index{kprobes.c@{kprobes.c}!\_\_unregister\_kprobe\_top@{\_\_unregister\_kprobe\_top}}
+\index{\_\_unregister\_kprobe\_top@{\_\_unregister\_kprobe\_top}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_unregister\_kprobe\_top()}{\_\_unregister\_kprobe\_top()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+unregister\+\_\+kprobe\+\_\+top (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{kprobes_8c_a5bb45146e8a5e675b33b525721eb22c0}\label{kprobes_8c_a5bb45146e8a5e675b33b525721eb22c0}} 
+\index{kprobes.c@{kprobes.c}!\_\_within\_kprobe\_blacklist@{\_\_within\_kprobe\_blacklist}}
+\index{\_\_within\_kprobe\_blacklist@{\_\_within\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_within\_kprobe\_blacklist()}{\_\_within\_kprobe\_blacklist()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+\+\_\+within\+\_\+kprobe\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{kprobes_8c_a56f4190f7a0df1ce1785ce691c65f3c5}\label{kprobes_8c_a56f4190f7a0df1ce1785ce691c65f3c5}} 
+\index{kprobes.c@{kprobes.c}!\_kprobe\_addr@{\_kprobe\_addr}}
+\index{\_kprobe\_addr@{\_kprobe\_addr}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_kprobe\_addr()}{\_kprobe\_addr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}}$\ast$ \+\_\+kprobe\+\_\+addr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}} $\ast$}]{addr,  }\item[{const char $\ast$}]{symbol\+\_\+name,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{kprobes_8c_a849554f878fb66995d73bc6bbd185ffe}\label{kprobes_8c_a849554f878fb66995d73bc6bbd185ffe}} 
+\index{kprobes.c@{kprobes.c}!add\_module\_kprobe\_blacklist@{add\_module\_kprobe\_blacklist}}
+\index{add\_module\_kprobe\_blacklist@{add\_module\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{add\_module\_kprobe\_blacklist()}{add\_module\_kprobe\_blacklist()}}
+{\footnotesize\ttfamily static void add\+\_\+module\+\_\+kprobe\+\_\+blacklist (\begin{DoxyParamCaption}\item[{struct module $\ast$}]{mod }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{kprobes_8c_a647e7963e9257694c69683ceacec54e7}\label{kprobes_8c_a647e7963e9257694c69683ceacec54e7}} 
+\index{kprobes.c@{kprobes.c}!add\_new\_kprobe@{add\_new\_kprobe}}
+\index{add\_new\_kprobe@{add\_new\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{add\_new\_kprobe()}{add\_new\_kprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} add\+\_\+new\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{ap,  }\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{kprobes_8c_ac15b2ba7028673c5c4f2e348300c1c61}\label{kprobes_8c_ac15b2ba7028673c5c4f2e348300c1c61}} 
+\index{kprobes.c@{kprobes.c}!aggr\_kprobe\_disabled@{aggr\_kprobe\_disabled}}
+\index{aggr\_kprobe\_disabled@{aggr\_kprobe\_disabled}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{aggr\_kprobe\_disabled()}{aggr\_kprobe\_disabled()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} aggr\+\_\+kprobe\+\_\+disabled (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{ap }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{kprobes_8c_a73d6d6eba25d569c533e17f0c171a717}\label{kprobes_8c_a73d6d6eba25d569c533e17f0c171a717}} 
+\index{kprobes.c@{kprobes.c}!aggr\_post\_handler@{aggr\_post\_handler}}
+\index{aggr\_post\_handler@{aggr\_post\_handler}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{aggr\_post\_handler()}{aggr\_post\_handler()}}
+{\footnotesize\ttfamily static void aggr\+\_\+post\+\_\+handler (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{unsigned long}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{kprobes_8c_a2b915a40ee56179f98198b8c3c810d98}\label{kprobes_8c_a2b915a40ee56179f98198b8c3c810d98}} 
+\index{kprobes.c@{kprobes.c}!aggr\_pre\_handler@{aggr\_pre\_handler}}
+\index{aggr\_pre\_handler@{aggr\_pre\_handler}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{aggr\_pre\_handler()}{aggr\_pre\_handler()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} aggr\+\_\+pre\+\_\+handler (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{kprobes_8c_a2b51850743e3b7dfbc5d14f7d27789e3}\label{kprobes_8c_a2b51850743e3b7dfbc5d14f7d27789e3}} 
+\index{kprobes.c@{kprobes.c}!alloc\_aggr\_kprobe@{alloc\_aggr\_kprobe}}
+\index{alloc\_aggr\_kprobe@{alloc\_aggr\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_aggr\_kprobe()}{alloc\_aggr\_kprobe()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkprobe}{kprobe}}$\ast$ alloc\+\_\+aggr\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{kprobes_8c_a21191a87fb1ec43a0fcb148789f95d99}\label{kprobes_8c_a21191a87fb1ec43a0fcb148789f95d99}} 
+\index{kprobes.c@{kprobes.c}!arch\_check\_ftrace\_location@{arch\_check\_ftrace\_location}}
+\index{arch\_check\_ftrace\_location@{arch\_check\_ftrace\_location}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_check\_ftrace\_location()}{arch\_check\_ftrace\_location()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+check\+\_\+ftrace\+\_\+location (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{kprobes_8c_a640d41362a4069d7d899885c5285dc32}\label{kprobes_8c_a640d41362a4069d7d899885c5285dc32}} 
+\index{kprobes.c@{kprobes.c}!arch\_deref\_entry\_point@{arch\_deref\_entry\_point}}
+\index{arch\_deref\_entry\_point@{arch\_deref\_entry\_point}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_deref\_entry\_point()}{arch\_deref\_entry\_point()}}
+{\footnotesize\ttfamily unsigned long \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+deref\+\_\+entry\+\_\+point (\begin{DoxyParamCaption}\item[{void $\ast$}]{entry }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{kprobes_8c_a523a02e696c25f50b7b3131f3db22b17}\label{kprobes_8c_a523a02e696c25f50b7b3131f3db22b17}} 
+\index{kprobes.c@{kprobes.c}!arch\_kprobe\_get\_kallsym@{arch\_kprobe\_get\_kallsym}}
+\index{arch\_kprobe\_get\_kallsym@{arch\_kprobe\_get\_kallsym}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_kprobe\_get\_kallsym()}{arch\_kprobe\_get\_kallsym()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+kprobe\+\_\+get\+\_\+kallsym (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{symnum,  }\item[{unsigned long $\ast$}]{value,  }\item[{char $\ast$}]{type,  }\item[{char $\ast$}]{sym }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{kprobes_8c_a88fa31c21d0eb7e10885395b198dd54b}\label{kprobes_8c_a88fa31c21d0eb7e10885395b198dd54b}} 
+\index{kprobes.c@{kprobes.c}!arch\_populate\_kprobe\_blacklist@{arch\_populate\_kprobe\_blacklist}}
+\index{arch\_populate\_kprobe\_blacklist@{arch\_populate\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_populate\_kprobe\_blacklist()}{arch\_populate\_kprobe\_blacklist()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+populate\+\_\+kprobe\+\_\+blacklist (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{kprobes_8c_af47d8664e4cf03b9e3f71b45aa936a15}\label{kprobes_8c_af47d8664e4cf03b9e3f71b45aa936a15}} 
+\index{kprobes.c@{kprobes.c}!arch\_within\_kprobe\_blacklist@{arch\_within\_kprobe\_blacklist}}
+\index{arch\_within\_kprobe\_blacklist@{arch\_within\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{arch\_within\_kprobe\_blacklist()}{arch\_within\_kprobe\_blacklist()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} arch\+\_\+within\+\_\+kprobe\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{kprobes_8c_a165038e4e08da6ddb92d260289161867}\label{kprobes_8c_a165038e4e08da6ddb92d260289161867}} 
+\index{kprobes.c@{kprobes.c}!arm\_kprobe@{arm\_kprobe}}
+\index{arm\_kprobe@{arm\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{arm\_kprobe()}{arm\_kprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arm\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{kp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{kprobes_8c_a1d6623fd187fe879cda0ce8e976c151a}\label{kprobes_8c_a1d6623fd187fe879cda0ce8e976c151a}} 
+\index{kprobes.c@{kprobes.c}!arm\_kprobe\_ftrace@{arm\_kprobe\_ftrace}}
+\index{arm\_kprobe\_ftrace@{arm\_kprobe\_ftrace}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{arm\_kprobe\_ftrace()}{arm\_kprobe\_ftrace()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arm\+\_\+kprobe\+\_\+ftrace (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{kprobes_8c_aa949243a365914606affbcae86caa3c5}\label{kprobes_8c_aa949243a365914606affbcae86caa3c5}} 
+\index{kprobes.c@{kprobes.c}!check\_kprobe\_address\_safe@{check\_kprobe\_address\_safe}}
+\index{check\_kprobe\_address\_safe@{check\_kprobe\_address\_safe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{check\_kprobe\_address\_safe()}{check\_kprobe\_address\_safe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} check\+\_\+kprobe\+\_\+address\+\_\+safe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p,  }\item[{struct module $\ast$$\ast$}]{probed\+\_\+mod }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{kprobes_8c_a51f83397f0d2de316196b54f71859960}\label{kprobes_8c_a51f83397f0d2de316196b54f71859960}} 
+\index{kprobes.c@{kprobes.c}!copy\_kprobe@{copy\_kprobe}}
+\index{copy\_kprobe@{copy\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{copy\_kprobe()}{copy\_kprobe()}}
+{\footnotesize\ttfamily static void copy\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{ap,  }\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{kprobes_8c_a3fef87003940b1ad9b6eefa51d369d64}\label{kprobes_8c_a3fef87003940b1ad9b6eefa51d369d64}} 
+\index{kprobes.c@{kprobes.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{kprobe\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kprobes_8c_a10562d58b85f4dd729b42dcc8506c9ce}\label{kprobes_8c_a10562d58b85f4dd729b42dcc8506c9ce}} 
+\index{kprobes.c@{kprobes.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{,  }\item[{kprobe\+\_\+instance}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kprobes_8c_a63266d3b2fb8a39f1cb9a47ea9a2ab16}\label{kprobes_8c_a63266d3b2fb8a39f1cb9a47ea9a2ab16}} 
+\index{kprobes.c@{kprobes.c}!disable\_kprobe@{disable\_kprobe}}
+\index{disable\_kprobe@{disable\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{disable\_kprobe()}{disable\_kprobe()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} disable\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{kp }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{kprobes_8c_a32f4a578b3351b0710f464e7b3a1daad}\label{kprobes_8c_a32f4a578b3351b0710f464e7b3a1daad}} 
+\index{kprobes.c@{kprobes.c}!disarm\_kprobe@{disarm\_kprobe}}
+\index{disarm\_kprobe@{disarm\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{disarm\_kprobe()}{disarm\_kprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} disarm\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{kp,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{reopt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{kprobes_8c_a9a9346fd3fb909b118e0b1ef1df34448}\label{kprobes_8c_a9a9346fd3fb909b118e0b1ef1df34448}} 
+\index{kprobes.c@{kprobes.c}!disarm\_kprobe\_ftrace@{disarm\_kprobe\_ftrace}}
+\index{disarm\_kprobe\_ftrace@{disarm\_kprobe\_ftrace}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{disarm\_kprobe\_ftrace()}{disarm\_kprobe\_ftrace()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} disarm\+\_\+kprobe\+\_\+ftrace (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{kprobes_8c_a652a13227d7d4408165d6aa12ca89fd4}\label{kprobes_8c_a652a13227d7d4408165d6aa12ca89fd4}} 
+\index{kprobes.c@{kprobes.c}!dump\_kprobe@{dump\_kprobe}}
+\index{dump\_kprobe@{dump\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{dump\_kprobe()}{dump\_kprobe()}}
+{\footnotesize\ttfamily void dump\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{kp }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{kprobes_8c_af4732f998a49572afda5c0e05ff97395}\label{kprobes_8c_af4732f998a49572afda5c0e05ff97395}} 
+\index{kprobes.c@{kprobes.c}!early\_initcall@{early\_initcall}}
+\index{early\_initcall@{early\_initcall}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{early\_initcall()}{early\_initcall()}}
+{\footnotesize\ttfamily early\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_acc06dfb4d93c2cc31c06cc54cae57cda}{init\+\_\+kprobes}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_ac1fa458d26fd66b7d0cf64eb69cec10f}\label{kprobes_8c_ac1fa458d26fd66b7d0cf64eb69cec10f}} 
+\index{kprobes.c@{kprobes.c}!enable\_kprobe@{enable\_kprobe}}
+\index{enable\_kprobe@{enable\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{enable\_kprobe()}{enable\_kprobe()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} enable\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{kp }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{kprobes_8c_adb0a06906fdb9832ea7304444fce3851}\label{kprobes_8c_adb0a06906fdb9832ea7304444fce3851}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a5fce3d9b52365b121ba0743f72acd26b}{disable\+\_\+kprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a041622bb6a9edb1994c73e14e0ad73f8}\label{kprobes_8c_a041622bb6a9edb1994c73e14e0ad73f8}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a7eecfb4cf39030adcf7633ed3b76a709}{enable\+\_\+kprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a9b34846e047d567ed032f2b675dc2fc2}\label{kprobes_8c_a9b34846e047d567ed032f2b675dc2fc2}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_ae322f6eabe0c42f49c44cd727d72a281}{register\+\_\+kprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a2a3a540653acce9f0b168f8d2a17b118}\label{kprobes_8c_a2a3a540653acce9f0b168f8d2a17b118}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a15927c9ff98d5aac850656df017c40aa}{register\+\_\+kprobes}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a629513747191d4eeb9399abeee1a69dc}\label{kprobes_8c_a629513747191d4eeb9399abeee1a69dc}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a669931db00f6361f3ef429dd8d9c4d50}{register\+\_\+kretprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a6067fe263d9d82a46762399bcd7af86e}\label{kprobes_8c_a6067fe263d9d82a46762399bcd7af86e}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_af2e68f9a9611c7a5ae966cc8ca994fad}{register\+\_\+kretprobes}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_ac72251f3bf44c71e11d116ddf6b5b6a3}\label{kprobes_8c_ac72251f3bf44c71e11d116ddf6b5b6a3}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_aeb6eedfa108c533fe7ea981cf0b41c9d}{unregister\+\_\+kprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a71726e53033c90a36649fd0b2d89fdae}\label{kprobes_8c_a71726e53033c90a36649fd0b2d89fdae}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_ab1f87e3eed48262ff9d0b8ae0d70d7d4}{unregister\+\_\+kprobes}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a899145cb25bc572b6b273071b930bdb3}\label{kprobes_8c_a899145cb25bc572b6b273071b930bdb3}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a4c4391c1a15f4530d4c35ec4094e4e02}{unregister\+\_\+kretprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a6b6e01122d8e1d7852d5ffa6a8625f8b}\label{kprobes_8c_a6b6e01122d8e1d7852d5ffa6a8625f8b}} 
+\index{kprobes.c@{kprobes.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a09713699895e295b959b0b9ed7e74861}{unregister\+\_\+kretprobes}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_ac6805f365654c1205113c4dad57b3744}\label{kprobes_8c_ac6805f365654c1205113c4dad57b3744}} 
+\index{kprobes.c@{kprobes.c}!free\_aggr\_kprobe@{free\_aggr\_kprobe}}
+\index{free\_aggr\_kprobe@{free\_aggr\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{free\_aggr\_kprobe()}{free\_aggr\_kprobe()}}
+{\footnotesize\ttfamily static void free\+\_\+aggr\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{kprobes_8c_a7de777bdb4df1c813b712993275b25e4}\label{kprobes_8c_a7de777bdb4df1c813b712993275b25e4}} 
+\index{kprobes.c@{kprobes.c}!free\_rp\_inst@{free\_rp\_inst}}
+\index{free\_rp\_inst@{free\_rp\_inst}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{free\_rp\_inst()}{free\_rp\_inst()}}
+{\footnotesize\ttfamily static void free\+\_\+rp\+\_\+inst (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$}]{rp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{kprobes_8c_ae273c9390b079e8bd9721c792ed5bdef}\label{kprobes_8c_ae273c9390b079e8bd9721c792ed5bdef}} 
+\index{kprobes.c@{kprobes.c}!free\_rp\_inst\_rcu@{free\_rp\_inst\_rcu}}
+\index{free\_rp\_inst\_rcu@{free\_rp\_inst\_rcu}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{free\_rp\_inst\_rcu()}{free\_rp\_inst\_rcu()}}
+{\footnotesize\ttfamily static void free\+\_\+rp\+\_\+inst\+\_\+rcu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$}]{head }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{kprobes_8c_aeed3b8998bea091f40bea42050efba5b}\label{kprobes_8c_aeed3b8998bea091f40bea42050efba5b}} 
+\index{kprobes.c@{kprobes.c}!get\_kprobe@{get\_kprobe}}
+\index{get\_kprobe@{get\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{get\_kprobe()}{get\_kprobe()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkprobe}{kprobe}}$\ast$ get\+\_\+kprobe (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{kprobes_8c_ae4c845711e1243b48ff364928f4d939c}\label{kprobes_8c_ae4c845711e1243b48ff364928f4d939c}} 
+\index{kprobes.c@{kprobes.c}!init\_aggr\_kprobe@{init\_aggr\_kprobe}}
+\index{init\_aggr\_kprobe@{init\_aggr\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{init\_aggr\_kprobe()}{init\_aggr\_kprobe()}}
+{\footnotesize\ttfamily static void init\+\_\+aggr\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{ap,  }\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{kprobes_8c_acc06dfb4d93c2cc31c06cc54cae57cda}\label{kprobes_8c_acc06dfb4d93c2cc31c06cc54cae57cda}} 
+\index{kprobes.c@{kprobes.c}!init\_kprobes@{init\_kprobes}}
+\index{init\_kprobes@{init\_kprobes}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{init\_kprobes()}{init\_kprobes()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} init\+\_\+kprobes (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{kprobes_8c_ab65ce96711193a64a45819f1db2be39c}\label{kprobes_8c_ab65ce96711193a64a45819f1db2be39c}} 
+\index{kprobes.c@{kprobes.c}!kill\_kprobe@{kill\_kprobe}}
+\index{kill\_kprobe@{kill\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kill\_kprobe()}{kill\_kprobe()}}
+{\footnotesize\ttfamily static void kill\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{kprobes_8c_aec4428837b648f0505541c5c3331c214}\label{kprobes_8c_aec4428837b648f0505541c5c3331c214}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_add\_area\_blacklist@{kprobe\_add\_area\_blacklist}}
+\index{kprobe\_add\_area\_blacklist@{kprobe\_add\_area\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_add\_area\_blacklist()}{kprobe\_add\_area\_blacklist()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kprobe\+\_\+add\+\_\+area\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long}]{start,  }\item[{unsigned long}]{end }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{kprobes_8c_af0f87a403163c1a61083fe03efe66dcd}\label{kprobes_8c_af0f87a403163c1a61083fe03efe66dcd}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_add\_ksym\_blacklist@{kprobe\_add\_ksym\_blacklist}}
+\index{kprobe\_add\_ksym\_blacklist@{kprobe\_add\_ksym\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_add\_ksym\_blacklist()}{kprobe\_add\_ksym\_blacklist()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kprobe\+\_\+add\+\_\+ksym\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long}]{entry }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{kprobes_8c_ad554cd74f26c9994e4610c12d19281e8}\label{kprobes_8c_ad554cd74f26c9994e4610c12d19281e8}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_addr@{kprobe\_addr}}
+\index{kprobe\_addr@{kprobe\_addr}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_addr()}{kprobe\_addr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}}$\ast$ kprobe\+\_\+addr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{kprobes_8c_af6b4e62940405f3e82737b9658a7ee5a}\label{kprobes_8c_af6b4e62940405f3e82737b9658a7ee5a}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_aggrprobe@{kprobe\_aggrprobe}}
+\index{kprobe\_aggrprobe@{kprobe\_aggrprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_aggrprobe()}{kprobe\_aggrprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kprobe\+\_\+aggrprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{kprobes_8c_a925767a31294ff7fed27d2b1d74b5956}\label{kprobes_8c_a925767a31294ff7fed27d2b1d74b5956}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_busy\_begin@{kprobe\_busy\_begin}}
+\index{kprobe\_busy\_begin@{kprobe\_busy\_begin}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_busy\_begin()}{kprobe\_busy\_begin()}}
+{\footnotesize\ttfamily void kprobe\+\_\+busy\+\_\+begin (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{kprobes_8c_aeb77a02c1fdbf368b01a0c476519725e}\label{kprobes_8c_aeb77a02c1fdbf368b01a0c476519725e}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_busy\_end@{kprobe\_busy\_end}}
+\index{kprobe\_busy\_end@{kprobe\_busy\_end}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_busy\_end()}{kprobe\_busy\_end()}}
+{\footnotesize\ttfamily void kprobe\+\_\+busy\+\_\+end (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{kprobes_8c_aab3d649f65870884ca1d25535c6eac9c}\label{kprobes_8c_aab3d649f65870884ca1d25535c6eac9c}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_exceptions\_notify@{kprobe\_exceptions\_notify}}
+\index{kprobe\_exceptions\_notify@{kprobe\_exceptions\_notify}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_exceptions\_notify()}{kprobe\_exceptions\_notify()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} kprobe\+\_\+exceptions\+\_\+notify (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{self,  }\item[{unsigned long}]{val,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a1396f946c9671fd107e6ff85013e0b12}\label{kprobes_8c_a1396f946c9671fd107e6ff85013e0b12}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_flush\_task@{kprobe\_flush\_task}}
+\index{kprobe\_flush\_task@{kprobe\_flush\_task}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_flush\_task()}{kprobe\_flush\_task()}}
+{\footnotesize\ttfamily void kprobe\+\_\+flush\+\_\+task (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tk }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{kprobes_8c_a01f99e60ab30ad32167825886c4e854d}\label{kprobes_8c_a01f99e60ab30ad32167825886c4e854d}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_free\_init\_mem@{kprobe\_free\_init\_mem}}
+\index{kprobe\_free\_init\_mem@{kprobe\_free\_init\_mem}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_free\_init\_mem()}{kprobe\_free\_init\_mem()}}
+{\footnotesize\ttfamily void kprobe\+\_\+free\+\_\+init\+\_\+mem (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{kprobes_8c_a98e5464da983c132dca45cdcb98960d2}\label{kprobes_8c_a98e5464da983c132dca45cdcb98960d2}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_get\_kallsym@{kprobe\_get\_kallsym}}
+\index{kprobe\_get\_kallsym@{kprobe\_get\_kallsym}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_get\_kallsym()}{kprobe\_get\_kallsym()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kprobe\+\_\+get\+\_\+kallsym (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{symnum,  }\item[{unsigned long $\ast$}]{value,  }\item[{char $\ast$}]{type,  }\item[{char $\ast$}]{sym }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{kprobes_8c_a76bd84f429cbee9c4661102518a09131}\label{kprobes_8c_a76bd84f429cbee9c4661102518a09131}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_lookup\_name@{kprobe\_lookup\_name}}
+\index{kprobe\_lookup\_name@{kprobe\_lookup\_name}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_lookup\_name()}{kprobe\_lookup\_name()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2kprobes_8h_a9328c5da86b56c23bc0167ce1c5f55f1}{kprobe\+\_\+opcode\+\_\+t}}$\ast$ \mbox{\hyperlink{kernel_2ksysfs_8c_a281c25db72d01fa71a53396b18c58ed0}{\+\_\+\+\_\+weak}} kprobe\+\_\+lookup\+\_\+name (\begin{DoxyParamCaption}\item[{const char $\ast$}]{name,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{\+\_\+\+\_\+unused }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{kprobes_8c_a828e4b2ff13416b0c94fe2c4fd1dbb60}\label{kprobes_8c_a828e4b2ff13416b0c94fe2c4fd1dbb60}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_remove\_area\_blacklist@{kprobe\_remove\_area\_blacklist}}
+\index{kprobe\_remove\_area\_blacklist@{kprobe\_remove\_area\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_remove\_area\_blacklist()}{kprobe\_remove\_area\_blacklist()}}
+{\footnotesize\ttfamily static void kprobe\+\_\+remove\+\_\+area\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long}]{start,  }\item[{unsigned long}]{end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{kprobes_8c_a48188a938f804aced47bbc6aee234991}\label{kprobes_8c_a48188a938f804aced47bbc6aee234991}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_remove\_ksym\_blacklist@{kprobe\_remove\_ksym\_blacklist}}
+\index{kprobe\_remove\_ksym\_blacklist@{kprobe\_remove\_ksym\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_remove\_ksym\_blacklist()}{kprobe\_remove\_ksym\_blacklist()}}
+{\footnotesize\ttfamily static void kprobe\+\_\+remove\+\_\+ksym\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long}]{entry }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{kprobes_8c_ab435fce9fdbdfe6929714e8dbdebedf2}\label{kprobes_8c_ab435fce9fdbdfe6929714e8dbdebedf2}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_unused@{kprobe\_unused}}
+\index{kprobe\_unused@{kprobe\_unused}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_unused()}{kprobe\_unused()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kprobe\+\_\+unused (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 79
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{kprobes_8c_a5c598428432f8f551a7b79bd7ecac9b7}\label{kprobes_8c_a5c598428432f8f551a7b79bd7ecac9b7}} 
+\index{kprobes.c@{kprobes.c}!kprobes\_inc\_nmissed\_count@{kprobes\_inc\_nmissed\_count}}
+\index{kprobes\_inc\_nmissed\_count@{kprobes\_inc\_nmissed\_count}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobes\_inc\_nmissed\_count()}{kprobes\_inc\_nmissed\_count()}}
+{\footnotesize\ttfamily void kprobes\+\_\+inc\+\_\+nmissed\+\_\+count (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{kprobes_8c_a9d6b16b8e9fd7b06d89fdbc35fbc31e5}\label{kprobes_8c_a9d6b16b8e9fd7b06d89fdbc35fbc31e5}} 
+\index{kprobes.c@{kprobes.c}!kprobes\_module\_callback@{kprobes\_module\_callback}}
+\index{kprobes\_module\_callback@{kprobes\_module\_callback}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobes\_module\_callback()}{kprobes\_module\_callback()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kprobes\+\_\+module\+\_\+callback (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} $\ast$}]{nb,  }\item[{unsigned long}]{val,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{kprobes_8c_a9f5cea4a582bd25504cb1337bd968227}\label{kprobes_8c_a9f5cea4a582bd25504cb1337bd968227}} 
+\index{kprobes.c@{kprobes.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{kprobe\+\_\+blacklist}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kprobes_8c_ae2c512492e452694b0fa2d158f1596fa}\label{kprobes_8c_ae2c512492e452694b0fa2d158f1596fa}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_a73d6d6eba25d569c533e17f0c171a717}{aggr\+\_\+post\+\_\+handler}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_ac2263fc555983a83a41ea4202f8099d5}\label{kprobes_8c_ac2263fc555983a83a41ea4202f8099d5}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_a2b915a40ee56179f98198b8c3c810d98}{aggr\+\_\+pre\+\_\+handler}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a0455861305e888c8a6ceb053f1a36e37}\label{kprobes_8c_a0455861305e888c8a6ceb053f1a36e37}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_a652a13227d7d4408165d6aa12ca89fd4}{dump\+\_\+kprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_add41582b4c5090927dae37905c429c34}\label{kprobes_8c_add41582b4c5090927dae37905c429c34}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_ae273c9390b079e8bd9721c792ed5bdef}{free\+\_\+rp\+\_\+inst\+\_\+rcu}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a1074708f4c2a6f537f4c5a626a5bf315}\label{kprobes_8c_a1074708f4c2a6f537f4c5a626a5bf315}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a66ddbfefaf32e30605dd1a857e2e8199}{get\+\_\+kprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a8ae1ffcf78dc6fe85732fa1145a80894}\label{kprobes_8c_a8ae1ffcf78dc6fe85732fa1145a80894}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_aab3d649f65870884ca1d25535c6eac9c}{kprobe\+\_\+exceptions\+\_\+notify}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a0f6bd4b13119309756096e7e8ff9cbd0}\label{kprobes_8c_a0f6bd4b13119309756096e7e8ff9cbd0}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2kprobes_8h_a4a63c82b5aa34b1bb62a42fe34b263cd}{kprobe\+\_\+flush\+\_\+task}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_ae92e67ed3b72256f1ab06dccf077663e}\label{kprobes_8c_ae92e67ed3b72256f1ab06dccf077663e}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_a5c598428432f8f551a7b79bd7ecac9b7}{kprobes\+\_\+inc\+\_\+nmissed\+\_\+count}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a5de5e328b47ec257aa879055b49b7bbb}\label{kprobes_8c_a5de5e328b47ec257aa879055b49b7bbb}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_a22b313636e8a9893af4cd703de77e78c}{pre\+\_\+handler\+\_\+kretprobe}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_aaa325c59b52b8d35bef38410cfd89d6b}\label{kprobes_8c_aaa325c59b52b8d35bef38410cfd89d6b}} 
+\index{kprobes.c@{kprobes.c}!NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}}
+\index{NOKPROBE\_SYMBOL@{NOKPROBE\_SYMBOL}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{NOKPROBE\_SYMBOL()}{NOKPROBE\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/10]}}
+{\footnotesize\ttfamily N\+O\+K\+P\+R\+O\+B\+E\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kprobes_8c_a16a923769c0c9992b7fd3bc64ae0dc10}{recycle\+\_\+rp\+\_\+inst}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_a3e9b5e2fe15fc8fe4f73aea75e81bedf}\label{kprobes_8c_a3e9b5e2fe15fc8fe4f73aea75e81bedf}} 
+\index{kprobes.c@{kprobes.c}!populate\_kprobe\_blacklist@{populate\_kprobe\_blacklist}}
+\index{populate\_kprobe\_blacklist@{populate\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{populate\_kprobe\_blacklist()}{populate\_kprobe\_blacklist()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} populate\+\_\+kprobe\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{start,  }\item[{unsigned long $\ast$}]{end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{kprobes_8c_a22b313636e8a9893af4cd703de77e78c}\label{kprobes_8c_a22b313636e8a9893af4cd703de77e78c}} 
+\index{kprobes.c@{kprobes.c}!pre\_handler\_kretprobe@{pre\_handler\_kretprobe}}
+\index{pre\_handler\_kretprobe@{pre\_handler\_kretprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{pre\_handler\_kretprobe()}{pre\_handler\_kretprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pre\+\_\+handler\+\_\+kretprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kprobes_8c_a35555e342fc78fa9c9b89f703a12ad98}\label{kprobes_8c_a35555e342fc78fa9c9b89f703a12ad98}} 
+\index{kprobes.c@{kprobes.c}!prepare\_kprobe@{prepare\_kprobe}}
+\index{prepare\_kprobe@{prepare\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{prepare\_kprobe()}{prepare\_kprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prepare\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{kprobes_8c_a16a923769c0c9992b7fd3bc64ae0dc10}\label{kprobes_8c_a16a923769c0c9992b7fd3bc64ae0dc10}} 
+\index{kprobes.c@{kprobes.c}!recycle\_rp\_inst@{recycle\_rp\_inst}}
+\index{recycle\_rp\_inst@{recycle\_rp\_inst}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{recycle\_rp\_inst()}{recycle\_rp\_inst()}}
+{\footnotesize\ttfamily static void recycle\+\_\+rp\+\_\+inst (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkretprobe__instance}{kretprobe\+\_\+instance}} $\ast$}]{ri }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{kprobes_8c_a264e297288f209a03a0ce2d04995fee5}\label{kprobes_8c_a264e297288f209a03a0ce2d04995fee5}} 
+\index{kprobes.c@{kprobes.c}!register\_aggr\_kprobe@{register\_aggr\_kprobe}}
+\index{register\_aggr\_kprobe@{register\_aggr\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{register\_aggr\_kprobe()}{register\_aggr\_kprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} register\+\_\+aggr\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{orig\+\_\+p,  }\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 90
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{kprobes_8c_a9cc7fd864e295ad281d6ea4b5eaf214a}\label{kprobes_8c_a9cc7fd864e295ad281d6ea4b5eaf214a}} 
+\index{kprobes.c@{kprobes.c}!register\_kprobe@{register\_kprobe}}
+\index{register\_kprobe@{register\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{register\_kprobe()}{register\_kprobe()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} register\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 92
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{kprobes_8c_a05e8c37f42ce32403039ec5dd65d7eea}\label{kprobes_8c_a05e8c37f42ce32403039ec5dd65d7eea}} 
+\index{kprobes.c@{kprobes.c}!register\_kprobes@{register\_kprobes}}
+\index{register\_kprobes@{register\_kprobes}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{register\_kprobes()}{register\_kprobes()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} register\+\_\+kprobes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$$\ast$}]{kps,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{num }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{kprobes_8c_a6ea5bfcf63020ad0e997cc4d7baa45c0}\label{kprobes_8c_a6ea5bfcf63020ad0e997cc4d7baa45c0}} 
+\index{kprobes.c@{kprobes.c}!register\_kretprobe@{register\_kretprobe}}
+\index{register\_kretprobe@{register\_kretprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{register\_kretprobe()}{register\_kretprobe()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} register\+\_\+kretprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$}]{rp }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 96
+\mbox{\Hypertarget{kprobes_8c_a1624c18da0355e02753d3e10e69b340e}\label{kprobes_8c_a1624c18da0355e02753d3e10e69b340e}} 
+\index{kprobes.c@{kprobes.c}!register\_kretprobes@{register\_kretprobes}}
+\index{register\_kretprobes@{register\_kretprobes}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{register\_kretprobes()}{register\_kretprobes()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} register\+\_\+kretprobes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$$\ast$}]{rps,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{num }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_ac111b32c0c262667fbfa83124e5f140a}\label{kprobes_8c_ac111b32c0c262667fbfa83124e5f140a}} 
+\index{kprobes.c@{kprobes.c}!remove\_module\_kprobe\_blacklist@{remove\_module\_kprobe\_blacklist}}
+\index{remove\_module\_kprobe\_blacklist@{remove\_module\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{remove\_module\_kprobe\_blacklist()}{remove\_module\_kprobe\_blacklist()}}
+{\footnotesize\ttfamily static void remove\+\_\+module\+\_\+kprobe\+\_\+blacklist (\begin{DoxyParamCaption}\item[{struct module $\ast$}]{mod }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 97
+Here is the caller graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{kprobes_8c_a33d10db68fb160a0ea758a37f1b06ef3}\label{kprobes_8c_a33d10db68fb160a0ea758a37f1b06ef3}} 
+\index{kprobes.c@{kprobes.c}!reset\_kprobe\_instance@{reset\_kprobe\_instance}}
+\index{reset\_kprobe\_instance@{reset\_kprobe\_instance}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{reset\_kprobe\_instance()}{reset\_kprobe\_instance()}}
+{\footnotesize\ttfamily static void reset\+\_\+kprobe\+\_\+instance (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{kprobes_8c_ab7e14dc5f84265a72f313725b68ab6ee}\label{kprobes_8c_ab7e14dc5f84265a72f313725b68ab6ee}} 
+\index{kprobes.c@{kprobes.c}!reuse\_unused\_kprobe@{reuse\_unused\_kprobe}}
+\index{reuse\_unused\_kprobe@{reuse\_unused\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{reuse\_unused\_kprobe()}{reuse\_unused\_kprobe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} reuse\+\_\+unused\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{ap }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{kprobes_8c_a98397bf7ecb003829aa98af3f2314f2d}\label{kprobes_8c_a98397bf7ecb003829aa98af3f2314f2d}} 
+\index{kprobes.c@{kprobes.c}!set\_kprobe\_instance@{set\_kprobe\_instance}}
+\index{set\_kprobe\_instance@{set\_kprobe\_instance}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{set\_kprobe\_instance()}{set\_kprobe\_instance()}}
+{\footnotesize\ttfamily static void set\+\_\+kprobe\+\_\+instance (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{kp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{kprobes_8c_ab233ea653b405879432eaa779bbf6d62}\label{kprobes_8c_ab233ea653b405879432eaa779bbf6d62}} 
+\index{kprobes.c@{kprobes.c}!unregister\_kprobe@{unregister\_kprobe}}
+\index{unregister\_kprobe@{unregister\_kprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{unregister\_kprobe()}{unregister\_kprobe()}}
+{\footnotesize\ttfamily void unregister\+\_\+kprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 102
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{kprobes_8c_a426a0946a50117ad51870c8e44f0b9bb}\label{kprobes_8c_a426a0946a50117ad51870c8e44f0b9bb}} 
+\index{kprobes.c@{kprobes.c}!unregister\_kprobes@{unregister\_kprobes}}
+\index{unregister\_kprobes@{unregister\_kprobes}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{unregister\_kprobes()}{unregister\_kprobes()}}
+{\footnotesize\ttfamily void unregister\+\_\+kprobes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$$\ast$}]{kps,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{num }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 104
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{kprobes_8c_a4ed7b9b59ee1ffa560de9cb28b19db42}\label{kprobes_8c_a4ed7b9b59ee1ffa560de9cb28b19db42}} 
+\index{kprobes.c@{kprobes.c}!unregister\_kretprobe@{unregister\_kretprobe}}
+\index{unregister\_kretprobe@{unregister\_kretprobe}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{unregister\_kretprobe()}{unregister\_kretprobe()}}
+{\footnotesize\ttfamily void unregister\+\_\+kretprobe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$}]{rp }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 106
+\mbox{\Hypertarget{kprobes_8c_a167f2dae0719bab9bcae5f71205ad5f9}\label{kprobes_8c_a167f2dae0719bab9bcae5f71205ad5f9}} 
+\index{kprobes.c@{kprobes.c}!unregister\_kretprobes@{unregister\_kretprobes}}
+\index{unregister\_kretprobes@{unregister\_kretprobes}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{unregister\_kretprobes()}{unregister\_kretprobes()}}
+{\footnotesize\ttfamily void unregister\+\_\+kretprobes (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkretprobe}{kretprobe}} $\ast$$\ast$}]{rps,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{num }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kprobes_8c_abedf915ecb5875ae61b3aa6911b9a2c5}\label{kprobes_8c_abedf915ecb5875ae61b3aa6911b9a2c5}} 
+\index{kprobes.c@{kprobes.c}!warn\_kprobe\_rereg@{warn\_kprobe\_rereg}}
+\index{warn\_kprobe\_rereg@{warn\_kprobe\_rereg}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{warn\_kprobe\_rereg()}{warn\_kprobe\_rereg()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} warn\+\_\+kprobe\+\_\+rereg (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkprobe}{kprobe}} $\ast$}]{p }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 107
+Here is the caller graph for this function\+:
+% FIG 108
+\mbox{\Hypertarget{kprobes_8c_a1f8cec8a63bc1ddea91bb62744b6ef50}\label{kprobes_8c_a1f8cec8a63bc1ddea91bb62744b6ef50}} 
+\index{kprobes.c@{kprobes.c}!within\_kprobe\_blacklist@{within\_kprobe\_blacklist}}
+\index{within\_kprobe\_blacklist@{within\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{within\_kprobe\_blacklist()}{within\_kprobe\_blacklist()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} within\+\_\+kprobe\+\_\+blacklist (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 109
+Here is the caller graph for this function\+:
+% FIG 110
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kprobes_8c_a654892fc8fb326ca17909014d7c6662f}\label{kprobes_8c_a654892fc8fb326ca17909014d7c6662f}} 
+\index{kprobes.c@{kprobes.c}!\_\_start\_kprobe\_blacklist@{\_\_start\_kprobe\_blacklist}}
+\index{\_\_start\_kprobe\_blacklist@{\_\_start\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_start\_kprobe\_blacklist}{\_\_start\_kprobe\_blacklist}}
+{\footnotesize\ttfamily unsigned long \+\_\+\+\_\+start\+\_\+kprobe\+\_\+blacklist\mbox{[}$\,$\mbox{]}}
+
+\mbox{\Hypertarget{kprobes_8c_a56659d1c1f975d9e921a760b4d17695f}\label{kprobes_8c_a56659d1c1f975d9e921a760b4d17695f}} 
+\index{kprobes.c@{kprobes.c}!\_\_stop\_kprobe\_blacklist@{\_\_stop\_kprobe\_blacklist}}
+\index{\_\_stop\_kprobe\_blacklist@{\_\_stop\_kprobe\_blacklist}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{\_\_stop\_kprobe\_blacklist}{\_\_stop\_kprobe\_blacklist}}
+{\footnotesize\ttfamily unsigned long \+\_\+\+\_\+stop\+\_\+kprobe\+\_\+blacklist\mbox{[}$\,$\mbox{]}}
+
+\mbox{\Hypertarget{kprobes_8c_a7111b3ef8b8d629354ce2e90fd19721b}\label{kprobes_8c_a7111b3ef8b8d629354ce2e90fd19721b}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_busy@{kprobe\_busy}}
+\index{kprobe\_busy@{kprobe\_busy}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_busy}{kprobe\_busy}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkprobe}{kprobe}} kprobe\+\_\+busy\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .addr = (\textcolor{keywordtype}{void} *) \mbox{\hyperlink{kprobes_8c_aeed3b8998bea091f40bea42050efba5b}{get\_kprobe}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kprobes_8c_ac442ac259230f5b108942a5559aa5cd2}\label{kprobes_8c_ac442ac259230f5b108942a5559aa5cd2}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_exceptions\_nb@{kprobe\_exceptions\_nb}}
+\index{kprobe\_exceptions\_nb@{kprobe\_exceptions\_nb}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_exceptions\_nb}{kprobe\_exceptions\_nb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} kprobe\+\_\+exceptions\+\_\+nb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .notifier\_call = \mbox{\hyperlink{kprobes_8c_aab3d649f65870884ca1d25535c6eac9c}{kprobe\_exceptions\_notify}},}
+\DoxyCodeLine{    .priority = 0x7fffffff }
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kprobes_8c_afe2d1dd6ad7dd6b85391abb7338add8d}\label{kprobes_8c_afe2d1dd6ad7dd6b85391abb7338add8d}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_module\_nb@{kprobe\_module\_nb}}
+\index{kprobe\_module\_nb@{kprobe\_module\_nb}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_module\_nb}{kprobe\_module\_nb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnotifier__block}{notifier\+\_\+block}} kprobe\+\_\+module\+\_\+nb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .notifier\_call = \mbox{\hyperlink{kprobes_8c_a9d6b16b8e9fd7b06d89fdbc35fbc31e5}{kprobes\_module\_callback}},}
+\DoxyCodeLine{    .priority = 0}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kprobes_8c_a41cd77d4f8f80fa7c2241111ce46e5f5}\label{kprobes_8c_a41cd77d4f8f80fa7c2241111ce46e5f5}} 
+\index{kprobes.c@{kprobes.c}!kprobe\_table@{kprobe\_table}}
+\index{kprobe\_table@{kprobe\_table}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobe\_table}{kprobe\_table}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} kprobe\+\_\+table\mbox{[}\mbox{\hyperlink{kprobes_8c_a0e49b737693e316c27c9c87d6d48aa6d}{K\+P\+R\+O\+B\+E\+\_\+\+T\+A\+B\+L\+E\+\_\+\+S\+I\+ZE}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kprobes_8c_a586a3e12af713f5f241203e523f18f6e}\label{kprobes_8c_a586a3e12af713f5f241203e523f18f6e}} 
+\index{kprobes.c@{kprobes.c}!kprobes\_all\_disarmed@{kprobes\_all\_disarmed}}
+\index{kprobes\_all\_disarmed@{kprobes\_all\_disarmed}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobes\_all\_disarmed}{kprobes\_all\_disarmed}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kprobes\+\_\+all\+\_\+disarmed\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kprobes_8c_a4738e17c5640b4c2470732a0c2245d97}\label{kprobes_8c_a4738e17c5640b4c2470732a0c2245d97}} 
+\index{kprobes.c@{kprobes.c}!kprobes\_initialized@{kprobes\_initialized}}
+\index{kprobes\_initialized@{kprobes\_initialized}!kprobes.c@{kprobes.c}}
+\doxysubsubsection{\texorpdfstring{kprobes\_initialized}{kprobes\_initialized}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kprobes\+\_\+initialized\hspace{0.3cm}{\ttfamily [static]}}
+

@@ -1,0 +1,811 @@
+\hypertarget{khugepaged_8c}{}\doxysection{mm/khugepaged.c File Reference}
+\label{khugepaged_8c}\index{mm/khugepaged.c@{mm/khugepaged.c}}
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/coredump.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mmu\+\_\+notifier.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rmap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm\+\_\+inline.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/khugepaged.\+h$>$}\newline
+{\ttfamily \#include $<$linux/freezer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mman.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hashtable.\+h$>$}\newline
+{\ttfamily \#include $<$linux/userfaultfd\+\_\+k.\+h$>$}\newline
+{\ttfamily \#include $<$linux/page\+\_\+idle.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swapops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/shmem\+\_\+fs.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlb.\+h$>$}\newline
+{\ttfamily \#include $<$asm/pgalloc.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}internal.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$trace/events/huge\+\_\+memory.\+h$>$}\newline
+Include dependency graph for khugepaged.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}}
+\item 
+struct \mbox{\hyperlink{structkhugepaged__scan}{khugepaged\+\_\+scan}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{khugepaged_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{khugepaged_8c_a40473b47b4871fa538a0fa131f94e774}{C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}}
+\item 
+\#define \mbox{\hyperlink{khugepaged_8c_a535f5141ea39951a4af145cbfc1b3153}{M\+M\+\_\+\+S\+L\+O\+T\+S\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}~10
+\item 
+\#define \mbox{\hyperlink{khugepaged_8c_adf10e885820ff905c33b4a1d16d056a6}{M\+A\+X\+\_\+\+P\+T\+E\+\_\+\+M\+A\+P\+P\+E\+D\+\_\+\+T\+HP}}~8
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7}{scan\+\_\+result}} \{ \newline
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a158d5ecea9a64738751e3f757101cead}{S\+C\+A\+N\+\_\+\+F\+A\+IL}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a9838031b9561517b7b4b91fbe45e0686}{S\+C\+A\+N\+\_\+\+S\+U\+C\+C\+E\+ED}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a981b05414c030f7b0524532d8c86c48a}{S\+C\+A\+N\+\_\+\+P\+M\+D\+\_\+\+N\+U\+LL}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a9ca6535aee6b88062ea63c4f28524829}{S\+C\+A\+N\+\_\+\+E\+X\+C\+E\+E\+D\+\_\+\+N\+O\+N\+E\+\_\+\+P\+TE}}, 
+\newline
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7b42eb2ea67e2f9caa937095bceac5ff}{S\+C\+A\+N\+\_\+\+E\+X\+C\+E\+E\+D\+\_\+\+S\+W\+A\+P\+\_\+\+P\+TE}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a45b7c9866020aff29871b88d1aeddb0c}{S\+C\+A\+N\+\_\+\+E\+X\+C\+E\+E\+D\+\_\+\+S\+H\+A\+R\+E\+D\+\_\+\+P\+TE}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a3d9a545d6cc80ad1c43fd2fb02115068}{S\+C\+A\+N\+\_\+\+P\+T\+E\+\_\+\+N\+O\+N\+\_\+\+P\+R\+E\+S\+E\+NT}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7aaffea1002b784198da6b709ea0cc2510}{S\+C\+A\+N\+\_\+\+P\+T\+E\+\_\+\+U\+F\+F\+D\+\_\+\+WP}}, 
+\newline
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7abb31d810caed0846bdd5581ad6b083ba}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+RO}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a709dfde8d6540aadc4fe8cf307c74c2f}{S\+C\+A\+N\+\_\+\+L\+A\+C\+K\+\_\+\+R\+E\+F\+E\+R\+E\+N\+C\+E\+D\+\_\+\+P\+A\+GE}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a58617f28d4156df7de718afbbf91d09a}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+N\+U\+LL}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a83d4be7f73fcefaeb14c2fd39123c6ab}{S\+C\+A\+N\+\_\+\+S\+C\+A\+N\+\_\+\+A\+B\+O\+RT}}, 
+\newline
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a48741bb733551b57df431cf61e9e4eb1}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+C\+O\+U\+NT}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7d20bb84f41ae510312989f867a747ae}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+L\+RU}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a976232178cb574a0144d4bb27f86bb54}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+L\+O\+CK}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7ac54eab28d3ac75ba4d8f64962f156ac3}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+A\+N\+ON}}, 
+\newline
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a4bc1d70bd896150df2a6b6e3ba609a11}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+C\+O\+M\+P\+O\+U\+ND}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a5c9a5767dfe3aaec4ae34b28d8920fab}{S\+C\+A\+N\+\_\+\+A\+N\+Y\+\_\+\+P\+R\+O\+C\+E\+SS}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a2129a319cbbde5da9c992b16bbf5cdc9}{S\+C\+A\+N\+\_\+\+V\+M\+A\+\_\+\+N\+U\+LL}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a5e0b4efcc6daaa303a51e6fcadcd260e}{S\+C\+A\+N\+\_\+\+V\+M\+A\+\_\+\+C\+H\+E\+CK}}, 
+\newline
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7ae3e12c74aebdb51abde133b4bc828499}{S\+C\+A\+N\+\_\+\+A\+D\+D\+R\+E\+S\+S\+\_\+\+R\+A\+N\+GE}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a69d82abfc49e4ca07b149854a07ae431}{S\+C\+A\+N\+\_\+\+S\+W\+A\+P\+\_\+\+C\+A\+C\+H\+E\+\_\+\+P\+A\+GE}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7af2e538d9de19e5baeed552fa49b2812d}{S\+C\+A\+N\+\_\+\+D\+E\+L\+\_\+\+P\+A\+G\+E\+\_\+\+L\+RU}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7bb8fe145f2efd7562f26980f711a518}{S\+C\+A\+N\+\_\+\+A\+L\+L\+O\+C\+\_\+\+H\+U\+G\+E\+\_\+\+P\+A\+G\+E\+\_\+\+F\+A\+IL}}, 
+\newline
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7aa46b91494a73cc0e09ef6c72ccc5e9f8}{S\+C\+A\+N\+\_\+\+C\+G\+R\+O\+U\+P\+\_\+\+C\+H\+A\+R\+G\+E\+\_\+\+F\+A\+IL}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a55f8d06d8d1222c652a6a1c6bf4e166d}{S\+C\+A\+N\+\_\+\+T\+R\+U\+N\+C\+A\+T\+ED}}, 
+\mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a1a817e1dfed73823f53f9956bffedc1b}{S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+H\+A\+S\+\_\+\+P\+R\+I\+V\+A\+TE}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{khugepaged_8c_ae81a20bef3ea0e1a3a2c2aa4bd2c6897}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (khugepaged\+\_\+mutex)
+\item 
+static \mbox{\hyperlink{khugepaged_8c_a8bc6d7c660551f0d915b164cd21b07d9}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (khugepaged\+\_\+mm\+\_\+lock)
+\item 
+static \mbox{\hyperlink{khugepaged_8c_a2a1f9b80773563c74ccadb55ff93222a}{D\+E\+C\+L\+A\+R\+E\+\_\+\+W\+A\+I\+T\+\_\+\+Q\+U\+E\+U\+E\+\_\+\+H\+E\+AD}} (khugepaged\+\_\+wait)
+\item 
+static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} \mbox{\hyperlink{khugepaged_8c_a34626fcb63b7c86fe2e2f1a554f05449}{D\+E\+F\+I\+N\+E\+\_\+\+H\+A\+S\+H\+T\+A\+B\+LE}} (mm\+\_\+slots\+\_\+hash, \mbox{\hyperlink{ksm_8c_a535f5141ea39951a4af145cbfc1b3153}{M\+M\+\_\+\+S\+L\+O\+T\+S\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_af45a2cacf463b0ea0a55c3cfa1ea9f75}{hugepage\+\_\+madvise}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long $\ast$vm\+\_\+flags, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} advice)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{khugepaged_8c_a7f00d181f3f2562b5d9369ccb96dcb8c}{khugepaged\+\_\+init}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{khugepaged_8c_aa1169b2d0c078d15bc15e96d00eca9cc}{khugepaged\+\_\+destroy}} (void)
+\item 
+static struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$ \mbox{\hyperlink{khugepaged_8c_ad688e35a4ce729c3ad0ce54cb4a77f15}{alloc\+\_\+mm\+\_\+slot}} (void)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_abd5027a19aa2bac8b99444031e7296de}{free\+\_\+mm\+\_\+slot}} (struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$\mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}})
+\item 
+static struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$ \mbox{\hyperlink{khugepaged_8c_abfc538df85abb6d2827b26bbce961456}{get\+\_\+mm\+\_\+slot}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_a673fc016e3707dc26579989ddf195872}{insert\+\_\+to\+\_\+mm\+\_\+slots\+\_\+hash}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$\mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a037cf0c637ca9527b6adf0f460f05186}{khugepaged\+\_\+test\+\_\+exit}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{khugepaged_8c_a90f886a1f607c73f5bd1e6ed667ac1e1}{hugepage\+\_\+vma\+\_\+check}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long vm\+\_\+flags)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a1169cafe9f08f247f13ae27f1e2875d3}{\+\_\+\+\_\+khugepaged\+\_\+enter}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_ae7622252001177adcbbc6ee3ae85c951}{khugepaged\+\_\+enter\+\_\+vma\+\_\+merge}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long vm\+\_\+flags)
+\item 
+void \mbox{\hyperlink{khugepaged_8c_a78248f5fff6b7b55385ffc5cb6d698b0}{\+\_\+\+\_\+khugepaged\+\_\+exit}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_a06d2bc68536b714f4506cb04477b78df}{release\+\_\+pte\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_a3d4d1ac4872a321034b4c9e1d2d38df5}{release\+\_\+pte\+\_\+pages}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$pte, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$\+\_\+pte, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$compound\+\_\+pagelist)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{khugepaged_8c_a350ef3075e13b62e2de64f139b37ff17}{is\+\_\+refcount\+\_\+suitable}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a2d05b089a8a4fa48bcc2b8b8a2a69fd5}{\+\_\+\+\_\+collapse\+\_\+huge\+\_\+page\+\_\+isolate}} (struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{structaddress}{address}}, \mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$pte, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$compound\+\_\+pagelist)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_a10a9810b3e331bf02c0a4ead961dc8d9}{\+\_\+\+\_\+collapse\+\_\+huge\+\_\+page\+\_\+copy}} (\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$pte, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{structaddress}{address}}, \mbox{\hyperlink{include_2linux_2spinlock__types_8h_a23e7982381ce4b480b250790ce149f3d}{spinlock\+\_\+t}} $\ast$ptl, struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$compound\+\_\+pagelist)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_ab75dbbe917b47e1961b8c7752a0eefdd}{khugepaged\+\_\+alloc\+\_\+sleep}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{khugepaged_8c_aef1c400356095d2cc768aea32dcbd5bb}{khugepaged\+\_\+scan\+\_\+abort}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nid)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{khugepaged_8c_af045ba1d011943a0b5fcd728604ba3ff}{alloc\+\_\+hugepage\+\_\+khugepaged\+\_\+gfpmask}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a1cd00a54ea5bf87a3275b1be931c09c7}{khugepaged\+\_\+find\+\_\+target\+\_\+node}} (void)
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{khugepaged_8c_afd53564b2229456651b2770e79494623}{alloc\+\_\+khugepaged\+\_\+hugepage}} (void)
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{khugepaged_8c_aac95520532a3183c367189091e789351}{khugepaged\+\_\+alloc\+\_\+hugepage}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$\mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{khugepaged_8c_a5c621b2072bdc5893933e3302c0a296c}{khugepaged\+\_\+prealloc\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$hpage, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$\mbox{\hyperlink{ceph__fs_8h_afca35de3b5f4b938acfd4e50784c457d}{wait}})
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{khugepaged_8c_aaf485fadda37142c10f5ac472b9f267b}{khugepaged\+\_\+alloc\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$hpage, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a3be83ca80fd46625ea30f9345aafcca8}{hugepage\+\_\+vma\+\_\+revalidate}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long \mbox{\hyperlink{structaddress}{address}}, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$$\ast$\mbox{\hyperlink{vmalloc_8c_a5e0e578efaa6447458f8c31d952fbecb}{vmap}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{khugepaged_8c_a170b1675a3303faf578b682b57ef9874}{\+\_\+\+\_\+collapse\+\_\+huge\+\_\+page\+\_\+swapin}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long haddr, \mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$pmd, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} referenced)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_a42a4ade909be0b1630f723219697beb9}{collapse\+\_\+huge\+\_\+page}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, unsigned long \mbox{\hyperlink{structaddress}{address}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$hpage, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structnode}{node}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} referenced, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} unmapped)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_aff1d054b68627df593fd2fb8018425b1}{khugepaged\+\_\+scan\+\_\+pmd}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$\mbox{\hyperlink{task__iter_8c_a54dcb372a03f4d8d354acae53efcf4e6}{vma}}, unsigned long \mbox{\hyperlink{structaddress}{address}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$hpage)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_adf3d5ee6d0358d3636bd4cc8a1b497db}{collect\+\_\+mm\+\_\+slot}} (struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$\mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}})
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_af62273755130c57a458b27a74416b05a}{khugepaged\+\_\+scan\+\_\+file}} (struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$mm, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, \mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$hpage)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_a131a7539f141565ffdc4a4133ba860d5}{khugepaged\+\_\+collapse\+\_\+pte\+\_\+mapped\+\_\+thps}} (struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$\mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_af80aa48b041037d9f64ca05b2a8eeed0}{khugepaged\+\_\+scan\+\_\+mm\+\_\+slot}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2screen__info_8h_a362b4344d8e47752e8852e0ae5ccea7d}{pages}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$hpage) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(\&khugepaged\+\_\+mm\+\_\+lock) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(\&khugepaged\+\_\+mm\+\_\+lock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_ad8157b249e69519bf4bac1d26e277e65}{khugepaged\+\_\+has\+\_\+work}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a15b2d205ac438ec4037b69746b1c9425}{khugepaged\+\_\+wait\+\_\+event}} (void)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_ae46b498792188915a54d9aeea6b5c7ed}{khugepaged\+\_\+do\+\_\+scan}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{khugepaged_8c_a9205077feb9d221a2d767eb6b24fad30}{khugepaged\+\_\+should\+\_\+wakeup}} (void)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_ab753b04d64732472c94271bc70c76e60}{khugepaged\+\_\+wait\+\_\+work}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a88f8dc6c3e40b89406aadeb56c179afd}{khugepaged}} (void $\ast$none)
+\item 
+static void \mbox{\hyperlink{khugepaged_8c_a2bb249863bfe295bce12d53d8e643817}{set\+\_\+recommended\+\_\+min\+\_\+free\+\_\+kbytes}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_abb45a88e416a6aa6c13e7dd71ae6f138}{start\+\_\+stop\+\_\+khugepaged}} (void)
+\item 
+void \mbox{\hyperlink{khugepaged_8c_ac55aa76e13072b3ec225be6fe39d3eb0}{khugepaged\+\_\+min\+\_\+free\+\_\+kbytes\+\_\+update}} (void)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct task\+\_\+struct $\ast$khugepaged\+\_\+thread \mbox{\hyperlink{khugepaged_8c_af7ff17c13ea56d2175c389aa7be35408}{\+\_\+\+\_\+read\+\_\+mostly}} = 10000
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a5b92466dd29a262a8670925e42969950}{khugepaged\+\_\+pages\+\_\+collapsed}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_aad31a60ee1175b2e209a127d18e1f521}{khugepaged\+\_\+full\+\_\+scans}}
+\item 
+static unsigned long \mbox{\hyperlink{khugepaged_8c_af21b0ee8c18dc5e7a116454f943ce85e}{khugepaged\+\_\+sleep\+\_\+expire}}
+\item 
+static struct \mbox{\hyperlink{structkhugepaged__scan}{khugepaged\+\_\+scan}} \mbox{\hyperlink{khugepaged_8c_a88f045b572170b343507d7651bfc3262}{khugepaged\+\_\+scan}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{khugepaged_8c_a2f60ee16cc11030fac94169405665ad9}{khugepaged\+\_\+node\+\_\+load}} \mbox{[}\mbox{\hyperlink{include_2linux_2numa_8h_ae23c0c5a019ccb9f8f9840785eb587d0}{M\+A\+X\+\_\+\+N\+U\+M\+N\+O\+D\+ES}}\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{khugepaged_8c_a40473b47b4871fa538a0fa131f94e774}\label{khugepaged_8c_a40473b47b4871fa538a0fa131f94e774}} 
+\index{khugepaged.c@{khugepaged.c}!CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}}
+\index{CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{CREATE\_TRACE\_POINTS}{CREATE\_TRACE\_POINTS}}
+{\footnotesize\ttfamily \#define C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}
+
+\mbox{\Hypertarget{khugepaged_8c_adf10e885820ff905c33b4a1d16d056a6}\label{khugepaged_8c_adf10e885820ff905c33b4a1d16d056a6}} 
+\index{khugepaged.c@{khugepaged.c}!MAX\_PTE\_MAPPED\_THP@{MAX\_PTE\_MAPPED\_THP}}
+\index{MAX\_PTE\_MAPPED\_THP@{MAX\_PTE\_MAPPED\_THP}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_PTE\_MAPPED\_THP}{MAX\_PTE\_MAPPED\_THP}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+P\+T\+E\+\_\+\+M\+A\+P\+P\+E\+D\+\_\+\+T\+HP~8}
+
+\mbox{\Hypertarget{khugepaged_8c_a535f5141ea39951a4af145cbfc1b3153}\label{khugepaged_8c_a535f5141ea39951a4af145cbfc1b3153}} 
+\index{khugepaged.c@{khugepaged.c}!MM\_SLOTS\_HASH\_BITS@{MM\_SLOTS\_HASH\_BITS}}
+\index{MM\_SLOTS\_HASH\_BITS@{MM\_SLOTS\_HASH\_BITS}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{MM\_SLOTS\_HASH\_BITS}{MM\_SLOTS\_HASH\_BITS}}
+{\footnotesize\ttfamily \#define M\+M\+\_\+\+S\+L\+O\+T\+S\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS~10}
+
+\mbox{\Hypertarget{khugepaged_8c_a1f8c165bf4196327bc3abff648276d92}\label{khugepaged_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{khugepaged.c@{khugepaged.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7}} 
+\index{khugepaged.c@{khugepaged.c}!scan\_result@{scan\_result}}
+\index{scan\_result@{scan\_result}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{scan\_result}{scan\_result}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7}{scan\+\_\+result}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_FAIL@{SCAN\_FAIL}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_FAIL@{SCAN\_FAIL}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a158d5ecea9a64738751e3f757101cead}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a158d5ecea9a64738751e3f757101cead}} 
+S\+C\+A\+N\+\_\+\+F\+A\+IL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_SUCCEED@{SCAN\_SUCCEED}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_SUCCEED@{SCAN\_SUCCEED}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a9838031b9561517b7b4b91fbe45e0686}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a9838031b9561517b7b4b91fbe45e0686}} 
+S\+C\+A\+N\+\_\+\+S\+U\+C\+C\+E\+ED&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PMD\_NULL@{SCAN\_PMD\_NULL}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PMD\_NULL@{SCAN\_PMD\_NULL}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a981b05414c030f7b0524532d8c86c48a}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a981b05414c030f7b0524532d8c86c48a}} 
+S\+C\+A\+N\+\_\+\+P\+M\+D\+\_\+\+N\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_EXCEED\_NONE\_PTE@{SCAN\_EXCEED\_NONE\_PTE}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_EXCEED\_NONE\_PTE@{SCAN\_EXCEED\_NONE\_PTE}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a9ca6535aee6b88062ea63c4f28524829}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a9ca6535aee6b88062ea63c4f28524829}} 
+S\+C\+A\+N\+\_\+\+E\+X\+C\+E\+E\+D\+\_\+\+N\+O\+N\+E\+\_\+\+P\+TE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_EXCEED\_SWAP\_PTE@{SCAN\_EXCEED\_SWAP\_PTE}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_EXCEED\_SWAP\_PTE@{SCAN\_EXCEED\_SWAP\_PTE}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7b42eb2ea67e2f9caa937095bceac5ff}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7b42eb2ea67e2f9caa937095bceac5ff}} 
+S\+C\+A\+N\+\_\+\+E\+X\+C\+E\+E\+D\+\_\+\+S\+W\+A\+P\+\_\+\+P\+TE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_EXCEED\_SHARED\_PTE@{SCAN\_EXCEED\_SHARED\_PTE}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_EXCEED\_SHARED\_PTE@{SCAN\_EXCEED\_SHARED\_PTE}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a45b7c9866020aff29871b88d1aeddb0c}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a45b7c9866020aff29871b88d1aeddb0c}} 
+S\+C\+A\+N\+\_\+\+E\+X\+C\+E\+E\+D\+\_\+\+S\+H\+A\+R\+E\+D\+\_\+\+P\+TE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PTE\_NON\_PRESENT@{SCAN\_PTE\_NON\_PRESENT}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PTE\_NON\_PRESENT@{SCAN\_PTE\_NON\_PRESENT}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a3d9a545d6cc80ad1c43fd2fb02115068}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a3d9a545d6cc80ad1c43fd2fb02115068}} 
+S\+C\+A\+N\+\_\+\+P\+T\+E\+\_\+\+N\+O\+N\+\_\+\+P\+R\+E\+S\+E\+NT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PTE\_UFFD\_WP@{SCAN\_PTE\_UFFD\_WP}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PTE\_UFFD\_WP@{SCAN\_PTE\_UFFD\_WP}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7aaffea1002b784198da6b709ea0cc2510}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7aaffea1002b784198da6b709ea0cc2510}} 
+S\+C\+A\+N\+\_\+\+P\+T\+E\+\_\+\+U\+F\+F\+D\+\_\+\+WP&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_RO@{SCAN\_PAGE\_RO}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_RO@{SCAN\_PAGE\_RO}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7abb31d810caed0846bdd5581ad6b083ba}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7abb31d810caed0846bdd5581ad6b083ba}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+RO&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_LACK\_REFERENCED\_PAGE@{SCAN\_LACK\_REFERENCED\_PAGE}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_LACK\_REFERENCED\_PAGE@{SCAN\_LACK\_REFERENCED\_PAGE}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a709dfde8d6540aadc4fe8cf307c74c2f}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a709dfde8d6540aadc4fe8cf307c74c2f}} 
+S\+C\+A\+N\+\_\+\+L\+A\+C\+K\+\_\+\+R\+E\+F\+E\+R\+E\+N\+C\+E\+D\+\_\+\+P\+A\+GE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_NULL@{SCAN\_PAGE\_NULL}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_NULL@{SCAN\_PAGE\_NULL}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a58617f28d4156df7de718afbbf91d09a}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a58617f28d4156df7de718afbbf91d09a}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+N\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_SCAN\_ABORT@{SCAN\_SCAN\_ABORT}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_SCAN\_ABORT@{SCAN\_SCAN\_ABORT}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a83d4be7f73fcefaeb14c2fd39123c6ab}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a83d4be7f73fcefaeb14c2fd39123c6ab}} 
+S\+C\+A\+N\+\_\+\+S\+C\+A\+N\+\_\+\+A\+B\+O\+RT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_COUNT@{SCAN\_PAGE\_COUNT}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_COUNT@{SCAN\_PAGE\_COUNT}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a48741bb733551b57df431cf61e9e4eb1}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a48741bb733551b57df431cf61e9e4eb1}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+C\+O\+U\+NT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_LRU@{SCAN\_PAGE\_LRU}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_LRU@{SCAN\_PAGE\_LRU}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7d20bb84f41ae510312989f867a747ae}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7d20bb84f41ae510312989f867a747ae}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+L\+RU&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_LOCK@{SCAN\_PAGE\_LOCK}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_LOCK@{SCAN\_PAGE\_LOCK}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a976232178cb574a0144d4bb27f86bb54}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a976232178cb574a0144d4bb27f86bb54}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+L\+O\+CK&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_ANON@{SCAN\_PAGE\_ANON}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_ANON@{SCAN\_PAGE\_ANON}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7ac54eab28d3ac75ba4d8f64962f156ac3}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7ac54eab28d3ac75ba4d8f64962f156ac3}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+A\+N\+ON&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_COMPOUND@{SCAN\_PAGE\_COMPOUND}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_COMPOUND@{SCAN\_PAGE\_COMPOUND}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a4bc1d70bd896150df2a6b6e3ba609a11}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a4bc1d70bd896150df2a6b6e3ba609a11}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+C\+O\+M\+P\+O\+U\+ND&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_ANY\_PROCESS@{SCAN\_ANY\_PROCESS}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_ANY\_PROCESS@{SCAN\_ANY\_PROCESS}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a5c9a5767dfe3aaec4ae34b28d8920fab}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a5c9a5767dfe3aaec4ae34b28d8920fab}} 
+S\+C\+A\+N\+\_\+\+A\+N\+Y\+\_\+\+P\+R\+O\+C\+E\+SS&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_VMA\_NULL@{SCAN\_VMA\_NULL}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_VMA\_NULL@{SCAN\_VMA\_NULL}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a2129a319cbbde5da9c992b16bbf5cdc9}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a2129a319cbbde5da9c992b16bbf5cdc9}} 
+S\+C\+A\+N\+\_\+\+V\+M\+A\+\_\+\+N\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_VMA\_CHECK@{SCAN\_VMA\_CHECK}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_VMA\_CHECK@{SCAN\_VMA\_CHECK}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a5e0b4efcc6daaa303a51e6fcadcd260e}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a5e0b4efcc6daaa303a51e6fcadcd260e}} 
+S\+C\+A\+N\+\_\+\+V\+M\+A\+\_\+\+C\+H\+E\+CK&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_ADDRESS\_RANGE@{SCAN\_ADDRESS\_RANGE}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_ADDRESS\_RANGE@{SCAN\_ADDRESS\_RANGE}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7ae3e12c74aebdb51abde133b4bc828499}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7ae3e12c74aebdb51abde133b4bc828499}} 
+S\+C\+A\+N\+\_\+\+A\+D\+D\+R\+E\+S\+S\+\_\+\+R\+A\+N\+GE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_SWAP\_CACHE\_PAGE@{SCAN\_SWAP\_CACHE\_PAGE}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_SWAP\_CACHE\_PAGE@{SCAN\_SWAP\_CACHE\_PAGE}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a69d82abfc49e4ca07b149854a07ae431}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a69d82abfc49e4ca07b149854a07ae431}} 
+S\+C\+A\+N\+\_\+\+S\+W\+A\+P\+\_\+\+C\+A\+C\+H\+E\+\_\+\+P\+A\+GE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_DEL\_PAGE\_LRU@{SCAN\_DEL\_PAGE\_LRU}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_DEL\_PAGE\_LRU@{SCAN\_DEL\_PAGE\_LRU}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7af2e538d9de19e5baeed552fa49b2812d}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7af2e538d9de19e5baeed552fa49b2812d}} 
+S\+C\+A\+N\+\_\+\+D\+E\+L\+\_\+\+P\+A\+G\+E\+\_\+\+L\+RU&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_ALLOC\_HUGE\_PAGE\_FAIL@{SCAN\_ALLOC\_HUGE\_PAGE\_FAIL}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_ALLOC\_HUGE\_PAGE\_FAIL@{SCAN\_ALLOC\_HUGE\_PAGE\_FAIL}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7bb8fe145f2efd7562f26980f711a518}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a7bb8fe145f2efd7562f26980f711a518}} 
+S\+C\+A\+N\+\_\+\+A\+L\+L\+O\+C\+\_\+\+H\+U\+G\+E\+\_\+\+P\+A\+G\+E\+\_\+\+F\+A\+IL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_CGROUP\_CHARGE\_FAIL@{SCAN\_CGROUP\_CHARGE\_FAIL}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_CGROUP\_CHARGE\_FAIL@{SCAN\_CGROUP\_CHARGE\_FAIL}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7aa46b91494a73cc0e09ef6c72ccc5e9f8}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7aa46b91494a73cc0e09ef6c72ccc5e9f8}} 
+S\+C\+A\+N\+\_\+\+C\+G\+R\+O\+U\+P\+\_\+\+C\+H\+A\+R\+G\+E\+\_\+\+F\+A\+IL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_TRUNCATED@{SCAN\_TRUNCATED}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_TRUNCATED@{SCAN\_TRUNCATED}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a55f8d06d8d1222c652a6a1c6bf4e166d}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a55f8d06d8d1222c652a6a1c6bf4e166d}} 
+S\+C\+A\+N\+\_\+\+T\+R\+U\+N\+C\+A\+T\+ED&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SCAN\_PAGE\_HAS\_PRIVATE@{SCAN\_PAGE\_HAS\_PRIVATE}!khugepaged.c@{khugepaged.c}}\index{khugepaged.c@{khugepaged.c}!SCAN\_PAGE\_HAS\_PRIVATE@{SCAN\_PAGE\_HAS\_PRIVATE}}}\mbox{\Hypertarget{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a1a817e1dfed73823f53f9956bffedc1b}\label{khugepaged_8c_aadbfa8fc44221da5be95b8853f9f2bc7a1a817e1dfed73823f53f9956bffedc1b}} 
+S\+C\+A\+N\+\_\+\+P\+A\+G\+E\+\_\+\+H\+A\+S\+\_\+\+P\+R\+I\+V\+A\+TE&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{khugepaged_8c_a10a9810b3e331bf02c0a4ead961dc8d9}\label{khugepaged_8c_a10a9810b3e331bf02c0a4ead961dc8d9}} 
+\index{khugepaged.c@{khugepaged.c}!\_\_collapse\_huge\_page\_copy@{\_\_collapse\_huge\_page\_copy}}
+\index{\_\_collapse\_huge\_page\_copy@{\_\_collapse\_huge\_page\_copy}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{\_\_collapse\_huge\_page\_copy()}{\_\_collapse\_huge\_page\_copy()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+collapse\+\_\+huge\+\_\+page\+\_\+copy (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{pte,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{address,  }\item[{\mbox{\hyperlink{include_2linux_2spinlock__types_8h_a23e7982381ce4b480b250790ce149f3d}{spinlock\+\_\+t}} $\ast$}]{ptl,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{compound\+\_\+pagelist }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{khugepaged_8c_a2d05b089a8a4fa48bcc2b8b8a2a69fd5}\label{khugepaged_8c_a2d05b089a8a4fa48bcc2b8b8a2a69fd5}} 
+\index{khugepaged.c@{khugepaged.c}!\_\_collapse\_huge\_page\_isolate@{\_\_collapse\_huge\_page\_isolate}}
+\index{\_\_collapse\_huge\_page\_isolate@{\_\_collapse\_huge\_page\_isolate}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{\_\_collapse\_huge\_page\_isolate()}{\_\_collapse\_huge\_page\_isolate()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+collapse\+\_\+huge\+\_\+page\+\_\+isolate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{address,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{pte,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{compound\+\_\+pagelist }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{khugepaged_8c_a170b1675a3303faf578b682b57ef9874}\label{khugepaged_8c_a170b1675a3303faf578b682b57ef9874}} 
+\index{khugepaged.c@{khugepaged.c}!\_\_collapse\_huge\_page\_swapin@{\_\_collapse\_huge\_page\_swapin}}
+\index{\_\_collapse\_huge\_page\_swapin@{\_\_collapse\_huge\_page\_swapin}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{\_\_collapse\_huge\_page\_swapin()}{\_\_collapse\_huge\_page\_swapin()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+\+\_\+collapse\+\_\+huge\+\_\+page\+\_\+swapin (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{haddr,  }\item[{\mbox{\hyperlink{structpmd__t}{pmd\+\_\+t}} $\ast$}]{pmd,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{referenced }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{khugepaged_8c_a1169cafe9f08f247f13ae27f1e2875d3}\label{khugepaged_8c_a1169cafe9f08f247f13ae27f1e2875d3}} 
+\index{khugepaged.c@{khugepaged.c}!\_\_khugepaged\_enter@{\_\_khugepaged\_enter}}
+\index{\_\_khugepaged\_enter@{\_\_khugepaged\_enter}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{\_\_khugepaged\_enter()}{\_\_khugepaged\_enter()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+khugepaged\+\_\+enter (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{khugepaged_8c_a78248f5fff6b7b55385ffc5cb6d698b0}\label{khugepaged_8c_a78248f5fff6b7b55385ffc5cb6d698b0}} 
+\index{khugepaged.c@{khugepaged.c}!\_\_khugepaged\_exit@{\_\_khugepaged\_exit}}
+\index{\_\_khugepaged\_exit@{\_\_khugepaged\_exit}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{\_\_khugepaged\_exit()}{\_\_khugepaged\_exit()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+khugepaged\+\_\+exit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{khugepaged_8c_af045ba1d011943a0b5fcd728604ba3ff}\label{khugepaged_8c_af045ba1d011943a0b5fcd728604ba3ff}} 
+\index{khugepaged.c@{khugepaged.c}!alloc\_hugepage\_khugepaged\_gfpmask@{alloc\_hugepage\_khugepaged\_gfpmask}}
+\index{alloc\_hugepage\_khugepaged\_gfpmask@{alloc\_hugepage\_khugepaged\_gfpmask}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_hugepage\_khugepaged\_gfpmask()}{alloc\_hugepage\_khugepaged\_gfpmask()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} alloc\+\_\+hugepage\+\_\+khugepaged\+\_\+gfpmask (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{khugepaged_8c_afd53564b2229456651b2770e79494623}\label{khugepaged_8c_afd53564b2229456651b2770e79494623}} 
+\index{khugepaged.c@{khugepaged.c}!alloc\_khugepaged\_hugepage@{alloc\_khugepaged\_hugepage}}
+\index{alloc\_khugepaged\_hugepage@{alloc\_khugepaged\_hugepage}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_khugepaged\_hugepage()}{alloc\_khugepaged\_hugepage()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ alloc\+\_\+khugepaged\+\_\+hugepage (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{khugepaged_8c_ad688e35a4ce729c3ad0ce54cb4a77f15}\label{khugepaged_8c_ad688e35a4ce729c3ad0ce54cb4a77f15}} 
+\index{khugepaged.c@{khugepaged.c}!alloc\_mm\_slot@{alloc\_mm\_slot}}
+\index{alloc\_mm\_slot@{alloc\_mm\_slot}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_mm\_slot()}{alloc\_mm\_slot()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}}$\ast$ alloc\+\_\+mm\+\_\+slot (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{khugepaged_8c_a42a4ade909be0b1630f723219697beb9}\label{khugepaged_8c_a42a4ade909be0b1630f723219697beb9}} 
+\index{khugepaged.c@{khugepaged.c}!collapse\_huge\_page@{collapse\_huge\_page}}
+\index{collapse\_huge\_page@{collapse\_huge\_page}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{collapse\_huge\_page()}{collapse\_huge\_page()}}
+{\footnotesize\ttfamily static void collapse\+\_\+huge\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{address,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{hpage,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{referenced,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{unmapped }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{khugepaged_8c_adf3d5ee6d0358d3636bd4cc8a1b497db}\label{khugepaged_8c_adf3d5ee6d0358d3636bd4cc8a1b497db}} 
+\index{khugepaged.c@{khugepaged.c}!collect\_mm\_slot@{collect\_mm\_slot}}
+\index{collect\_mm\_slot@{collect\_mm\_slot}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{collect\_mm\_slot()}{collect\_mm\_slot()}}
+{\footnotesize\ttfamily static void collect\+\_\+mm\+\_\+slot (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$}]{mm\+\_\+slot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{khugepaged_8c_a2a1f9b80773563c74ccadb55ff93222a}\label{khugepaged_8c_a2a1f9b80773563c74ccadb55ff93222a}} 
+\index{khugepaged.c@{khugepaged.c}!DECLARE\_WAIT\_QUEUE\_HEAD@{DECLARE\_WAIT\_QUEUE\_HEAD}}
+\index{DECLARE\_WAIT\_QUEUE\_HEAD@{DECLARE\_WAIT\_QUEUE\_HEAD}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_WAIT\_QUEUE\_HEAD()}{DECLARE\_WAIT\_QUEUE\_HEAD()}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+W\+A\+I\+T\+\_\+\+Q\+U\+E\+U\+E\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{khugepaged\+\_\+wait}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_a34626fcb63b7c86fe2e2f1a554f05449}\label{khugepaged_8c_a34626fcb63b7c86fe2e2f1a554f05449}} 
+\index{khugepaged.c@{khugepaged.c}!DEFINE\_HASHTABLE@{DEFINE\_HASHTABLE}}
+\index{DEFINE\_HASHTABLE@{DEFINE\_HASHTABLE}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_HASHTABLE()}{DEFINE\_HASHTABLE()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{vsprintf_8c_afb4af779d09048f60c78a5c3cb3d6c84}{\+\_\+\+\_\+read\+\_\+mostly}} D\+E\+F\+I\+N\+E\+\_\+\+H\+A\+S\+H\+T\+A\+B\+LE (\begin{DoxyParamCaption}\item[{mm\+\_\+slots\+\_\+hash}]{,  }\item[{\mbox{\hyperlink{ksm_8c_a535f5141ea39951a4af145cbfc1b3153}{M\+M\+\_\+\+S\+L\+O\+T\+S\+\_\+\+H\+A\+S\+H\+\_\+\+B\+I\+TS}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_ae81a20bef3ea0e1a3a2c2aa4bd2c6897}\label{khugepaged_8c_ae81a20bef3ea0e1a3a2c2aa4bd2c6897}} 
+\index{khugepaged.c@{khugepaged.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{khugepaged\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_a8bc6d7c660551f0d915b164cd21b07d9}\label{khugepaged_8c_a8bc6d7c660551f0d915b164cd21b07d9}} 
+\index{khugepaged.c@{khugepaged.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{khugepaged\+\_\+mm\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_abd5027a19aa2bac8b99444031e7296de}\label{khugepaged_8c_abd5027a19aa2bac8b99444031e7296de}} 
+\index{khugepaged.c@{khugepaged.c}!free\_mm\_slot@{free\_mm\_slot}}
+\index{free\_mm\_slot@{free\_mm\_slot}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{free\_mm\_slot()}{free\_mm\_slot()}}
+{\footnotesize\ttfamily static void free\+\_\+mm\+\_\+slot (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$}]{mm\+\_\+slot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{khugepaged_8c_abfc538df85abb6d2827b26bbce961456}\label{khugepaged_8c_abfc538df85abb6d2827b26bbce961456}} 
+\index{khugepaged.c@{khugepaged.c}!get\_mm\_slot@{get\_mm\_slot}}
+\index{get\_mm\_slot@{get\_mm\_slot}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{get\_mm\_slot()}{get\_mm\_slot()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}}$\ast$ get\+\_\+mm\+\_\+slot (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{khugepaged_8c_af45a2cacf463b0ea0a55c3cfa1ea9f75}\label{khugepaged_8c_af45a2cacf463b0ea0a55c3cfa1ea9f75}} 
+\index{khugepaged.c@{khugepaged.c}!hugepage\_madvise@{hugepage\_madvise}}
+\index{hugepage\_madvise@{hugepage\_madvise}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{hugepage\_madvise()}{hugepage\_madvise()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hugepage\+\_\+madvise (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long $\ast$}]{vm\+\_\+flags,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{advice }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{khugepaged_8c_a90f886a1f607c73f5bd1e6ed667ac1e1}\label{khugepaged_8c_a90f886a1f607c73f5bd1e6ed667ac1e1}} 
+\index{khugepaged.c@{khugepaged.c}!hugepage\_vma\_check@{hugepage\_vma\_check}}
+\index{hugepage\_vma\_check@{hugepage\_vma\_check}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{hugepage\_vma\_check()}{hugepage\_vma\_check()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hugepage\+\_\+vma\+\_\+check (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{vm\+\_\+flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{khugepaged_8c_a3be83ca80fd46625ea30f9345aafcca8}\label{khugepaged_8c_a3be83ca80fd46625ea30f9345aafcca8}} 
+\index{khugepaged.c@{khugepaged.c}!hugepage\_vma\_revalidate@{hugepage\_vma\_revalidate}}
+\index{hugepage\_vma\_revalidate@{hugepage\_vma\_revalidate}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{hugepage\_vma\_revalidate()}{hugepage\_vma\_revalidate()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hugepage\+\_\+vma\+\_\+revalidate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{unsigned long}]{address,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$$\ast$}]{vmap }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{khugepaged_8c_a673fc016e3707dc26579989ddf195872}\label{khugepaged_8c_a673fc016e3707dc26579989ddf195872}} 
+\index{khugepaged.c@{khugepaged.c}!insert\_to\_mm\_slots\_hash@{insert\_to\_mm\_slots\_hash}}
+\index{insert\_to\_mm\_slots\_hash@{insert\_to\_mm\_slots\_hash}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{insert\_to\_mm\_slots\_hash()}{insert\_to\_mm\_slots\_hash()}}
+{\footnotesize\ttfamily static void insert\+\_\+to\+\_\+mm\+\_\+slots\+\_\+hash (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$}]{mm\+\_\+slot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{khugepaged_8c_a350ef3075e13b62e2de64f139b37ff17}\label{khugepaged_8c_a350ef3075e13b62e2de64f139b37ff17}} 
+\index{khugepaged.c@{khugepaged.c}!is\_refcount\_suitable@{is\_refcount\_suitable}}
+\index{is\_refcount\_suitable@{is\_refcount\_suitable}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{is\_refcount\_suitable()}{is\_refcount\_suitable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+refcount\+\_\+suitable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{khugepaged_8c_a88f8dc6c3e40b89406aadeb56c179afd}\label{khugepaged_8c_a88f8dc6c3e40b89406aadeb56c179afd}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged@{khugepaged}}
+\index{khugepaged@{khugepaged}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged()}{khugepaged()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged (\begin{DoxyParamCaption}\item[{void $\ast$}]{none }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{khugepaged_8c_aac95520532a3183c367189091e789351}\label{khugepaged_8c_aac95520532a3183c367189091e789351}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_alloc\_hugepage@{khugepaged\_alloc\_hugepage}}
+\index{khugepaged\_alloc\_hugepage@{khugepaged\_alloc\_hugepage}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_alloc\_hugepage()}{khugepaged\_alloc\_hugepage()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ khugepaged\+\_\+alloc\+\_\+hugepage (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$}]{wait }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{khugepaged_8c_aaf485fadda37142c10f5ac472b9f267b}\label{khugepaged_8c_aaf485fadda37142c10f5ac472b9f267b}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_alloc\_page@{khugepaged\_alloc\_page}}
+\index{khugepaged\_alloc\_page@{khugepaged\_alloc\_page}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_alloc\_page()}{khugepaged\_alloc\_page()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ khugepaged\+\_\+alloc\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{hpage,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{node }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{khugepaged_8c_ab75dbbe917b47e1961b8c7752a0eefdd}\label{khugepaged_8c_ab75dbbe917b47e1961b8c7752a0eefdd}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_alloc\_sleep@{khugepaged\_alloc\_sleep}}
+\index{khugepaged\_alloc\_sleep@{khugepaged\_alloc\_sleep}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_alloc\_sleep()}{khugepaged\_alloc\_sleep()}}
+{\footnotesize\ttfamily static void khugepaged\+\_\+alloc\+\_\+sleep (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{khugepaged_8c_a131a7539f141565ffdc4a4133ba860d5}\label{khugepaged_8c_a131a7539f141565ffdc4a4133ba860d5}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_collapse\_pte\_mapped\_thps@{khugepaged\_collapse\_pte\_mapped\_thps}}
+\index{khugepaged\_collapse\_pte\_mapped\_thps@{khugepaged\_collapse\_pte\_mapped\_thps}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_collapse\_pte\_mapped\_thps()}{khugepaged\_collapse\_pte\_mapped\_thps()}}
+{\footnotesize\ttfamily static void khugepaged\+\_\+collapse\+\_\+pte\+\_\+mapped\+\_\+thps (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__slot}{mm\+\_\+slot}} $\ast$}]{mm\+\_\+slot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{khugepaged_8c_aa1169b2d0c078d15bc15e96d00eca9cc}\label{khugepaged_8c_aa1169b2d0c078d15bc15e96d00eca9cc}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_destroy@{khugepaged\_destroy}}
+\index{khugepaged\_destroy@{khugepaged\_destroy}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_destroy()}{khugepaged\_destroy()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} khugepaged\+\_\+destroy (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{khugepaged_8c_ae46b498792188915a54d9aeea6b5c7ed}\label{khugepaged_8c_ae46b498792188915a54d9aeea6b5c7ed}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_do\_scan@{khugepaged\_do\_scan}}
+\index{khugepaged\_do\_scan@{khugepaged\_do\_scan}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_do\_scan()}{khugepaged\_do\_scan()}}
+{\footnotesize\ttfamily static void khugepaged\+\_\+do\+\_\+scan (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{khugepaged_8c_ae7622252001177adcbbc6ee3ae85c951}\label{khugepaged_8c_ae7622252001177adcbbc6ee3ae85c951}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_enter\_vma\_merge@{khugepaged\_enter\_vma\_merge}}
+\index{khugepaged\_enter\_vma\_merge@{khugepaged\_enter\_vma\_merge}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_enter\_vma\_merge()}{khugepaged\_enter\_vma\_merge()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+enter\+\_\+vma\+\_\+merge (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{vm\+\_\+flags }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{khugepaged_8c_a1cd00a54ea5bf87a3275b1be931c09c7}\label{khugepaged_8c_a1cd00a54ea5bf87a3275b1be931c09c7}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_find\_target\_node@{khugepaged\_find\_target\_node}}
+\index{khugepaged\_find\_target\_node@{khugepaged\_find\_target\_node}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_find\_target\_node()}{khugepaged\_find\_target\_node()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+find\+\_\+target\+\_\+node (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{khugepaged_8c_ad8157b249e69519bf4bac1d26e277e65}\label{khugepaged_8c_ad8157b249e69519bf4bac1d26e277e65}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_has\_work@{khugepaged\_has\_work}}
+\index{khugepaged\_has\_work@{khugepaged\_has\_work}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_has\_work()}{khugepaged\_has\_work()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+has\+\_\+work (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{khugepaged_8c_a7f00d181f3f2562b5d9369ccb96dcb8c}\label{khugepaged_8c_a7f00d181f3f2562b5d9369ccb96dcb8c}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_init@{khugepaged\_init}}
+\index{khugepaged\_init@{khugepaged\_init}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_init()}{khugepaged\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} khugepaged\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{khugepaged_8c_ac55aa76e13072b3ec225be6fe39d3eb0}\label{khugepaged_8c_ac55aa76e13072b3ec225be6fe39d3eb0}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_min\_free\_kbytes\_update@{khugepaged\_min\_free\_kbytes\_update}}
+\index{khugepaged\_min\_free\_kbytes\_update@{khugepaged\_min\_free\_kbytes\_update}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_min\_free\_kbytes\_update()}{khugepaged\_min\_free\_kbytes\_update()}}
+{\footnotesize\ttfamily void khugepaged\+\_\+min\+\_\+free\+\_\+kbytes\+\_\+update (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{khugepaged_8c_a5c621b2072bdc5893933e3302c0a296c}\label{khugepaged_8c_a5c621b2072bdc5893933e3302c0a296c}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_prealloc\_page@{khugepaged\_prealloc\_page}}
+\index{khugepaged\_prealloc\_page@{khugepaged\_prealloc\_page}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_prealloc\_page()}{khugepaged\_prealloc\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} khugepaged\+\_\+prealloc\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{hpage,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$}]{wait }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{khugepaged_8c_aef1c400356095d2cc768aea32dcbd5bb}\label{khugepaged_8c_aef1c400356095d2cc768aea32dcbd5bb}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_scan\_abort@{khugepaged\_scan\_abort}}
+\index{khugepaged\_scan\_abort@{khugepaged\_scan\_abort}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_scan\_abort()}{khugepaged\_scan\_abort()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} khugepaged\+\_\+scan\+\_\+abort (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{khugepaged_8c_af62273755130c57a458b27a74416b05a}\label{khugepaged_8c_af62273755130c57a458b27a74416b05a}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_scan\_file@{khugepaged\_scan\_file}}
+\index{khugepaged\_scan\_file@{khugepaged\_scan\_file}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_scan\_file()}{khugepaged\_scan\_file()}}
+{\footnotesize\ttfamily static void khugepaged\+\_\+scan\+\_\+file (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}}}]{start,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{hpage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{khugepaged_8c_af80aa48b041037d9f64ca05b2a8eeed0}\label{khugepaged_8c_af80aa48b041037d9f64ca05b2a8eeed0}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_scan\_mm\_slot@{khugepaged\_scan\_mm\_slot}}
+\index{khugepaged\_scan\_mm\_slot@{khugepaged\_scan\_mm\_slot}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_scan\_mm\_slot()}{khugepaged\_scan\_mm\_slot()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+scan\+\_\+mm\+\_\+slot (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pages,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{hpage }\end{DoxyParamCaption}) \&\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{khugepaged_8c_aff1d054b68627df593fd2fb8018425b1}\label{khugepaged_8c_aff1d054b68627df593fd2fb8018425b1}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_scan\_pmd@{khugepaged\_scan\_pmd}}
+\index{khugepaged\_scan\_pmd@{khugepaged\_scan\_pmd}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_scan\_pmd()}{khugepaged\_scan\_pmd()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+scan\+\_\+pmd (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm,  }\item[{struct \mbox{\hyperlink{structvm__area__struct}{vm\+\_\+area\+\_\+struct}} $\ast$}]{vma,  }\item[{unsigned long}]{address,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{hpage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{khugepaged_8c_a9205077feb9d221a2d767eb6b24fad30}\label{khugepaged_8c_a9205077feb9d221a2d767eb6b24fad30}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_should\_wakeup@{khugepaged\_should\_wakeup}}
+\index{khugepaged\_should\_wakeup@{khugepaged\_should\_wakeup}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_should\_wakeup()}{khugepaged\_should\_wakeup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} khugepaged\+\_\+should\+\_\+wakeup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{khugepaged_8c_a037cf0c637ca9527b6adf0f460f05186}\label{khugepaged_8c_a037cf0c637ca9527b6adf0f460f05186}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_test\_exit@{khugepaged\_test\_exit}}
+\index{khugepaged\_test\_exit@{khugepaged\_test\_exit}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_test\_exit()}{khugepaged\_test\_exit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+test\+\_\+exit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmm__struct}{mm\+\_\+struct}} $\ast$}]{mm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{khugepaged_8c_a15b2d205ac438ec4037b69746b1c9425}\label{khugepaged_8c_a15b2d205ac438ec4037b69746b1c9425}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_wait\_event@{khugepaged\_wait\_event}}
+\index{khugepaged\_wait\_event@{khugepaged\_wait\_event}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_wait\_event()}{khugepaged\_wait\_event()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+wait\+\_\+event (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{khugepaged_8c_ab753b04d64732472c94271bc70c76e60}\label{khugepaged_8c_ab753b04d64732472c94271bc70c76e60}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_wait\_work@{khugepaged\_wait\_work}}
+\index{khugepaged\_wait\_work@{khugepaged\_wait\_work}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_wait\_work()}{khugepaged\_wait\_work()}}
+{\footnotesize\ttfamily static void khugepaged\+\_\+wait\+\_\+work (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{khugepaged_8c_a06d2bc68536b714f4506cb04477b78df}\label{khugepaged_8c_a06d2bc68536b714f4506cb04477b78df}} 
+\index{khugepaged.c@{khugepaged.c}!release\_pte\_page@{release\_pte\_page}}
+\index{release\_pte\_page@{release\_pte\_page}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{release\_pte\_page()}{release\_pte\_page()}}
+{\footnotesize\ttfamily static void release\+\_\+pte\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{khugepaged_8c_a3d4d1ac4872a321034b4c9e1d2d38df5}\label{khugepaged_8c_a3d4d1ac4872a321034b4c9e1d2d38df5}} 
+\index{khugepaged.c@{khugepaged.c}!release\_pte\_pages@{release\_pte\_pages}}
+\index{release\_pte\_pages@{release\_pte\_pages}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{release\_pte\_pages()}{release\_pte\_pages()}}
+{\footnotesize\ttfamily static void release\+\_\+pte\+\_\+pages (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{pte,  }\item[{\mbox{\hyperlink{unionpte__t}{pte\+\_\+t}} $\ast$}]{\+\_\+pte,  }\item[{struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}} $\ast$}]{compound\+\_\+pagelist }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{khugepaged_8c_a2bb249863bfe295bce12d53d8e643817}\label{khugepaged_8c_a2bb249863bfe295bce12d53d8e643817}} 
+\index{khugepaged.c@{khugepaged.c}!set\_recommended\_min\_free\_kbytes@{set\_recommended\_min\_free\_kbytes}}
+\index{set\_recommended\_min\_free\_kbytes@{set\_recommended\_min\_free\_kbytes}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{set\_recommended\_min\_free\_kbytes()}{set\_recommended\_min\_free\_kbytes()}}
+{\footnotesize\ttfamily static void set\+\_\+recommended\+\_\+min\+\_\+free\+\_\+kbytes (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{khugepaged_8c_abb45a88e416a6aa6c13e7dd71ae6f138}\label{khugepaged_8c_abb45a88e416a6aa6c13e7dd71ae6f138}} 
+\index{khugepaged.c@{khugepaged.c}!start\_stop\_khugepaged@{start\_stop\_khugepaged}}
+\index{start\_stop\_khugepaged@{start\_stop\_khugepaged}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{start\_stop\_khugepaged()}{start\_stop\_khugepaged()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} start\+\_\+stop\+\_\+khugepaged (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{khugepaged_8c_af7ff17c13ea56d2175c389aa7be35408}\label{khugepaged_8c_af7ff17c13ea56d2175c389aa7be35408}} 
+\index{khugepaged.c@{khugepaged.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ \mbox{\hyperlink{ksm_8c_a75e1d2498e114e2b8b54fc62392d0725}{mm\+\_\+slot\+\_\+cache}} \+\_\+\+\_\+read\+\_\+mostly = 10000\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_aad31a60ee1175b2e209a127d18e1f521}\label{khugepaged_8c_aad31a60ee1175b2e209a127d18e1f521}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_full\_scans@{khugepaged\_full\_scans}}
+\index{khugepaged\_full\_scans@{khugepaged\_full\_scans}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_full\_scans}{khugepaged\_full\_scans}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+full\+\_\+scans\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_a2f60ee16cc11030fac94169405665ad9}\label{khugepaged_8c_a2f60ee16cc11030fac94169405665ad9}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_node\_load@{khugepaged\_node\_load}}
+\index{khugepaged\_node\_load@{khugepaged\_node\_load}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_node\_load}{khugepaged\_node\_load}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+node\+\_\+load\mbox{[}\mbox{\hyperlink{include_2linux_2numa_8h_ae23c0c5a019ccb9f8f9840785eb587d0}{M\+A\+X\+\_\+\+N\+U\+M\+N\+O\+D\+ES}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_a5b92466dd29a262a8670925e42969950}\label{khugepaged_8c_a5b92466dd29a262a8670925e42969950}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_pages\_collapsed@{khugepaged\_pages\_collapsed}}
+\index{khugepaged\_pages\_collapsed@{khugepaged\_pages\_collapsed}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_pages\_collapsed}{khugepaged\_pages\_collapsed}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} khugepaged\+\_\+pages\+\_\+collapsed\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{khugepaged_8c_a88f045b572170b343507d7651bfc3262}\label{khugepaged_8c_a88f045b572170b343507d7651bfc3262}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_scan@{khugepaged\_scan}}
+\index{khugepaged\_scan@{khugepaged\_scan}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_scan}{khugepaged\_scan}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkhugepaged__scan}{khugepaged\+\_\+scan}} \mbox{\hyperlink{structkhugepaged__scan}{khugepaged\+\_\+scan}}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .mm\_head = \mbox{\hyperlink{list_8h_a4642d4b7df28478bb762fe43c85b5c63}{LIST\_HEAD\_INIT}}(\mbox{\hyperlink{structkhugepaged__scan}{khugepaged\_scan}}.\mbox{\hyperlink{structkhugepaged__scan_a38f778e5c36074409694d50279a03fce}{mm\_head}}),}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{khugepaged_8c_af21b0ee8c18dc5e7a116454f943ce85e}\label{khugepaged_8c_af21b0ee8c18dc5e7a116454f943ce85e}} 
+\index{khugepaged.c@{khugepaged.c}!khugepaged\_sleep\_expire@{khugepaged\_sleep\_expire}}
+\index{khugepaged\_sleep\_expire@{khugepaged\_sleep\_expire}!khugepaged.c@{khugepaged.c}}
+\doxysubsubsection{\texorpdfstring{khugepaged\_sleep\_expire}{khugepaged\_sleep\_expire}}
+{\footnotesize\ttfamily unsigned long khugepaged\+\_\+sleep\+\_\+expire\hspace{0.3cm}{\ttfamily [static]}}
+

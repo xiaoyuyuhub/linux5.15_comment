@@ -1,0 +1,1182 @@
+\hypertarget{rapl_8c}{}\doxysection{arch/x86/events/rapl.c File Reference}
+\label{rapl_8c}\index{arch/x86/events/rapl.c@{arch/x86/events/rapl.c}}
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/perf\+\_\+event.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nospec.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu\+\_\+device\+\_\+id.\+h$>$}\newline
+{\ttfamily \#include $<$asm/intel-\/family.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}perf\+\_\+event.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}probe.\+h\char`\"{}}\newline
+Include dependency graph for rapl.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}}
+\item 
+struct \mbox{\hyperlink{structrapl__pmus}{rapl\+\_\+pmus}}
+\item 
+struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{rapl_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}R\+A\+PL P\+M\+U\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{rapl_8c_a6d2449cc9c458fc6cefda9ab5d043965}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+M\+A\+SK}}~0x\+F\+F\+U\+LL
+\item 
+\#define \mbox{\hyperlink{rapl_8c_a1f7c3a54f35b1ee2eeaf056881b02de3}{R\+A\+P\+L\+\_\+\+C\+N\+T\+R\+\_\+\+W\+I\+D\+TH}}~32
+\item 
+\#define \mbox{\hyperlink{rapl_8c_a05a68887777c9a71a9b67be84bd8607f}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}}(\+\_\+name,  v,  \mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\#define \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{R\+A\+P\+L\+\_\+\+M\+S\+R\+\_\+\+M\+A\+SK}}~0x\+F\+F\+F\+F\+F\+F\+FF
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aed}{perf\+\_\+rapl\+\_\+events}} \{ \newline
+\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+P0}} = 0, 
+\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+KG}}, 
+\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+R\+AM}}, 
+\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+P1}}, 
+\newline
+\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda40f45487a2f56282becf1a414b76dadc}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+S\+YS}}, 
+\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda98e185723e505281c7835e7ae08e9e0a}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+M\+AX}}, 
+\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1cff20d3355f4c1ac333cccea447b1e1}{N\+R\+\_\+\+R\+A\+P\+L\+\_\+\+D\+O\+M\+A\+I\+NS}} = P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+M\+AX
+ \}
+\item 
+enum \mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7}{rapl\+\_\+unit\+\_\+quirk}} \{ \mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a954c2816b6e27fcb0474c65900bebc5a}{R\+A\+P\+L\+\_\+\+U\+N\+I\+T\+\_\+\+Q\+U\+I\+R\+K\+\_\+\+N\+O\+NE}}, 
+\mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a71cab6c7fc2817d9b8f5099838eca11f}{R\+A\+P\+L\+\_\+\+U\+N\+I\+T\+\_\+\+Q\+U\+I\+R\+K\+\_\+\+I\+N\+T\+E\+L\+\_\+\+H\+SW}}, 
+\mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a5eb5fd751d2df892f9bea2de32b81ae7}{R\+A\+P\+L\+\_\+\+U\+N\+I\+T\+\_\+\+Q\+U\+I\+R\+K\+\_\+\+I\+N\+T\+E\+L\+\_\+\+S\+PR}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{rapl_8c_ad94b36675e7eb067ea3ce6ff9e244a44}{M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE}} (\char`\"{}G\+PL\char`\"{})
+\item 
+static struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}} $\ast$ \mbox{\hyperlink{rapl_8c_a328944d767ef7dceb3706f28a2e91c29}{cpu\+\_\+to\+\_\+rapl\+\_\+pmu}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rapl_8c_afa33c9901cd26bba88971c2601c51dbb}{rapl\+\_\+read\+\_\+counter}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rapl_8c_a470cb9c8c761bfbf12c5f53b25a732cf}{rapl\+\_\+scale}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} v, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{qman_8h_aaa443a27e2e72392ab29cc186a40656f}{cfg}})
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rapl_8c_af499c39d16641e5146e5209cf83a35c4}{rapl\+\_\+event\+\_\+update}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{rapl_8c_af5e6fa252a7312ab9d26580a72f1a7a3}{rapl\+\_\+start\+\_\+hrtimer}} (struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}} $\ast$\mbox{\hyperlink{structpmu}{pmu}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{hrtimer_8h_a3c67a5c61b0e200e0c60fc71d45e1112}{hrtimer\+\_\+restart}} \mbox{\hyperlink{rapl_8c_a1aefc5cb8479556c2f5b332c80866f53}{rapl\+\_\+hrtimer\+\_\+handle}} (struct \mbox{\hyperlink{structhrtimer}{hrtimer}} $\ast$\mbox{\hyperlink{structhrtimer}{hrtimer}})
+\item 
+static void \mbox{\hyperlink{rapl_8c_a3dc0fc47e315f10fbe6f001b566e0b9c}{rapl\+\_\+hrtimer\+\_\+init}} (struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}} $\ast$\mbox{\hyperlink{structpmu}{pmu}})
+\item 
+static void \mbox{\hyperlink{rapl_8c_a64fdbfd7d85eb67309ea29817c02b4ab}{\+\_\+\+\_\+rapl\+\_\+pmu\+\_\+event\+\_\+start}} (struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}} $\ast$\mbox{\hyperlink{structpmu}{pmu}}, struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{rapl_8c_ab1cea0f287324980993f30f03dbe6c0d}{rapl\+\_\+pmu\+\_\+event\+\_\+start}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{btrfs__tree_8h_ae1b0cc5d03887945734bb59883b0e020}{mode}})
+\item 
+static void \mbox{\hyperlink{rapl_8c_a71b50bf3f513d2d0315006d023ff6788}{rapl\+\_\+pmu\+\_\+event\+\_\+stop}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{btrfs__tree_8h_ae1b0cc5d03887945734bb59883b0e020}{mode}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rapl_8c_a58c5ce73172fe9fa22350eab59dd2c1f}{rapl\+\_\+pmu\+\_\+event\+\_\+add}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{btrfs__tree_8h_ae1b0cc5d03887945734bb59883b0e020}{mode}})
+\item 
+static void \mbox{\hyperlink{rapl_8c_a42ed2adf04b7fdefd8778534e50852e9}{rapl\+\_\+pmu\+\_\+event\+\_\+del}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rapl_8c_aa251037063ab939d546652384dc47e13}{rapl\+\_\+pmu\+\_\+event\+\_\+init}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static void \mbox{\hyperlink{rapl_8c_a8a128c892c447b5d0ee37381d262f45f}{rapl\+\_\+pmu\+\_\+event\+\_\+read}} (struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{rapl_8c_a6518df83f42edabebfdeee4593fdf16a}{rapl\+\_\+get\+\_\+attr\+\_\+cpumask}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{rapl_8c_a71efd9b00af69a1f6b2ad2577a6d2388}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+TR}} (\mbox{\hyperlink{structcpumask}{cpumask}}, \mbox{\hyperlink{include_2linux_2stat_8h_acdc8b67c51df098a07f0b7705f7115fd}{S\+\_\+\+I\+R\+U\+GO}}, \mbox{\hyperlink{rapl_8c_a6518df83f42edabebfdeee4593fdf16a}{rapl\+\_\+get\+\_\+attr\+\_\+cpumask}}, \mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}})
+\item 
+\mbox{\hyperlink{rapl_8c_a9650cf020633b7d4b1624c12d01af7a3}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/cores, rapl\+\_\+cores, \char`\"{}event=0x01\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_abbd6963f6fd9c8b918925902577dd889}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/pkg, rapl\+\_\+pkg, \char`\"{}event=0x02\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_ae096691704d3ef5535900fc611c60d5a}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/ram, rapl\+\_\+ram, \char`\"{}event=0x03\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_ad6e4665a5ffdc90ed2ea1a82e8616ec6}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/gpu, rapl\+\_\+gpu, \char`\"{}event=0x04\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_ab9527e69105705df0a278a167d736cfe}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/psys, rapl\+\_\+psys, \char`\"{}event=0x05\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a9943864a8eef54d76b1879a231a373c3}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/cores.\+unit, rapl\+\_\+cores\+\_\+unit, \char`\"{}Joules\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a1177b51649db3870db784a354634352c}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/pkg.\+unit, rapl\+\_\+pkg\+\_\+unit, \char`\"{}Joules\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a64ec9303846d1f0f96eb719f7916cd6b}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/ram.\+unit, rapl\+\_\+ram\+\_\+unit, \char`\"{}Joules\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_af7eaffeca3faefddb6954d3a288d9fac}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/gpu.\+unit, rapl\+\_\+gpu\+\_\+unit, \char`\"{}Joules\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a170bac01b763466df9255c1031f5bec4}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/psys.\+unit, rapl\+\_\+psys\+\_\+unit, \char`\"{}Joules\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a230e32fa3449d05637e8e0a31ecaff09}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/\mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{cores.\+scale}}, rapl\+\_\+cores\+\_\+scale, \char`\"{}2.\+3283064365386962890625e-\/10\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a623afa16a6526a337e80dd58abcdeaa6}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/\mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{pkg.\+scale}}, rapl\+\_\+pkg\+\_\+scale, \char`\"{}2.\+3283064365386962890625e-\/10\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a87108c1347a7197a79c1ff8e1729c145}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/\mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{ram.\+scale}}, rapl\+\_\+ram\+\_\+scale, \char`\"{}2.\+3283064365386962890625e-\/10\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a47bfb821063d88f97a9ffbcf578d330f}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/\mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{gpu.\+scale}}, rapl\+\_\+gpu\+\_\+scale, \char`\"{}2.\+3283064365386962890625e-\/10\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a7eb9e50136555e16541ad39aa8cb8700}{R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR}} (energy-\/\mbox{\hyperlink{uapi_2sound_2asoc_8h_a012b97c2a8b3def011929ca2fc0652b4}{psys.\+scale}}, rapl\+\_\+psys\+\_\+scale, \char`\"{}2.\+3283064365386962890625e-\/10\char`\"{})
+\item 
+\mbox{\hyperlink{rapl_8c_a0b50ecc7fcd48888020b6013f2ec2aa4}{P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR}} (\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}, \char`\"{}config\+:0-\/7\char`\"{})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\+\_\+msr}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rapl_8c_a25819868e8da070bbddcbc5841be78b3}{rapl\+\_\+cpu\+\_\+offline}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rapl_8c_aa1e702228c726498f10f46d08aeec020}{rapl\+\_\+cpu\+\_\+online}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rapl_8c_ae0149484952f9ddafa7dba4a65f566da}{rapl\+\_\+check\+\_\+hw\+\_\+unit}} (struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} $\ast$rm)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{rapl_8c_af1e8cb52518deec4a6ee1c8dfeb74332}{rapl\+\_\+advertise}} (void)
+\item 
+static void \mbox{\hyperlink{rapl_8c_a87653b52f79bcef8a3ff5661394ada48}{cleanup\+\_\+rapl\+\_\+pmus}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{rapl_8c_a7f6cf77c0cf282cdb72377d5c0f30d97}{init\+\_\+rapl\+\_\+pmus}} (void)
+\item 
+\mbox{\hyperlink{rapl_8c_a111c0a8a355d47965b13a6976b57651a}{M\+O\+D\+U\+L\+E\+\_\+\+D\+E\+V\+I\+C\+E\+\_\+\+T\+A\+B\+LE}} (x86cpu, rapl\+\_\+model\+\_\+match)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{rapl_8c_a45a12aa774e11342ec675b2580d1f8b9}{rapl\+\_\+pmu\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{rapl_8c_aa1eb3b74546b34ce3c18feb37ad491df}{module\+\_\+init}} (\mbox{\hyperlink{rapl_8c_a45a12aa774e11342ec675b2580d1f8b9}{rapl\+\_\+pmu\+\_\+init}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} \mbox{\hyperlink{rapl_8c_a5fb5c2c609a516a780f5a3cbfa418836}{intel\+\_\+rapl\+\_\+exit}} (void)
+\item 
+\mbox{\hyperlink{rapl_8c_a1c2569610eb6721d7fe132efd836895d}{module\+\_\+exit}} (\mbox{\hyperlink{rapl_8c_a5fb5c2c609a516a780f5a3cbfa418836}{intel\+\_\+rapl\+\_\+exit}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static const char $\ast$const rapl\+\_\+domain\+\_\+names\mbox{[}\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1cff20d3355f4c1ac333cccea447b1e1}{N\+R\+\_\+\+R\+A\+P\+L\+\_\+\+D\+O\+M\+A\+I\+NS}}\mbox{]} \mbox{\hyperlink{rapl_8c_aed7cd2b6a4b013dc58cc2a8ceb3e9aa6}{\+\_\+\+\_\+initconst}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+hw\+\_\+unit\mbox{[}\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1cff20d3355f4c1ac333cccea447b1e1}{N\+R\+\_\+\+R\+A\+P\+L\+\_\+\+D\+O\+M\+A\+I\+NS}}\mbox{]} \mbox{\hyperlink{rapl_8c_ad1231df0474054ca657ba03099a4a96e}{\+\_\+\+\_\+read\+\_\+mostly}}
+\item 
+static struct \mbox{\hyperlink{structrapl__pmus}{rapl\+\_\+pmus}} $\ast$ \mbox{\hyperlink{rapl_8c_ad5dd9863469d9ae7ae42bf417cba7573}{rapl\+\_\+pmus}}
+\item 
+static \mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}} \mbox{\hyperlink{rapl_8c_a0b1d249f6088bd1470e4876977a69656}{rapl\+\_\+cpu\+\_\+mask}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{rapl_8c_a0c61020b30632df998e3d8fb418cc69f}{rapl\+\_\+cntr\+\_\+mask}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rapl_8c_acc258391fa5ce3efba78a117191ca95d}{rapl\+\_\+timer\+\_\+ms}}
+\item 
+static struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}} $\ast$ \mbox{\hyperlink{rapl_8c_a19ea6e65c70343f4e01c1e016e78a7eb}{rapl\+\_\+msrs}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_a9eed4b53460291c281ef10ae9b4a6965}{rapl\+\_\+pmu\+\_\+attrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_a609bcff879594f4244515bae85afc7a0}{rapl\+\_\+pmu\+\_\+attr\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_a3432e67a3852491bc7c1bfaf76ef6e6b}{attrs\+\_\+empty}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_a24a51c651db0695a8574ff2eea146a1b}{rapl\+\_\+pmu\+\_\+events\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_acc12adf52ba517ff1cdf49af7f3852c8}{rapl\+\_\+formats\+\_\+attr}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_ac50544d6fdb869a68d2de9d147b946dd}{rapl\+\_\+pmu\+\_\+format\+\_\+group}}
+\item 
+static const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} $\ast$ \mbox{\hyperlink{rapl_8c_af4e150b27100c1f064c983cc83e0d60a}{rapl\+\_\+attr\+\_\+groups}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_acaab300362f04d72bad868d690046d9f}{rapl\+\_\+events\+\_\+cores}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_a523086178dca0eccd810c3b1e89aae00}{rapl\+\_\+events\+\_\+cores\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_abb68ffc0df4f7c31d1ba421e6200f9fb}{rapl\+\_\+events\+\_\+pkg}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_a51c7cc167d36fd7aa7fadf13a84d909e}{rapl\+\_\+events\+\_\+pkg\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_a6197f75b10692c94b6b249434d95440a}{rapl\+\_\+events\+\_\+ram}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_a65e61bae2e143aab62fb6ed16f175bd6}{rapl\+\_\+events\+\_\+ram\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_a7e4ebda15621b71fbe77cc1f21e5ff37}{rapl\+\_\+events\+\_\+gpu}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_abc01ddea47315d146636f32379d43c29}{rapl\+\_\+events\+\_\+gpu\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{rapl_8c_a2e092bcc52d9fbe00aa2cc5c87edf7eb}{rapl\+\_\+events\+\_\+psys}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} \mbox{\hyperlink{rapl_8c_abb79ae6b565c30803dc6f79c3bea67ca}{rapl\+\_\+events\+\_\+psys\+\_\+group}}
+\item 
+static struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}} \mbox{\hyperlink{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}{intel\+\_\+rapl\+\_\+msrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}} \mbox{\hyperlink{rapl_8c_a366096a3fe368d11adfa4948346554c6}{intel\+\_\+rapl\+\_\+spr\+\_\+msrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}} \mbox{\hyperlink{rapl_8c_af5d1a4a039153fc132f60042c0fcbe39}{amd\+\_\+rapl\+\_\+msrs}} \mbox{[}\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda98e185723e505281c7835e7ae08e9e0a}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+M\+AX}}\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} $\ast$ \mbox{\hyperlink{rapl_8c_a1bdfeca7fec6e838db562f62cb207d1a}{rapl\+\_\+attr\+\_\+update}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_a22d289a7a2fe8fe27fd0f29218b9c8a3}{model\+\_\+snb}}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_a9a79947f5e27fb58dafc33f0c62c12d4}{model\+\_\+snbep}}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_a9b085e969bdffda8cb26acc7704ee829}{model\+\_\+hsw}}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_ae170c84aff1150baaef880be2cd280f1}{model\+\_\+hsx}}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_a08e9d76602147c121d3ba175a3ece2df}{model\+\_\+knl}}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_a00313d4b12ba6ff1045034239070b8ee}{model\+\_\+skl}}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_aeab8567c05c7a0f08ff3b1c89c63e57c}{model\+\_\+spr}}
+\item 
+static struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} \mbox{\hyperlink{rapl_8c_a3a5a81872d2f49e9ead655d7cfcef5c2}{model\+\_\+amd\+\_\+hygon}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{rapl_8c_a1f8c165bf4196327bc3abff648276d92}\label{rapl_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{rapl.c@{rapl.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}R\+A\+PL P\+M\+U\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{rapl_8c_a1f7c3a54f35b1ee2eeaf056881b02de3}\label{rapl_8c_a1f7c3a54f35b1ee2eeaf056881b02de3}} 
+\index{rapl.c@{rapl.c}!RAPL\_CNTR\_WIDTH@{RAPL\_CNTR\_WIDTH}}
+\index{RAPL\_CNTR\_WIDTH@{RAPL\_CNTR\_WIDTH}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_CNTR\_WIDTH}{RAPL\_CNTR\_WIDTH}}
+{\footnotesize\ttfamily \#define R\+A\+P\+L\+\_\+\+C\+N\+T\+R\+\_\+\+W\+I\+D\+TH~32}
+
+\mbox{\Hypertarget{rapl_8c_a05a68887777c9a71a9b67be84bd8607f}\label{rapl_8c_a05a68887777c9a71a9b67be84bd8607f}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR}{RAPL\_EVENT\_ATTR\_STR}}
+{\footnotesize\ttfamily \#define R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR(\begin{DoxyParamCaption}\item[{}]{\+\_\+name,  }\item[{}]{v,  }\item[{}]{\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keyword}{static} \textcolor{keyword}{struct }\mbox{\hyperlink{structperf__pmu__events__attr}{perf\_pmu\_events\_attr}} event\_attr\_\#\#v = \{               \(\backslash\)}
+\DoxyCodeLine{    .\mbox{\hyperlink{structperf__pmu__events__attr_a41d69bdbd41ec466542d4a7d23289642}{attr}}       = \mbox{\hyperlink{sysfs_8h_afea83f0adf2905a4737f103d7327f947}{\_\_ATTR}}(\_name, 0444, \mbox{\hyperlink{kernel_2events_2core_8c_af8a93227402223e0e197e61a8394f6e3}{perf\_event\_sysfs\_show}}, \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}}),  \(\backslash\)}
+\DoxyCodeLine{    .id     = 0,                            \(\backslash\)}
+\DoxyCodeLine{    .event\_str  = \mbox{\hyperlink{drm__edid_8h_ae8a51807b65214b22f57e472ef349de0}{str}},                           \(\backslash\)}
+\DoxyCodeLine{\};}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a6d2449cc9c458fc6cefda9ab5d043965}\label{rapl_8c_a6d2449cc9c458fc6cefda9ab5d043965}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_MASK@{RAPL\_EVENT\_MASK}}
+\index{RAPL\_EVENT\_MASK@{RAPL\_EVENT\_MASK}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_MASK}{RAPL\_EVENT\_MASK}}
+{\footnotesize\ttfamily \#define R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+M\+A\+SK~0x\+F\+F\+U\+LL}
+
+\mbox{\Hypertarget{rapl_8c_af90e5021c02041b905c3442f3e740ee0}\label{rapl_8c_af90e5021c02041b905c3442f3e740ee0}} 
+\index{rapl.c@{rapl.c}!RAPL\_MSR\_MASK@{RAPL\_MSR\_MASK}}
+\index{RAPL\_MSR\_MASK@{RAPL\_MSR\_MASK}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_MSR\_MASK}{RAPL\_MSR\_MASK}}
+{\footnotesize\ttfamily \#define R\+A\+P\+L\+\_\+\+M\+S\+R\+\_\+\+M\+A\+SK~0x\+F\+F\+F\+F\+F\+F\+FF}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aed}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aed}} 
+\index{rapl.c@{rapl.c}!perf\_rapl\_events@{perf\_rapl\_events}}
+\index{perf\_rapl\_events@{perf\_rapl\_events}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{perf\_rapl\_events}{perf\_rapl\_events}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aed}{perf\+\_\+rapl\+\_\+events}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PERF\_RAPL\_PP0@{PERF\_RAPL\_PP0}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!PERF\_RAPL\_PP0@{PERF\_RAPL\_PP0}}}\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}} 
+P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+P0&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PERF\_RAPL\_PKG@{PERF\_RAPL\_PKG}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!PERF\_RAPL\_PKG@{PERF\_RAPL\_PKG}}}\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}} 
+P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+KG&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PERF\_RAPL\_RAM@{PERF\_RAPL\_RAM}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!PERF\_RAPL\_RAM@{PERF\_RAPL\_RAM}}}\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}} 
+P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+R\+AM&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PERF\_RAPL\_PP1@{PERF\_RAPL\_PP1}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!PERF\_RAPL\_PP1@{PERF\_RAPL\_PP1}}}\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}} 
+P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+P1&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PERF\_RAPL\_PSYS@{PERF\_RAPL\_PSYS}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!PERF\_RAPL\_PSYS@{PERF\_RAPL\_PSYS}}}\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda40f45487a2f56282becf1a414b76dadc}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda40f45487a2f56282becf1a414b76dadc}} 
+P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+P\+S\+YS&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{PERF\_RAPL\_MAX@{PERF\_RAPL\_MAX}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!PERF\_RAPL\_MAX@{PERF\_RAPL\_MAX}}}\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda98e185723e505281c7835e7ae08e9e0a}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda98e185723e505281c7835e7ae08e9e0a}} 
+P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+M\+AX&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{NR\_RAPL\_DOMAINS@{NR\_RAPL\_DOMAINS}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!NR\_RAPL\_DOMAINS@{NR\_RAPL\_DOMAINS}}}\mbox{\Hypertarget{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1cff20d3355f4c1ac333cccea447b1e1}\label{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1cff20d3355f4c1ac333cccea447b1e1}} 
+N\+R\+\_\+\+R\+A\+P\+L\+\_\+\+D\+O\+M\+A\+I\+NS&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7}\label{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7}} 
+\index{rapl.c@{rapl.c}!rapl\_unit\_quirk@{rapl\_unit\_quirk}}
+\index{rapl\_unit\_quirk@{rapl\_unit\_quirk}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_unit\_quirk}{rapl\_unit\_quirk}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7}{rapl\+\_\+unit\+\_\+quirk}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RAPL\_UNIT\_QUIRK\_NONE@{RAPL\_UNIT\_QUIRK\_NONE}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!RAPL\_UNIT\_QUIRK\_NONE@{RAPL\_UNIT\_QUIRK\_NONE}}}\mbox{\Hypertarget{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a954c2816b6e27fcb0474c65900bebc5a}\label{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a954c2816b6e27fcb0474c65900bebc5a}} 
+R\+A\+P\+L\+\_\+\+U\+N\+I\+T\+\_\+\+Q\+U\+I\+R\+K\+\_\+\+N\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RAPL\_UNIT\_QUIRK\_INTEL\_HSW@{RAPL\_UNIT\_QUIRK\_INTEL\_HSW}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!RAPL\_UNIT\_QUIRK\_INTEL\_HSW@{RAPL\_UNIT\_QUIRK\_INTEL\_HSW}}}\mbox{\Hypertarget{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a71cab6c7fc2817d9b8f5099838eca11f}\label{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a71cab6c7fc2817d9b8f5099838eca11f}} 
+R\+A\+P\+L\+\_\+\+U\+N\+I\+T\+\_\+\+Q\+U\+I\+R\+K\+\_\+\+I\+N\+T\+E\+L\+\_\+\+H\+SW&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{RAPL\_UNIT\_QUIRK\_INTEL\_SPR@{RAPL\_UNIT\_QUIRK\_INTEL\_SPR}!rapl.c@{rapl.c}}\index{rapl.c@{rapl.c}!RAPL\_UNIT\_QUIRK\_INTEL\_SPR@{RAPL\_UNIT\_QUIRK\_INTEL\_SPR}}}\mbox{\Hypertarget{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a5eb5fd751d2df892f9bea2de32b81ae7}\label{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a5eb5fd751d2df892f9bea2de32b81ae7}} 
+R\+A\+P\+L\+\_\+\+U\+N\+I\+T\+\_\+\+Q\+U\+I\+R\+K\+\_\+\+I\+N\+T\+E\+L\+\_\+\+S\+PR&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{rapl_8c_a64fdbfd7d85eb67309ea29817c02b4ab}\label{rapl_8c_a64fdbfd7d85eb67309ea29817c02b4ab}} 
+\index{rapl.c@{rapl.c}!\_\_rapl\_pmu\_event\_start@{\_\_rapl\_pmu\_event\_start}}
+\index{\_\_rapl\_pmu\_event\_start@{\_\_rapl\_pmu\_event\_start}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{\_\_rapl\_pmu\_event\_start()}{\_\_rapl\_pmu\_event\_start()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+rapl\+\_\+pmu\+\_\+event\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}} $\ast$}]{pmu,  }\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{rapl_8c_a87653b52f79bcef8a3ff5661394ada48}\label{rapl_8c_a87653b52f79bcef8a3ff5661394ada48}} 
+\index{rapl.c@{rapl.c}!cleanup\_rapl\_pmus@{cleanup\_rapl\_pmus}}
+\index{cleanup\_rapl\_pmus@{cleanup\_rapl\_pmus}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{cleanup\_rapl\_pmus()}{cleanup\_rapl\_pmus()}}
+{\footnotesize\ttfamily static void cleanup\+\_\+rapl\+\_\+pmus (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{rapl_8c_a328944d767ef7dceb3706f28a2e91c29}\label{rapl_8c_a328944d767ef7dceb3706f28a2e91c29}} 
+\index{rapl.c@{rapl.c}!cpu\_to\_rapl\_pmu@{cpu\_to\_rapl\_pmu}}
+\index{cpu\_to\_rapl\_pmu@{cpu\_to\_rapl\_pmu}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{cpu\_to\_rapl\_pmu()}{cpu\_to\_rapl\_pmu()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}}$\ast$ cpu\+\_\+to\+\_\+rapl\+\_\+pmu (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{rapl_8c_a71efd9b00af69a1f6b2ad2577a6d2388}\label{rapl_8c_a71efd9b00af69a1f6b2ad2577a6d2388}} 
+\index{rapl.c@{rapl.c}!DEVICE\_ATTR@{DEVICE\_ATTR}}
+\index{DEVICE\_ATTR@{DEVICE\_ATTR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR()}{DEVICE\_ATTR()}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structcpumask}{cpumask}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2stat_8h_acdc8b67c51df098a07f0b7705f7115fd}{S\+\_\+\+I\+R\+U\+GO}}}]{,  }\item[{\mbox{\hyperlink{rapl_8c_a6518df83f42edabebfdeee4593fdf16a}{rapl\+\_\+get\+\_\+attr\+\_\+cpumask}}}]{,  }\item[{\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rapl_8c_a7f6cf77c0cf282cdb72377d5c0f30d97}\label{rapl_8c_a7f6cf77c0cf282cdb72377d5c0f30d97}} 
+\index{rapl.c@{rapl.c}!init\_rapl\_pmus@{init\_rapl\_pmus}}
+\index{init\_rapl\_pmus@{init\_rapl\_pmus}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{init\_rapl\_pmus()}{init\_rapl\_pmus()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} init\+\_\+rapl\+\_\+pmus (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{rapl_8c_a5fb5c2c609a516a780f5a3cbfa418836}\label{rapl_8c_a5fb5c2c609a516a780f5a3cbfa418836}} 
+\index{rapl.c@{rapl.c}!intel\_rapl\_exit@{intel\_rapl\_exit}}
+\index{intel\_rapl\_exit@{intel\_rapl\_exit}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{intel\_rapl\_exit()}{intel\_rapl\_exit()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} intel\+\_\+rapl\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{rapl_8c_a111c0a8a355d47965b13a6976b57651a}\label{rapl_8c_a111c0a8a355d47965b13a6976b57651a}} 
+\index{rapl.c@{rapl.c}!MODULE\_DEVICE\_TABLE@{MODULE\_DEVICE\_TABLE}}
+\index{MODULE\_DEVICE\_TABLE@{MODULE\_DEVICE\_TABLE}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_DEVICE\_TABLE()}{MODULE\_DEVICE\_TABLE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+D\+E\+V\+I\+C\+E\+\_\+\+T\+A\+B\+LE (\begin{DoxyParamCaption}\item[{x86cpu}]{,  }\item[{rapl\+\_\+model\+\_\+match}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a1c2569610eb6721d7fe132efd836895d}\label{rapl_8c_a1c2569610eb6721d7fe132efd836895d}} 
+\index{rapl.c@{rapl.c}!module\_exit@{module\_exit}}
+\index{module\_exit@{module\_exit}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{module\_exit()}{module\_exit()}}
+{\footnotesize\ttfamily module\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rapl_8c_a5fb5c2c609a516a780f5a3cbfa418836}{intel\+\_\+rapl\+\_\+exit}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_aa1eb3b74546b34ce3c18feb37ad491df}\label{rapl_8c_aa1eb3b74546b34ce3c18feb37ad491df}} 
+\index{rapl.c@{rapl.c}!module\_init@{module\_init}}
+\index{module\_init@{module\_init}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{module\_init()}{module\_init()}}
+{\footnotesize\ttfamily module\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{rapl_8c_a45a12aa774e11342ec675b2580d1f8b9}{rapl\+\_\+pmu\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_ad94b36675e7eb067ea3ce6ff9e244a44}\label{rapl_8c_ad94b36675e7eb067ea3ce6ff9e244a44}} 
+\index{rapl.c@{rapl.c}!MODULE\_LICENSE@{MODULE\_LICENSE}}
+\index{MODULE\_LICENSE@{MODULE\_LICENSE}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_LICENSE()}{MODULE\_LICENSE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE (\begin{DoxyParamCaption}\item[{\char`\"{}G\+PL\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a0b50ecc7fcd48888020b6013f2ec2aa4}\label{rapl_8c_a0b50ecc7fcd48888020b6013f2ec2aa4}} 
+\index{rapl.c@{rapl.c}!PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}}
+\index{PMU\_FORMAT\_ATTR@{PMU\_FORMAT\_ATTR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{PMU\_FORMAT\_ATTR()}{PMU\_FORMAT\_ATTR()}}
+{\footnotesize\ttfamily P\+M\+U\+\_\+\+F\+O\+R\+M\+A\+T\+\_\+\+A\+T\+TR (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_a1914db0243b9cb29eb2fca3f3bd65721}{event}}}]{,  }\item[{\char`\"{}config\+:0-\/7\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_af1e8cb52518deec4a6ee1c8dfeb74332}\label{rapl_8c_af1e8cb52518deec4a6ee1c8dfeb74332}} 
+\index{rapl.c@{rapl.c}!rapl\_advertise@{rapl\_advertise}}
+\index{rapl\_advertise@{rapl\_advertise}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_advertise()}{rapl\_advertise()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} rapl\+\_\+advertise (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{rapl_8c_ae0149484952f9ddafa7dba4a65f566da}\label{rapl_8c_ae0149484952f9ddafa7dba4a65f566da}} 
+\index{rapl.c@{rapl.c}!rapl\_check\_hw\_unit@{rapl\_check\_hw\_unit}}
+\index{rapl\_check\_hw\_unit@{rapl\_check\_hw\_unit}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_check\_hw\_unit()}{rapl\_check\_hw\_unit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+check\+\_\+hw\+\_\+unit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} $\ast$}]{rm }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{rapl_8c_a25819868e8da070bbddcbc5841be78b3}\label{rapl_8c_a25819868e8da070bbddcbc5841be78b3}} 
+\index{rapl.c@{rapl.c}!rapl\_cpu\_offline@{rapl\_cpu\_offline}}
+\index{rapl\_cpu\_offline@{rapl\_cpu\_offline}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_cpu\_offline()}{rapl\_cpu\_offline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+cpu\+\_\+offline (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{rapl_8c_aa1e702228c726498f10f46d08aeec020}\label{rapl_8c_aa1e702228c726498f10f46d08aeec020}} 
+\index{rapl.c@{rapl.c}!rapl\_cpu\_online@{rapl\_cpu\_online}}
+\index{rapl\_cpu\_online@{rapl\_cpu\_online}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_cpu\_online()}{rapl\_cpu\_online()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+cpu\+\_\+online (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{rapl_8c_a9650cf020633b7d4b1624c12d01af7a3}\label{rapl_8c_a9650cf020633b7d4b1624c12d01af7a3}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [1/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/}]{cores,  }\item[{rapl\+\_\+cores}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a230e32fa3449d05637e8e0a31ecaff09}\label{rapl_8c_a230e32fa3449d05637e8e0a31ecaff09}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [2/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/cores.}]{scale,  }\item[{rapl\+\_\+cores\+\_\+scale}]{,  }\item[{\char`\"{}2.\+3283064365386962890625e-\/10\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a9943864a8eef54d76b1879a231a373c3}\label{rapl_8c_a9943864a8eef54d76b1879a231a373c3}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [3/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/cores.}]{unit,  }\item[{rapl\+\_\+cores\+\_\+unit}]{,  }\item[{\char`\"{}Joules\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_ad6e4665a5ffdc90ed2ea1a82e8616ec6}\label{rapl_8c_ad6e4665a5ffdc90ed2ea1a82e8616ec6}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [4/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/}]{gpu,  }\item[{rapl\+\_\+gpu}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a47bfb821063d88f97a9ffbcf578d330f}\label{rapl_8c_a47bfb821063d88f97a9ffbcf578d330f}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [5/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/gpu.}]{scale,  }\item[{rapl\+\_\+gpu\+\_\+scale}]{,  }\item[{\char`\"{}2.\+3283064365386962890625e-\/10\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_af7eaffeca3faefddb6954d3a288d9fac}\label{rapl_8c_af7eaffeca3faefddb6954d3a288d9fac}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [6/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/gpu.}]{unit,  }\item[{rapl\+\_\+gpu\+\_\+unit}]{,  }\item[{\char`\"{}Joules\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_abbd6963f6fd9c8b918925902577dd889}\label{rapl_8c_abbd6963f6fd9c8b918925902577dd889}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [7/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/}]{pkg,  }\item[{rapl\+\_\+pkg}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a623afa16a6526a337e80dd58abcdeaa6}\label{rapl_8c_a623afa16a6526a337e80dd58abcdeaa6}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [8/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/pkg.}]{scale,  }\item[{rapl\+\_\+pkg\+\_\+scale}]{,  }\item[{\char`\"{}2.\+3283064365386962890625e-\/10\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a1177b51649db3870db784a354634352c}\label{rapl_8c_a1177b51649db3870db784a354634352c}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [9/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/pkg.}]{unit,  }\item[{rapl\+\_\+pkg\+\_\+unit}]{,  }\item[{\char`\"{}Joules\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_ab9527e69105705df0a278a167d736cfe}\label{rapl_8c_ab9527e69105705df0a278a167d736cfe}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [10/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/}]{psys,  }\item[{rapl\+\_\+psys}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a7eb9e50136555e16541ad39aa8cb8700}\label{rapl_8c_a7eb9e50136555e16541ad39aa8cb8700}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [11/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/psys.}]{scale,  }\item[{rapl\+\_\+psys\+\_\+scale}]{,  }\item[{\char`\"{}2.\+3283064365386962890625e-\/10\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a170bac01b763466df9255c1031f5bec4}\label{rapl_8c_a170bac01b763466df9255c1031f5bec4}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [12/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/psys.}]{unit,  }\item[{rapl\+\_\+psys\+\_\+unit}]{,  }\item[{\char`\"{}Joules\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_ae096691704d3ef5535900fc611c60d5a}\label{rapl_8c_ae096691704d3ef5535900fc611c60d5a}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [13/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/}]{ram,  }\item[{rapl\+\_\+ram}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a87108c1347a7197a79c1ff8e1729c145}\label{rapl_8c_a87108c1347a7197a79c1ff8e1729c145}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [14/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/ram.}]{scale,  }\item[{rapl\+\_\+ram\+\_\+scale}]{,  }\item[{\char`\"{}2.\+3283064365386962890625e-\/10\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_a64ec9303846d1f0f96eb719f7916cd6b}\label{rapl_8c_a64ec9303846d1f0f96eb719f7916cd6b}} 
+\index{rapl.c@{rapl.c}!RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}}
+\index{RAPL\_EVENT\_ATTR\_STR@{RAPL\_EVENT\_ATTR\_STR}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{RAPL\_EVENT\_ATTR\_STR()}{RAPL\_EVENT\_ATTR\_STR()}\hspace{0.1cm}{\footnotesize\ttfamily [15/15]}}
+{\footnotesize\ttfamily R\+A\+P\+L\+\_\+\+E\+V\+E\+N\+T\+\_\+\+A\+T\+T\+R\+\_\+\+S\+TR (\begin{DoxyParamCaption}\item[{energy-\/ram.}]{unit,  }\item[{rapl\+\_\+ram\+\_\+unit}]{,  }\item[{\char`\"{}Joules\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{rapl_8c_af499c39d16641e5146e5209cf83a35c4}\label{rapl_8c_af499c39d16641e5146e5209cf83a35c4}} 
+\index{rapl.c@{rapl.c}!rapl\_event\_update@{rapl\_event\_update}}
+\index{rapl\_event\_update@{rapl\_event\_update}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_event\_update()}{rapl\_event\_update()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} rapl\+\_\+event\+\_\+update (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{rapl_8c_a6518df83f42edabebfdeee4593fdf16a}\label{rapl_8c_a6518df83f42edabebfdeee4593fdf16a}} 
+\index{rapl.c@{rapl.c}!rapl\_get\_attr\_cpumask@{rapl\_get\_attr\_cpumask}}
+\index{rapl\_get\_attr\_cpumask@{rapl\_get\_attr\_cpumask}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_get\_attr\_cpumask()}{rapl\_get\_attr\_cpumask()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} rapl\+\_\+get\+\_\+attr\+\_\+cpumask (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{rapl_8c_a1aefc5cb8479556c2f5b332c80866f53}\label{rapl_8c_a1aefc5cb8479556c2f5b332c80866f53}} 
+\index{rapl.c@{rapl.c}!rapl\_hrtimer\_handle@{rapl\_hrtimer\_handle}}
+\index{rapl\_hrtimer\_handle@{rapl\_hrtimer\_handle}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_hrtimer\_handle()}{rapl\_hrtimer\_handle()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{hrtimer_8h_a3c67a5c61b0e200e0c60fc71d45e1112}{hrtimer\+\_\+restart}} rapl\+\_\+hrtimer\+\_\+handle (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhrtimer}{hrtimer}} $\ast$}]{hrtimer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{rapl_8c_a3dc0fc47e315f10fbe6f001b566e0b9c}\label{rapl_8c_a3dc0fc47e315f10fbe6f001b566e0b9c}} 
+\index{rapl.c@{rapl.c}!rapl\_hrtimer\_init@{rapl\_hrtimer\_init}}
+\index{rapl\_hrtimer\_init@{rapl\_hrtimer\_init}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_hrtimer\_init()}{rapl\_hrtimer\_init()}}
+{\footnotesize\ttfamily static void rapl\+\_\+hrtimer\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}} $\ast$}]{pmu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{rapl_8c_a58c5ce73172fe9fa22350eab59dd2c1f}\label{rapl_8c_a58c5ce73172fe9fa22350eab59dd2c1f}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_event\_add@{rapl\_pmu\_event\_add}}
+\index{rapl\_pmu\_event\_add@{rapl\_pmu\_event\_add}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_event\_add()}{rapl\_pmu\_event\_add()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+pmu\+\_\+event\+\_\+add (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{rapl_8c_a42ed2adf04b7fdefd8778534e50852e9}\label{rapl_8c_a42ed2adf04b7fdefd8778534e50852e9}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_event\_del@{rapl\_pmu\_event\_del}}
+\index{rapl\_pmu\_event\_del@{rapl\_pmu\_event\_del}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_event\_del()}{rapl\_pmu\_event\_del()}}
+{\footnotesize\ttfamily static void rapl\+\_\+pmu\+\_\+event\+\_\+del (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{rapl_8c_aa251037063ab939d546652384dc47e13}\label{rapl_8c_aa251037063ab939d546652384dc47e13}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_event\_init@{rapl\_pmu\_event\_init}}
+\index{rapl\_pmu\_event\_init@{rapl\_pmu\_event\_init}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_event\_init()}{rapl\_pmu\_event\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+pmu\+\_\+event\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{rapl_8c_a8a128c892c447b5d0ee37381d262f45f}\label{rapl_8c_a8a128c892c447b5d0ee37381d262f45f}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_event\_read@{rapl\_pmu\_event\_read}}
+\index{rapl\_pmu\_event\_read@{rapl\_pmu\_event\_read}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_event\_read()}{rapl\_pmu\_event\_read()}}
+{\footnotesize\ttfamily static void rapl\+\_\+pmu\+\_\+event\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{rapl_8c_ab1cea0f287324980993f30f03dbe6c0d}\label{rapl_8c_ab1cea0f287324980993f30f03dbe6c0d}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_event\_start@{rapl\_pmu\_event\_start}}
+\index{rapl\_pmu\_event\_start@{rapl\_pmu\_event\_start}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_event\_start()}{rapl\_pmu\_event\_start()}}
+{\footnotesize\ttfamily static void rapl\+\_\+pmu\+\_\+event\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{rapl_8c_a71b50bf3f513d2d0315006d023ff6788}\label{rapl_8c_a71b50bf3f513d2d0315006d023ff6788}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_event\_stop@{rapl\_pmu\_event\_stop}}
+\index{rapl\_pmu\_event\_stop@{rapl\_pmu\_event\_stop}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_event\_stop()}{rapl\_pmu\_event\_stop()}}
+{\footnotesize\ttfamily static void rapl\+\_\+pmu\+\_\+event\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{mode }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{rapl_8c_a45a12aa774e11342ec675b2580d1f8b9}\label{rapl_8c_a45a12aa774e11342ec675b2580d1f8b9}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_init@{rapl\_pmu\_init}}
+\index{rapl\_pmu\_init@{rapl\_pmu\_init}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_init()}{rapl\_pmu\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} rapl\+\_\+pmu\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{rapl_8c_afa33c9901cd26bba88971c2601c51dbb}\label{rapl_8c_afa33c9901cd26bba88971c2601c51dbb}} 
+\index{rapl.c@{rapl.c}!rapl\_read\_counter@{rapl\_read\_counter}}
+\index{rapl\_read\_counter@{rapl\_read\_counter}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_read\_counter()}{rapl\_read\_counter()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} rapl\+\_\+read\+\_\+counter (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structperf__event}{perf\+\_\+event}} $\ast$}]{event }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{rapl_8c_a470cb9c8c761bfbf12c5f53b25a732cf}\label{rapl_8c_a470cb9c8c761bfbf12c5f53b25a732cf}} 
+\index{rapl.c@{rapl.c}!rapl\_scale@{rapl\_scale}}
+\index{rapl\_scale@{rapl\_scale}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_scale()}{rapl\_scale()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} rapl\+\_\+scale (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{v,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cfg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{rapl_8c_af5e6fa252a7312ab9d26580a72f1a7a3}\label{rapl_8c_af5e6fa252a7312ab9d26580a72f1a7a3}} 
+\index{rapl.c@{rapl.c}!rapl\_start\_hrtimer@{rapl\_start\_hrtimer}}
+\index{rapl\_start\_hrtimer@{rapl\_start\_hrtimer}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_start\_hrtimer()}{rapl\_start\_hrtimer()}}
+{\footnotesize\ttfamily static void rapl\+\_\+start\+\_\+hrtimer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structrapl__pmu}{rapl\+\_\+pmu}} $\ast$}]{pmu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{rapl_8c_abde59c81ae194015d86430c6227e00eb}\label{rapl_8c_abde59c81ae194015d86430c6227e00eb}} 
+\index{rapl.c@{rapl.c}!test\_msr@{test\_msr}}
+\index{test\_msr@{test\_msr}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{test\_msr()}{test\_msr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} test\+\_\+msr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{rapl_8c_aed7cd2b6a4b013dc58cc2a8ceb3e9aa6}\label{rapl_8c_aed7cd2b6a4b013dc58cc2a8ceb3e9aa6}} 
+\index{rapl.c@{rapl.c}!\_\_initconst@{\_\_initconst}}
+\index{\_\_initconst@{\_\_initconst}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initconst}{\_\_initconst}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structx86__cpu__id}{x86\+\_\+cpu\+\_\+id}} rapl\+\_\+model\+\_\+match \mbox{[}$\,$\mbox{]} \+\_\+\+\_\+initconst\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \textcolor{stringliteral}{"pp0-\/core"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"package"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"dram"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"pp1-\/gpu"},}
+\DoxyCodeLine{    \textcolor{stringliteral}{"psys"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_ad1231df0474054ca657ba03099a4a96e}\label{rapl_8c_ad1231df0474054ca657ba03099a4a96e}} 
+\index{rapl.c@{rapl.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+hw\+\_\+unit \mbox{[}\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1cff20d3355f4c1ac333cccea447b1e1}{N\+R\+\_\+\+R\+A\+P\+L\+\_\+\+D\+O\+M\+A\+I\+NS}}\mbox{]} \+\_\+\+\_\+read\+\_\+mostly\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rapl_8c_af5d1a4a039153fc132f60042c0fcbe39}\label{rapl_8c_af5d1a4a039153fc132f60042c0fcbe39}} 
+\index{rapl.c@{rapl.c}!amd\_rapl\_msrs@{amd\_rapl\_msrs}}
+\index{amd\_rapl\_msrs@{amd\_rapl\_msrs}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{amd\_rapl\_msrs}{amd\_rapl\_msrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}} amd\+\_\+rapl\+\_\+msrs\mbox{[}\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda98e185723e505281c7835e7ae08e9e0a}{P\+E\+R\+F\+\_\+\+R\+A\+P\+L\+\_\+\+M\+AX}}\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}]  = \{ \mbox{\hyperlink{msr-index_8h_a6ac5243517b02bb837bf64a66ed444b0}{MSR\_AMD\_PKG\_ENERGY\_STATUS}},  \&\mbox{\hyperlink{rapl_8c_a51c7cc167d36fd7aa7fadf13a84d909e}{rapl\_events\_pkg\_group}},   \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a3432e67a3852491bc7c1bfaf76ef6e6b}\label{rapl_8c_a3432e67a3852491bc7c1bfaf76ef6e6b}} 
+\index{rapl.c@{rapl.c}!attrs\_empty@{attrs\_empty}}
+\index{attrs\_empty@{attrs\_empty}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{attrs\_empty}{attrs\_empty}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ attrs\+\_\+empty\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}\label{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}} 
+\index{rapl.c@{rapl.c}!intel\_rapl\_msrs@{intel\_rapl\_msrs}}
+\index{intel\_rapl\_msrs@{intel\_rapl\_msrs}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{intel\_rapl\_msrs}{intel\_rapl\_msrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}} intel\+\_\+rapl\+\_\+msrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}]  = \{ \mbox{\hyperlink{msr-index_8h_aa5e244c480d68e9672ca5208632e7254}{MSR\_PP0\_ENERGY\_STATUS}},      \&\mbox{\hyperlink{rapl_8c_a523086178dca0eccd810c3b1e89aae00}{rapl\_events\_cores\_group}}, \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}]  = \{ \mbox{\hyperlink{msr-index_8h_ae8952c7da879bc4523085c453d0bf460}{MSR\_PKG\_ENERGY\_STATUS}},      \&\mbox{\hyperlink{rapl_8c_a51c7cc167d36fd7aa7fadf13a84d909e}{rapl\_events\_pkg\_group}},   \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}]  = \{ \mbox{\hyperlink{msr-index_8h_a26933b2c6904d22e9964f3f12c730fc8}{MSR\_DRAM\_ENERGY\_STATUS}},     \&\mbox{\hyperlink{rapl_8c_a65e61bae2e143aab62fb6ed16f175bd6}{rapl\_events\_ram\_group}},   \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}{PERF\_RAPL\_PP1}}]  = \{ \mbox{\hyperlink{msr-index_8h_a751f65bf26840ffbec355f764933edc1}{MSR\_PP1\_ENERGY\_STATUS}},      \&\mbox{\hyperlink{rapl_8c_abc01ddea47315d146636f32379d43c29}{rapl\_events\_gpu\_group}},   \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda40f45487a2f56282becf1a414b76dadc}{PERF\_RAPL\_PSYS}}] = \{ \mbox{\hyperlink{msr-index_8h_a230888ca24c18517d4d0989ecba6a7e1}{MSR\_PLATFORM\_ENERGY\_STATUS}}, \&\mbox{\hyperlink{rapl_8c_abb79ae6b565c30803dc6f79c3bea67ca}{rapl\_events\_psys\_group}},  \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a366096a3fe368d11adfa4948346554c6}\label{rapl_8c_a366096a3fe368d11adfa4948346554c6}} 
+\index{rapl.c@{rapl.c}!intel\_rapl\_spr\_msrs@{intel\_rapl\_spr\_msrs}}
+\index{intel\_rapl\_spr\_msrs@{intel\_rapl\_spr\_msrs}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{intel\_rapl\_spr\_msrs}{intel\_rapl\_spr\_msrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}} intel\+\_\+rapl\+\_\+spr\+\_\+msrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}]  = \{ \mbox{\hyperlink{msr-index_8h_aa5e244c480d68e9672ca5208632e7254}{MSR\_PP0\_ENERGY\_STATUS}},      \&\mbox{\hyperlink{rapl_8c_a523086178dca0eccd810c3b1e89aae00}{rapl\_events\_cores\_group}}, \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}]  = \{ \mbox{\hyperlink{msr-index_8h_ae8952c7da879bc4523085c453d0bf460}{MSR\_PKG\_ENERGY\_STATUS}},      \&\mbox{\hyperlink{rapl_8c_a51c7cc167d36fd7aa7fadf13a84d909e}{rapl\_events\_pkg\_group}},   \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}]  = \{ \mbox{\hyperlink{msr-index_8h_a26933b2c6904d22e9964f3f12c730fc8}{MSR\_DRAM\_ENERGY\_STATUS}},     \&\mbox{\hyperlink{rapl_8c_a65e61bae2e143aab62fb6ed16f175bd6}{rapl\_events\_ram\_group}},   \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}{PERF\_RAPL\_PP1}}]  = \{ \mbox{\hyperlink{msr-index_8h_a751f65bf26840ffbec355f764933edc1}{MSR\_PP1\_ENERGY\_STATUS}},      \&\mbox{\hyperlink{rapl_8c_abc01ddea47315d146636f32379d43c29}{rapl\_events\_gpu\_group}},   \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{false}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{    [\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda40f45487a2f56282becf1a414b76dadc}{PERF\_RAPL\_PSYS}}] = \{ \mbox{\hyperlink{msr-index_8h_a230888ca24c18517d4d0989ecba6a7e1}{MSR\_PLATFORM\_ENERGY\_STATUS}}, \&\mbox{\hyperlink{rapl_8c_abb79ae6b565c30803dc6f79c3bea67ca}{rapl\_events\_psys\_group}},  \mbox{\hyperlink{rapl_8c_abde59c81ae194015d86430c6227e00eb}{test\_msr}}, \textcolor{keyword}{true}, \mbox{\hyperlink{rapl_8c_af90e5021c02041b905c3442f3e740ee0}{RAPL\_MSR\_MASK}} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a3a5a81872d2f49e9ead655d7cfcef5c2}\label{rapl_8c_a3a5a81872d2f49e9ead655d7cfcef5c2}} 
+\index{rapl.c@{rapl.c}!model\_amd\_hygon@{model\_amd\_hygon}}
+\index{model\_amd\_hygon@{model\_amd\_hygon}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_amd\_hygon}{model\_amd\_hygon}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+amd\+\_\+hygon\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}),}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a80838c6a4f1ff64c68f1748c50f5709c}{MSR\_AMD\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_af5d1a4a039153fc132f60042c0fcbe39}{amd\_rapl\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a9b085e969bdffda8cb26acc7704ee829}\label{rapl_8c_a9b085e969bdffda8cb26acc7704ee829}} 
+\index{rapl.c@{rapl.c}!model\_hsw@{model\_hsw}}
+\index{model\_hsw@{model\_hsw}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_hsw}{model\_hsw}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+hsw\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}{PERF\_RAPL\_PP1}}),}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a888543788798e9b5a48ecac73b5169c2}{MSR\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}{intel\_rapl\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_ae170c84aff1150baaef880be2cd280f1}\label{rapl_8c_ae170c84aff1150baaef880be2cd280f1}} 
+\index{rapl.c@{rapl.c}!model\_hsx@{model\_hsx}}
+\index{model\_hsx@{model\_hsx}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_hsx}{model\_hsx}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+hsx\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}),}
+\DoxyCodeLine{    .unit\_quirk = \mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a71cab6c7fc2817d9b8f5099838eca11f}{RAPL\_UNIT\_QUIRK\_INTEL\_HSW}},}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a888543788798e9b5a48ecac73b5169c2}{MSR\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}{intel\_rapl\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a08e9d76602147c121d3ba175a3ece2df}\label{rapl_8c_a08e9d76602147c121d3ba175a3ece2df}} 
+\index{rapl.c@{rapl.c}!model\_knl@{model\_knl}}
+\index{model\_knl@{model\_knl}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_knl}{model\_knl}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+knl\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}),}
+\DoxyCodeLine{    .unit\_quirk = \mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a71cab6c7fc2817d9b8f5099838eca11f}{RAPL\_UNIT\_QUIRK\_INTEL\_HSW}},}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a888543788798e9b5a48ecac73b5169c2}{MSR\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}{intel\_rapl\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a00313d4b12ba6ff1045034239070b8ee}\label{rapl_8c_a00313d4b12ba6ff1045034239070b8ee}} 
+\index{rapl.c@{rapl.c}!model\_skl@{model\_skl}}
+\index{model\_skl@{model\_skl}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_skl}{model\_skl}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+skl\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}{PERF\_RAPL\_PP1}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda40f45487a2f56282becf1a414b76dadc}{PERF\_RAPL\_PSYS}}),}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a888543788798e9b5a48ecac73b5169c2}{MSR\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}{intel\_rapl\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a22d289a7a2fe8fe27fd0f29218b9c8a3}\label{rapl_8c_a22d289a7a2fe8fe27fd0f29218b9c8a3}} 
+\index{rapl.c@{rapl.c}!model\_snb@{model\_snb}}
+\index{model\_snb@{model\_snb}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_snb}{model\_snb}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+snb\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda632e10eec9715196e1a1043f6a26fe15}{PERF\_RAPL\_PP1}}),}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a888543788798e9b5a48ecac73b5169c2}{MSR\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}{intel\_rapl\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a9a79947f5e27fb58dafc33f0c62c12d4}\label{rapl_8c_a9a79947f5e27fb58dafc33f0c62c12d4}} 
+\index{rapl.c@{rapl.c}!model\_snbep@{model\_snbep}}
+\index{model\_snbep@{model\_snbep}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_snbep}{model\_snbep}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+snbep\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}),}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a888543788798e9b5a48ecac73b5169c2}{MSR\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_aa9e00c3db1acf2d070683c1b26b55e0c}{intel\_rapl\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_aeab8567c05c7a0f08ff3b1c89c63e57c}\label{rapl_8c_aeab8567c05c7a0f08ff3b1c89c63e57c}} 
+\index{rapl.c@{rapl.c}!model\_spr@{model\_spr}}
+\index{model\_spr@{model\_spr}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{model\_spr}{model\_spr}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__model}{rapl\+\_\+model}} model\+\_\+spr\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .events     = \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda9f9dc2fee25ab333a9cf7877eae93c87}{PERF\_RAPL\_PP0}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda57507fabf5fb2ccd46126b7c271b6e0b}{PERF\_RAPL\_PKG}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda1a0c5e3d9e840d10e944cc64c67428da}{PERF\_RAPL\_RAM}}) |}
+\DoxyCodeLine{              \mbox{\hyperlink{vdso_2bits_8h_a4eaf4bf81c52c3f375967906e4d5ba17}{BIT}}(\mbox{\hyperlink{rapl_8c_ae407aa7116764bc81daa598fd8b38aeda40f45487a2f56282becf1a414b76dadc}{PERF\_RAPL\_PSYS}}),}
+\DoxyCodeLine{    .unit\_quirk = \mbox{\hyperlink{rapl_8c_ad64171e1c71aac3b633b8e1b5a7678e7a5eb5fd751d2df892f9bea2de32b81ae7}{RAPL\_UNIT\_QUIRK\_INTEL\_SPR}},}
+\DoxyCodeLine{    .msr\_power\_unit = \mbox{\hyperlink{msr-index_8h_a888543788798e9b5a48ecac73b5169c2}{MSR\_RAPL\_POWER\_UNIT}},}
+\DoxyCodeLine{    .rapl\_msrs      = \mbox{\hyperlink{rapl_8c_a366096a3fe368d11adfa4948346554c6}{intel\_rapl\_spr\_msrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_af4e150b27100c1f064c983cc83e0d60a}\label{rapl_8c_af4e150b27100c1f064c983cc83e0d60a}} 
+\index{rapl.c@{rapl.c}!rapl\_attr\_groups@{rapl\_attr\_groups}}
+\index{rapl\_attr\_groups@{rapl\_attr\_groups}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_attr\_groups}{rapl\_attr\_groups}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}}$\ast$ rapl\+\_\+attr\+\_\+groups\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_a609bcff879594f4244515bae85afc7a0}{rapl\_pmu\_attr\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_ac50544d6fdb869a68d2de9d147b946dd}{rapl\_pmu\_format\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_a24a51c651db0695a8574ff2eea146a1b}{rapl\_pmu\_events\_group}},}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a1bdfeca7fec6e838db562f62cb207d1a}\label{rapl_8c_a1bdfeca7fec6e838db562f62cb207d1a}} 
+\index{rapl.c@{rapl.c}!rapl\_attr\_update@{rapl\_attr\_update}}
+\index{rapl\_attr\_update@{rapl\_attr\_update}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_attr\_update}{rapl\_attr\_update}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}}$\ast$ rapl\+\_\+attr\+\_\+update\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_a523086178dca0eccd810c3b1e89aae00}{rapl\_events\_cores\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_a51c7cc167d36fd7aa7fadf13a84d909e}{rapl\_events\_pkg\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_a65e61bae2e143aab62fb6ed16f175bd6}{rapl\_events\_ram\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_abc01ddea47315d146636f32379d43c29}{rapl\_events\_gpu\_group}},}
+\DoxyCodeLine{    \&\mbox{\hyperlink{rapl_8c_abb79ae6b565c30803dc6f79c3bea67ca}{rapl\_events\_psys\_group}},}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a0c61020b30632df998e3d8fb418cc69f}\label{rapl_8c_a0c61020b30632df998e3d8fb418cc69f}} 
+\index{rapl.c@{rapl.c}!rapl\_cntr\_mask@{rapl\_cntr\_mask}}
+\index{rapl\_cntr\_mask@{rapl\_cntr\_mask}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_cntr\_mask}{rapl\_cntr\_mask}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rapl\+\_\+cntr\+\_\+mask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rapl_8c_a0b1d249f6088bd1470e4876977a69656}\label{rapl_8c_a0b1d249f6088bd1470e4876977a69656}} 
+\index{rapl.c@{rapl.c}!rapl\_cpu\_mask@{rapl\_cpu\_mask}}
+\index{rapl\_cpu\_mask@{rapl\_cpu\_mask}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_cpu\_mask}{rapl\_cpu\_mask}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2cpumask_8h_ac9a3b818d84722251e96c56493cd8bf0}{cpumask\+\_\+t}} rapl\+\_\+cpu\+\_\+mask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rapl_8c_acaab300362f04d72bad868d690046d9f}\label{rapl_8c_acaab300362f04d72bad868d690046d9f}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_cores@{rapl\_events\_cores}}
+\index{rapl\_events\_cores@{rapl\_events\_cores}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_cores}{rapl\_events\_cores}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ rapl\+\_\+events\+\_\+cores\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_cores),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_cores\_unit),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_cores\_scale),}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a523086178dca0eccd810c3b1e89aae00}\label{rapl_8c_a523086178dca0eccd810c3b1e89aae00}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_cores\_group@{rapl\_events\_cores\_group}}
+\index{rapl\_events\_cores\_group@{rapl\_events\_cores\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_cores\_group}{rapl\_events\_cores\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+events\+\_\+cores\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name  = \textcolor{stringliteral}{"events"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_acaab300362f04d72bad868d690046d9f}{rapl\_events\_cores}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a7e4ebda15621b71fbe77cc1f21e5ff37}\label{rapl_8c_a7e4ebda15621b71fbe77cc1f21e5ff37}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_gpu@{rapl\_events\_gpu}}
+\index{rapl\_events\_gpu@{rapl\_events\_gpu}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_gpu}{rapl\_events\_gpu}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ rapl\+\_\+events\+\_\+gpu\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_gpu),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_gpu\_unit),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_gpu\_scale),}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_abc01ddea47315d146636f32379d43c29}\label{rapl_8c_abc01ddea47315d146636f32379d43c29}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_gpu\_group@{rapl\_events\_gpu\_group}}
+\index{rapl\_events\_gpu\_group@{rapl\_events\_gpu\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_gpu\_group}{rapl\_events\_gpu\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+events\+\_\+gpu\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name  = \textcolor{stringliteral}{"events"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_a7e4ebda15621b71fbe77cc1f21e5ff37}{rapl\_events\_gpu}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_abb68ffc0df4f7c31d1ba421e6200f9fb}\label{rapl_8c_abb68ffc0df4f7c31d1ba421e6200f9fb}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_pkg@{rapl\_events\_pkg}}
+\index{rapl\_events\_pkg@{rapl\_events\_pkg}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_pkg}{rapl\_events\_pkg}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ rapl\+\_\+events\+\_\+pkg\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_pkg),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_pkg\_unit),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_pkg\_scale),}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a51c7cc167d36fd7aa7fadf13a84d909e}\label{rapl_8c_a51c7cc167d36fd7aa7fadf13a84d909e}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_pkg\_group@{rapl\_events\_pkg\_group}}
+\index{rapl\_events\_pkg\_group@{rapl\_events\_pkg\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_pkg\_group}{rapl\_events\_pkg\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+events\+\_\+pkg\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name  = \textcolor{stringliteral}{"events"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_abb68ffc0df4f7c31d1ba421e6200f9fb}{rapl\_events\_pkg}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a2e092bcc52d9fbe00aa2cc5c87edf7eb}\label{rapl_8c_a2e092bcc52d9fbe00aa2cc5c87edf7eb}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_psys@{rapl\_events\_psys}}
+\index{rapl\_events\_psys@{rapl\_events\_psys}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_psys}{rapl\_events\_psys}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ rapl\+\_\+events\+\_\+psys\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_psys),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_psys\_unit),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_psys\_scale),}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_abb79ae6b565c30803dc6f79c3bea67ca}\label{rapl_8c_abb79ae6b565c30803dc6f79c3bea67ca}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_psys\_group@{rapl\_events\_psys\_group}}
+\index{rapl\_events\_psys\_group@{rapl\_events\_psys\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_psys\_group}{rapl\_events\_psys\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+events\+\_\+psys\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name  = \textcolor{stringliteral}{"events"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_a2e092bcc52d9fbe00aa2cc5c87edf7eb}{rapl\_events\_psys}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a6197f75b10692c94b6b249434d95440a}\label{rapl_8c_a6197f75b10692c94b6b249434d95440a}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_ram@{rapl\_events\_ram}}
+\index{rapl\_events\_ram@{rapl\_events\_ram}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_ram}{rapl\_events\_ram}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ rapl\+\_\+events\+\_\+ram\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_ram),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_ram\_unit),}
+\DoxyCodeLine{    \mbox{\hyperlink{arch_2x86_2events_2perf__event_8h_ab379b68c484f8fe136e609c3cac00d71}{EVENT\_PTR}}(rapl\_ram\_scale),}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a65e61bae2e143aab62fb6ed16f175bd6}\label{rapl_8c_a65e61bae2e143aab62fb6ed16f175bd6}} 
+\index{rapl.c@{rapl.c}!rapl\_events\_ram\_group@{rapl\_events\_ram\_group}}
+\index{rapl\_events\_ram\_group@{rapl\_events\_ram\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_events\_ram\_group}{rapl\_events\_ram\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+events\+\_\+ram\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name  = \textcolor{stringliteral}{"events"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_a6197f75b10692c94b6b249434d95440a}{rapl\_events\_ram}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_acc12adf52ba517ff1cdf49af7f3852c8}\label{rapl_8c_acc12adf52ba517ff1cdf49af7f3852c8}} 
+\index{rapl.c@{rapl.c}!rapl\_formats\_attr@{rapl\_formats\_attr}}
+\index{rapl\_formats\_attr@{rapl\_formats\_attr}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_formats\_attr}{rapl\_formats\_attr}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ rapl\+\_\+formats\+\_\+attr\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&format\_attr\_event.attr,}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a19ea6e65c70343f4e01c1e016e78a7eb}\label{rapl_8c_a19ea6e65c70343f4e01c1e016e78a7eb}} 
+\index{rapl.c@{rapl.c}!rapl\_msrs@{rapl\_msrs}}
+\index{rapl\_msrs@{rapl\_msrs}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_msrs}{rapl\_msrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structperf__msr}{perf\+\_\+msr}}$\ast$ rapl\+\_\+msrs\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rapl_8c_a609bcff879594f4244515bae85afc7a0}\label{rapl_8c_a609bcff879594f4244515bae85afc7a0}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_attr\_group@{rapl\_pmu\_attr\_group}}
+\index{rapl\_pmu\_attr\_group@{rapl\_pmu\_attr\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_attr\_group}{rapl\_pmu\_attr\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+pmu\+\_\+attr\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_a9eed4b53460291c281ef10ae9b4a6965}{rapl\_pmu\_attrs}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a9eed4b53460291c281ef10ae9b4a6965}\label{rapl_8c_a9eed4b53460291c281ef10ae9b4a6965}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_attrs@{rapl\_pmu\_attrs}}
+\index{rapl\_pmu\_attrs@{rapl\_pmu\_attrs}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_attrs}{rapl\_pmu\_attrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ rapl\+\_\+pmu\+\_\+attrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \&dev\_attr\_cpumask.attr,}
+\DoxyCodeLine{    \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_a24a51c651db0695a8574ff2eea146a1b}\label{rapl_8c_a24a51c651db0695a8574ff2eea146a1b}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_events\_group@{rapl\_pmu\_events\_group}}
+\index{rapl\_pmu\_events\_group@{rapl\_pmu\_events\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_events\_group}{rapl\_pmu\_events\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+pmu\+\_\+events\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name = \textcolor{stringliteral}{"events"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_a3432e67a3852491bc7c1bfaf76ef6e6b}{attrs\_empty}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_ac50544d6fdb869a68d2de9d147b946dd}\label{rapl_8c_ac50544d6fdb869a68d2de9d147b946dd}} 
+\index{rapl.c@{rapl.c}!rapl\_pmu\_format\_group@{rapl\_pmu\_format\_group}}
+\index{rapl\_pmu\_format\_group@{rapl\_pmu\_format\_group}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmu\_format\_group}{rapl\_pmu\_format\_group}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute__group}{attribute\+\_\+group}} rapl\+\_\+pmu\+\_\+format\+\_\+group\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name = \textcolor{stringliteral}{"format"},}
+\DoxyCodeLine{    .attrs = \mbox{\hyperlink{rapl_8c_acc12adf52ba517ff1cdf49af7f3852c8}{rapl\_formats\_attr}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{rapl_8c_ad5dd9863469d9ae7ae42bf417cba7573}\label{rapl_8c_ad5dd9863469d9ae7ae42bf417cba7573}} 
+\index{rapl.c@{rapl.c}!rapl\_pmus@{rapl\_pmus}}
+\index{rapl\_pmus@{rapl\_pmus}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_pmus}{rapl\_pmus}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrapl__pmus}{rapl\+\_\+pmus}}$\ast$ \mbox{\hyperlink{structrapl__pmus}{rapl\+\_\+pmus}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{rapl_8c_acc258391fa5ce3efba78a117191ca95d}\label{rapl_8c_acc258391fa5ce3efba78a117191ca95d}} 
+\index{rapl.c@{rapl.c}!rapl\_timer\_ms@{rapl\_timer\_ms}}
+\index{rapl\_timer\_ms@{rapl\_timer\_ms}!rapl.c@{rapl.c}}
+\doxysubsubsection{\texorpdfstring{rapl\_timer\_ms}{rapl\_timer\_ms}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} rapl\+\_\+timer\+\_\+ms\hspace{0.3cm}{\ttfamily [static]}}
+

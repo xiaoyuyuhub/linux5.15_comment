@@ -1,0 +1,973 @@
+\hypertarget{pci_2irq_8c}{}\doxysection{arch/x86/pci/irq.c File Reference}
+\label{pci_2irq_8c}\index{arch/x86/pci/irq.c@{arch/x86/pci/irq.c}}
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pci.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/dmi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/io.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io\+\_\+apic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irq.\+h$>$}\newline
+{\ttfamily \#include $<$linux/acpi.\+h$>$}\newline
+{\ttfamily \#include $<$asm/i8259.\+h$>$}\newline
+{\ttfamily \#include $<$asm/pc-\/conf-\/reg.\+h$>$}\newline
+{\ttfamily \#include $<$asm/pci\+\_\+x86.\+h$>$}\newline
+Include dependency graph for irq.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}}
+\item 
+struct \mbox{\hyperlink{structirq__router__handler}{irq\+\_\+router\+\_\+handler}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a24d570938f7adec727f6e31287aa15e4}{P\+I\+R\+Q\+\_\+\+S\+I\+G\+N\+A\+T\+U\+RE}}~((\textquotesingle{}\$\textquotesingle{} $<$$<$ 0) + (\textquotesingle{}\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}\textquotesingle{} $<$$<$ 8) + (\textquotesingle{}\mbox{\hyperlink{emulate_8c_a96fbfcdeb916b34a7b8c92978c0895a4}{I}}\textquotesingle{} $<$$<$ 16) + (\textquotesingle{}\mbox{\hyperlink{target__core__base_8h_aa9732a31f97de6fe2211561a3847e7fc}{R}}\textquotesingle{} $<$$<$ 24))
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a32ad3b31b211537ba3423816d34e2c9e}{P\+I\+R\+Q\+\_\+\+V\+E\+R\+S\+I\+ON}}~0x0100
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_aae3dd061f2920d923fdc48b343ef8388}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+L\+O\+CK}}~0x03u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a3068d021ab53a06b5c493b788dc71b29}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+P\+C\+I\+\_\+\+I\+N\+T\+X\+\_\+\+R\+T1}}~0x42u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a265dadeefde0d49ceb8d12e0e6ba7d60}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+P\+C\+I\+\_\+\+I\+N\+T\+X\+\_\+\+R\+T2}}~0x43u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a53b78f9c096c7fc42c22bbcba0e41aa4}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+P\+C\+I\+\_\+\+I\+N\+T\+X\+\_\+\+S\+E\+NS}}~0x44u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a43a1a8941975e160d3bdd012cf53cc67}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+L\+O\+C\+K\+\_\+\+K\+EY}}~0xc5u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_add1f13c4507a72f63e96c2e33a3157cd}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+I82374\+\_\+\+E\+S\+C\+\_\+\+ID}}~0x02u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a41208ec9c2c78483569d8a892e1fbbb3}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+I82374\+\_\+\+P\+I\+R\+Q\+\_\+\+R\+O\+U\+T\+E\+\_\+\+C\+O\+N\+T\+R\+OL}}~0x60u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_ab210a6725370b1df91433529088c71f4}{P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+I82374\+\_\+\+E\+S\+C\+\_\+\+I\+D\+\_\+\+K\+EY}}~0x0fu
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_af33c36400b30122db1263bf02195426b}{P\+C\+I\+\_\+\+I82426\+E\+X\+\_\+\+P\+I\+R\+Q\+\_\+\+R\+O\+U\+T\+E\+\_\+\+C\+O\+N\+T\+R\+OL}}~0x66u
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a13110a08cb4bd56d21554f42d67a73e0}{P\+I\+R\+Q\+\_\+\+S\+I\+S\+\_\+\+I\+R\+Q\+\_\+\+M\+A\+SK}}~0x0f
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_a3fde8625c63d4a0d66ad45cb7f850b0a}{P\+I\+R\+Q\+\_\+\+S\+I\+S\+\_\+\+I\+R\+Q\+\_\+\+D\+I\+S\+A\+B\+LE}}~0x80
+\item 
+\#define \mbox{\hyperlink{pci_2irq_8c_ad6fcc372933aee70361fc87c927a4e27}{P\+I\+R\+Q\+\_\+\+S\+I\+S\+\_\+\+U\+S\+B\+\_\+\+E\+N\+A\+B\+LE}}~0x40
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a26d7c3dd24119bc2ae200255e32cb003}{pirq\+\_\+enable\+\_\+irq}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}})
+\item 
+static void \mbox{\hyperlink{pci_2irq_8c_ab2cf8575475b1d86c75af6e9a2a2d984}{pirq\+\_\+disable\+\_\+irq}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}})
+\item 
+static struct \mbox{\hyperlink{structirq__routing__table}{irq\+\_\+routing\+\_\+table}} $\ast$ \mbox{\hyperlink{pci_2irq_8c_a15fc35d00b2543aeb027398825057519}{pirq\+\_\+check\+\_\+routing\+\_\+table}} (\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static struct \mbox{\hyperlink{structirq__routing__table}{irq\+\_\+routing\+\_\+table}} $\ast$\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{pci_2irq_8c_aba68a2bc447858c49226e01144301c01}{pirq\+\_\+find\+\_\+routing\+\_\+table}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{pci_2irq_8c_a675932a1798b5abb78f84c745f7e7c79}{pirq\+\_\+peer\+\_\+trick}} (void)
+\item 
+void \mbox{\hyperlink{pci_2irq_8c_a7b3501ded9049e56dac9e2a04cd8e699}{elcr\+\_\+set\+\_\+level\+\_\+irq}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{pci_2irq_8c_ac89d015ff07f0c85aaa37954ff8faf1c}{read\+\_\+pc\+\_\+conf\+\_\+nybble}} (\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}})
+\item 
+static void \mbox{\hyperlink{pci_2irq_8c_a29d18cc2b459597e1d1ae9c53c6fe426}{write\+\_\+pc\+\_\+conf\+\_\+nybble}} (\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a09b675a656fa0cc189c71f1d49b9f1aa}{pirq\+\_\+finali\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a70b833c2850f4e1a4a9cefb0c73f1f41}{pirq\+\_\+finali\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a95ac83630fe07d87b5ba037932d62d98}{pirq\+\_\+finali\+\_\+lvl}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a6adb27b6cf11ed1e6ecc03c399278569}{read\+\_\+config\+\_\+nybble}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, unsigned \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, unsigned nr)
+\item 
+static void \mbox{\hyperlink{pci_2irq_8c_ab39bca694276373bff69186fe58b8eee}{write\+\_\+config\+\_\+nybble}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, unsigned \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, unsigned nr, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_aceb8331cbe644c17d766cee26695bf27}{pirq\+\_\+ali\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a9186d5bc7dfd3001c6f6f879e65cb5a5}{pirq\+\_\+ali\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_aaf655649b1d078d687e208e680bb056c}{pirq\+\_\+esc\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_ac393d214e97a0b2c246b1d613e7c76b7}{pirq\+\_\+esc\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a6dc1dc73a30133674b0d18e93e1d0e02}{pirq\+\_\+piix\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a59f8cedaf8bbb45a78975ab3228d7eb0}{pirq\+\_\+piix\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_aa4400b8f005182e19785156df3559926}{pirq\+\_\+ib\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a43558eba49d1b43f703c04c92927adbf}{pirq\+\_\+ib\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_aa28af4849eba80030a3973138b1511a2}{pirq\+\_\+via\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a2796fe94bb3a729f89a1551c55114ade}{pirq\+\_\+via\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_ad89056e451b18599c301cf3521d1776a}{pirq\+\_\+via586\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_adbc59334546136ea70f39bd48a0a6aa6}{pirq\+\_\+via586\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a574e725a37c8ae8b9f583a2b5effa0b6}{pirq\+\_\+ite\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a8d0b0df879e3d710f3adc891adbc1c1d}{pirq\+\_\+ite\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a1a84333c35e9848dee4065a52c3851e9}{pirq\+\_\+opti\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_ac532468493af7cf7206da90609cc7a9b}{pirq\+\_\+opti\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a7cbc38fa54726cf5f6564b16a82a41d3}{pirq\+\_\+cyrix\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a4c48040a3f536aa57ff0eb547d05e376}{pirq\+\_\+cyrix\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a9201b9fa314debacb0a7f83c43911e88}{pirq\+\_\+sis\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a480db53536630f0f3af7f73463c93faf}{pirq\+\_\+sis\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_aa902e7d4eb2eaf22e632438b5b073094}{pirq\+\_\+vlsi\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a446ff40a53691ff5d44d74d439da7578}{pirq\+\_\+vlsi\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a2492d58a5d4b0d10245fc6d312fd32f8}{pirq\+\_\+serverworks\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a272217a982b865bce7a1abc5800b7dee}{pirq\+\_\+serverworks\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a57886aa293e17831228aa4bd173ede78}{pirq\+\_\+amd756\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_ab10858a8ecf1fbaa3282cfed6ba0083d}{pirq\+\_\+amd756\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a2ecb5ef8287a037c8a68df6cbba92fe7}{pirq\+\_\+pico\+\_\+get}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a2818ff37ef8b6741fc16a155915e8919}{pirq\+\_\+pico\+\_\+set}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a9e3afba3049798cb12a8d15f7533138d}{intel\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a5595c233eab1a4ae33cec3e68d44a0ee}{via\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_ad31e61d473f140c5b6025207b8db1b34}{vlsi\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a94288c54771bc2ca0a7a4cbdf5fec072}{serverworks\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a89f593b5df87bcdf1da85073046522d4}{sis\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a0e55d54d448c1646247e3cd3b575b6d6}{cyrix\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a082e57ba2ddbd60636c94caac5e31dde}{opti\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a71febe07ecced8e57971d0f9bee3f5a0}{ite\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a6c38c85e6685f24698122aaabd415e8f}{ali\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a410b0904c68f8da2097df84c8bc39163}{amd\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a660625d2051ad2f360cfe12e0f135e07}{pico\+\_\+router\+\_\+probe}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$router, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{structdevice}{device}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{pci_2irq_8c_a120501715618a47239c318b0f8fb0fe0}{pirq\+\_\+find\+\_\+router}} (struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}})
+\item 
+static struct \mbox{\hyperlink{structirq__info}{irq\+\_\+info}} $\ast$ \mbox{\hyperlink{pci_2irq_8c_ab99b058104cbdc5713a7671f1f417cec}{pirq\+\_\+get\+\_\+info}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a80688774fc310eeff7efc80a7dd8656e}{pcibios\+\_\+lookup\+\_\+irq}} (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} assign)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{pci_2irq_8c_a7b7bda49e4c4fa1677d839f1bf38e74b}{pcibios\+\_\+fixup\+\_\+irqs}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{pci_2irq_8c_add7836f4d99a741ca6278ac42573adeb}{fix\+\_\+broken\+\_\+hp\+\_\+bios\+\_\+irq9}} (const struct \mbox{\hyperlink{structdmi__system__id}{dmi\+\_\+system\+\_\+id}} $\ast$\mbox{\hyperlink{desc__defs_8h_a2700247be955059d67a044885e065e5c}{d}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{pci_2irq_8c_ae1998bd57d7741fe477fe348e9240ca7}{fix\+\_\+acer\+\_\+tm360\+\_\+irqrouting}} (const struct \mbox{\hyperlink{structdmi__system__id}{dmi\+\_\+system\+\_\+id}} $\ast$\mbox{\hyperlink{desc__defs_8h_a2700247be955059d67a044885e065e5c}{d}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{pci_2irq_8c_a3385c06648e52a6a82161e6989f71312}{pcibios\+\_\+irq\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{pci_2irq_8c_ad39b1aaa1b8616bca26fcf344586f5ac}{pirq\+\_\+penalize\+\_\+isa\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-flags_8h_a4ac248fdc29931a52121225fbbdf59d2}{active}})
+\item 
+void \mbox{\hyperlink{pci_2irq_8c_a7035059a0f7df54730dcd027de678d01}{pcibios\+\_\+penalize\+\_\+isa\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} irq, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-flags_8h_a4ac248fdc29931a52121225fbbdf59d2}{active}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{pci_2irq_8c_a2f3b1071baa0b194c70248ba98d3220f}{mp\+\_\+should\+\_\+keep\+\_\+irq}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a5cc29385a8dd3cd0fe8b8129896fafde}{broken\+\_\+hp\+\_\+bios\+\_\+irq9}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a6838a23c6a464569296efedd2c900ab1}{acer\+\_\+tm360\+\_\+irqrouting}}
+\item 
+static struct \mbox{\hyperlink{structirq__routing__table}{irq\+\_\+routing\+\_\+table}} $\ast$ \mbox{\hyperlink{pci_2irq_8c_ae864d96a6c0a710ddfc171df0ea59b86}{pirq\+\_\+table}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a9e573b791a18b3ebff359497648e33c2}{pcibios\+\_\+irq\+\_\+mask}} = 0xfff8
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pci_2irq_8c_a41cc0f89d89aa5aafae485028d0082c2}{pirq\+\_\+penalty}} \mbox{[}16\mbox{]}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}($\ast$ \mbox{\hyperlink{pci_2irq_8c_a834b5388f2d8e4309c89eb9abe6d2287}{pcibios\+\_\+enable\+\_\+irq}} )(struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}) = \mbox{\hyperlink{pci_2irq_8c_a26d7c3dd24119bc2ae200255e32cb003}{pirq\+\_\+enable\+\_\+irq}}
+\item 
+void($\ast$ \mbox{\hyperlink{pci_2irq_8c_ae2ad65f830486d080281065171d6b725}{pcibios\+\_\+disable\+\_\+irq}} )(struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}) = \mbox{\hyperlink{pci_2irq_8c_ab2cf8575475b1d86c75af6e9a2a2d984}{pirq\+\_\+disable\+\_\+irq}}
+\item 
+static \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} struct \mbox{\hyperlink{structirq__router__handler}{irq\+\_\+router\+\_\+handler}} \mbox{\hyperlink{pci_2irq_8c_a4fdcc705d18e6d67278947a2e43f0ae8}{pirq\+\_\+routers}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} \mbox{\hyperlink{pci_2irq_8c_a7ed70b883df96b54609bf12415bca218}{pirq\+\_\+router}}
+\item 
+static struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$ \mbox{\hyperlink{pci_2irq_8c_acf3e379885a33250c1c0d38c0b6b51af}{pirq\+\_\+router\+\_\+dev}}
+\item 
+static const struct \mbox{\hyperlink{structdmi__system__id}{dmi\+\_\+system\+\_\+id}} pciirq\+\_\+dmi\+\_\+table\mbox{[}$\,$\mbox{]} \mbox{\hyperlink{pci_2irq_8c_a440f9ad1463a503b632e894989461f4b}{\+\_\+\+\_\+initconst}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{pci_2irq_8c_aae3dd061f2920d923fdc48b343ef8388}\label{pci_2irq_8c_aae3dd061f2920d923fdc48b343ef8388}} 
+\index{irq.c@{irq.c}!PC\_CONF\_FINALI\_LOCK@{PC\_CONF\_FINALI\_LOCK}}
+\index{PC\_CONF\_FINALI\_LOCK@{PC\_CONF\_FINALI\_LOCK}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_FINALI\_LOCK}{PC\_CONF\_FINALI\_LOCK}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+L\+O\+CK~0x03u}
+
+\mbox{\Hypertarget{pci_2irq_8c_a43a1a8941975e160d3bdd012cf53cc67}\label{pci_2irq_8c_a43a1a8941975e160d3bdd012cf53cc67}} 
+\index{irq.c@{irq.c}!PC\_CONF\_FINALI\_LOCK\_KEY@{PC\_CONF\_FINALI\_LOCK\_KEY}}
+\index{PC\_CONF\_FINALI\_LOCK\_KEY@{PC\_CONF\_FINALI\_LOCK\_KEY}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_FINALI\_LOCK\_KEY}{PC\_CONF\_FINALI\_LOCK\_KEY}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+L\+O\+C\+K\+\_\+\+K\+EY~0xc5u}
+
+\mbox{\Hypertarget{pci_2irq_8c_a3068d021ab53a06b5c493b788dc71b29}\label{pci_2irq_8c_a3068d021ab53a06b5c493b788dc71b29}} 
+\index{irq.c@{irq.c}!PC\_CONF\_FINALI\_PCI\_INTX\_RT1@{PC\_CONF\_FINALI\_PCI\_INTX\_RT1}}
+\index{PC\_CONF\_FINALI\_PCI\_INTX\_RT1@{PC\_CONF\_FINALI\_PCI\_INTX\_RT1}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_FINALI\_PCI\_INTX\_RT1}{PC\_CONF\_FINALI\_PCI\_INTX\_RT1}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+P\+C\+I\+\_\+\+I\+N\+T\+X\+\_\+\+R\+T1~0x42u}
+
+\mbox{\Hypertarget{pci_2irq_8c_a265dadeefde0d49ceb8d12e0e6ba7d60}\label{pci_2irq_8c_a265dadeefde0d49ceb8d12e0e6ba7d60}} 
+\index{irq.c@{irq.c}!PC\_CONF\_FINALI\_PCI\_INTX\_RT2@{PC\_CONF\_FINALI\_PCI\_INTX\_RT2}}
+\index{PC\_CONF\_FINALI\_PCI\_INTX\_RT2@{PC\_CONF\_FINALI\_PCI\_INTX\_RT2}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_FINALI\_PCI\_INTX\_RT2}{PC\_CONF\_FINALI\_PCI\_INTX\_RT2}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+P\+C\+I\+\_\+\+I\+N\+T\+X\+\_\+\+R\+T2~0x43u}
+
+\mbox{\Hypertarget{pci_2irq_8c_a53b78f9c096c7fc42c22bbcba0e41aa4}\label{pci_2irq_8c_a53b78f9c096c7fc42c22bbcba0e41aa4}} 
+\index{irq.c@{irq.c}!PC\_CONF\_FINALI\_PCI\_INTX\_SENS@{PC\_CONF\_FINALI\_PCI\_INTX\_SENS}}
+\index{PC\_CONF\_FINALI\_PCI\_INTX\_SENS@{PC\_CONF\_FINALI\_PCI\_INTX\_SENS}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_FINALI\_PCI\_INTX\_SENS}{PC\_CONF\_FINALI\_PCI\_INTX\_SENS}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+F\+I\+N\+A\+L\+I\+\_\+\+P\+C\+I\+\_\+\+I\+N\+T\+X\+\_\+\+S\+E\+NS~0x44u}
+
+\mbox{\Hypertarget{pci_2irq_8c_add1f13c4507a72f63e96c2e33a3157cd}\label{pci_2irq_8c_add1f13c4507a72f63e96c2e33a3157cd}} 
+\index{irq.c@{irq.c}!PC\_CONF\_I82374\_ESC\_ID@{PC\_CONF\_I82374\_ESC\_ID}}
+\index{PC\_CONF\_I82374\_ESC\_ID@{PC\_CONF\_I82374\_ESC\_ID}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_I82374\_ESC\_ID}{PC\_CONF\_I82374\_ESC\_ID}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+I82374\+\_\+\+E\+S\+C\+\_\+\+ID~0x02u}
+
+\mbox{\Hypertarget{pci_2irq_8c_ab210a6725370b1df91433529088c71f4}\label{pci_2irq_8c_ab210a6725370b1df91433529088c71f4}} 
+\index{irq.c@{irq.c}!PC\_CONF\_I82374\_ESC\_ID\_KEY@{PC\_CONF\_I82374\_ESC\_ID\_KEY}}
+\index{PC\_CONF\_I82374\_ESC\_ID\_KEY@{PC\_CONF\_I82374\_ESC\_ID\_KEY}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_I82374\_ESC\_ID\_KEY}{PC\_CONF\_I82374\_ESC\_ID\_KEY}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+I82374\+\_\+\+E\+S\+C\+\_\+\+I\+D\+\_\+\+K\+EY~0x0fu}
+
+\mbox{\Hypertarget{pci_2irq_8c_a41208ec9c2c78483569d8a892e1fbbb3}\label{pci_2irq_8c_a41208ec9c2c78483569d8a892e1fbbb3}} 
+\index{irq.c@{irq.c}!PC\_CONF\_I82374\_PIRQ\_ROUTE\_CONTROL@{PC\_CONF\_I82374\_PIRQ\_ROUTE\_CONTROL}}
+\index{PC\_CONF\_I82374\_PIRQ\_ROUTE\_CONTROL@{PC\_CONF\_I82374\_PIRQ\_ROUTE\_CONTROL}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PC\_CONF\_I82374\_PIRQ\_ROUTE\_CONTROL}{PC\_CONF\_I82374\_PIRQ\_ROUTE\_CONTROL}}
+{\footnotesize\ttfamily \#define P\+C\+\_\+\+C\+O\+N\+F\+\_\+\+I82374\+\_\+\+P\+I\+R\+Q\+\_\+\+R\+O\+U\+T\+E\+\_\+\+C\+O\+N\+T\+R\+OL~0x60u}
+
+\mbox{\Hypertarget{pci_2irq_8c_af33c36400b30122db1263bf02195426b}\label{pci_2irq_8c_af33c36400b30122db1263bf02195426b}} 
+\index{irq.c@{irq.c}!PCI\_I82426EX\_PIRQ\_ROUTE\_CONTROL@{PCI\_I82426EX\_PIRQ\_ROUTE\_CONTROL}}
+\index{PCI\_I82426EX\_PIRQ\_ROUTE\_CONTROL@{PCI\_I82426EX\_PIRQ\_ROUTE\_CONTROL}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PCI\_I82426EX\_PIRQ\_ROUTE\_CONTROL}{PCI\_I82426EX\_PIRQ\_ROUTE\_CONTROL}}
+{\footnotesize\ttfamily \#define P\+C\+I\+\_\+\+I82426\+E\+X\+\_\+\+P\+I\+R\+Q\+\_\+\+R\+O\+U\+T\+E\+\_\+\+C\+O\+N\+T\+R\+OL~0x66u}
+
+\mbox{\Hypertarget{pci_2irq_8c_a24d570938f7adec727f6e31287aa15e4}\label{pci_2irq_8c_a24d570938f7adec727f6e31287aa15e4}} 
+\index{irq.c@{irq.c}!PIRQ\_SIGNATURE@{PIRQ\_SIGNATURE}}
+\index{PIRQ\_SIGNATURE@{PIRQ\_SIGNATURE}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PIRQ\_SIGNATURE}{PIRQ\_SIGNATURE}}
+{\footnotesize\ttfamily \#define P\+I\+R\+Q\+\_\+\+S\+I\+G\+N\+A\+T\+U\+RE~((\textquotesingle{}\$\textquotesingle{} $<$$<$ 0) + (\textquotesingle{}\mbox{\hyperlink{percpu-stats_8c_a042720ec374b1f8eac86feec9a1f43b8}{P}}\textquotesingle{} $<$$<$ 8) + (\textquotesingle{}\mbox{\hyperlink{emulate_8c_a96fbfcdeb916b34a7b8c92978c0895a4}{I}}\textquotesingle{} $<$$<$ 16) + (\textquotesingle{}\mbox{\hyperlink{target__core__base_8h_aa9732a31f97de6fe2211561a3847e7fc}{R}}\textquotesingle{} $<$$<$ 24))}
+
+\mbox{\Hypertarget{pci_2irq_8c_a3fde8625c63d4a0d66ad45cb7f850b0a}\label{pci_2irq_8c_a3fde8625c63d4a0d66ad45cb7f850b0a}} 
+\index{irq.c@{irq.c}!PIRQ\_SIS\_IRQ\_DISABLE@{PIRQ\_SIS\_IRQ\_DISABLE}}
+\index{PIRQ\_SIS\_IRQ\_DISABLE@{PIRQ\_SIS\_IRQ\_DISABLE}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PIRQ\_SIS\_IRQ\_DISABLE}{PIRQ\_SIS\_IRQ\_DISABLE}}
+{\footnotesize\ttfamily \#define P\+I\+R\+Q\+\_\+\+S\+I\+S\+\_\+\+I\+R\+Q\+\_\+\+D\+I\+S\+A\+B\+LE~0x80}
+
+\mbox{\Hypertarget{pci_2irq_8c_a13110a08cb4bd56d21554f42d67a73e0}\label{pci_2irq_8c_a13110a08cb4bd56d21554f42d67a73e0}} 
+\index{irq.c@{irq.c}!PIRQ\_SIS\_IRQ\_MASK@{PIRQ\_SIS\_IRQ\_MASK}}
+\index{PIRQ\_SIS\_IRQ\_MASK@{PIRQ\_SIS\_IRQ\_MASK}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PIRQ\_SIS\_IRQ\_MASK}{PIRQ\_SIS\_IRQ\_MASK}}
+{\footnotesize\ttfamily \#define P\+I\+R\+Q\+\_\+\+S\+I\+S\+\_\+\+I\+R\+Q\+\_\+\+M\+A\+SK~0x0f}
+
+\mbox{\Hypertarget{pci_2irq_8c_ad6fcc372933aee70361fc87c927a4e27}\label{pci_2irq_8c_ad6fcc372933aee70361fc87c927a4e27}} 
+\index{irq.c@{irq.c}!PIRQ\_SIS\_USB\_ENABLE@{PIRQ\_SIS\_USB\_ENABLE}}
+\index{PIRQ\_SIS\_USB\_ENABLE@{PIRQ\_SIS\_USB\_ENABLE}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PIRQ\_SIS\_USB\_ENABLE}{PIRQ\_SIS\_USB\_ENABLE}}
+{\footnotesize\ttfamily \#define P\+I\+R\+Q\+\_\+\+S\+I\+S\+\_\+\+U\+S\+B\+\_\+\+E\+N\+A\+B\+LE~0x40}
+
+\mbox{\Hypertarget{pci_2irq_8c_a32ad3b31b211537ba3423816d34e2c9e}\label{pci_2irq_8c_a32ad3b31b211537ba3423816d34e2c9e}} 
+\index{irq.c@{irq.c}!PIRQ\_VERSION@{PIRQ\_VERSION}}
+\index{PIRQ\_VERSION@{PIRQ\_VERSION}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{PIRQ\_VERSION}{PIRQ\_VERSION}}
+{\footnotesize\ttfamily \#define P\+I\+R\+Q\+\_\+\+V\+E\+R\+S\+I\+ON~0x0100}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{pci_2irq_8c_a6c38c85e6685f24698122aaabd415e8f}\label{pci_2irq_8c_a6c38c85e6685f24698122aaabd415e8f}} 
+\index{irq.c@{irq.c}!ali\_router\_probe@{ali\_router\_probe}}
+\index{ali\_router\_probe@{ali\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{ali\_router\_probe()}{ali\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ali\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{pci_2irq_8c_a410b0904c68f8da2097df84c8bc39163}\label{pci_2irq_8c_a410b0904c68f8da2097df84c8bc39163}} 
+\index{irq.c@{irq.c}!amd\_router\_probe@{amd\_router\_probe}}
+\index{amd\_router\_probe@{amd\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{amd\_router\_probe()}{amd\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} amd\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{pci_2irq_8c_a0e55d54d448c1646247e3cd3b575b6d6}\label{pci_2irq_8c_a0e55d54d448c1646247e3cd3b575b6d6}} 
+\index{irq.c@{irq.c}!cyrix\_router\_probe@{cyrix\_router\_probe}}
+\index{cyrix\_router\_probe@{cyrix\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{cyrix\_router\_probe()}{cyrix\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} cyrix\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{pci_2irq_8c_a7b3501ded9049e56dac9e2a04cd8e699}\label{pci_2irq_8c_a7b3501ded9049e56dac9e2a04cd8e699}} 
+\index{irq.c@{irq.c}!elcr\_set\_level\_irq@{elcr\_set\_level\_irq}}
+\index{elcr\_set\_level\_irq@{elcr\_set\_level\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{elcr\_set\_level\_irq()}{elcr\_set\_level\_irq()}}
+{\footnotesize\ttfamily void elcr\+\_\+set\+\_\+level\+\_\+irq (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{pci_2irq_8c_ae1998bd57d7741fe477fe348e9240ca7}\label{pci_2irq_8c_ae1998bd57d7741fe477fe348e9240ca7}} 
+\index{irq.c@{irq.c}!fix\_acer\_tm360\_irqrouting@{fix\_acer\_tm360\_irqrouting}}
+\index{fix\_acer\_tm360\_irqrouting@{fix\_acer\_tm360\_irqrouting}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{fix\_acer\_tm360\_irqrouting()}{fix\_acer\_tm360\_irqrouting()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} fix\+\_\+acer\+\_\+tm360\+\_\+irqrouting (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structdmi__system__id}{dmi\+\_\+system\+\_\+id}} $\ast$}]{d }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{pci_2irq_8c_add7836f4d99a741ca6278ac42573adeb}\label{pci_2irq_8c_add7836f4d99a741ca6278ac42573adeb}} 
+\index{irq.c@{irq.c}!fix\_broken\_hp\_bios\_irq9@{fix\_broken\_hp\_bios\_irq9}}
+\index{fix\_broken\_hp\_bios\_irq9@{fix\_broken\_hp\_bios\_irq9}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{fix\_broken\_hp\_bios\_irq9()}{fix\_broken\_hp\_bios\_irq9()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} fix\+\_\+broken\+\_\+hp\+\_\+bios\+\_\+irq9 (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structdmi__system__id}{dmi\+\_\+system\+\_\+id}} $\ast$}]{d }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{pci_2irq_8c_a9e3afba3049798cb12a8d15f7533138d}\label{pci_2irq_8c_a9e3afba3049798cb12a8d15f7533138d}} 
+\index{irq.c@{irq.c}!intel\_router\_probe@{intel\_router\_probe}}
+\index{intel\_router\_probe@{intel\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{intel\_router\_probe()}{intel\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} intel\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{pci_2irq_8c_a71febe07ecced8e57971d0f9bee3f5a0}\label{pci_2irq_8c_a71febe07ecced8e57971d0f9bee3f5a0}} 
+\index{irq.c@{irq.c}!ite\_router\_probe@{ite\_router\_probe}}
+\index{ite\_router\_probe@{ite\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{ite\_router\_probe()}{ite\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ite\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{pci_2irq_8c_a2f3b1071baa0b194c70248ba98d3220f}\label{pci_2irq_8c_a2f3b1071baa0b194c70248ba98d3220f}} 
+\index{irq.c@{irq.c}!mp\_should\_keep\_irq@{mp\_should\_keep\_irq}}
+\index{mp\_should\_keep\_irq@{mp\_should\_keep\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{mp\_should\_keep\_irq()}{mp\_should\_keep\_irq()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} mp\+\_\+should\+\_\+keep\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{pci_2irq_8c_a082e57ba2ddbd60636c94caac5e31dde}\label{pci_2irq_8c_a082e57ba2ddbd60636c94caac5e31dde}} 
+\index{irq.c@{irq.c}!opti\_router\_probe@{opti\_router\_probe}}
+\index{opti\_router\_probe@{opti\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{opti\_router\_probe()}{opti\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} opti\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{pci_2irq_8c_a7b7bda49e4c4fa1677d839f1bf38e74b}\label{pci_2irq_8c_a7b7bda49e4c4fa1677d839f1bf38e74b}} 
+\index{irq.c@{irq.c}!pcibios\_fixup\_irqs@{pcibios\_fixup\_irqs}}
+\index{pcibios\_fixup\_irqs@{pcibios\_fixup\_irqs}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pcibios\_fixup\_irqs()}{pcibios\_fixup\_irqs()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pcibios\+\_\+fixup\+\_\+irqs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{pci_2irq_8c_a3385c06648e52a6a82161e6989f71312}\label{pci_2irq_8c_a3385c06648e52a6a82161e6989f71312}} 
+\index{irq.c@{irq.c}!pcibios\_irq\_init@{pcibios\_irq\_init}}
+\index{pcibios\_irq\_init@{pcibios\_irq\_init}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pcibios\_irq\_init()}{pcibios\_irq\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pcibios\+\_\+irq\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{pci_2irq_8c_a80688774fc310eeff7efc80a7dd8656e}\label{pci_2irq_8c_a80688774fc310eeff7efc80a7dd8656e}} 
+\index{irq.c@{irq.c}!pcibios\_lookup\_irq@{pcibios\_lookup\_irq}}
+\index{pcibios\_lookup\_irq@{pcibios\_lookup\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pcibios\_lookup\_irq()}{pcibios\_lookup\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcibios\+\_\+lookup\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{assign }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{pci_2irq_8c_a7035059a0f7df54730dcd027de678d01}\label{pci_2irq_8c_a7035059a0f7df54730dcd027de678d01}} 
+\index{irq.c@{irq.c}!pcibios\_penalize\_isa\_irq@{pcibios\_penalize\_isa\_irq}}
+\index{pcibios\_penalize\_isa\_irq@{pcibios\_penalize\_isa\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pcibios\_penalize\_isa\_irq()}{pcibios\_penalize\_isa\_irq()}}
+{\footnotesize\ttfamily void pcibios\+\_\+penalize\+\_\+isa\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{active }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{pci_2irq_8c_a660625d2051ad2f360cfe12e0f135e07}\label{pci_2irq_8c_a660625d2051ad2f360cfe12e0f135e07}} 
+\index{irq.c@{irq.c}!pico\_router\_probe@{pico\_router\_probe}}
+\index{pico\_router\_probe@{pico\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pico\_router\_probe()}{pico\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pico\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{pci_2irq_8c_aceb8331cbe644c17d766cee26695bf27}\label{pci_2irq_8c_aceb8331cbe644c17d766cee26695bf27}} 
+\index{irq.c@{irq.c}!pirq\_ali\_get@{pirq\_ali\_get}}
+\index{pirq\_ali\_get@{pirq\_ali\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_ali\_get()}{pirq\_ali\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+ali\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{pci_2irq_8c_a9186d5bc7dfd3001c6f6f879e65cb5a5}\label{pci_2irq_8c_a9186d5bc7dfd3001c6f6f879e65cb5a5}} 
+\index{irq.c@{irq.c}!pirq\_ali\_set@{pirq\_ali\_set}}
+\index{pirq\_ali\_set@{pirq\_ali\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_ali\_set()}{pirq\_ali\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+ali\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{pci_2irq_8c_a57886aa293e17831228aa4bd173ede78}\label{pci_2irq_8c_a57886aa293e17831228aa4bd173ede78}} 
+\index{irq.c@{irq.c}!pirq\_amd756\_get@{pirq\_amd756\_get}}
+\index{pirq\_amd756\_get@{pirq\_amd756\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_amd756\_get()}{pirq\_amd756\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+amd756\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{pci_2irq_8c_ab10858a8ecf1fbaa3282cfed6ba0083d}\label{pci_2irq_8c_ab10858a8ecf1fbaa3282cfed6ba0083d}} 
+\index{irq.c@{irq.c}!pirq\_amd756\_set@{pirq\_amd756\_set}}
+\index{pirq\_amd756\_set@{pirq\_amd756\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_amd756\_set()}{pirq\_amd756\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+amd756\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{pci_2irq_8c_a15fc35d00b2543aeb027398825057519}\label{pci_2irq_8c_a15fc35d00b2543aeb027398825057519}} 
+\index{irq.c@{irq.c}!pirq\_check\_routing\_table@{pirq\_check\_routing\_table}}
+\index{pirq\_check\_routing\_table@{pirq\_check\_routing\_table}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_check\_routing\_table()}{pirq\_check\_routing\_table()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structirq__routing__table}{irq\+\_\+routing\+\_\+table}}$\ast$ pirq\+\_\+check\+\_\+routing\+\_\+table (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{pci_2irq_8c_a7cbc38fa54726cf5f6564b16a82a41d3}\label{pci_2irq_8c_a7cbc38fa54726cf5f6564b16a82a41d3}} 
+\index{irq.c@{irq.c}!pirq\_cyrix\_get@{pirq\_cyrix\_get}}
+\index{pirq\_cyrix\_get@{pirq\_cyrix\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_cyrix\_get()}{pirq\_cyrix\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+cyrix\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{pci_2irq_8c_a4c48040a3f536aa57ff0eb547d05e376}\label{pci_2irq_8c_a4c48040a3f536aa57ff0eb547d05e376}} 
+\index{irq.c@{irq.c}!pirq\_cyrix\_set@{pirq\_cyrix\_set}}
+\index{pirq\_cyrix\_set@{pirq\_cyrix\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_cyrix\_set()}{pirq\_cyrix\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+cyrix\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{pci_2irq_8c_ab2cf8575475b1d86c75af6e9a2a2d984}\label{pci_2irq_8c_ab2cf8575475b1d86c75af6e9a2a2d984}} 
+\index{irq.c@{irq.c}!pirq\_disable\_irq@{pirq\_disable\_irq}}
+\index{pirq\_disable\_irq@{pirq\_disable\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_disable\_irq()}{pirq\_disable\_irq()}}
+{\footnotesize\ttfamily static void pirq\+\_\+disable\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{pci_2irq_8c_a26d7c3dd24119bc2ae200255e32cb003}\label{pci_2irq_8c_a26d7c3dd24119bc2ae200255e32cb003}} 
+\index{irq.c@{irq.c}!pirq\_enable\_irq@{pirq\_enable\_irq}}
+\index{pirq\_enable\_irq@{pirq\_enable\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_enable\_irq()}{pirq\_enable\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+enable\+\_\+irq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{pci_2irq_8c_aaf655649b1d078d687e208e680bb056c}\label{pci_2irq_8c_aaf655649b1d078d687e208e680bb056c}} 
+\index{irq.c@{irq.c}!pirq\_esc\_get@{pirq\_esc\_get}}
+\index{pirq\_esc\_get@{pirq\_esc\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_esc\_get()}{pirq\_esc\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+esc\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{pci_2irq_8c_ac393d214e97a0b2c246b1d613e7c76b7}\label{pci_2irq_8c_ac393d214e97a0b2c246b1d613e7c76b7}} 
+\index{irq.c@{irq.c}!pirq\_esc\_set@{pirq\_esc\_set}}
+\index{pirq\_esc\_set@{pirq\_esc\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_esc\_set()}{pirq\_esc\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+esc\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{pci_2irq_8c_a09b675a656fa0cc189c71f1d49b9f1aa}\label{pci_2irq_8c_a09b675a656fa0cc189c71f1d49b9f1aa}} 
+\index{irq.c@{irq.c}!pirq\_finali\_get@{pirq\_finali\_get}}
+\index{pirq\_finali\_get@{pirq\_finali\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_finali\_get()}{pirq\_finali\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+finali\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{pci_2irq_8c_a95ac83630fe07d87b5ba037932d62d98}\label{pci_2irq_8c_a95ac83630fe07d87b5ba037932d62d98}} 
+\index{irq.c@{irq.c}!pirq\_finali\_lvl@{pirq\_finali\_lvl}}
+\index{pirq\_finali\_lvl@{pirq\_finali\_lvl}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_finali\_lvl()}{pirq\_finali\_lvl()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+finali\+\_\+lvl (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{pci_2irq_8c_a70b833c2850f4e1a4a9cefb0c73f1f41}\label{pci_2irq_8c_a70b833c2850f4e1a4a9cefb0c73f1f41}} 
+\index{irq.c@{irq.c}!pirq\_finali\_set@{pirq\_finali\_set}}
+\index{pirq\_finali\_set@{pirq\_finali\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_finali\_set()}{pirq\_finali\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+finali\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{pci_2irq_8c_a120501715618a47239c318b0f8fb0fe0}\label{pci_2irq_8c_a120501715618a47239c318b0f8fb0fe0}} 
+\index{irq.c@{irq.c}!pirq\_find\_router@{pirq\_find\_router}}
+\index{pirq\_find\_router@{pirq\_find\_router}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_find\_router()}{pirq\_find\_router()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pirq\+\_\+find\+\_\+router (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{pci_2irq_8c_aba68a2bc447858c49226e01144301c01}\label{pci_2irq_8c_aba68a2bc447858c49226e01144301c01}} 
+\index{irq.c@{irq.c}!pirq\_find\_routing\_table@{pirq\_find\_routing\_table}}
+\index{pirq\_find\_routing\_table@{pirq\_find\_routing\_table}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_find\_routing\_table()}{pirq\_find\_routing\_table()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structirq__routing__table}{irq\+\_\+routing\+\_\+table}}$\ast$ \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pirq\+\_\+find\+\_\+routing\+\_\+table (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{pci_2irq_8c_ab99b058104cbdc5713a7671f1f417cec}\label{pci_2irq_8c_ab99b058104cbdc5713a7671f1f417cec}} 
+\index{irq.c@{irq.c}!pirq\_get\_info@{pirq\_get\_info}}
+\index{pirq\_get\_info@{pirq\_get\_info}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_get\_info()}{pirq\_get\_info()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structirq__info}{irq\+\_\+info}}$\ast$ pirq\+\_\+get\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{pci_2irq_8c_aa4400b8f005182e19785156df3559926}\label{pci_2irq_8c_aa4400b8f005182e19785156df3559926}} 
+\index{irq.c@{irq.c}!pirq\_ib\_get@{pirq\_ib\_get}}
+\index{pirq\_ib\_get@{pirq\_ib\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_ib\_get()}{pirq\_ib\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+ib\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{pci_2irq_8c_a43558eba49d1b43f703c04c92927adbf}\label{pci_2irq_8c_a43558eba49d1b43f703c04c92927adbf}} 
+\index{irq.c@{irq.c}!pirq\_ib\_set@{pirq\_ib\_set}}
+\index{pirq\_ib\_set@{pirq\_ib\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_ib\_set()}{pirq\_ib\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+ib\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{pci_2irq_8c_a574e725a37c8ae8b9f583a2b5effa0b6}\label{pci_2irq_8c_a574e725a37c8ae8b9f583a2b5effa0b6}} 
+\index{irq.c@{irq.c}!pirq\_ite\_get@{pirq\_ite\_get}}
+\index{pirq\_ite\_get@{pirq\_ite\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_ite\_get()}{pirq\_ite\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+ite\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{pci_2irq_8c_a8d0b0df879e3d710f3adc891adbc1c1d}\label{pci_2irq_8c_a8d0b0df879e3d710f3adc891adbc1c1d}} 
+\index{irq.c@{irq.c}!pirq\_ite\_set@{pirq\_ite\_set}}
+\index{pirq\_ite\_set@{pirq\_ite\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_ite\_set()}{pirq\_ite\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+ite\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{pci_2irq_8c_a1a84333c35e9848dee4065a52c3851e9}\label{pci_2irq_8c_a1a84333c35e9848dee4065a52c3851e9}} 
+\index{irq.c@{irq.c}!pirq\_opti\_get@{pirq\_opti\_get}}
+\index{pirq\_opti\_get@{pirq\_opti\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_opti\_get()}{pirq\_opti\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+opti\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{pci_2irq_8c_ac532468493af7cf7206da90609cc7a9b}\label{pci_2irq_8c_ac532468493af7cf7206da90609cc7a9b}} 
+\index{irq.c@{irq.c}!pirq\_opti\_set@{pirq\_opti\_set}}
+\index{pirq\_opti\_set@{pirq\_opti\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_opti\_set()}{pirq\_opti\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+opti\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{pci_2irq_8c_a675932a1798b5abb78f84c745f7e7c79}\label{pci_2irq_8c_a675932a1798b5abb78f84c745f7e7c79}} 
+\index{irq.c@{irq.c}!pirq\_peer\_trick@{pirq\_peer\_trick}}
+\index{pirq\_peer\_trick@{pirq\_peer\_trick}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_peer\_trick()}{pirq\_peer\_trick()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pirq\+\_\+peer\+\_\+trick (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{pci_2irq_8c_ad39b1aaa1b8616bca26fcf344586f5ac}\label{pci_2irq_8c_ad39b1aaa1b8616bca26fcf344586f5ac}} 
+\index{irq.c@{irq.c}!pirq\_penalize\_isa\_irq@{pirq\_penalize\_isa\_irq}}
+\index{pirq\_penalize\_isa\_irq@{pirq\_penalize\_isa\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_penalize\_isa\_irq()}{pirq\_penalize\_isa\_irq()}}
+{\footnotesize\ttfamily static void pirq\+\_\+penalize\+\_\+isa\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{active }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{pci_2irq_8c_a2ecb5ef8287a037c8a68df6cbba92fe7}\label{pci_2irq_8c_a2ecb5ef8287a037c8a68df6cbba92fe7}} 
+\index{irq.c@{irq.c}!pirq\_pico\_get@{pirq\_pico\_get}}
+\index{pirq\_pico\_get@{pirq\_pico\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_pico\_get()}{pirq\_pico\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+pico\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{pci_2irq_8c_a2818ff37ef8b6741fc16a155915e8919}\label{pci_2irq_8c_a2818ff37ef8b6741fc16a155915e8919}} 
+\index{irq.c@{irq.c}!pirq\_pico\_set@{pirq\_pico\_set}}
+\index{pirq\_pico\_set@{pirq\_pico\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_pico\_set()}{pirq\_pico\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+pico\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{pci_2irq_8c_a6dc1dc73a30133674b0d18e93e1d0e02}\label{pci_2irq_8c_a6dc1dc73a30133674b0d18e93e1d0e02}} 
+\index{irq.c@{irq.c}!pirq\_piix\_get@{pirq\_piix\_get}}
+\index{pirq\_piix\_get@{pirq\_piix\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_piix\_get()}{pirq\_piix\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+piix\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{pci_2irq_8c_a59f8cedaf8bbb45a78975ab3228d7eb0}\label{pci_2irq_8c_a59f8cedaf8bbb45a78975ab3228d7eb0}} 
+\index{irq.c@{irq.c}!pirq\_piix\_set@{pirq\_piix\_set}}
+\index{pirq\_piix\_set@{pirq\_piix\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_piix\_set()}{pirq\_piix\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+piix\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{pci_2irq_8c_a2492d58a5d4b0d10245fc6d312fd32f8}\label{pci_2irq_8c_a2492d58a5d4b0d10245fc6d312fd32f8}} 
+\index{irq.c@{irq.c}!pirq\_serverworks\_get@{pirq\_serverworks\_get}}
+\index{pirq\_serverworks\_get@{pirq\_serverworks\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_serverworks\_get()}{pirq\_serverworks\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+serverworks\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{pci_2irq_8c_a272217a982b865bce7a1abc5800b7dee}\label{pci_2irq_8c_a272217a982b865bce7a1abc5800b7dee}} 
+\index{irq.c@{irq.c}!pirq\_serverworks\_set@{pirq\_serverworks\_set}}
+\index{pirq\_serverworks\_set@{pirq\_serverworks\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_serverworks\_set()}{pirq\_serverworks\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+serverworks\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{pci_2irq_8c_a9201b9fa314debacb0a7f83c43911e88}\label{pci_2irq_8c_a9201b9fa314debacb0a7f83c43911e88}} 
+\index{irq.c@{irq.c}!pirq\_sis\_get@{pirq\_sis\_get}}
+\index{pirq\_sis\_get@{pirq\_sis\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_sis\_get()}{pirq\_sis\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+sis\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{pci_2irq_8c_a480db53536630f0f3af7f73463c93faf}\label{pci_2irq_8c_a480db53536630f0f3af7f73463c93faf}} 
+\index{irq.c@{irq.c}!pirq\_sis\_set@{pirq\_sis\_set}}
+\index{pirq\_sis\_set@{pirq\_sis\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_sis\_set()}{pirq\_sis\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+sis\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{pci_2irq_8c_ad89056e451b18599c301cf3521d1776a}\label{pci_2irq_8c_ad89056e451b18599c301cf3521d1776a}} 
+\index{irq.c@{irq.c}!pirq\_via586\_get@{pirq\_via586\_get}}
+\index{pirq\_via586\_get@{pirq\_via586\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_via586\_get()}{pirq\_via586\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+via586\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{pci_2irq_8c_adbc59334546136ea70f39bd48a0a6aa6}\label{pci_2irq_8c_adbc59334546136ea70f39bd48a0a6aa6}} 
+\index{irq.c@{irq.c}!pirq\_via586\_set@{pirq\_via586\_set}}
+\index{pirq\_via586\_set@{pirq\_via586\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_via586\_set()}{pirq\_via586\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+via586\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{pci_2irq_8c_aa28af4849eba80030a3973138b1511a2}\label{pci_2irq_8c_aa28af4849eba80030a3973138b1511a2}} 
+\index{irq.c@{irq.c}!pirq\_via\_get@{pirq\_via\_get}}
+\index{pirq\_via\_get@{pirq\_via\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_via\_get()}{pirq\_via\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+via\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{pci_2irq_8c_a2796fe94bb3a729f89a1551c55114ade}\label{pci_2irq_8c_a2796fe94bb3a729f89a1551c55114ade}} 
+\index{irq.c@{irq.c}!pirq\_via\_set@{pirq\_via\_set}}
+\index{pirq\_via\_set@{pirq\_via\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_via\_set()}{pirq\_via\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+via\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{pci_2irq_8c_aa902e7d4eb2eaf22e632438b5b073094}\label{pci_2irq_8c_aa902e7d4eb2eaf22e632438b5b073094}} 
+\index{irq.c@{irq.c}!pirq\_vlsi\_get@{pirq\_vlsi\_get}}
+\index{pirq\_vlsi\_get@{pirq\_vlsi\_get}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_vlsi\_get()}{pirq\_vlsi\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+vlsi\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{pci_2irq_8c_a446ff40a53691ff5d44d74d439da7578}\label{pci_2irq_8c_a446ff40a53691ff5d44d74d439da7578}} 
+\index{irq.c@{irq.c}!pirq\_vlsi\_set@{pirq\_vlsi\_set}}
+\index{pirq\_vlsi\_set@{pirq\_vlsi\_set}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_vlsi\_set()}{pirq\_vlsi\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+vlsi\+\_\+set (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{dev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pirq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{irq }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{pci_2irq_8c_a6adb27b6cf11ed1e6ecc03c399278569}\label{pci_2irq_8c_a6adb27b6cf11ed1e6ecc03c399278569}} 
+\index{irq.c@{irq.c}!read\_config\_nybble@{read\_config\_nybble}}
+\index{read\_config\_nybble@{read\_config\_nybble}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{read\_config\_nybble()}{read\_config\_nybble()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} read\+\_\+config\+\_\+nybble (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{unsigned}]{offset,  }\item[{unsigned}]{nr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{pci_2irq_8c_ac89d015ff07f0c85aaa37954ff8faf1c}\label{pci_2irq_8c_ac89d015ff07f0c85aaa37954ff8faf1c}} 
+\index{irq.c@{irq.c}!read\_pc\_conf\_nybble@{read\_pc\_conf\_nybble}}
+\index{read\_pc\_conf\_nybble@{read\_pc\_conf\_nybble}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{read\_pc\_conf\_nybble()}{read\_pc\_conf\_nybble()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} read\+\_\+pc\+\_\+conf\+\_\+nybble (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{base,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{index }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{pci_2irq_8c_a94288c54771bc2ca0a7a4cbdf5fec072}\label{pci_2irq_8c_a94288c54771bc2ca0a7a4cbdf5fec072}} 
+\index{irq.c@{irq.c}!serverworks\_router\_probe@{serverworks\_router\_probe}}
+\index{serverworks\_router\_probe@{serverworks\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{serverworks\_router\_probe()}{serverworks\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} serverworks\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{pci_2irq_8c_a89f593b5df87bcdf1da85073046522d4}\label{pci_2irq_8c_a89f593b5df87bcdf1da85073046522d4}} 
+\index{irq.c@{irq.c}!sis\_router\_probe@{sis\_router\_probe}}
+\index{sis\_router\_probe@{sis\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{sis\_router\_probe()}{sis\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} sis\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{pci_2irq_8c_a5595c233eab1a4ae33cec3e68d44a0ee}\label{pci_2irq_8c_a5595c233eab1a4ae33cec3e68d44a0ee}} 
+\index{irq.c@{irq.c}!via\_router\_probe@{via\_router\_probe}}
+\index{via\_router\_probe@{via\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{via\_router\_probe()}{via\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} via\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Asus a7v-\/x bios wrongly reports 8235 as 586-\/compatible
+
+Asus a7v600 bios wrongly reports 8237 as 586-\/compatibleHere is the call graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{pci_2irq_8c_ad31e61d473f140c5b6025207b8db1b34}\label{pci_2irq_8c_ad31e61d473f140c5b6025207b8db1b34}} 
+\index{irq.c@{irq.c}!vlsi\_router\_probe@{vlsi\_router\_probe}}
+\index{vlsi\_router\_probe@{vlsi\_router\_probe}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{vlsi\_router\_probe()}{vlsi\_router\_probe()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} vlsi\+\_\+router\+\_\+probe (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} $\ast$}]{r,  }\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{device }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{pci_2irq_8c_ab39bca694276373bff69186fe58b8eee}\label{pci_2irq_8c_ab39bca694276373bff69186fe58b8eee}} 
+\index{irq.c@{irq.c}!write\_config\_nybble@{write\_config\_nybble}}
+\index{write\_config\_nybble@{write\_config\_nybble}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{write\_config\_nybble()}{write\_config\_nybble()}}
+{\footnotesize\ttfamily static void write\+\_\+config\+\_\+nybble (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$}]{router,  }\item[{unsigned}]{offset,  }\item[{unsigned}]{nr,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{pci_2irq_8c_a29d18cc2b459597e1d1ae9c53c6fe426}\label{pci_2irq_8c_a29d18cc2b459597e1d1ae9c53c6fe426}} 
+\index{irq.c@{irq.c}!write\_pc\_conf\_nybble@{write\_pc\_conf\_nybble}}
+\index{write\_pc\_conf\_nybble@{write\_pc\_conf\_nybble}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{write\_pc\_conf\_nybble()}{write\_pc\_conf\_nybble()}}
+{\footnotesize\ttfamily static void write\+\_\+pc\+\_\+conf\+\_\+nybble (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{base,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{index,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{pci_2irq_8c_a440f9ad1463a503b632e894989461f4b}\label{pci_2irq_8c_a440f9ad1463a503b632e894989461f4b}} 
+\index{irq.c@{irq.c}!\_\_initconst@{\_\_initconst}}
+\index{\_\_initconst@{\_\_initconst}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initconst}{\_\_initconst}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structdmi__system__id}{dmi\+\_\+system\+\_\+id}} pciirq\+\_\+dmi\+\_\+table \mbox{[}$\,$\mbox{]} \+\_\+\+\_\+initconst\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{}
+\DoxyCodeLine{        .callback = \mbox{\hyperlink{pci_2irq_8c_add7836f4d99a741ca6278ac42573adeb}{fix\_broken\_hp\_bios\_irq9}},}
+\DoxyCodeLine{        .ident = \textcolor{stringliteral}{"HP Pavilion N5400 Series Laptop"},}
+\DoxyCodeLine{        .matches = \{}
+\DoxyCodeLine{            \mbox{\hyperlink{mod__devicetable_8h_a4d6bc494e862569dfcca1d1cefab46f8}{DMI\_MATCH}}(\mbox{\hyperlink{mod__devicetable_8h_a774869d7b7ab950ab64cfac0b0dc7d6ca60786babdf943ecd4aaddd854a705d19}{DMI\_SYS\_VENDOR}}, \textcolor{stringliteral}{"Hewlett-\/Packard"}),}
+\DoxyCodeLine{            \mbox{\hyperlink{mod__devicetable_8h_a4d6bc494e862569dfcca1d1cefab46f8}{DMI\_MATCH}}(\mbox{\hyperlink{mod__devicetable_8h_a774869d7b7ab950ab64cfac0b0dc7d6ca1a799d310d16f2de4b3a0a3bb002deaa}{DMI\_BIOS\_VERSION}}, \textcolor{stringliteral}{"GE.M1.03"}),}
+\DoxyCodeLine{            \mbox{\hyperlink{mod__devicetable_8h_a4d6bc494e862569dfcca1d1cefab46f8}{DMI\_MATCH}}(\mbox{\hyperlink{mod__devicetable_8h_a774869d7b7ab950ab64cfac0b0dc7d6cae69f3e9f2301748f84ba3436b7fa6e4f}{DMI\_PRODUCT\_VERSION}},}
+\DoxyCodeLine{                \textcolor{stringliteral}{"HP Pavilion Notebook Model GE"}),}
+\DoxyCodeLine{            \mbox{\hyperlink{mod__devicetable_8h_a4d6bc494e862569dfcca1d1cefab46f8}{DMI\_MATCH}}(\mbox{\hyperlink{mod__devicetable_8h_a774869d7b7ab950ab64cfac0b0dc7d6ca15d70392318d706b62dc91022d68e8a3}{DMI\_BOARD\_VERSION}}, \textcolor{stringliteral}{"OmniBook N32N-\/736"}),}
+\DoxyCodeLine{        \},}
+\DoxyCodeLine{    \},}
+\DoxyCodeLine{    \{}
+\DoxyCodeLine{        .callback = \mbox{\hyperlink{pci_2irq_8c_ae1998bd57d7741fe477fe348e9240ca7}{fix\_acer\_tm360\_irqrouting}},}
+\DoxyCodeLine{        .ident = \textcolor{stringliteral}{"Acer TravelMate 36x Laptop"},}
+\DoxyCodeLine{        .matches = \{}
+\DoxyCodeLine{            \mbox{\hyperlink{mod__devicetable_8h_a4d6bc494e862569dfcca1d1cefab46f8}{DMI\_MATCH}}(\mbox{\hyperlink{mod__devicetable_8h_a774869d7b7ab950ab64cfac0b0dc7d6ca60786babdf943ecd4aaddd854a705d19}{DMI\_SYS\_VENDOR}}, \textcolor{stringliteral}{"Acer"}),}
+\DoxyCodeLine{            \mbox{\hyperlink{mod__devicetable_8h_a4d6bc494e862569dfcca1d1cefab46f8}{DMI\_MATCH}}(\mbox{\hyperlink{mod__devicetable_8h_a774869d7b7ab950ab64cfac0b0dc7d6ca5ca93ca02eaa4a56c7325bd8a628f557}{DMI\_PRODUCT\_NAME}}, \textcolor{stringliteral}{"TravelMate 360"}),}
+\DoxyCodeLine{        \},}
+\DoxyCodeLine{    \},}
+\DoxyCodeLine{    \{ \}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{pci_2irq_8c_a6838a23c6a464569296efedd2c900ab1}\label{pci_2irq_8c_a6838a23c6a464569296efedd2c900ab1}} 
+\index{irq.c@{irq.c}!acer\_tm360\_irqrouting@{acer\_tm360\_irqrouting}}
+\index{acer\_tm360\_irqrouting@{acer\_tm360\_irqrouting}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{acer\_tm360\_irqrouting}{acer\_tm360\_irqrouting}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} acer\+\_\+tm360\+\_\+irqrouting\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{pci_2irq_8c_a5cc29385a8dd3cd0fe8b8129896fafde}\label{pci_2irq_8c_a5cc29385a8dd3cd0fe8b8129896fafde}} 
+\index{irq.c@{irq.c}!broken\_hp\_bios\_irq9@{broken\_hp\_bios\_irq9}}
+\index{broken\_hp\_bios\_irq9@{broken\_hp\_bios\_irq9}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{broken\_hp\_bios\_irq9}{broken\_hp\_bios\_irq9}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} broken\+\_\+hp\+\_\+bios\+\_\+irq9\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{pci_2irq_8c_ae2ad65f830486d080281065171d6b725}\label{pci_2irq_8c_ae2ad65f830486d080281065171d6b725}} 
+\index{irq.c@{irq.c}!pcibios\_disable\_irq@{pcibios\_disable\_irq}}
+\index{pcibios\_disable\_irq@{pcibios\_disable\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pcibios\_disable\_irq}{pcibios\_disable\_irq}}
+{\footnotesize\ttfamily void($\ast$ pcibios\+\_\+disable\+\_\+irq) (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}) = \mbox{\hyperlink{pci_2irq_8c_ab2cf8575475b1d86c75af6e9a2a2d984}{pirq\+\_\+disable\+\_\+irq}}}
+
+\mbox{\Hypertarget{pci_2irq_8c_a834b5388f2d8e4309c89eb9abe6d2287}\label{pci_2irq_8c_a834b5388f2d8e4309c89eb9abe6d2287}} 
+\index{irq.c@{irq.c}!pcibios\_enable\_irq@{pcibios\_enable\_irq}}
+\index{pcibios\_enable\_irq@{pcibios\_enable\_irq}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pcibios\_enable\_irq}{pcibios\_enable\_irq}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}($\ast$ pcibios\+\_\+enable\+\_\+irq) (struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}) = \mbox{\hyperlink{pci_2irq_8c_a26d7c3dd24119bc2ae200255e32cb003}{pirq\+\_\+enable\+\_\+irq}}}
+
+\mbox{\Hypertarget{pci_2irq_8c_a9e573b791a18b3ebff359497648e33c2}\label{pci_2irq_8c_a9e573b791a18b3ebff359497648e33c2}} 
+\index{irq.c@{irq.c}!pcibios\_irq\_mask@{pcibios\_irq\_mask}}
+\index{pcibios\_irq\_mask@{pcibios\_irq\_mask}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pcibios\_irq\_mask}{pcibios\_irq\_mask}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcibios\+\_\+irq\+\_\+mask = 0xfff8}
+
+\mbox{\Hypertarget{pci_2irq_8c_a41cc0f89d89aa5aafae485028d0082c2}\label{pci_2irq_8c_a41cc0f89d89aa5aafae485028d0082c2}} 
+\index{irq.c@{irq.c}!pirq\_penalty@{pirq\_penalty}}
+\index{pirq\_penalty@{pirq\_penalty}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_penalty}{pirq\_penalty}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pirq\+\_\+penalty\mbox{[}16\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    1000000, 1000000, 1000000, 1000, 1000, 0, 1000, 1000,}
+\DoxyCodeLine{    0, 0, 0, 0, 1000, 100000, 100000, 100000}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{pci_2irq_8c_a7ed70b883df96b54609bf12415bca218}\label{pci_2irq_8c_a7ed70b883df96b54609bf12415bca218}} 
+\index{irq.c@{irq.c}!pirq\_router@{pirq\_router}}
+\index{pirq\_router@{pirq\_router}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_router}{pirq\_router}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structirq__router}{irq\+\_\+router}} pirq\+\_\+router\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{pci_2irq_8c_acf3e379885a33250c1c0d38c0b6b51af}\label{pci_2irq_8c_acf3e379885a33250c1c0d38c0b6b51af}} 
+\index{irq.c@{irq.c}!pirq\_router\_dev@{pirq\_router\_dev}}
+\index{pirq\_router\_dev@{pirq\_router\_dev}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_router\_dev}{pirq\_router\_dev}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structpci__dev}{pci\+\_\+dev}}$\ast$ pirq\+\_\+router\+\_\+dev\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{pci_2irq_8c_a4fdcc705d18e6d67278947a2e43f0ae8}\label{pci_2irq_8c_a4fdcc705d18e6d67278947a2e43f0ae8}} 
+\index{irq.c@{irq.c}!pirq\_routers@{pirq\_routers}}
+\index{pirq\_routers@{pirq\_routers}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_routers}{pirq\_routers}}
+{\footnotesize\ttfamily \mbox{\hyperlink{test__uuid_8c_ada61a830cc2c3e521373ce55dcb5ae0a}{\+\_\+\+\_\+initdata}} struct \mbox{\hyperlink{structirq__router__handler}{irq\+\_\+router\+\_\+handler}} pirq\+\_\+routers\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_a0b846c2b83ebb26468566b7f7f353f1a}{PCI\_VENDOR\_ID\_INTEL}}, \mbox{\hyperlink{pci_2irq_8c_a9e3afba3049798cb12a8d15f7533138d}{intel\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_afb43b3d98a78927793e2e18cc4615be2}{PCI\_VENDOR\_ID\_AL}}, \mbox{\hyperlink{pci_2irq_8c_a6c38c85e6685f24698122aaabd415e8f}{ali\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_aef0e4258386c38c44a2f5a094cb8802b}{PCI\_VENDOR\_ID\_ITE}}, \mbox{\hyperlink{pci_2irq_8c_a71febe07ecced8e57971d0f9bee3f5a0}{ite\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_a0a7637593354faa3d02e95a2bd4f6544}{PCI\_VENDOR\_ID\_VIA}}, \mbox{\hyperlink{pci_2irq_8c_a5595c233eab1a4ae33cec3e68d44a0ee}{via\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_acf8e93643393e496cba7c77cfdc2cb2a}{PCI\_VENDOR\_ID\_OPTI}}, \mbox{\hyperlink{pci_2irq_8c_a082e57ba2ddbd60636c94caac5e31dde}{opti\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_a3b498245ee38b00b510e2ac4193c0b60}{PCI\_VENDOR\_ID\_SI}}, \mbox{\hyperlink{pci_2irq_8c_a89f593b5df87bcdf1da85073046522d4}{sis\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_a650c731112f28a47ee89f48a6ee29c0d}{PCI\_VENDOR\_ID\_CYRIX}}, \mbox{\hyperlink{pci_2irq_8c_a0e55d54d448c1646247e3cd3b575b6d6}{cyrix\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_ad0d1c5e2de8de47f92b5f0d7f2d54c50}{PCI\_VENDOR\_ID\_VLSI}}, \mbox{\hyperlink{pci_2irq_8c_ad31e61d473f140c5b6025207b8db1b34}{vlsi\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_a96039ad2e18c9a47742e8601232f2ccb}{PCI\_VENDOR\_ID\_SERVERWORKS}}, \mbox{\hyperlink{pci_2irq_8c_a94288c54771bc2ca0a7a4cbdf5fec072}{serverworks\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_afbade9011d6a3d139da63592726d4f86}{PCI\_VENDOR\_ID\_AMD}}, \mbox{\hyperlink{pci_2irq_8c_a410b0904c68f8da2097df84c8bc39163}{amd\_router\_probe}} \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{pci__ids_8h_ae3be89a054d19204842174561697f906}{PCI\_VENDOR\_ID\_PICOPOWER}}, \mbox{\hyperlink{pci_2irq_8c_a660625d2051ad2f360cfe12e0f135e07}{pico\_router\_probe}} \},}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \{ 0, \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}} \}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{pci_2irq_8c_ae864d96a6c0a710ddfc171df0ea59b86}\label{pci_2irq_8c_ae864d96a6c0a710ddfc171df0ea59b86}} 
+\index{irq.c@{irq.c}!pirq\_table@{pirq\_table}}
+\index{pirq\_table@{pirq\_table}!irq.c@{irq.c}}
+\doxysubsubsection{\texorpdfstring{pirq\_table}{pirq\_table}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structirq__routing__table}{irq\+\_\+routing\+\_\+table}}$\ast$ pirq\+\_\+table\hspace{0.3cm}{\ttfamily [static]}}
+

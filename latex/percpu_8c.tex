@@ -1,0 +1,1234 @@
+\hypertarget{percpu_8c}{}\doxysection{mm/percpu.c File Reference}
+\label{percpu_8c}\index{mm/percpu.c@{mm/percpu.c}}
+{\ttfamily \#include $<$linux/bitmap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpumask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memblock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/err.\+h$>$}\newline
+{\ttfamily \#include $<$linux/lcm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+{\ttfamily \#include $<$linux/log2.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pfn.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/workqueue.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kmemleak.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memcontrol.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cacheflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/sections.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/percpu.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}percpu-\/internal.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}percpu-\/vm.\+c\char`\"{}}\newline
+Include dependency graph for percpu.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{percpu_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{percpu_8c_a40473b47b4871fa538a0fa131f94e774}{C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}}
+\item 
+\#define \mbox{\hyperlink{percpu_8c_a7a0cda211d488c80dcd30b4dffac9876}{P\+C\+P\+U\+\_\+\+S\+L\+O\+T\+\_\+\+B\+A\+S\+E\+\_\+\+S\+H\+I\+FT}}~5
+\item 
+\#define \mbox{\hyperlink{percpu_8c_ab9acdadf06c0c1f465d040bd31eb8e73}{P\+C\+P\+U\+\_\+\+S\+L\+O\+T\+\_\+\+F\+A\+I\+L\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD}}~3
+\item 
+\#define \mbox{\hyperlink{percpu_8c_ac40c38d14d51cbd05dca750956a2c258}{P\+C\+P\+U\+\_\+\+E\+M\+P\+T\+Y\+\_\+\+P\+O\+P\+\_\+\+P\+A\+G\+E\+S\+\_\+\+L\+OW}}~2
+\item 
+\#define \mbox{\hyperlink{percpu_8c_a13da1e43ad6d895a15a46aacf5c890fe}{P\+C\+P\+U\+\_\+\+E\+M\+P\+T\+Y\+\_\+\+P\+O\+P\+\_\+\+P\+A\+G\+E\+S\+\_\+\+H\+I\+GH}}~4
+\item 
+\#define \mbox{\hyperlink{percpu_8c_a0ccec1f9aca58b9e158a1ba746423442}{\+\_\+\+\_\+addr\+\_\+to\+\_\+pcpu\+\_\+ptr}}(\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})~(void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$)(\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\#define \mbox{\hyperlink{percpu_8c_ac6501b934bd57899d053f82f097b8aae}{\+\_\+\+\_\+pcpu\+\_\+ptr\+\_\+to\+\_\+addr}}(\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})~(void \mbox{\hyperlink{compiler__types_8h_ab95a84e6535084347da05cdf197e045c}{\+\_\+\+\_\+force}} $\ast$)(\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\#define \mbox{\hyperlink{percpu_8c_a35d37dfbdab9b89e41c4942d0059408b}{pcpu\+\_\+for\+\_\+each\+\_\+md\+\_\+free\+\_\+region}}(chunk,  bit\+\_\+off,  \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+\#define \mbox{\hyperlink{percpu_8c_a7853713e26f7c776a8060008e6a9dd4b}{pcpu\+\_\+for\+\_\+each\+\_\+fit\+\_\+region}}(chunk,  alloc\+\_\+bits,  \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}},  bit\+\_\+off,  \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+\#define \mbox{\hyperlink{percpu_8c_afda88ecdb48b907e10c9affdf9c692e2}{P\+C\+P\+U\+\_\+\+S\+E\+T\+U\+P\+\_\+\+B\+U\+G\+\_\+\+ON}}(cond)
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{percpu_8c_a637132b14bdcc4d602c4625ba6e7178b}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (\mbox{\hyperlink{percpu-internal_8h_a2a1cf830a7c9565efd0cdf6aec83064b}{pcpu\+\_\+lock}})
+\item 
+static \mbox{\hyperlink{percpu_8c_a508e14b83f6fa30ff4d767e32587c68d}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (pcpu\+\_\+alloc\+\_\+mutex)
+\item 
+static \mbox{\hyperlink{percpu_8c_a3dd4ccb5e17944f203ba0e516aa1b728}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (pcpu\+\_\+map\+\_\+extend\+\_\+chunks)
+\item 
+static void \mbox{\hyperlink{percpu_8c_aaf035f3b29924b6928b59dafd68082e0}{pcpu\+\_\+balance\+\_\+workfn}} (struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$work)
+\item 
+static \mbox{\hyperlink{percpu_8c_a2334b46b02b7bce5751111d94b8770d1}{D\+E\+C\+L\+A\+R\+E\+\_\+\+W\+O\+RK}} (pcpu\+\_\+balance\+\_\+work, \mbox{\hyperlink{percpu_8c_aaf035f3b29924b6928b59dafd68082e0}{pcpu\+\_\+balance\+\_\+workfn}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a5612e30add73413f609ea8cde832118f}{pcpu\+\_\+schedule\+\_\+balance\+\_\+work}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_a9741b37752422d4c989a915c6414a937}{pcpu\+\_\+addr\+\_\+in\+\_\+chunk}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_ae7494ad64ab37aba1e79e186f66f3027}{\+\_\+\+\_\+pcpu\+\_\+size\+\_\+to\+\_\+slot}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_a20e2ada4f6048f93071db8c1b4d09bbf}{pcpu\+\_\+size\+\_\+to\+\_\+slot}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_a71afca1811284063843385bb864c13fc}{pcpu\+\_\+chunk\+\_\+slot}} (const struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a20d8248fe3a2d762ec081f587b9d030d}{pcpu\+\_\+set\+\_\+page\+\_\+chunk}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$pcpu)
+\item 
+static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$ \mbox{\hyperlink{percpu_8c_a4f9182e2b0b38b38990b4a6bbc0e991c}{pcpu\+\_\+get\+\_\+page\+\_\+chunk}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}} \mbox{\hyperlink{percpu_8c_a8724ce5d90e103c100d4d7d899fe5819}{pcpu\+\_\+page\+\_\+idx}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+idx)
+\item 
+static unsigned long \mbox{\hyperlink{percpu_8c_adb3342a9bc1c2a74928e85d764ed997e}{pcpu\+\_\+unit\+\_\+page\+\_\+offset}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+idx)
+\item 
+static unsigned long \mbox{\hyperlink{percpu_8c_aebcfd993e0f787c38e8f2a143f2228f6}{pcpu\+\_\+chunk\+\_\+addr}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+idx)
+\item 
+static unsigned long $\ast$ \mbox{\hyperlink{percpu_8c_aadd8aed569a4c7e36ce49ea77b2d430e}{pcpu\+\_\+index\+\_\+alloc\+\_\+map}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}})
+\item 
+static unsigned long \mbox{\hyperlink{percpu_8c_ae508d1060484cd57cafeb7dd34760f42}{pcpu\+\_\+off\+\_\+to\+\_\+block\+\_\+index}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off)
+\item 
+static unsigned long \mbox{\hyperlink{percpu_8c_aa9b3005a2fea9e0994f21aceb1cabef9}{pcpu\+\_\+off\+\_\+to\+\_\+block\+\_\+off}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off)
+\item 
+static unsigned long \mbox{\hyperlink{percpu_8c_af9eb05e5bc871a20f24b6822da3fd635}{pcpu\+\_\+block\+\_\+off\+\_\+to\+\_\+off}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_ac2357272937dd72ee106e4c6e2567d76}{pcpu\+\_\+check\+\_\+block\+\_\+hint}} (struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$\mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_a8da65958a5b664305e8d1f279f065c00}{pcpu\+\_\+next\+\_\+hint}} (struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$\mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+bits)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a657607252de433a1f31610bc3fbe8782}{pcpu\+\_\+next\+\_\+md\+\_\+free\+\_\+region}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$bit\+\_\+off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a588696fffeef5e64ed9cf7d45d5cbbb8}{pcpu\+\_\+next\+\_\+fit\+\_\+region}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+bits, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$bit\+\_\+off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+static void $\ast$ \mbox{\hyperlink{percpu_8c_ac93c750a388909c5f0d2612bf6b05e6a}{pcpu\+\_\+mem\+\_\+zalloc}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a3da4fc01e3b39c650c855ccdf2fbc5e4}{pcpu\+\_\+mem\+\_\+free}} (void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a41723c43705d7f0213b031545d46d36b}{\+\_\+\+\_\+pcpu\+\_\+chunk\+\_\+move}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} move\+\_\+front)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a649e2f380de9c6cd518b2211eed5887f}{pcpu\+\_\+chunk\+\_\+move}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2edd_8h_a2e6062e6ae929efca8b6a3741f791a13}{slot}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_acb09e43bfd6b4a1cd6715903f2f419e7}{pcpu\+\_\+chunk\+\_\+relocate}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} oslot)
+\item 
+static void \mbox{\hyperlink{percpu_8c_aeac0d9b7a7a90b798f3a5abae0261bc4}{pcpu\+\_\+isolate\+\_\+chunk}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a302a21b4e75206e76c599f0d12bb0fd7}{pcpu\+\_\+reintegrate\+\_\+chunk}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk)
+\item 
+static void \mbox{\hyperlink{percpu_8c_acc321d55c06c4feb54f4747324050e4a}{pcpu\+\_\+update\+\_\+empty\+\_\+pages}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_adf35d39ba644cca9a2f59fee9a85df60}{pcpu\+\_\+region\+\_\+overlap}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} a, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{fpu_2bugs_8c_ac5cd599f4bf7a023cabc4bdaa0d679b5}{y}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a931a53a033a4a4099798aa10235761e9}{pcpu\+\_\+block\+\_\+update}} (struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$\mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_ad6438552227d4bb52c316f40a24195fe}{pcpu\+\_\+block\+\_\+update\+\_\+scan}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bit\+\_\+off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a01c40f4d76f2c203bf22b7f17820ec3a}{pcpu\+\_\+chunk\+\_\+refresh\+\_\+hint}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} full\+\_\+scan)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a561e7e9b3b810c3f55bba7d26f325f53}{pcpu\+\_\+block\+\_\+refresh\+\_\+hint}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a62a78a5da865150401a5917ab2539103}{pcpu\+\_\+block\+\_\+update\+\_\+hint\+\_\+alloc}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bit\+\_\+off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a5baf88940ebba46abc44a9ff9d62b0ad}{pcpu\+\_\+block\+\_\+update\+\_\+hint\+\_\+free}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bit\+\_\+off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_a5cec08eefa432f9c439626ba2293a9f2}{pcpu\+\_\+is\+\_\+populated}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bit\+\_\+off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$next\+\_\+off)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_a84447d6ac815dff8377e5d30f3ec00c6}{pcpu\+\_\+find\+\_\+block\+\_\+fit}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+bits, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pop\+\_\+only)
+\item 
+static unsigned long \mbox{\hyperlink{percpu_8c_ac95b080c17024f070793388009f134b4}{pcpu\+\_\+find\+\_\+zero\+\_\+area}} (unsigned long $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_aeb1ed1808391a5bdd7dbd63a4257f596}{map}}, unsigned long \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, unsigned long \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, unsigned long nr, unsigned long align\+\_\+mask, unsigned long $\ast$largest\+\_\+off, unsigned long $\ast$largest\+\_\+bits)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_a637c77d813af6da3bcbe4f39a721dc2a}{pcpu\+\_\+alloc\+\_\+area}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} alloc\+\_\+bits, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_aae6b75cc31a97d6e1bbef0ed8ccc29a2}{pcpu\+\_\+free\+\_\+area}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off)
+\item 
+static void \mbox{\hyperlink{percpu_8c_ad0450a2786d127128b367860a61620d8}{pcpu\+\_\+init\+\_\+md\+\_\+block}} (struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$\mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+bits)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a927c1005a96186b2fe88d09c1280fe50}{pcpu\+\_\+init\+\_\+md\+\_\+blocks}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk)
+\item 
+static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{percpu_8c_abe367ea8a92fffc66dfe68f0b838040a}{pcpu\+\_\+alloc\+\_\+first\+\_\+chunk}} (unsigned long tmp\+\_\+addr, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} map\+\_\+size)
+\item 
+static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$ \mbox{\hyperlink{percpu_8c_ad76b31bb445ff12f1be107f2625d63f2}{pcpu\+\_\+alloc\+\_\+chunk}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_ae454a3317cb814afba6753f9fe302ac0}{pcpu\+\_\+free\+\_\+chunk}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk)
+\item 
+static void \mbox{\hyperlink{percpu_8c_adf2c79a47396e9fd1a5b3b34fa113005}{pcpu\+\_\+chunk\+\_\+populated}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+start, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+end)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a5712dabdf4ccd3db89ee3ed3ef0152f6}{pcpu\+\_\+chunk\+\_\+depopulated}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+start, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+end)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_a1c5fd0c2a70dafe67b24b153d64860f6}{pcpu\+\_\+populate\+\_\+chunk}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+start, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+end, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a731e2e6a9723b3a487a1ae7b9a66a9e9}{pcpu\+\_\+depopulate\+\_\+chunk}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+start, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+end)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a040a228853a80e2813f85238921b2e48}{pcpu\+\_\+post\+\_\+unmap\+\_\+tlb\+\_\+flush}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+start, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+end)
+\item 
+static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$ \mbox{\hyperlink{percpu_8c_af2d4018ee15e77231909a22f3c65c0b4}{pcpu\+\_\+create\+\_\+chunk}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a3e28c7ccc97523bb85ccd8eb4c3d9c99}{pcpu\+\_\+destroy\+\_\+chunk}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk)
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{percpu_8c_ab516cc30a47135958218559c5b10a5d0}{pcpu\+\_\+addr\+\_\+to\+\_\+page}} (void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{percpu_8c_a4b2783dbafa74b34be3a41b311ba2a40}{pcpu\+\_\+verify\+\_\+alloc\+\_\+info}} (const struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$ai)
+\item 
+static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$ \mbox{\hyperlink{percpu_8c_aba5a9242d20603bf8be19f06ee58b137}{pcpu\+\_\+chunk\+\_\+addr\+\_\+search}} (void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_a1bcd2b4bc853452316db5d0fd627f844}{pcpu\+\_\+memcg\+\_\+pre\+\_\+alloc\+\_\+hook}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}}, struct obj\+\_\+cgroup $\ast$$\ast$objcgp)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a56656f34ef83827ba32d3934e879e65c}{pcpu\+\_\+memcg\+\_\+post\+\_\+alloc\+\_\+hook}} (struct obj\+\_\+cgroup $\ast$objcg, struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a03df11fa3a289d736b588b59869b98fd}{pcpu\+\_\+memcg\+\_\+free\+\_\+hook}} (struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$chunk, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$ \mbox{\hyperlink{percpu_8c_a0a86a01c4410ed23cdb2b83c8b5cb5ee}{pcpu\+\_\+alloc}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{video_2uvesafb_8h_aa49bbb20f9060779dca7f98dcda000dd}{reserved}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$ \mbox{\hyperlink{percpu_8c_a1fe76fc0cfc66913008396c6898f53ea}{\+\_\+\+\_\+alloc\+\_\+percpu\+\_\+gfp}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{percpu_8c_abd89cf51c884e69e90d7e09333cdb149}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{percpu_8c_a1fe76fc0cfc66913008396c6898f53ea}{\+\_\+\+\_\+alloc\+\_\+percpu\+\_\+gfp}})
+\item 
+void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$ \mbox{\hyperlink{percpu_8c_aa875cfc09a299974b3cc6f8a8f29b1f9}{\+\_\+\+\_\+alloc\+\_\+percpu}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}})
+\item 
+\mbox{\hyperlink{percpu_8c_a99e8561dd973dd662f54239b6ce2c842}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{percpu_8c_aa875cfc09a299974b3cc6f8a8f29b1f9}{\+\_\+\+\_\+alloc\+\_\+percpu}})
+\item 
+void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$ \mbox{\hyperlink{percpu_8c_a94689fe8d2357530820566cb83266d07}{\+\_\+\+\_\+alloc\+\_\+reserved\+\_\+percpu}} (\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}})
+\item 
+static void \mbox{\hyperlink{percpu_8c_a4f9865be35fbffda181fc55c10641b36}{pcpu\+\_\+balance\+\_\+free}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} empty\+\_\+only)
+\item 
+static void \mbox{\hyperlink{percpu_8c_a46e3456a6569a0e97512aed378a4ddb9}{pcpu\+\_\+balance\+\_\+populated}} (void)
+\item 
+static void \mbox{\hyperlink{percpu_8c_acd1175f60408f0ed787d0b393217d360}{pcpu\+\_\+reclaim\+\_\+populated}} (void)
+\item 
+void \mbox{\hyperlink{percpu_8c_af832b6277c0e78c53c58ec127407abd1}{free\+\_\+percpu}} (void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\mbox{\hyperlink{percpu_8c_acdbe386e954a283bad8e39f477579a30}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{percpu_8c_af832b6277c0e78c53c58ec127407abd1}{free\+\_\+percpu}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_a5452b898e3e2cc5306bb06eac8d08173}{\+\_\+\+\_\+is\+\_\+kernel\+\_\+percpu\+\_\+address}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}}, unsigned long $\ast$can\+\_\+addr)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_ac31f428dfedb66fcd0bfc838134b8f14}{is\+\_\+kernel\+\_\+percpu\+\_\+address}} (unsigned long \mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{percpu_8c_ae69c17a6994e39c6dbfb2d260c27086e}{per\+\_\+cpu\+\_\+ptr\+\_\+to\+\_\+phys}} (void $\ast$\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})
+\item 
+struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$\mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{percpu_8c_a491d98d56dabc3f1204c4ccf8e9c40dc}{pcpu\+\_\+alloc\+\_\+alloc\+\_\+info}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+groups, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} nr\+\_\+units)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{percpu_8c_a3da9f6b222a8fa24f6da4456c4ebaf2d}{pcpu\+\_\+free\+\_\+alloc\+\_\+info}} (struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$ai)
+\item 
+static void \mbox{\hyperlink{percpu_8c_ab227ea96021ddae304cfcf6847684e60}{pcpu\+\_\+dump\+\_\+alloc\+\_\+info}} (const char $\ast$lvl, const struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$ai)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{percpu_8c_a577a0829c42a292cf885d70ed0ded9f3}{pcpu\+\_\+setup\+\_\+first\+\_\+chunk}} (const struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$ai, void $\ast$base\+\_\+addr)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{percpu_8c_ac8b82138ec0a2b741025f4448ceded55}{setup\+\_\+per\+\_\+cpu\+\_\+areas}} (void)
+\item 
+unsigned long \mbox{\hyperlink{percpu_8c_aae80992ab50cb5d66e8aa5322d697b0f}{pcpu\+\_\+nr\+\_\+pages}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{percpu_8c_ab13eca26b7802aef2a904eb3784d823c}{percpu\+\_\+enable\+\_\+async}} (void)
+\item 
+\mbox{\hyperlink{percpu_8c_aa5ce72e8295f8030134936266df813c6}{subsys\+\_\+initcall}} (\mbox{\hyperlink{percpu_8c_ab13eca26b7802aef2a904eb3784d823c}{percpu\+\_\+enable\+\_\+async}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+unit\+\_\+pages \mbox{\hyperlink{percpu_8c_a44fb6d229e10eb0717d8120061d837b3}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{percpu_8c_a6637a541cb0ec4dcd1fd9433f8f61b8c}{pcpu\+\_\+nr\+\_\+empty\+\_\+pop\+\_\+pages}}
+\item 
+static unsigned long \mbox{\hyperlink{percpu_8c_ac601994011577d57686d7079c2a7da62}{pcpu\+\_\+nr\+\_\+populated}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+async\+\_\+enabled \mbox{\hyperlink{percpu_8c_aff9e9fb4492c792a73f26517564aff45}{\+\_\+\+\_\+read\+\_\+mostly}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{percpu_8c_a685bba314bf03943f9c7143a2e58dc14}{pcpu\+\_\+atomic\+\_\+alloc\+\_\+failed}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{percpu_8c_a0ccec1f9aca58b9e158a1ba746423442}\label{percpu_8c_a0ccec1f9aca58b9e158a1ba746423442}} 
+\index{percpu.c@{percpu.c}!\_\_addr\_to\_pcpu\_ptr@{\_\_addr\_to\_pcpu\_ptr}}
+\index{\_\_addr\_to\_pcpu\_ptr@{\_\_addr\_to\_pcpu\_ptr}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_addr\_to\_pcpu\_ptr}{\_\_addr\_to\_pcpu\_ptr}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+addr\+\_\+to\+\_\+pcpu\+\_\+ptr(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}} }\end{DoxyParamCaption})~(void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$)(\mbox{\hyperlink{test__printf_8c_a3aefc655240457227586395d75e328ed}{addr}})}
+
+\mbox{\Hypertarget{percpu_8c_ac6501b934bd57899d053f82f097b8aae}\label{percpu_8c_ac6501b934bd57899d053f82f097b8aae}} 
+\index{percpu.c@{percpu.c}!\_\_pcpu\_ptr\_to\_addr@{\_\_pcpu\_ptr\_to\_addr}}
+\index{\_\_pcpu\_ptr\_to\_addr@{\_\_pcpu\_ptr\_to\_addr}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_pcpu\_ptr\_to\_addr}{\_\_pcpu\_ptr\_to\_addr}}
+{\footnotesize\ttfamily \#define \+\_\+\+\_\+pcpu\+\_\+ptr\+\_\+to\+\_\+addr(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}} }\end{DoxyParamCaption})~(void \mbox{\hyperlink{compiler__types_8h_ab95a84e6535084347da05cdf197e045c}{\+\_\+\+\_\+force}} $\ast$)(\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})}
+
+\mbox{\Hypertarget{percpu_8c_a40473b47b4871fa538a0fa131f94e774}\label{percpu_8c_a40473b47b4871fa538a0fa131f94e774}} 
+\index{percpu.c@{percpu.c}!CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}}
+\index{CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{CREATE\_TRACE\_POINTS}{CREATE\_TRACE\_POINTS}}
+{\footnotesize\ttfamily \#define C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}
+
+\mbox{\Hypertarget{percpu_8c_a13da1e43ad6d895a15a46aacf5c890fe}\label{percpu_8c_a13da1e43ad6d895a15a46aacf5c890fe}} 
+\index{percpu.c@{percpu.c}!PCPU\_EMPTY\_POP\_PAGES\_HIGH@{PCPU\_EMPTY\_POP\_PAGES\_HIGH}}
+\index{PCPU\_EMPTY\_POP\_PAGES\_HIGH@{PCPU\_EMPTY\_POP\_PAGES\_HIGH}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{PCPU\_EMPTY\_POP\_PAGES\_HIGH}{PCPU\_EMPTY\_POP\_PAGES\_HIGH}}
+{\footnotesize\ttfamily \#define P\+C\+P\+U\+\_\+\+E\+M\+P\+T\+Y\+\_\+\+P\+O\+P\+\_\+\+P\+A\+G\+E\+S\+\_\+\+H\+I\+GH~4}
+
+\mbox{\Hypertarget{percpu_8c_ac40c38d14d51cbd05dca750956a2c258}\label{percpu_8c_ac40c38d14d51cbd05dca750956a2c258}} 
+\index{percpu.c@{percpu.c}!PCPU\_EMPTY\_POP\_PAGES\_LOW@{PCPU\_EMPTY\_POP\_PAGES\_LOW}}
+\index{PCPU\_EMPTY\_POP\_PAGES\_LOW@{PCPU\_EMPTY\_POP\_PAGES\_LOW}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{PCPU\_EMPTY\_POP\_PAGES\_LOW}{PCPU\_EMPTY\_POP\_PAGES\_LOW}}
+{\footnotesize\ttfamily \#define P\+C\+P\+U\+\_\+\+E\+M\+P\+T\+Y\+\_\+\+P\+O\+P\+\_\+\+P\+A\+G\+E\+S\+\_\+\+L\+OW~2}
+
+\mbox{\Hypertarget{percpu_8c_a7853713e26f7c776a8060008e6a9dd4b}\label{percpu_8c_a7853713e26f7c776a8060008e6a9dd4b}} 
+\index{percpu.c@{percpu.c}!pcpu\_for\_each\_fit\_region@{pcpu\_for\_each\_fit\_region}}
+\index{pcpu\_for\_each\_fit\_region@{pcpu\_for\_each\_fit\_region}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_for\_each\_fit\_region}{pcpu\_for\_each\_fit\_region}}
+{\footnotesize\ttfamily \#define pcpu\+\_\+for\+\_\+each\+\_\+fit\+\_\+region(\begin{DoxyParamCaption}\item[{}]{chunk,  }\item[{}]{alloc\+\_\+bits,  }\item[{}]{\mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}},  }\item[{}]{bit\+\_\+off,  }\item[{}]{\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{for} (\mbox{\hyperlink{percpu_8c_a588696fffeef5e64ed9cf7d45d5cbbb8}{pcpu\_next\_fit\_region}}((chunk), (alloc\_bits), (\mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}), \&(bit\_off), \(\backslash\)}
+\DoxyCodeLine{                  \&(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}));                   \(\backslash\)}
+\DoxyCodeLine{         (bit\_off) < \mbox{\hyperlink{percpu-internal_8h_a17d09274f26c6cc1315b85c3bddef6d4}{pcpu\_chunk\_map\_bits}}((chunk));                 \(\backslash\)}
+\DoxyCodeLine{         (bit\_off) += (\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}),                         \(\backslash\)}
+\DoxyCodeLine{         pcpu\_next\_fit\_region((chunk), (alloc\_bits), (\mbox{\hyperlink{compress__params_8h_ad1f31512f2c1ccbec668b5f2add93482}{align}}), \&(bit\_off), \(\backslash\)}
+\DoxyCodeLine{                  \&(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{percpu_8c_a35d37dfbdab9b89e41c4942d0059408b}\label{percpu_8c_a35d37dfbdab9b89e41c4942d0059408b}} 
+\index{percpu.c@{percpu.c}!pcpu\_for\_each\_md\_free\_region@{pcpu\_for\_each\_md\_free\_region}}
+\index{pcpu\_for\_each\_md\_free\_region@{pcpu\_for\_each\_md\_free\_region}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_for\_each\_md\_free\_region}{pcpu\_for\_each\_md\_free\_region}}
+{\footnotesize\ttfamily \#define pcpu\+\_\+for\+\_\+each\+\_\+md\+\_\+free\+\_\+region(\begin{DoxyParamCaption}\item[{}]{chunk,  }\item[{}]{bit\+\_\+off,  }\item[{}]{\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{for} (\mbox{\hyperlink{percpu_8c_a657607252de433a1f31610bc3fbe8782}{pcpu\_next\_md\_free\_region}}((chunk), \&(bit\_off), \&(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}));    \(\backslash\)}
+\DoxyCodeLine{         (bit\_off) < \mbox{\hyperlink{percpu-internal_8h_a17d09274f26c6cc1315b85c3bddef6d4}{pcpu\_chunk\_map\_bits}}((chunk));           \(\backslash\)}
+\DoxyCodeLine{         (bit\_off) += (\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}}) + 1,                   \(\backslash\)}
+\DoxyCodeLine{         pcpu\_next\_md\_free\_region((chunk), \&(bit\_off), \&(\mbox{\hyperlink{desc__defs_8h_ad0ea63e2ba98be70b830d5149045fa94}{bits}})))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{percpu_8c_afda88ecdb48b907e10c9affdf9c692e2}\label{percpu_8c_afda88ecdb48b907e10c9affdf9c692e2}} 
+\index{percpu.c@{percpu.c}!PCPU\_SETUP\_BUG\_ON@{PCPU\_SETUP\_BUG\_ON}}
+\index{PCPU\_SETUP\_BUG\_ON@{PCPU\_SETUP\_BUG\_ON}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{PCPU\_SETUP\_BUG\_ON}{PCPU\_SETUP\_BUG\_ON}}
+{\footnotesize\ttfamily \#define P\+C\+P\+U\+\_\+\+S\+E\+T\+U\+P\+\_\+\+B\+U\+G\+\_\+\+ON(\begin{DoxyParamCaption}\item[{}]{cond }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{                    \(\backslash\)}
+\DoxyCodeLine{    if (\mbox{\hyperlink{insn__decoder__test_8c_a6e951923c66693f5d308458676313f2e}{unlikely}}(cond)) \{                       \(\backslash\)}
+\DoxyCodeLine{        pr\_emerg(\textcolor{stringliteral}{"failed to initialize, \%s\(\backslash\)n"}, \#cond);      \(\backslash\)}
+\DoxyCodeLine{        pr\_emerg(\textcolor{stringliteral}{"cpu\_possible\_mask=\%*pb\(\backslash\)n"},            \(\backslash\)}
+\DoxyCodeLine{             \mbox{\hyperlink{include_2linux_2cpumask_8h_a9357860a5a69873ae69c68d492515b65}{cpumask\_pr\_args}}(\mbox{\hyperlink{include_2linux_2cpumask_8h_aceb7b382e354670888f44270cf053128}{cpu\_possible\_mask}}));       \(\backslash\)}
+\DoxyCodeLine{        pcpu\_dump\_alloc\_info(\mbox{\hyperlink{kern__levels_8h_ad32d634e6e8e5d131db83170590e51ea}{KERN\_EMERG}}, ai);         \(\backslash\)}
+\DoxyCodeLine{        BUG();                          \(\backslash\)}
+\DoxyCodeLine{    \}                               \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{percpu_8c_a7a0cda211d488c80dcd30b4dffac9876}\label{percpu_8c_a7a0cda211d488c80dcd30b4dffac9876}} 
+\index{percpu.c@{percpu.c}!PCPU\_SLOT\_BASE\_SHIFT@{PCPU\_SLOT\_BASE\_SHIFT}}
+\index{PCPU\_SLOT\_BASE\_SHIFT@{PCPU\_SLOT\_BASE\_SHIFT}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{PCPU\_SLOT\_BASE\_SHIFT}{PCPU\_SLOT\_BASE\_SHIFT}}
+{\footnotesize\ttfamily \#define P\+C\+P\+U\+\_\+\+S\+L\+O\+T\+\_\+\+B\+A\+S\+E\+\_\+\+S\+H\+I\+FT~5}
+
+\mbox{\Hypertarget{percpu_8c_ab9acdadf06c0c1f465d040bd31eb8e73}\label{percpu_8c_ab9acdadf06c0c1f465d040bd31eb8e73}} 
+\index{percpu.c@{percpu.c}!PCPU\_SLOT\_FAIL\_THRESHOLD@{PCPU\_SLOT\_FAIL\_THRESHOLD}}
+\index{PCPU\_SLOT\_FAIL\_THRESHOLD@{PCPU\_SLOT\_FAIL\_THRESHOLD}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{PCPU\_SLOT\_FAIL\_THRESHOLD}{PCPU\_SLOT\_FAIL\_THRESHOLD}}
+{\footnotesize\ttfamily \#define P\+C\+P\+U\+\_\+\+S\+L\+O\+T\+\_\+\+F\+A\+I\+L\+\_\+\+T\+H\+R\+E\+S\+H\+O\+LD~3}
+
+\mbox{\Hypertarget{percpu_8c_a1f8c165bf4196327bc3abff648276d92}\label{percpu_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{percpu.c@{percpu.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{percpu_8c_aa875cfc09a299974b3cc6f8a8f29b1f9}\label{percpu_8c_aa875cfc09a299974b3cc6f8a8f29b1f9}} 
+\index{percpu.c@{percpu.c}!\_\_alloc\_percpu@{\_\_alloc\_percpu}}
+\index{\_\_alloc\_percpu@{\_\_alloc\_percpu}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_alloc\_percpu()}{\_\_alloc\_percpu()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}}$\ast$ \+\_\+\+\_\+alloc\+\_\+percpu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{align }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+alloc\+\_\+percpu -\/ allocate dynamic percpu area @size\+: size of area to allocate in bytes @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE)
+
+Equivalent to \+\_\+\+\_\+alloc\+\_\+percpu\+\_\+gfp(size, align, G\+F\+P\+\_\+\+K\+E\+R\+N\+EL). Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{percpu_8c_a1fe76fc0cfc66913008396c6898f53ea}\label{percpu_8c_a1fe76fc0cfc66913008396c6898f53ea}} 
+\index{percpu.c@{percpu.c}!\_\_alloc\_percpu\_gfp@{\_\_alloc\_percpu\_gfp}}
+\index{\_\_alloc\_percpu\_gfp@{\_\_alloc\_percpu\_gfp}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_alloc\_percpu\_gfp()}{\_\_alloc\_percpu\_gfp()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}}$\ast$ \+\_\+\+\_\+alloc\+\_\+percpu\+\_\+gfp (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{align,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+alloc\+\_\+percpu\+\_\+gfp -\/ allocate dynamic percpu area @size\+: size of area to allocate in bytes @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE) @gfp\+: allocation flags
+
+Allocate zero-\/filled percpu area of @size bytes aligned at @align. If @gfp doesn\textquotesingle{}t contain G\+F\+P\+\_\+\+K\+E\+R\+N\+EL, the allocation doesn\textquotesingle{}t block and can be called from any context but is a lot more likely to fail. If @gfp has \+\_\+\+\_\+\+G\+F\+P\+\_\+\+N\+O\+W\+A\+RN then no warning will be triggered on invalid or failed allocation requests.
+
+R\+E\+T\+U\+R\+NS\+: Percpu pointer to the allocated area on success, N\+U\+LL on failure. Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{percpu_8c_a94689fe8d2357530820566cb83266d07}\label{percpu_8c_a94689fe8d2357530820566cb83266d07}} 
+\index{percpu.c@{percpu.c}!\_\_alloc\_reserved\_percpu@{\_\_alloc\_reserved\_percpu}}
+\index{\_\_alloc\_reserved\_percpu@{\_\_alloc\_reserved\_percpu}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_alloc\_reserved\_percpu()}{\_\_alloc\_reserved\_percpu()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}}$\ast$ \+\_\+\+\_\+alloc\+\_\+reserved\+\_\+percpu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{align }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+alloc\+\_\+reserved\+\_\+percpu -\/ allocate reserved percpu area @size\+: size of area to allocate in bytes @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE)
+
+Allocate zero-\/filled percpu area of @size bytes aligned at @align from reserved percpu area if arch has set it up; otherwise, allocation is served from the same dynamic area. Might sleep. Might trigger writeouts.
+
+C\+O\+N\+T\+E\+XT\+: Does G\+F\+P\+\_\+\+K\+E\+R\+N\+EL allocation.
+
+R\+E\+T\+U\+R\+NS\+: Percpu pointer to the allocated area on success, N\+U\+LL on failure. Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{percpu_8c_a5452b898e3e2cc5306bb06eac8d08173}\label{percpu_8c_a5452b898e3e2cc5306bb06eac8d08173}} 
+\index{percpu.c@{percpu.c}!\_\_is\_kernel\_percpu\_address@{\_\_is\_kernel\_percpu\_address}}
+\index{\_\_is\_kernel\_percpu\_address@{\_\_is\_kernel\_percpu\_address}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_is\_kernel\_percpu\_address()}{\_\_is\_kernel\_percpu\_address()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+\+\_\+is\+\_\+kernel\+\_\+percpu\+\_\+address (\begin{DoxyParamCaption}\item[{unsigned long}]{addr,  }\item[{unsigned long $\ast$}]{can\+\_\+addr }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{percpu_8c_a41723c43705d7f0213b031545d46d36b}\label{percpu_8c_a41723c43705d7f0213b031545d46d36b}} 
+\index{percpu.c@{percpu.c}!\_\_pcpu\_chunk\_move@{\_\_pcpu\_chunk\_move}}
+\index{\_\_pcpu\_chunk\_move@{\_\_pcpu\_chunk\_move}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_pcpu\_chunk\_move()}{\_\_pcpu\_chunk\_move()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+pcpu\+\_\+chunk\+\_\+move (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{slot,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{move\+\_\+front }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{percpu_8c_ae7494ad64ab37aba1e79e186f66f3027}\label{percpu_8c_ae7494ad64ab37aba1e79e186f66f3027}} 
+\index{percpu.c@{percpu.c}!\_\_pcpu\_size\_to\_slot@{\_\_pcpu\_size\_to\_slot}}
+\index{\_\_pcpu\_size\_to\_slot@{\_\_pcpu\_size\_to\_slot}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_pcpu\_size\_to\_slot()}{\_\_pcpu\_size\_to\_slot()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+pcpu\+\_\+size\+\_\+to\+\_\+slot (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{percpu_8c_a2334b46b02b7bce5751111d94b8770d1}\label{percpu_8c_a2334b46b02b7bce5751111d94b8770d1}} 
+\index{percpu.c@{percpu.c}!DECLARE\_WORK@{DECLARE\_WORK}}
+\index{DECLARE\_WORK@{DECLARE\_WORK}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_WORK()}{DECLARE\_WORK()}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+W\+O\+RK (\begin{DoxyParamCaption}\item[{pcpu\+\_\+balance\+\_\+work}]{,  }\item[{\mbox{\hyperlink{percpu_8c_aaf035f3b29924b6928b59dafd68082e0}{pcpu\+\_\+balance\+\_\+workfn}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{percpu_8c_a508e14b83f6fa30ff4d767e32587c68d}\label{percpu_8c_a508e14b83f6fa30ff4d767e32587c68d}} 
+\index{percpu.c@{percpu.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{pcpu\+\_\+alloc\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{percpu_8c_a637132b14bdcc4d602c4625ba6e7178b}\label{percpu_8c_a637132b14bdcc4d602c4625ba6e7178b}} 
+\index{percpu.c@{percpu.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{percpu-internal_8h_a2a1cf830a7c9565efd0cdf6aec83064b}{pcpu\+\_\+lock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{percpu_8c_a99e8561dd973dd662f54239b6ce2c842}\label{percpu_8c_a99e8561dd973dd662f54239b6ce2c842}} 
+\index{percpu.c@{percpu.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{percpu_8c_aa875cfc09a299974b3cc6f8a8f29b1f9}{\+\_\+\+\_\+alloc\+\_\+percpu}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{percpu_8c_abd89cf51c884e69e90d7e09333cdb149}\label{percpu_8c_abd89cf51c884e69e90d7e09333cdb149}} 
+\index{percpu.c@{percpu.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{percpu_8c_a1fe76fc0cfc66913008396c6898f53ea}{\+\_\+\+\_\+alloc\+\_\+percpu\+\_\+gfp}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{percpu_8c_acdbe386e954a283bad8e39f477579a30}\label{percpu_8c_acdbe386e954a283bad8e39f477579a30}} 
+\index{percpu.c@{percpu.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{percpu_8c_af832b6277c0e78c53c58ec127407abd1}{free\+\_\+percpu}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{percpu_8c_af832b6277c0e78c53c58ec127407abd1}\label{percpu_8c_af832b6277c0e78c53c58ec127407abd1}} 
+\index{percpu.c@{percpu.c}!free\_percpu@{free\_percpu}}
+\index{free\_percpu@{free\_percpu}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{free\_percpu()}{free\_percpu()}}
+{\footnotesize\ttfamily void free\+\_\+percpu (\begin{DoxyParamCaption}\item[{void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$}]{ptr }\end{DoxyParamCaption})}
+
+free\+\_\+percpu -\/ free percpu area @ptr\+: pointer to area to free
+
+Free percpu area @ptr.
+
+C\+O\+N\+T\+E\+XT\+: Can be called from atomic context. Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{percpu_8c_ac31f428dfedb66fcd0bfc838134b8f14}\label{percpu_8c_ac31f428dfedb66fcd0bfc838134b8f14}} 
+\index{percpu.c@{percpu.c}!is\_kernel\_percpu\_address@{is\_kernel\_percpu\_address}}
+\index{is\_kernel\_percpu\_address@{is\_kernel\_percpu\_address}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{is\_kernel\_percpu\_address()}{is\_kernel\_percpu\_address()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+kernel\+\_\+percpu\+\_\+address (\begin{DoxyParamCaption}\item[{unsigned long}]{addr }\end{DoxyParamCaption})}
+
+is\+\_\+kernel\+\_\+percpu\+\_\+address -\/ test whether address is from static percpu area @addr\+: address to test
+
+Test whether @addr belongs to in-\/kernel static percpu area. Module static percpu areas are not considered. For those, use \mbox{\hyperlink{kernel_2module_8c_a1680da47f5c6fe36818749a207f37b73}{is\+\_\+module\+\_\+percpu\+\_\+address()}}.
+
+R\+E\+T\+U\+R\+NS\+: true if @addr is from in-\/kernel static percpu area, false otherwise. Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{percpu_8c_a3dd4ccb5e17944f203ba0e516aa1b728}\label{percpu_8c_a3dd4ccb5e17944f203ba0e516aa1b728}} 
+\index{percpu.c@{percpu.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{pcpu\+\_\+map\+\_\+extend\+\_\+chunks}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{percpu_8c_a9741b37752422d4c989a915c6414a937}\label{percpu_8c_a9741b37752422d4c989a915c6414a937}} 
+\index{percpu.c@{percpu.c}!pcpu\_addr\_in\_chunk@{pcpu\_addr\_in\_chunk}}
+\index{pcpu\_addr\_in\_chunk@{pcpu\_addr\_in\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_addr\_in\_chunk()}{pcpu\_addr\_in\_chunk()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+addr\+\_\+in\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{void $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+addr\+\_\+in\+\_\+chunk -\/ check if the address is served from this chunk @chunk\+: chunk of interest @addr\+: percpu address
+
+R\+E\+T\+U\+R\+NS\+: True if the address is served from this chunk. Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{percpu_8c_ab516cc30a47135958218559c5b10a5d0}\label{percpu_8c_ab516cc30a47135958218559c5b10a5d0}} 
+\index{percpu.c@{percpu.c}!pcpu\_addr\_to\_page@{pcpu\_addr\_to\_page}}
+\index{pcpu\_addr\_to\_page@{pcpu\_addr\_to\_page}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_addr\_to\_page()}{pcpu\_addr\_to\_page()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ pcpu\+\_\+addr\+\_\+to\+\_\+page (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{percpu_8c_a0a86a01c4410ed23cdb2b83c8b5cb5ee}\label{percpu_8c_a0a86a01c4410ed23cdb2b83c8b5cb5ee}} 
+\index{percpu.c@{percpu.c}!pcpu\_alloc@{pcpu\_alloc}}
+\index{pcpu\_alloc@{pcpu\_alloc}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_alloc()}{pcpu\_alloc()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}}$\ast$ pcpu\+\_\+alloc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{align,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{reserved,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+alloc -\/ the percpu allocator @size\+: size of area to allocate in bytes @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE) @reserved\+: allocate from the reserved chunk if available @gfp\+: allocation flags
+
+Allocate percpu area of @size bytes aligned at @align. If @gfp doesn\textquotesingle{}t contain G\+F\+P\+\_\+\+K\+E\+R\+N\+EL, the allocation is atomic. If @gfp has \+\_\+\+\_\+\+G\+F\+P\+\_\+\+N\+O\+W\+A\+RN then no warning will be triggered on invalid or failed allocation requests.
+
+R\+E\+T\+U\+R\+NS\+: Percpu pointer to the allocated area on success, N\+U\+LL on failure. Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{percpu_8c_a491d98d56dabc3f1204c4ccf8e9c40dc}\label{percpu_8c_a491d98d56dabc3f1204c4ccf8e9c40dc}} 
+\index{percpu.c@{percpu.c}!pcpu\_alloc\_alloc\_info@{pcpu\_alloc\_alloc\_info}}
+\index{pcpu\_alloc\_alloc\_info@{pcpu\_alloc\_alloc\_info}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_alloc\_alloc\_info()}{pcpu\_alloc\_alloc\_info()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}}$\ast$ \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pcpu\+\_\+alloc\+\_\+alloc\+\_\+info (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+groups,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+units }\end{DoxyParamCaption})}
+
+pcpu\+\_\+alloc\+\_\+alloc\+\_\+info -\/ allocate percpu allocation info @nr\+\_\+groups\+: the number of groups @nr\+\_\+units\+: the number of units
+
+Allocate ai which is large enough for @nr\+\_\+groups groups containing @nr\+\_\+units units. \mbox{\hyperlink{classThe}{The}} returned ai\textquotesingle{}s groups\mbox{[}0\mbox{]}.cpu\+\_\+map points to the cpu\+\_\+map array which is long enough for @nr\+\_\+units and filled with N\+R\+\_\+\+C\+P\+US. It\textquotesingle{}s the caller\textquotesingle{}s responsibility to initialize cpu\+\_\+map pointer of other groups.
+
+R\+E\+T\+U\+R\+NS\+: Pointer to the allocated \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} on success, N\+U\+LL on failure. Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{percpu_8c_a637c77d813af6da3bcbe4f39a721dc2a}\label{percpu_8c_a637c77d813af6da3bcbe4f39a721dc2a}} 
+\index{percpu.c@{percpu.c}!pcpu\_alloc\_area@{pcpu\_alloc\_area}}
+\index{pcpu\_alloc\_area@{pcpu\_alloc\_area}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_alloc\_area()}{pcpu\_alloc\_area()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+alloc\+\_\+area (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{alloc\+\_\+bits,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{align,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{start }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+alloc\+\_\+area -\/ allocates an area from a \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} @chunk\+: chunk of interest @alloc\+\_\+bits\+: size of request in allocation units @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE) @start\+: bit\+\_\+off to start searching
+
+This function takes in a @start offset to begin searching to fit an allocation of @alloc\+\_\+bits with alignment @align. It needs to scan the allocation map because if it fits within the block\textquotesingle{}s contig hint, @start will be block-\/$>$first\+\_\+free. This is an attempt to fill the allocation prior to breaking the contig hint. \mbox{\hyperlink{classThe}{The}} allocation and boundary maps are updated accordingly if it confirms a valid free area.
+
+R\+E\+T\+U\+R\+NS\+: Allocated addr offset in @chunk on success. -\/1 if no matching area is found. Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{percpu_8c_ad76b31bb445ff12f1be107f2625d63f2}\label{percpu_8c_ad76b31bb445ff12f1be107f2625d63f2}} 
+\index{percpu.c@{percpu.c}!pcpu\_alloc\_chunk@{pcpu\_alloc\_chunk}}
+\index{pcpu\_alloc\_chunk@{pcpu\_alloc\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_alloc\_chunk()}{pcpu\_alloc\_chunk()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}}$\ast$ pcpu\+\_\+alloc\+\_\+chunk (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{percpu_8c_abe367ea8a92fffc66dfe68f0b838040a}\label{percpu_8c_abe367ea8a92fffc66dfe68f0b838040a}} 
+\index{percpu.c@{percpu.c}!pcpu\_alloc\_first\_chunk@{pcpu\_alloc\_first\_chunk}}
+\index{pcpu\_alloc\_first\_chunk@{pcpu\_alloc\_first\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_alloc\_first\_chunk()}{pcpu\_alloc\_first\_chunk()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}}$\ast$ \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pcpu\+\_\+alloc\+\_\+first\+\_\+chunk (\begin{DoxyParamCaption}\item[{unsigned long}]{tmp\+\_\+addr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{map\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+alloc\+\_\+first\+\_\+chunk -\/ creates chunks that serve the first chunk @tmp\+\_\+addr\+: the start of the region served @map\+\_\+size\+: size of the region served
+
+This is responsible for creating the chunks that serve the first chunk. \mbox{\hyperlink{classThe}{The}} base\+\_\+addr is page aligned down of @tmp\+\_\+addr while the region end is page aligned up. Offsets are kept track of to determine the region served. All this is done to appease the bitmap allocator in avoiding partial blocks.
+
+R\+E\+T\+U\+R\+NS\+: Chunk serving the region at @tmp\+\_\+addr of @map\+\_\+size. Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{percpu_8c_a4f9865be35fbffda181fc55c10641b36}\label{percpu_8c_a4f9865be35fbffda181fc55c10641b36}} 
+\index{percpu.c@{percpu.c}!pcpu\_balance\_free@{pcpu\_balance\_free}}
+\index{pcpu\_balance\_free@{pcpu\_balance\_free}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_balance\_free()}{pcpu\_balance\_free()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+balance\+\_\+free (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{empty\+\_\+only }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+balance\+\_\+free -\/ manage the amount of free chunks @empty\+\_\+only\+: free chunks only if there are no populated pages
+
+If empty\+\_\+only is false, reclaim all fully free chunks regardless of the number of populated pages. Otherwise, only reclaim chunks that have no populated pages.
+
+C\+O\+N\+T\+E\+XT\+: pcpu\+\_\+lock (can be dropped temporarily) Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{percpu_8c_a46e3456a6569a0e97512aed378a4ddb9}\label{percpu_8c_a46e3456a6569a0e97512aed378a4ddb9}} 
+\index{percpu.c@{percpu.c}!pcpu\_balance\_populated@{pcpu\_balance\_populated}}
+\index{pcpu\_balance\_populated@{pcpu\_balance\_populated}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_balance\_populated()}{pcpu\_balance\_populated()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+balance\+\_\+populated (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+balance\+\_\+populated -\/ manage the amount of populated pages
+
+Maintain a certain amount of populated pages to satisfy atomic allocations. It is possible that this is called when physical memory is scarce causing O\+OM killer to be triggered. We should avoid doing so until an actual allocation causes the failure as it is possible that requests can be serviced from already backed regions.
+
+C\+O\+N\+T\+E\+XT\+: pcpu\+\_\+lock (can be dropped temporarily) Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{percpu_8c_aaf035f3b29924b6928b59dafd68082e0}\label{percpu_8c_aaf035f3b29924b6928b59dafd68082e0}} 
+\index{percpu.c@{percpu.c}!pcpu\_balance\_workfn@{pcpu\_balance\_workfn}}
+\index{pcpu\_balance\_workfn@{pcpu\_balance\_workfn}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_balance\_workfn()}{pcpu\_balance\_workfn()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+balance\+\_\+workfn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$}]{work }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+balance\+\_\+workfn -\/ manage the amount of free chunks and populated pages @work\+: unused
+
+For each chunk type, manage the number of fully free chunks and the number of populated pages. An important thing to consider is when pages are freed and how they contribute to the global counts. Here is the call graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{percpu_8c_af9eb05e5bc871a20f24b6822da3fd635}\label{percpu_8c_af9eb05e5bc871a20f24b6822da3fd635}} 
+\index{percpu.c@{percpu.c}!pcpu\_block\_off\_to\_off@{pcpu\_block\_off\_to\_off}}
+\index{pcpu\_block\_off\_to\_off@{pcpu\_block\_off\_to\_off}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_block\_off\_to\_off()}{pcpu\_block\_off\_to\_off()}}
+{\footnotesize\ttfamily static unsigned long pcpu\+\_\+block\+\_\+off\+\_\+to\+\_\+off (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{index,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{percpu_8c_a561e7e9b3b810c3f55bba7d26f325f53}\label{percpu_8c_a561e7e9b3b810c3f55bba7d26f325f53}} 
+\index{percpu.c@{percpu.c}!pcpu\_block\_refresh\_hint@{pcpu\_block\_refresh\_hint}}
+\index{pcpu\_block\_refresh\_hint@{pcpu\_block\_refresh\_hint}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_block\_refresh\_hint()}{pcpu\_block\_refresh\_hint()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+block\+\_\+refresh\+\_\+hint (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{index }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+block\+\_\+refresh\+\_\+hint @chunk\+: chunk of interest @index\+: index of the metadata block
+
+Scans over the block beginning at first\+\_\+free and updates the block metadata accordingly. Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{percpu_8c_a931a53a033a4a4099798aa10235761e9}\label{percpu_8c_a931a53a033a4a4099798aa10235761e9}} 
+\index{percpu.c@{percpu.c}!pcpu\_block\_update@{pcpu\_block\_update}}
+\index{pcpu\_block\_update@{pcpu\_block\_update}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_block\_update()}{pcpu\_block\_update()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+block\+\_\+update (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$}]{block,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{start,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+block\+\_\+update -\/ updates a block given a free area @block\+: block of interest @start\+: start offset in block @end\+: end offset in block
+
+Updates a block given a known free area. \mbox{\hyperlink{classThe}{The}} region \mbox{[}start, end) is expected to be the entirety of the free area within a block. Chooses the best starting offset if the contig hints are equal. Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{percpu_8c_a62a78a5da865150401a5917ab2539103}\label{percpu_8c_a62a78a5da865150401a5917ab2539103}} 
+\index{percpu.c@{percpu.c}!pcpu\_block\_update\_hint\_alloc@{pcpu\_block\_update\_hint\_alloc}}
+\index{pcpu\_block\_update\_hint\_alloc@{pcpu\_block\_update\_hint\_alloc}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_block\_update\_hint\_alloc()}{pcpu\_block\_update\_hint\_alloc()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+block\+\_\+update\+\_\+hint\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bit\+\_\+off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+block\+\_\+update\+\_\+hint\+\_\+alloc -\/ update hint on allocation path @chunk\+: chunk of interest @bit\+\_\+off\+: chunk offset @bits\+: size of request
+
+Updates metadata for the allocation path. \mbox{\hyperlink{classThe}{The}} metadata only has to be refreshed by a full scan iff the chunk\textquotesingle{}s contig hint is broken. Block level scans are required if the block\textquotesingle{}s contig hint is broken. Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{percpu_8c_a5baf88940ebba46abc44a9ff9d62b0ad}\label{percpu_8c_a5baf88940ebba46abc44a9ff9d62b0ad}} 
+\index{percpu.c@{percpu.c}!pcpu\_block\_update\_hint\_free@{pcpu\_block\_update\_hint\_free}}
+\index{pcpu\_block\_update\_hint\_free@{pcpu\_block\_update\_hint\_free}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_block\_update\_hint\_free()}{pcpu\_block\_update\_hint\_free()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+block\+\_\+update\+\_\+hint\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bit\+\_\+off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+block\+\_\+update\+\_\+hint\+\_\+free -\/ updates the block hints on the free path @chunk\+: chunk of interest @bit\+\_\+off\+: chunk offset @bits\+: size of request
+
+Updates metadata for the allocation path. This avoids a blind block refresh by making use of the block contig hints. If this fails, it scans forward and backward to determine the extent of the free area. This is capped at the boundary of blocks.
+
+A chunk update is triggered if a page becomes free, a block becomes free, or the free spans across blocks. This tradeoff is to minimize iterating over the block metadata to update chunk\+\_\+md-\/$>$contig\+\_\+hint. chunk\+\_\+md-\/$>$contig\+\_\+hint may be off by up to a page, but it will never be more than the available space. If the contig hint is contained in one block, it will be accurate. Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{percpu_8c_ad6438552227d4bb52c316f40a24195fe}\label{percpu_8c_ad6438552227d4bb52c316f40a24195fe}} 
+\index{percpu.c@{percpu.c}!pcpu\_block\_update\_scan@{pcpu\_block\_update\_scan}}
+\index{pcpu\_block\_update\_scan@{pcpu\_block\_update\_scan}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_block\_update\_scan()}{pcpu\_block\_update\_scan()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+block\+\_\+update\+\_\+scan (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bit\+\_\+off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{percpu_8c_ac2357272937dd72ee106e4c6e2567d76}\label{percpu_8c_ac2357272937dd72ee106e4c6e2567d76}} 
+\index{percpu.c@{percpu.c}!pcpu\_check\_block\_hint@{pcpu\_check\_block\_hint}}
+\index{pcpu\_check\_block\_hint@{pcpu\_check\_block\_hint}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_check\_block\_hint()}{pcpu\_check\_block\_hint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+check\+\_\+block\+\_\+hint (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$}]{block,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bits,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{align }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+check\+\_\+block\+\_\+hint -\/ check against the contig hint @block\+: block of interest @bits\+: size of allocation @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE)
+
+Check to see if the allocation can fit in the block\textquotesingle{}s contig hint. Note, a chunk uses the same hints as a block so this can also check against the chunk\textquotesingle{}s contig hint. Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{percpu_8c_aebcfd993e0f787c38e8f2a143f2228f6}\label{percpu_8c_aebcfd993e0f787c38e8f2a143f2228f6}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_addr@{pcpu\_chunk\_addr}}
+\index{pcpu\_chunk\_addr@{pcpu\_chunk\_addr}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_addr()}{pcpu\_chunk\_addr()}}
+{\footnotesize\ttfamily static unsigned long pcpu\+\_\+chunk\+\_\+addr (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{percpu_8c_aba5a9242d20603bf8be19f06ee58b137}\label{percpu_8c_aba5a9242d20603bf8be19f06ee58b137}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_addr\_search@{pcpu\_chunk\_addr\_search}}
+\index{pcpu\_chunk\_addr\_search@{pcpu\_chunk\_addr\_search}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_addr\_search()}{pcpu\_chunk\_addr\_search()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}}$\ast$ pcpu\+\_\+chunk\+\_\+addr\+\_\+search (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+chunk\+\_\+addr\+\_\+search -\/ determine chunk containing specified address @addr\+: address for which the chunk needs to be determined.
+
+This is an internal function that handles all but static allocations. Static percpu address values should never be passed into the allocator.
+
+R\+E\+T\+U\+R\+NS\+: \mbox{\hyperlink{classThe}{The}} address of the found chunk. Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{percpu_8c_a5712dabdf4ccd3db89ee3ed3ef0152f6}\label{percpu_8c_a5712dabdf4ccd3db89ee3ed3ef0152f6}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_depopulated@{pcpu\_chunk\_depopulated}}
+\index{pcpu\_chunk\_depopulated@{pcpu\_chunk\_depopulated}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_depopulated()}{pcpu\_chunk\_depopulated()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+chunk\+\_\+depopulated (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+start,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+chunk\+\_\+depopulated -\/ post-\/depopulation bookkeeping @chunk\+: \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} which got depopulated @page\+\_\+start\+: the start page @page\+\_\+end\+: the end page
+
+Pages in \mbox{[}@page\+\_\+start,@page\+\_\+end) have been depopulated from @chunk. Update the bookkeeping information accordingly. Must be called after each successful depopulation. Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{percpu_8c_a649e2f380de9c6cd518b2211eed5887f}\label{percpu_8c_a649e2f380de9c6cd518b2211eed5887f}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_move@{pcpu\_chunk\_move}}
+\index{pcpu\_chunk\_move@{pcpu\_chunk\_move}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_move()}{pcpu\_chunk\_move()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+chunk\+\_\+move (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{slot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{percpu_8c_adf2c79a47396e9fd1a5b3b34fa113005}\label{percpu_8c_adf2c79a47396e9fd1a5b3b34fa113005}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_populated@{pcpu\_chunk\_populated}}
+\index{pcpu\_chunk\_populated@{pcpu\_chunk\_populated}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_populated()}{pcpu\_chunk\_populated()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+chunk\+\_\+populated (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+start,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+chunk\+\_\+populated -\/ post-\/population bookkeeping @chunk\+: \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} which got populated @page\+\_\+start\+: the start page @page\+\_\+end\+: the end page
+
+Pages in \mbox{[}@page\+\_\+start,@page\+\_\+end) have been populated to @chunk. Update the bookkeeping information accordingly. Must be called after each successful population. Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{percpu_8c_a01c40f4d76f2c203bf22b7f17820ec3a}\label{percpu_8c_a01c40f4d76f2c203bf22b7f17820ec3a}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_refresh\_hint@{pcpu\_chunk\_refresh\_hint}}
+\index{pcpu\_chunk\_refresh\_hint@{pcpu\_chunk\_refresh\_hint}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_refresh\_hint()}{pcpu\_chunk\_refresh\_hint()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+chunk\+\_\+refresh\+\_\+hint (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{full\+\_\+scan }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+chunk\+\_\+refresh\+\_\+hint -\/ updates metadata about a chunk @chunk\+: chunk of interest @full\+\_\+scan\+: if we should scan from the beginning
+
+Iterates over the metadata blocks to find the largest contig area. A full scan can be avoided on the allocation path as this is triggered if we broke the contig\+\_\+hint. In doing so, the scan\+\_\+hint will be before the contig\+\_\+hint or after if the scan\+\_\+hint == contig\+\_\+hint. This cannot be prevented on freeing as we want to find the largest area possibly spanning blocks. Here is the call graph for this function\+:
+% FIG 53
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{percpu_8c_acb09e43bfd6b4a1cd6715903f2f419e7}\label{percpu_8c_acb09e43bfd6b4a1cd6715903f2f419e7}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_relocate@{pcpu\_chunk\_relocate}}
+\index{pcpu\_chunk\_relocate@{pcpu\_chunk\_relocate}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_relocate()}{pcpu\_chunk\_relocate()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+chunk\+\_\+relocate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{oslot }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+chunk\+\_\+relocate -\/ put chunk in the appropriate chunk slot @chunk\+: chunk of interest @oslot\+: the previous slot it was on
+
+This function is called after an allocation or free changed @chunk. New slot according to the changed state is determined and @chunk is moved to the slot. Note that the reserved chunk is never put on chunk slots.
+
+C\+O\+N\+T\+E\+XT\+: pcpu\+\_\+lock. Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{percpu_8c_a71afca1811284063843385bb864c13fc}\label{percpu_8c_a71afca1811284063843385bb864c13fc}} 
+\index{percpu.c@{percpu.c}!pcpu\_chunk\_slot@{pcpu\_chunk\_slot}}
+\index{pcpu\_chunk\_slot@{pcpu\_chunk\_slot}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_chunk\_slot()}{pcpu\_chunk\_slot()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+chunk\+\_\+slot (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{percpu_8c_af2d4018ee15e77231909a22f3c65c0b4}\label{percpu_8c_af2d4018ee15e77231909a22f3c65c0b4}} 
+\index{percpu.c@{percpu.c}!pcpu\_create\_chunk@{pcpu\_create\_chunk}}
+\index{pcpu\_create\_chunk@{pcpu\_create\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_create\_chunk()}{pcpu\_create\_chunk()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}}$\ast$ pcpu\+\_\+create\+\_\+chunk (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{percpu_8c_a731e2e6a9723b3a487a1ae7b9a66a9e9}\label{percpu_8c_a731e2e6a9723b3a487a1ae7b9a66a9e9}} 
+\index{percpu.c@{percpu.c}!pcpu\_depopulate\_chunk@{pcpu\_depopulate\_chunk}}
+\index{pcpu\_depopulate\_chunk@{pcpu\_depopulate\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_depopulate\_chunk()}{pcpu\_depopulate\_chunk()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+depopulate\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+start,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{percpu_8c_a3e28c7ccc97523bb85ccd8eb4c3d9c99}\label{percpu_8c_a3e28c7ccc97523bb85ccd8eb4c3d9c99}} 
+\index{percpu.c@{percpu.c}!pcpu\_destroy\_chunk@{pcpu\_destroy\_chunk}}
+\index{pcpu\_destroy\_chunk@{pcpu\_destroy\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_destroy\_chunk()}{pcpu\_destroy\_chunk()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+destroy\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{percpu_8c_ab227ea96021ddae304cfcf6847684e60}\label{percpu_8c_ab227ea96021ddae304cfcf6847684e60}} 
+\index{percpu.c@{percpu.c}!pcpu\_dump\_alloc\_info@{pcpu\_dump\_alloc\_info}}
+\index{pcpu\_dump\_alloc\_info@{pcpu\_dump\_alloc\_info}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_dump\_alloc\_info()}{pcpu\_dump\_alloc\_info()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+dump\+\_\+alloc\+\_\+info (\begin{DoxyParamCaption}\item[{const char $\ast$}]{lvl,  }\item[{const struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$}]{ai }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+dump\+\_\+alloc\+\_\+info -\/ print out information about \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} @lvl\+: loglevel @ai\+: allocation info to dump
+
+Print out information about @ai using loglevel @lvl. Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{percpu_8c_a84447d6ac815dff8377e5d30f3ec00c6}\label{percpu_8c_a84447d6ac815dff8377e5d30f3ec00c6}} 
+\index{percpu.c@{percpu.c}!pcpu\_find\_block\_fit@{pcpu\_find\_block\_fit}}
+\index{pcpu\_find\_block\_fit@{pcpu\_find\_block\_fit}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_find\_block\_fit()}{pcpu\_find\_block\_fit()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+find\+\_\+block\+\_\+fit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{alloc\+\_\+bits,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{align,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{pop\+\_\+only }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+find\+\_\+block\+\_\+fit -\/ finds the block index to start searching @chunk\+: chunk of interest @alloc\+\_\+bits\+: size of request in allocation units @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE bytes) @pop\+\_\+only\+: use populated regions only
+
+Given a chunk and an allocation spec, find the offset to begin searching for a free region. This iterates over the bitmap metadata blocks to find an offset that will be guaranteed to fit the requirements. It is not quite first fit as if the allocation does not fit in the contig hint of a block or chunk, it is skipped. This errs on the side of caution to prevent excess iteration. Poor alignment can cause the allocator to skip over blocks and chunks that have valid free areas.
+
+R\+E\+T\+U\+R\+NS\+: \mbox{\hyperlink{classThe}{The}} offset in the bitmap to begin searching. -\/1 if no offset is found. Here is the call graph for this function\+:
+% FIG 64
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{percpu_8c_ac95b080c17024f070793388009f134b4}\label{percpu_8c_ac95b080c17024f070793388009f134b4}} 
+\index{percpu.c@{percpu.c}!pcpu\_find\_zero\_area@{pcpu\_find\_zero\_area}}
+\index{pcpu\_find\_zero\_area@{pcpu\_find\_zero\_area}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_find\_zero\_area()}{pcpu\_find\_zero\_area()}}
+{\footnotesize\ttfamily static unsigned long pcpu\+\_\+find\+\_\+zero\+\_\+area (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{map,  }\item[{unsigned long}]{size,  }\item[{unsigned long}]{start,  }\item[{unsigned long}]{nr,  }\item[{unsigned long}]{align\+\_\+mask,  }\item[{unsigned long $\ast$}]{largest\+\_\+off,  }\item[{unsigned long $\ast$}]{largest\+\_\+bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{percpu_8c_a3da9f6b222a8fa24f6da4456c4ebaf2d}\label{percpu_8c_a3da9f6b222a8fa24f6da4456c4ebaf2d}} 
+\index{percpu.c@{percpu.c}!pcpu\_free\_alloc\_info@{pcpu\_free\_alloc\_info}}
+\index{pcpu\_free\_alloc\_info@{pcpu\_free\_alloc\_info}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_free\_alloc\_info()}{pcpu\_free\_alloc\_info()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pcpu\+\_\+free\+\_\+alloc\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$}]{ai }\end{DoxyParamCaption})}
+
+pcpu\+\_\+free\+\_\+alloc\+\_\+info -\/ free percpu allocation info @ai\+: \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} to free
+
+Free @ai which was allocated by \mbox{\hyperlink{percpu_8c_a491d98d56dabc3f1204c4ccf8e9c40dc}{pcpu\+\_\+alloc\+\_\+alloc\+\_\+info()}}. Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{percpu_8c_aae6b75cc31a97d6e1bbef0ed8ccc29a2}\label{percpu_8c_aae6b75cc31a97d6e1bbef0ed8ccc29a2}} 
+\index{percpu.c@{percpu.c}!pcpu\_free\_area@{pcpu\_free\_area}}
+\index{pcpu\_free\_area@{pcpu\_free\_area}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_free\_area()}{pcpu\_free\_area()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+free\+\_\+area (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+free\+\_\+area -\/ frees the corresponding offset @chunk\+: chunk of interest @off\+: addr offset into chunk
+
+This function determines the size of an allocation to free using the boundary bitmap and clears the allocation map.
+
+R\+E\+T\+U\+R\+NS\+: Number of freed bytes. Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{percpu_8c_ae454a3317cb814afba6753f9fe302ac0}\label{percpu_8c_ae454a3317cb814afba6753f9fe302ac0}} 
+\index{percpu.c@{percpu.c}!pcpu\_free\_chunk@{pcpu\_free\_chunk}}
+\index{pcpu\_free\_chunk@{pcpu\_free\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_free\_chunk()}{pcpu\_free\_chunk()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+free\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{percpu_8c_a4f9182e2b0b38b38990b4a6bbc0e991c}\label{percpu_8c_a4f9182e2b0b38b38990b4a6bbc0e991c}} 
+\index{percpu.c@{percpu.c}!pcpu\_get\_page\_chunk@{pcpu\_get\_page\_chunk}}
+\index{pcpu\_get\_page\_chunk@{pcpu\_get\_page\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_get\_page\_chunk()}{pcpu\_get\_page\_chunk()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}}$\ast$ pcpu\+\_\+get\+\_\+page\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{percpu_8c_aadd8aed569a4c7e36ce49ea77b2d430e}\label{percpu_8c_aadd8aed569a4c7e36ce49ea77b2d430e}} 
+\index{percpu.c@{percpu.c}!pcpu\_index\_alloc\_map@{pcpu\_index\_alloc\_map}}
+\index{pcpu\_index\_alloc\_map@{pcpu\_index\_alloc\_map}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_index\_alloc\_map()}{pcpu\_index\_alloc\_map()}}
+{\footnotesize\ttfamily static unsigned long$\ast$ pcpu\+\_\+index\+\_\+alloc\+\_\+map (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{index }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{percpu_8c_ad0450a2786d127128b367860a61620d8}\label{percpu_8c_ad0450a2786d127128b367860a61620d8}} 
+\index{percpu.c@{percpu.c}!pcpu\_init\_md\_block@{pcpu\_init\_md\_block}}
+\index{pcpu\_init\_md\_block@{pcpu\_init\_md\_block}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_init\_md\_block()}{pcpu\_init\_md\_block()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+init\+\_\+md\+\_\+block (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$}]{block,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr\+\_\+bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{percpu_8c_a927c1005a96186b2fe88d09c1280fe50}\label{percpu_8c_a927c1005a96186b2fe88d09c1280fe50}} 
+\index{percpu.c@{percpu.c}!pcpu\_init\_md\_blocks@{pcpu\_init\_md\_blocks}}
+\index{pcpu\_init\_md\_blocks@{pcpu\_init\_md\_blocks}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_init\_md\_blocks()}{pcpu\_init\_md\_blocks()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+init\+\_\+md\+\_\+blocks (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{percpu_8c_a5cec08eefa432f9c439626ba2293a9f2}\label{percpu_8c_a5cec08eefa432f9c439626ba2293a9f2}} 
+\index{percpu.c@{percpu.c}!pcpu\_is\_populated@{pcpu\_is\_populated}}
+\index{pcpu\_is\_populated@{pcpu\_is\_populated}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_is\_populated()}{pcpu\_is\_populated()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+is\+\_\+populated (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bit\+\_\+off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{bits,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{next\+\_\+off }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+is\+\_\+populated -\/ determines if the region is populated @chunk\+: chunk of interest @bit\+\_\+off\+: chunk offset @bits\+: size of area @next\+\_\+off\+: return value for the next offset to start searching
+
+For atomic allocations, check if the backing pages are populated.
+
+R\+E\+T\+U\+R\+NS\+: Bool if the backing pages are populated. next\+\_\+index is to skip over unpopulated blocks in pcpu\+\_\+find\+\_\+block\+\_\+fit. Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{percpu_8c_aeac0d9b7a7a90b798f3a5abae0261bc4}\label{percpu_8c_aeac0d9b7a7a90b798f3a5abae0261bc4}} 
+\index{percpu.c@{percpu.c}!pcpu\_isolate\_chunk@{pcpu\_isolate\_chunk}}
+\index{pcpu\_isolate\_chunk@{pcpu\_isolate\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_isolate\_chunk()}{pcpu\_isolate\_chunk()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+isolate\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 80
+Here is the caller graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{percpu_8c_a3da4fc01e3b39c650c855ccdf2fbc5e4}\label{percpu_8c_a3da4fc01e3b39c650c855ccdf2fbc5e4}} 
+\index{percpu.c@{percpu.c}!pcpu\_mem\_free@{pcpu\_mem\_free}}
+\index{pcpu\_mem\_free@{pcpu\_mem\_free}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_mem\_free()}{pcpu\_mem\_free()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+mem\+\_\+free (\begin{DoxyParamCaption}\item[{void $\ast$}]{ptr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+mem\+\_\+free -\/ free memory @ptr\+: memory to free
+
+Free @ptr. @ptr should have been allocated using \mbox{\hyperlink{percpu_8c_ac93c750a388909c5f0d2612bf6b05e6a}{pcpu\+\_\+mem\+\_\+zalloc()}}. Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{percpu_8c_ac93c750a388909c5f0d2612bf6b05e6a}\label{percpu_8c_ac93c750a388909c5f0d2612bf6b05e6a}} 
+\index{percpu.c@{percpu.c}!pcpu\_mem\_zalloc@{pcpu\_mem\_zalloc}}
+\index{pcpu\_mem\_zalloc@{pcpu\_mem\_zalloc}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_mem\_zalloc()}{pcpu\_mem\_zalloc()}}
+{\footnotesize\ttfamily static void$\ast$ pcpu\+\_\+mem\+\_\+zalloc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+mem\+\_\+zalloc -\/ allocate memory @size\+: bytes to allocate @gfp\+: allocation flags
+
+Allocate @size bytes. If @size is smaller than P\+A\+G\+E\+\_\+\+S\+I\+ZE, \mbox{\hyperlink{include_2linux_2slab_8h_a402d83ce8c9ddfaf1a1f4f8c5b8ffcd9}{kzalloc()}} is used; otherwise, the equivalent of \mbox{\hyperlink{include_2linux_2vmalloc_8h_a43da4d84c5fb8f3e80b19fea127e018d}{vzalloc()}} is used. This is to facilitate passing through whitelisted flags. \mbox{\hyperlink{classThe}{The}} returned memory is always zeroed.
+
+R\+E\+T\+U\+R\+NS\+: Pointer to the allocated area on success, N\+U\+LL on failure. Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{percpu_8c_a03df11fa3a289d736b588b59869b98fd}\label{percpu_8c_a03df11fa3a289d736b588b59869b98fd}} 
+\index{percpu.c@{percpu.c}!pcpu\_memcg\_free\_hook@{pcpu\_memcg\_free\_hook}}
+\index{pcpu\_memcg\_free\_hook@{pcpu\_memcg\_free\_hook}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_memcg\_free\_hook()}{pcpu\_memcg\_free\_hook()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+memcg\+\_\+free\+\_\+hook (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{percpu_8c_a56656f34ef83827ba32d3934e879e65c}\label{percpu_8c_a56656f34ef83827ba32d3934e879e65c}} 
+\index{percpu.c@{percpu.c}!pcpu\_memcg\_post\_alloc\_hook@{pcpu\_memcg\_post\_alloc\_hook}}
+\index{pcpu\_memcg\_post\_alloc\_hook@{pcpu\_memcg\_post\_alloc\_hook}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_memcg\_post\_alloc\_hook()}{pcpu\_memcg\_post\_alloc\_hook()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+memcg\+\_\+post\+\_\+alloc\+\_\+hook (\begin{DoxyParamCaption}\item[{struct obj\+\_\+cgroup $\ast$}]{objcg,  }\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{percpu_8c_a1bcd2b4bc853452316db5d0fd627f844}\label{percpu_8c_a1bcd2b4bc853452316db5d0fd627f844}} 
+\index{percpu.c@{percpu.c}!pcpu\_memcg\_pre\_alloc\_hook@{pcpu\_memcg\_pre\_alloc\_hook}}
+\index{pcpu\_memcg\_pre\_alloc\_hook@{pcpu\_memcg\_pre\_alloc\_hook}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_memcg\_pre\_alloc\_hook()}{pcpu\_memcg\_pre\_alloc\_hook()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+memcg\+\_\+pre\+\_\+alloc\+\_\+hook (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp,  }\item[{struct obj\+\_\+cgroup $\ast$$\ast$}]{objcgp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{percpu_8c_a588696fffeef5e64ed9cf7d45d5cbbb8}\label{percpu_8c_a588696fffeef5e64ed9cf7d45d5cbbb8}} 
+\index{percpu.c@{percpu.c}!pcpu\_next\_fit\_region@{pcpu\_next\_fit\_region}}
+\index{pcpu\_next\_fit\_region@{pcpu\_next\_fit\_region}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_next\_fit\_region()}{pcpu\_next\_fit\_region()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+next\+\_\+fit\+\_\+region (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{alloc\+\_\+bits,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{align,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{bit\+\_\+off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+next\+\_\+fit\+\_\+region -\/ finds fit areas for a given allocation request @chunk\+: chunk of interest @alloc\+\_\+bits\+: size of allocation @align\+: alignment of area (max P\+A\+G\+E\+\_\+\+S\+I\+ZE) @bit\+\_\+off\+: chunk offset @bits\+: size of free area
+
+Finds the next free region that is viable for use with a given size and alignment. This only returns if there is a valid area to be used for this allocation. block-\/$>$first\+\_\+free is returned if the allocation request fits within the block to see if the request can be fulfilled prior to the contig hint. Here is the call graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{percpu_8c_a8da65958a5b664305e8d1f279f065c00}\label{percpu_8c_a8da65958a5b664305e8d1f279f065c00}} 
+\index{percpu.c@{percpu.c}!pcpu\_next\_hint@{pcpu\_next\_hint}}
+\index{pcpu\_next\_hint@{pcpu\_next\_hint}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_next\_hint()}{pcpu\_next\_hint()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+next\+\_\+hint (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__block__md}{pcpu\+\_\+block\+\_\+md}} $\ast$}]{block,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{alloc\+\_\+bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{percpu_8c_a657607252de433a1f31610bc3fbe8782}\label{percpu_8c_a657607252de433a1f31610bc3fbe8782}} 
+\index{percpu.c@{percpu.c}!pcpu\_next\_md\_free\_region@{pcpu\_next\_md\_free\_region}}
+\index{pcpu\_next\_md\_free\_region@{pcpu\_next\_md\_free\_region}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_next\_md\_free\_region()}{pcpu\_next\_md\_free\_region()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+next\+\_\+md\+\_\+free\+\_\+region (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{bit\+\_\+off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{bits }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+next\+\_\+md\+\_\+free\+\_\+region -\/ finds the next hint free area @chunk\+: chunk of interest @bit\+\_\+off\+: chunk offset @bits\+: size of free area
+
+Helper function for pcpu\+\_\+for\+\_\+each\+\_\+md\+\_\+free\+\_\+region. It checks block-\/$>$contig\+\_\+hint and performs aggregation across blocks to find the next hint. It modifies bit\+\_\+off and bits in-\/place to be consumed in the loop. Here is the call graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{percpu_8c_aae80992ab50cb5d66e8aa5322d697b0f}\label{percpu_8c_aae80992ab50cb5d66e8aa5322d697b0f}} 
+\index{percpu.c@{percpu.c}!pcpu\_nr\_pages@{pcpu\_nr\_pages}}
+\index{pcpu\_nr\_pages@{pcpu\_nr\_pages}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_nr\_pages()}{pcpu\_nr\_pages()}}
+{\footnotesize\ttfamily unsigned long pcpu\+\_\+nr\+\_\+pages (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{percpu_8c_ae508d1060484cd57cafeb7dd34760f42}\label{percpu_8c_ae508d1060484cd57cafeb7dd34760f42}} 
+\index{percpu.c@{percpu.c}!pcpu\_off\_to\_block\_index@{pcpu\_off\_to\_block\_index}}
+\index{pcpu\_off\_to\_block\_index@{pcpu\_off\_to\_block\_index}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_off\_to\_block\_index()}{pcpu\_off\_to\_block\_index()}}
+{\footnotesize\ttfamily static unsigned long pcpu\+\_\+off\+\_\+to\+\_\+block\+\_\+index (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{percpu_8c_aa9b3005a2fea9e0994f21aceb1cabef9}\label{percpu_8c_aa9b3005a2fea9e0994f21aceb1cabef9}} 
+\index{percpu.c@{percpu.c}!pcpu\_off\_to\_block\_off@{pcpu\_off\_to\_block\_off}}
+\index{pcpu\_off\_to\_block\_off@{pcpu\_off\_to\_block\_off}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_off\_to\_block\_off()}{pcpu\_off\_to\_block\_off()}}
+{\footnotesize\ttfamily static unsigned long pcpu\+\_\+off\+\_\+to\+\_\+block\+\_\+off (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{percpu_8c_a8724ce5d90e103c100d4d7d899fe5819}\label{percpu_8c_a8724ce5d90e103c100d4d7d899fe5819}} 
+\index{percpu.c@{percpu.c}!pcpu\_page\_idx@{pcpu\_page\_idx}}
+\index{pcpu\_page\_idx@{pcpu\_page\_idx}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_page\_idx()}{pcpu\_page\_idx()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}} pcpu\+\_\+page\+\_\+idx (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{percpu_8c_a1c5fd0c2a70dafe67b24b153d64860f6}\label{percpu_8c_a1c5fd0c2a70dafe67b24b153d64860f6}} 
+\index{percpu.c@{percpu.c}!pcpu\_populate\_chunk@{pcpu\_populate\_chunk}}
+\index{pcpu\_populate\_chunk@{pcpu\_populate\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_populate\_chunk()}{pcpu\_populate\_chunk()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+populate\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+start,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+end,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{percpu_8c_a040a228853a80e2813f85238921b2e48}\label{percpu_8c_a040a228853a80e2813f85238921b2e48}} 
+\index{percpu.c@{percpu.c}!pcpu\_post\_unmap\_tlb\_flush@{pcpu\_post\_unmap\_tlb\_flush}}
+\index{pcpu\_post\_unmap\_tlb\_flush@{pcpu\_post\_unmap\_tlb\_flush}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_post\_unmap\_tlb\_flush()}{pcpu\_post\_unmap\_tlb\_flush()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+post\+\_\+unmap\+\_\+tlb\+\_\+flush (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+start,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+end }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 96
+\mbox{\Hypertarget{percpu_8c_acd1175f60408f0ed787d0b393217d360}\label{percpu_8c_acd1175f60408f0ed787d0b393217d360}} 
+\index{percpu.c@{percpu.c}!pcpu\_reclaim\_populated@{pcpu\_reclaim\_populated}}
+\index{pcpu\_reclaim\_populated@{pcpu\_reclaim\_populated}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_reclaim\_populated()}{pcpu\_reclaim\_populated()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+reclaim\+\_\+populated (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+pcpu\+\_\+reclaim\+\_\+populated -\/ scan over to\+\_\+depopulate chunks and free empty pages
+
+Scan over chunks in the depopulate list and try to release unused populated pages back to the system. Depopulated chunks are sidelined to prevent repopulating these pages unless required. Fully free chunks are reintegrated and freed accordingly (1 is kept around). If we drop below the empty populated pages threshold, reintegrate the chunk if it has empty free pages. Each chunk is scanned in the reverse order to keep populated pages close to the beginning of the chunk.
+
+C\+O\+N\+T\+E\+XT\+: pcpu\+\_\+lock (can be dropped temporarily) Here is the call graph for this function\+:
+% FIG 97
+Here is the caller graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{percpu_8c_adf35d39ba644cca9a2f59fee9a85df60}\label{percpu_8c_adf35d39ba644cca9a2f59fee9a85df60}} 
+\index{percpu.c@{percpu.c}!pcpu\_region\_overlap@{pcpu\_region\_overlap}}
+\index{pcpu\_region\_overlap@{pcpu\_region\_overlap}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_region\_overlap()}{pcpu\_region\_overlap()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+region\+\_\+overlap (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{a,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{b,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{x,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{y }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{percpu_8c_a302a21b4e75206e76c599f0d12bb0fd7}\label{percpu_8c_a302a21b4e75206e76c599f0d12bb0fd7}} 
+\index{percpu.c@{percpu.c}!pcpu\_reintegrate\_chunk@{pcpu\_reintegrate\_chunk}}
+\index{pcpu\_reintegrate\_chunk@{pcpu\_reintegrate\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_reintegrate\_chunk()}{pcpu\_reintegrate\_chunk()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+reintegrate\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 100
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{percpu_8c_a5612e30add73413f609ea8cde832118f}\label{percpu_8c_a5612e30add73413f609ea8cde832118f}} 
+\index{percpu.c@{percpu.c}!pcpu\_schedule\_balance\_work@{pcpu\_schedule\_balance\_work}}
+\index{pcpu\_schedule\_balance\_work@{pcpu\_schedule\_balance\_work}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_schedule\_balance\_work()}{pcpu\_schedule\_balance\_work()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+schedule\+\_\+balance\+\_\+work (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 102
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{percpu_8c_a20d8248fe3a2d762ec081f587b9d030d}\label{percpu_8c_a20d8248fe3a2d762ec081f587b9d030d}} 
+\index{percpu.c@{percpu.c}!pcpu\_set\_page\_chunk@{pcpu\_set\_page\_chunk}}
+\index{pcpu\_set\_page\_chunk@{pcpu\_set\_page\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_set\_page\_chunk()}{pcpu\_set\_page\_chunk()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+set\+\_\+page\+\_\+chunk (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{pcpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{percpu_8c_a577a0829c42a292cf885d70ed0ded9f3}\label{percpu_8c_a577a0829c42a292cf885d70ed0ded9f3}} 
+\index{percpu.c@{percpu.c}!pcpu\_setup\_first\_chunk@{pcpu\_setup\_first\_chunk}}
+\index{pcpu\_setup\_first\_chunk@{pcpu\_setup\_first\_chunk}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_setup\_first\_chunk()}{pcpu\_setup\_first\_chunk()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pcpu\+\_\+setup\+\_\+first\+\_\+chunk (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$}]{ai,  }\item[{void $\ast$}]{base\+\_\+addr }\end{DoxyParamCaption})}
+
+pcpu\+\_\+setup\+\_\+first\+\_\+chunk -\/ initialize the first percpu chunk @ai\+: \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} describing how to percpu area is shaped @base\+\_\+addr\+: mapped address
+
+Initialize the first percpu chunk which \mbox{\hyperlink{protocolcontains-p}{contains}} the kernel static percpu area. This function is to be called from arch percpu area setup path.
+
+@ai \mbox{\hyperlink{protocolcontains-p}{contains}} all information necessary to initialize the first chunk and prime the dynamic percpu allocator.
+
+@ai-\/$>$static\+\_\+size is the size of static percpu area.
+
+@ai-\/$>$reserved\+\_\+size, if non-\/zero, specifies the amount of bytes to reserve after the static area in the first chunk. This reserves the first chunk such that it\textquotesingle{}s available only through reserved percpu allocation. This is primarily used to serve module percpu static areas on architectures where the addressing model has limited offset range for symbol relocations to guarantee module percpu symbols fall inside the relocatable range.
+
+@ai-\/$>$dyn\+\_\+size determines the number of bytes available for dynamic allocation in the first chunk. \mbox{\hyperlink{classThe}{The}} area between @ai-\/$>$static\+\_\+size + @ai-\/$>$reserved\+\_\+size + @ai-\/$>$dyn\+\_\+size and @ai-\/$>$unit\+\_\+size is unused.
+
+@ai-\/$>$unit\+\_\+size specifies unit size and must be aligned to P\+A\+G\+E\+\_\+\+S\+I\+ZE and equal to or larger than @ai-\/$>$static\+\_\+size + @ai-\/$>$reserved\+\_\+size + @ai-\/$>$dyn\+\_\+size.
+
+@ai-\/$>$atom\+\_\+size is the allocation atom size and used as alignment for vm areas.
+
+@ai-\/$>$alloc\+\_\+size is the allocation size and always multiple of @ai-\/$>$atom\+\_\+size. This is larger than @ai-\/$>$atom\+\_\+size if @ai-\/$>$unit\+\_\+size is larger than @ai-\/$>$atom\+\_\+size.
+
+@ai-\/$>$nr\+\_\+groups and @ai-\/$>$groups describe virtual memory layout of percpu areas. Units which should be colocated are put into the same group. Dynamic VM areas will be allocated according to these groupings. If @ai-\/$>$nr\+\_\+groups is zero, a single group containing all units is assumed.
+
+\mbox{\hyperlink{classThe}{The}} caller should have mapped the first chunk at @base\+\_\+addr and copied static data to each unit.
+
+\mbox{\hyperlink{classThe}{The}} first chunk will always contain a static and a dynamic region. However, the static region is not managed by any chunk. If the first chunk also \mbox{\hyperlink{protocolcontains-p}{contains}} a reserved region, it is served by two chunks -\/ one for the reserved region and one for the dynamic region. They share the same vm, but use offset regions in the area allocation map. \mbox{\hyperlink{classThe}{The}} chunk serving the dynamic region is circulated in the chunk slots and available for dynamic allocation like any other chunk. Here is the call graph for this function\+:
+% FIG 105
+Here is the caller graph for this function\+:
+% FIG 106
+\mbox{\Hypertarget{percpu_8c_a20e2ada4f6048f93071db8c1b4d09bbf}\label{percpu_8c_a20e2ada4f6048f93071db8c1b4d09bbf}} 
+\index{percpu.c@{percpu.c}!pcpu\_size\_to\_slot@{pcpu\_size\_to\_slot}}
+\index{pcpu\_size\_to\_slot@{pcpu\_size\_to\_slot}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_size\_to\_slot()}{pcpu\_size\_to\_slot()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+size\+\_\+to\+\_\+slot (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 107
+Here is the caller graph for this function\+:
+% FIG 108
+\mbox{\Hypertarget{percpu_8c_adb3342a9bc1c2a74928e85d764ed997e}\label{percpu_8c_adb3342a9bc1c2a74928e85d764ed997e}} 
+\index{percpu.c@{percpu.c}!pcpu\_unit\_page\_offset@{pcpu\_unit\_page\_offset}}
+\index{pcpu\_unit\_page\_offset@{pcpu\_unit\_page\_offset}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_unit\_page\_offset()}{pcpu\_unit\_page\_offset()}}
+{\footnotesize\ttfamily static unsigned long pcpu\+\_\+unit\+\_\+page\+\_\+offset (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{page\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{percpu_8c_acc321d55c06c4feb54f4747324050e4a}\label{percpu_8c_acc321d55c06c4feb54f4747324050e4a}} 
+\index{percpu.c@{percpu.c}!pcpu\_update\_empty\_pages@{pcpu\_update\_empty\_pages}}
+\index{pcpu\_update\_empty\_pages@{pcpu\_update\_empty\_pages}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_update\_empty\_pages()}{pcpu\_update\_empty\_pages()}}
+{\footnotesize\ttfamily static void pcpu\+\_\+update\+\_\+empty\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpcpu__chunk}{pcpu\+\_\+chunk}} $\ast$}]{chunk,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{nr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 110
+\mbox{\Hypertarget{percpu_8c_a4b2783dbafa74b34be3a41b311ba2a40}\label{percpu_8c_a4b2783dbafa74b34be3a41b311ba2a40}} 
+\index{percpu.c@{percpu.c}!pcpu\_verify\_alloc\_info@{pcpu\_verify\_alloc\_info}}
+\index{pcpu\_verify\_alloc\_info@{pcpu\_verify\_alloc\_info}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_verify\_alloc\_info()}{pcpu\_verify\_alloc\_info()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} pcpu\+\_\+verify\+\_\+alloc\+\_\+info (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structpcpu__alloc__info}{pcpu\+\_\+alloc\+\_\+info}} $\ast$}]{ai }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{percpu_8c_ae69c17a6994e39c6dbfb2d260c27086e}\label{percpu_8c_ae69c17a6994e39c6dbfb2d260c27086e}} 
+\index{percpu.c@{percpu.c}!per\_cpu\_ptr\_to\_phys@{per\_cpu\_ptr\_to\_phys}}
+\index{per\_cpu\_ptr\_to\_phys@{per\_cpu\_ptr\_to\_phys}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{per\_cpu\_ptr\_to\_phys()}{per\_cpu\_ptr\_to\_phys()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} per\+\_\+cpu\+\_\+ptr\+\_\+to\+\_\+phys (\begin{DoxyParamCaption}\item[{void $\ast$}]{addr }\end{DoxyParamCaption})}
+
+per\+\_\+cpu\+\_\+ptr\+\_\+to\+\_\+phys -\/ convert translated percpu address to physical address @addr\+: the address to be converted to physical address
+
+Given @addr which is dereferenceable address obtained via one of percpu access macros, this function translates it into its physical address. \mbox{\hyperlink{classThe}{The}} caller is responsible for ensuring @addr stays valid until this function finishes.
+
+percpu allocator has special setup for the first chunk, which currently supports either embedding in linear address space or vmalloc mapping, and, from the second one, the backing allocator (currently either vm or km) provides translation.
+
+\mbox{\hyperlink{classThe}{The}} addr can be translated simply without checking if it falls into the first chunk. But the current code reflects better how percpu allocator actually works, and the verification can discover both bugs in percpu allocator itself and \mbox{\hyperlink{percpu_8c_ae69c17a6994e39c6dbfb2d260c27086e}{per\+\_\+cpu\+\_\+ptr\+\_\+to\+\_\+phys()}} callers. So we keep current code.
+
+R\+E\+T\+U\+R\+NS\+: \mbox{\hyperlink{classThe}{The}} physical address for @addr. Here is the call graph for this function\+:
+% FIG 112
+Here is the caller graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{percpu_8c_ab13eca26b7802aef2a904eb3784d823c}\label{percpu_8c_ab13eca26b7802aef2a904eb3784d823c}} 
+\index{percpu.c@{percpu.c}!percpu\_enable\_async@{percpu\_enable\_async}}
+\index{percpu\_enable\_async@{percpu\_enable\_async}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{percpu\_enable\_async()}{percpu\_enable\_async()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} percpu\+\_\+enable\+\_\+async (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{percpu_8c_ac8b82138ec0a2b741025f4448ceded55}\label{percpu_8c_ac8b82138ec0a2b741025f4448ceded55}} 
+\index{percpu.c@{percpu.c}!setup\_per\_cpu\_areas@{setup\_per\_cpu\_areas}}
+\index{setup\_per\_cpu\_areas@{setup\_per\_cpu\_areas}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{setup\_per\_cpu\_areas()}{setup\_per\_cpu\_areas()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} setup\+\_\+per\+\_\+cpu\+\_\+areas (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 114
+\mbox{\Hypertarget{percpu_8c_aa5ce72e8295f8030134936266df813c6}\label{percpu_8c_aa5ce72e8295f8030134936266df813c6}} 
+\index{percpu.c@{percpu.c}!subsys\_initcall@{subsys\_initcall}}
+\index{subsys\_initcall@{subsys\_initcall}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{subsys\_initcall()}{subsys\_initcall()}}
+{\footnotesize\ttfamily subsys\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{percpu_8c_ab13eca26b7802aef2a904eb3784d823c}{percpu\+\_\+enable\+\_\+async}}}]{ }\end{DoxyParamCaption})}
+
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{percpu_8c_aff9e9fb4492c792a73f26517564aff45}\label{percpu_8c_aff9e9fb4492c792a73f26517564aff45}} 
+\index{percpu.c@{percpu.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+async\+\_\+enabled \+\_\+\+\_\+read\+\_\+mostly\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{percpu_8c_a44fb6d229e10eb0717d8120061d837b3}\label{percpu_8c_a44fb6d229e10eb0717d8120061d837b3}} 
+\index{percpu.c@{percpu.c}!\_\_ro\_after\_init@{\_\_ro\_after\_init}}
+\index{\_\_ro\_after\_init@{\_\_ro\_after\_init}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ro\_after\_init}{\_\_ro\_after\_init}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlist__head}{list\+\_\+head}}$\ast$ \mbox{\hyperlink{percpu-internal_8h_a6ec456c1e9b8592dd8bee3f82c264ebe}{pcpu\+\_\+chunk\+\_\+lists}} \+\_\+\+\_\+ro\+\_\+after\+\_\+init\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{percpu_8c_a685bba314bf03943f9c7143a2e58dc14}\label{percpu_8c_a685bba314bf03943f9c7143a2e58dc14}} 
+\index{percpu.c@{percpu.c}!pcpu\_atomic\_alloc\_failed@{pcpu\_atomic\_alloc\_failed}}
+\index{pcpu\_atomic\_alloc\_failed@{pcpu\_atomic\_alloc\_failed}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_atomic\_alloc\_failed}{pcpu\_atomic\_alloc\_failed}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} pcpu\+\_\+atomic\+\_\+alloc\+\_\+failed\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{percpu_8c_a6637a541cb0ec4dcd1fd9433f8f61b8c}\label{percpu_8c_a6637a541cb0ec4dcd1fd9433f8f61b8c}} 
+\index{percpu.c@{percpu.c}!pcpu\_nr\_empty\_pop\_pages@{pcpu\_nr\_empty\_pop\_pages}}
+\index{pcpu\_nr\_empty\_pop\_pages@{pcpu\_nr\_empty\_pop\_pages}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_nr\_empty\_pop\_pages}{pcpu\_nr\_empty\_pop\_pages}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pcpu\+\_\+nr\+\_\+empty\+\_\+pop\+\_\+pages}
+
+\mbox{\Hypertarget{percpu_8c_ac601994011577d57686d7079c2a7da62}\label{percpu_8c_ac601994011577d57686d7079c2a7da62}} 
+\index{percpu.c@{percpu.c}!pcpu\_nr\_populated@{pcpu\_nr\_populated}}
+\index{pcpu\_nr\_populated@{pcpu\_nr\_populated}!percpu.c@{percpu.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_nr\_populated}{pcpu\_nr\_populated}}
+{\footnotesize\ttfamily unsigned long pcpu\+\_\+nr\+\_\+populated\hspace{0.3cm}{\ttfamily [static]}}
+

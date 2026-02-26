@@ -1,0 +1,876 @@
+\hypertarget{test__firmware_8c}{}\doxysection{lib/test\+\_\+firmware.c File Reference}
+\label{test__firmware_8c}\index{lib/test\_firmware.c@{lib/test\_firmware.c}}
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/printk.\+h$>$}\newline
+{\ttfamily \#include $<$linux/completion.\+h$>$}\newline
+{\ttfamily \#include $<$linux/firmware.\+h$>$}\newline
+{\ttfamily \#include $<$linux/device.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/miscdevice.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sizes.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/efi\+\_\+embedded\+\_\+fw.\+h$>$}\newline
+Include dependency graph for test\+\_\+firmware.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structtest__batched__req}{test\+\_\+batched\+\_\+req}}
+\item 
+struct \mbox{\hyperlink{structtest__config}{test\+\_\+config}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{test__firmware_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{test__firmware_8c_ad9573f1277f371be34854c9d2d670cab}{T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+R\+E\+\_\+\+N\+A\+ME}}~\char`\"{}test-\/firmware.\+bin\char`\"{}
+\item 
+\#define \mbox{\hyperlink{test__firmware_8c_a091653f50ea8180a53c79b5bac689685}{T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+R\+E\+\_\+\+N\+U\+M\+\_\+\+R\+E\+QS}}~4
+\item 
+\#define \mbox{\hyperlink{test__firmware_8c_a886a8e0e086b4b7c2e9efb435fa9e228}{T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+R\+E\+\_\+\+B\+U\+F\+\_\+\+S\+I\+ZE}}~\mbox{\hyperlink{sizes_8h_a7e599bec730727fcede473d097e0bf31}{S\+Z\+\_\+1K}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{test__firmware_8c_a2ae7133aeea7b5306e3b1250d3ba3c3a}{M\+O\+D\+U\+L\+E\+\_\+\+I\+M\+P\+O\+R\+T\+\_\+\+NS}} (T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+RE)
+\item 
+static \mbox{\hyperlink{test__firmware_8c_ae6b1e164ebd666656211432806955115}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (test\+\_\+fw\+\_\+mutex)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static const struct \mbox{\hyperlink{structfirmware}{firmware}} $\ast$ \mbox{\hyperlink{test__firmware_8c_afadeca686978fefdddefc0c214ecf6c4}{test\+\_\+firmware}}
+\end{DoxyCompactItemize}
+\doxysubsection*{\+: the name of the firmware file to look for}
+\label{_amgrpc17bf3148f02f535added51dfa838115}%
+\mbox{\hyperlink{structtest__config}{test\+\_\+config}} -\/ represents configuration for the test for different triggers
+
+@into\+\_\+buf\+: when the into\+\_\+buf is used if this is true \mbox{\hyperlink{firmware_8h_a8e104ee0342b0a2a202717bfe39b2585}{request\+\_\+firmware\+\_\+into\+\_\+buf()}} will be used instead. @buf\+\_\+size\+: size of buf to allocate when into\+\_\+buf is true @file\+\_\+offset\+: file offset to request when calling request\+\_\+firmware\+\_\+into\+\_\+buf @partial\+: partial read opt when calling request\+\_\+firmware\+\_\+into\+\_\+buf @sync\+\_\+direct\+: when the sync trigger is used if this is true \mbox{\hyperlink{firmware_8h_a29560c29ec89f95f3a2fa68401cc4918}{request\+\_\+firmware\+\_\+direct()}} will be used instead. @send\+\_\+uevent\+: whether or not to send a uevent for async requests @num\+\_\+requests\+: number of requests to try per test case. This is trigger specific. @reqs\+: stores all requests information @read\+\_\+fw\+\_\+idx\+: index of thread from which we want to read firmware results from through the read\+\_\+fw trigger. @test\+\_\+result\+: a test may use this to collect the result from the call of the request\+\_\+firmware$\ast$() calls used in their tests. In order of priority we always keep first any setup error. If no setup errors were found then we move on to the first error encountered while running the A\+PI. Note that for async calls this typically will be a successful result (0) unless of course you\textquotesingle{}ve used bogus parameters, or the system is out of memory. In the async case the callback is expected to do a bit more homework to figure out what happened, unfortunately the only information passed today on error is the fact that no firmware was found so we can only assume -\/E\+N\+O\+E\+NT on async calls if the firmware is N\+U\+LL.
+
+Errors you can expect\+:
+
+A\+PI specific\+:
+
+0\+: success for sync, for async it means request was sent -\/E\+I\+N\+V\+AL\+: invalid parameters or request -\/E\+N\+O\+E\+NT\+: files not found
+
+System environment\+:
+
+-\/E\+N\+O\+M\+EM\+: memory pressure on system -\/E\+N\+O\+D\+EV\+: out of number of devices to test -\/E\+I\+N\+V\+AL\+: an unexpected error has occurred @req\+\_\+firmware\+: if @sync\+\_\+direct is true this is set to \mbox{\hyperlink{firmware_8h_a29560c29ec89f95f3a2fa68401cc4918}{request\+\_\+firmware\+\_\+direct()}}, otherwise \mbox{\hyperlink{firmware_8h_a4508e4a1a1ba8917af851f51690d6f47}{request\+\_\+firmware()}} \begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{test__firmware_8c_ac5e379883c0ba802c3a34bbd7e49940e}{T\+E\+S\+T\+\_\+\+F\+W\+\_\+\+D\+E\+V\+\_\+\+A\+T\+TR}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}})~\&dev\+\_\+attr\+\_\+\#\#\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{name.\+attr}}
+\item 
+static struct \mbox{\hyperlink{structtest__config}{test\+\_\+config}} $\ast$ \mbox{\hyperlink{test__firmware_8c_ae86c03f9746a4dc188fe17ea0cda9db5}{test\+\_\+fw\+\_\+config}}
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{test__firmware_8c_acc0311ddb201f5d64570cdfe2172e030}{test\+\_\+fw\+\_\+fops}}
+\item 
+static struct \mbox{\hyperlink{structattribute}{attribute}} $\ast$ \mbox{\hyperlink{test__firmware_8c_a1b3714934a7ca522f577d99fac85729e}{test\+\_\+dev\+\_\+attrs}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structmiscdevice}{miscdevice}} \mbox{\hyperlink{test__firmware_8c_a9776fcfe0f92ce8765b1cb46b3cdf523}{test\+\_\+fw\+\_\+misc\+\_\+device}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_adf4c4de3a3dc32c3fd2d2fb425f45e1d}{test\+\_\+fw\+\_\+misc\+\_\+read}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_add955a53b78465a0b2e692b0795c9bd2}{f}}, char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, loff\+\_\+t $\ast$\mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static void \mbox{\hyperlink{test__firmware_8c_a050349820017fc91e848671652c71d8f}{\+\_\+\+\_\+test\+\_\+release\+\_\+all\+\_\+firmware}} (void)
+\item 
+static void \mbox{\hyperlink{test__firmware_8c_a965da1ad1581c56a3c039a03d0aedceb}{test\+\_\+release\+\_\+all\+\_\+firmware}} (void)
+\item 
+static void \mbox{\hyperlink{test__firmware_8c_a63539f28a085345befc51e79db25f4da}{\+\_\+\+\_\+test\+\_\+firmware\+\_\+config\+\_\+free}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__firmware_8c_abfe7d336b0564b4e6f0a0415f0d80a17}{\+\_\+\+\_\+kstrncpy}} (char $\ast$$\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__firmware_8c_a6d5d4bcbb29a0aa147e7f33d9aa4d000}{\+\_\+\+\_\+test\+\_\+firmware\+\_\+config\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ac3b3e1f93e8c9fca6ddfe3be9df799c7}{reset\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a1eaa14e54611d58007fa1feccf539f0b}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO}} (reset)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_aba83447dc7283569b45a3a925246f407}{config\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_abcf1552f90f042d7e218cc8b01e0c5d8}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RO}} (\mbox{\hyperlink{deflate_8c_a2e56afa64412e0b968cb288a6d1278ba}{config}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ae88dd05eb3a22512172f07275e552568}{config\+\_\+name\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ad3e0c4f3affc7770b2dc1d9cd48d7090}{config\+\_\+test\+\_\+show\+\_\+str}} (char $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, char $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__firmware_8c_aa9f962ce08d8f718a90666557a1b892f}{test\+\_\+dev\+\_\+config\+\_\+update\+\_\+bool}} (const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$\mbox{\hyperlink{qman_8h_aaa443a27e2e72392ab29cc186a40656f}{cfg}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a5f2cf676b56f471edb6317f5795afaed}{test\+\_\+dev\+\_\+config\+\_\+show\+\_\+bool}} (char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__firmware_8c_a843e5cb05e0ceeeaf9a2e2dd49f59427}{test\+\_\+dev\+\_\+config\+\_\+update\+\_\+size\+\_\+t}} (const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$\mbox{\hyperlink{qman_8h_aaa443a27e2e72392ab29cc186a40656f}{cfg}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_acdb3c7c16950fe26920ee81427d4c00e}{test\+\_\+dev\+\_\+config\+\_\+show\+\_\+size\+\_\+t}} (char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a9a3884f97cc5a95abb366f3c3b7ef9a5}{test\+\_\+dev\+\_\+config\+\_\+show\+\_\+int}} (char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__firmware_8c_adb54d427fbc96e15b41b906d0b8ee919}{test\+\_\+dev\+\_\+config\+\_\+update\+\_\+u8}} (const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{qman_8h_aaa443a27e2e72392ab29cc186a40656f}{cfg}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_af3c3dacf56648a7f90aa4155cb819ac8}{test\+\_\+dev\+\_\+config\+\_\+show\+\_\+u8}} (char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a401b567b58e3d05062cb3b56c7c8a0de}{config\+\_\+name\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_af27061f53c581946dfa9795d85aed34d}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+name)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a70291732d13f419f8da81f9e2eec3bfd}{config\+\_\+num\+\_\+requests\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ac3e713d6495a2b5916cec76705c36a6b}{config\+\_\+num\+\_\+requests\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a4b16625507ca1a0afe3b9dcdf95d0c58}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+num\+\_\+requests)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a67a8c66fb2f5067056b8d1a6df6fbbae}{config\+\_\+into\+\_\+buf\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a08ff2f909a08044f9a07b9bfc1df6eb6}{config\+\_\+into\+\_\+buf\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_ad76645673cf6cf3eb59791b8ab1b14c1}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+into\+\_\+buf)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ae005b1f4b1f06a9fb04120f0843f210a}{config\+\_\+buf\+\_\+size\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a7951a55141608baaec93a36135e3f7d0}{config\+\_\+buf\+\_\+size\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a239db97d8cb785a361152b3582d61be1}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+buf\+\_\+size)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_adda1b32b7b2fb808029817236d7c3f76}{config\+\_\+file\+\_\+offset\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a26923a6d8fa12bc97dfbeac1bba53d5e}{config\+\_\+file\+\_\+offset\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a9b3d09ec991665d4e75837db0e338420}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+file\+\_\+offset)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ad4f78c49562317d8e191cb0e7b35dc81}{config\+\_\+partial\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a16ab2362d591896fc2cd4079425673f8}{config\+\_\+partial\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a9eb1e1a65f185ca523b3ebfffa18351e}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+partial)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a8017a8b405c53c9c2a5d09e6aaf9834d}{config\+\_\+sync\+\_\+direct\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a4a678943bd4f2c3958c3a1becd772695}{config\+\_\+sync\+\_\+direct\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a3eff92cb0fc81117adbcb7475b3d14c3}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+sync\+\_\+direct)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a016b444a89165f61db39cf960354b88d}{config\+\_\+send\+\_\+uevent\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a62e8fac40815de2941f9e26f9b339922}{config\+\_\+send\+\_\+uevent\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_af1f4d403e6a005543ec6a2f160aad2c6}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+send\+\_\+uevent)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a41039a4df70f3bf59f6c8b77bbdf2794}{config\+\_\+read\+\_\+fw\+\_\+idx\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a2b977628d02679d7b74ece922fa1654b}{config\+\_\+read\+\_\+fw\+\_\+idx\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_ad6db966137ea499b98313016bc6639bb}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW}} (config\+\_\+read\+\_\+fw\+\_\+idx)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a8fa62c4975cf6cff2bdc9120c5f978ba}{trigger\+\_\+request\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a9820a01302fb4cee6dfc173f5b8a2792}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO}} (trigger\+\_\+request)
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a2417b1bfb70db8a6b1e7e81d7eed5622}{D\+E\+C\+L\+A\+R\+E\+\_\+\+C\+O\+M\+P\+L\+E\+T\+I\+ON}} (async\+\_\+fw\+\_\+done)
+\item 
+static void \mbox{\hyperlink{test__firmware_8c_a58da2727fc297f4d1a71b4448cabb064}{trigger\+\_\+async\+\_\+request\+\_\+cb}} (const struct \mbox{\hyperlink{structfirmware}{firmware}} $\ast$fw, void $\ast$\mbox{\hyperlink{severity_8c_a10d46942cd2d27638642d7ee1dc3af9b}{context}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a9d26da0316654d65ad1a2afe9476cccf}{trigger\+\_\+async\+\_\+request\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a71d56966b65608dc307228aedae80cb7}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO}} (trigger\+\_\+async\+\_\+request)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a7eed4a2277e063e1dedc7f19ed62a36b}{trigger\+\_\+custom\+\_\+fallback\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a19529ea1fe1834f266415b5a3a16b43e}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO}} (trigger\+\_\+custom\+\_\+fallback)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__firmware_8c_a6068f019d39feb5d41d339ba700b8f6e}{test\+\_\+fw\+\_\+run\+\_\+batch\+\_\+request}} (void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ad701b1478fb105784a27ea58fc69d719}{trigger\+\_\+batched\+\_\+requests\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a22e6ff859491ba8ac906a4212c70a00b}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO}} (trigger\+\_\+batched\+\_\+requests)
+\item 
+static void \mbox{\hyperlink{test__firmware_8c_a07c3c6def26163bc6310ed68aed431c7}{trigger\+\_\+batched\+\_\+cb}} (const struct \mbox{\hyperlink{structfirmware}{firmware}} $\ast$fw, void $\ast$\mbox{\hyperlink{severity_8c_a10d46942cd2d27638642d7ee1dc3af9b}{context}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a0021c22d737bde5dbdee64ac6fe4687b}{trigger\+\_\+batched\+\_\+requests\+\_\+async\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_aa7010b8e971f4382e8315cdde86b3829}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO}} (trigger\+\_\+batched\+\_\+requests\+\_\+async)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_ad27f88a40a06708edb3b2a15d743d9b0}{test\+\_\+result\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a1a125899cd9a2b93e7c3f826570c9386}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RO}} (test\+\_\+result)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_a37c29332a20e2884de1dd6e91e5cccf3}{release\+\_\+all\+\_\+firmware\+\_\+store}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, const char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{decode__rs_8c_ae11b3deb3de3df7dc48e439074023e35}{count}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_a57b0c6eebf0e1e335ca667000f1c9e21}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO}} (release\+\_\+all\+\_\+firmware)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{test__firmware_8c_aa3d9ab465ce7d3222d699adcdc911227}{read\+\_\+firmware\+\_\+show}} (struct \mbox{\hyperlink{structdevice}{device}} $\ast$\mbox{\hyperlink{test__bpf_8c_a867f8bd8ad82924001446341fe1ec5fd}{dev}}, struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{attr}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}})
+\item 
+static \mbox{\hyperlink{test__firmware_8c_ae628ae1caed3f37a06a141bad5f3ff86}{D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RO}} (read\+\_\+firmware)
+\item 
+\mbox{\hyperlink{test__firmware_8c_af20c7e211c0937bc220257b0278c01bb}{A\+T\+T\+R\+I\+B\+U\+T\+E\+\_\+\+G\+R\+O\+U\+PS}} (test\+\_\+dev)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{test__firmware_8c_a15baeb053647e2c7cb1d1dd9591b88ce}{test\+\_\+firmware\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{test__firmware_8c_a66bc40cd05cfa5d85376ccc5cdbb0d1d}{module\+\_\+init}} (\mbox{\hyperlink{test__firmware_8c_a15baeb053647e2c7cb1d1dd9591b88ce}{test\+\_\+firmware\+\_\+init}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} \mbox{\hyperlink{test__firmware_8c_aaa510f8203e9601a69b8d99b6442e7c3}{test\+\_\+firmware\+\_\+exit}} (void)
+\item 
+\mbox{\hyperlink{test__firmware_8c_ad01aca72e9d8af3dd619291a18731e27}{module\+\_\+exit}} (\mbox{\hyperlink{test__firmware_8c_aaa510f8203e9601a69b8d99b6442e7c3}{test\+\_\+firmware\+\_\+exit}})
+\item 
+\mbox{\hyperlink{test__firmware_8c_aa029076839e645699b26422dc54fe034}{M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR}} (\char`\"{}Kees Cook $<$keescook@chromium.\+org$>$\char`\"{})
+\item 
+\mbox{\hyperlink{test__firmware_8c_ad94b36675e7eb067ea3ce6ff9e244a44}{M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE}} (\char`\"{}G\+PL\char`\"{})
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{test__firmware_8c_a1f8c165bf4196327bc3abff648276d92}\label{test__firmware_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{test\_firmware.c@{test\_firmware.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{test__firmware_8c_a886a8e0e086b4b7c2e9efb435fa9e228}\label{test__firmware_8c_a886a8e0e086b4b7c2e9efb435fa9e228}} 
+\index{test\_firmware.c@{test\_firmware.c}!TEST\_FIRMWARE\_BUF\_SIZE@{TEST\_FIRMWARE\_BUF\_SIZE}}
+\index{TEST\_FIRMWARE\_BUF\_SIZE@{TEST\_FIRMWARE\_BUF\_SIZE}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{TEST\_FIRMWARE\_BUF\_SIZE}{TEST\_FIRMWARE\_BUF\_SIZE}}
+{\footnotesize\ttfamily \#define T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+R\+E\+\_\+\+B\+U\+F\+\_\+\+S\+I\+ZE~\mbox{\hyperlink{sizes_8h_a7e599bec730727fcede473d097e0bf31}{S\+Z\+\_\+1K}}}
+
+\mbox{\Hypertarget{test__firmware_8c_ad9573f1277f371be34854c9d2d670cab}\label{test__firmware_8c_ad9573f1277f371be34854c9d2d670cab}} 
+\index{test\_firmware.c@{test\_firmware.c}!TEST\_FIRMWARE\_NAME@{TEST\_FIRMWARE\_NAME}}
+\index{TEST\_FIRMWARE\_NAME@{TEST\_FIRMWARE\_NAME}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{TEST\_FIRMWARE\_NAME}{TEST\_FIRMWARE\_NAME}}
+{\footnotesize\ttfamily \#define T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+R\+E\+\_\+\+N\+A\+ME~\char`\"{}test-\/firmware.\+bin\char`\"{}}
+
+\mbox{\Hypertarget{test__firmware_8c_a091653f50ea8180a53c79b5bac689685}\label{test__firmware_8c_a091653f50ea8180a53c79b5bac689685}} 
+\index{test\_firmware.c@{test\_firmware.c}!TEST\_FIRMWARE\_NUM\_REQS@{TEST\_FIRMWARE\_NUM\_REQS}}
+\index{TEST\_FIRMWARE\_NUM\_REQS@{TEST\_FIRMWARE\_NUM\_REQS}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{TEST\_FIRMWARE\_NUM\_REQS}{TEST\_FIRMWARE\_NUM\_REQS}}
+{\footnotesize\ttfamily \#define T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+R\+E\+\_\+\+N\+U\+M\+\_\+\+R\+E\+QS~4}
+
+\mbox{\Hypertarget{test__firmware_8c_ac5e379883c0ba802c3a34bbd7e49940e}\label{test__firmware_8c_ac5e379883c0ba802c3a34bbd7e49940e}} 
+\index{test\_firmware.c@{test\_firmware.c}!TEST\_FW\_DEV\_ATTR@{TEST\_FW\_DEV\_ATTR}}
+\index{TEST\_FW\_DEV\_ATTR@{TEST\_FW\_DEV\_ATTR}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{TEST\_FW\_DEV\_ATTR}{TEST\_FW\_DEV\_ATTR}}
+{\footnotesize\ttfamily \#define T\+E\+S\+T\+\_\+\+F\+W\+\_\+\+D\+E\+V\+\_\+\+A\+T\+TR(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}} }\end{DoxyParamCaption})~\&dev\+\_\+attr\+\_\+\#\#\mbox{\hyperlink{fault-inject-usercopy_8c_a0a9213a0794a3dd338d6c351e9592acb}{name.\+attr}}}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{test__firmware_8c_abfe7d336b0564b4e6f0a0415f0d80a17}\label{test__firmware_8c_abfe7d336b0564b4e6f0a0415f0d80a17}} 
+\index{test\_firmware.c@{test\_firmware.c}!\_\_kstrncpy@{\_\_kstrncpy}}
+\index{\_\_kstrncpy@{\_\_kstrncpy}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kstrncpy()}{\_\_kstrncpy()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+kstrncpy (\begin{DoxyParamCaption}\item[{char $\ast$$\ast$}]{dst,  }\item[{const char $\ast$}]{name,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{test__firmware_8c_a63539f28a085345befc51e79db25f4da}\label{test__firmware_8c_a63539f28a085345befc51e79db25f4da}} 
+\index{test\_firmware.c@{test\_firmware.c}!\_\_test\_firmware\_config\_free@{\_\_test\_firmware\_config\_free}}
+\index{\_\_test\_firmware\_config\_free@{\_\_test\_firmware\_config\_free}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{\_\_test\_firmware\_config\_free()}{\_\_test\_firmware\_config\_free()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+test\+\_\+firmware\+\_\+config\+\_\+free (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{test__firmware_8c_a6d5d4bcbb29a0aa147e7f33d9aa4d000}\label{test__firmware_8c_a6d5d4bcbb29a0aa147e7f33d9aa4d000}} 
+\index{test\_firmware.c@{test\_firmware.c}!\_\_test\_firmware\_config\_init@{\_\_test\_firmware\_config\_init}}
+\index{\_\_test\_firmware\_config\_init@{\_\_test\_firmware\_config\_init}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{\_\_test\_firmware\_config\_init()}{\_\_test\_firmware\_config\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+test\+\_\+firmware\+\_\+config\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{test__firmware_8c_a050349820017fc91e848671652c71d8f}\label{test__firmware_8c_a050349820017fc91e848671652c71d8f}} 
+\index{test\_firmware.c@{test\_firmware.c}!\_\_test\_release\_all\_firmware@{\_\_test\_release\_all\_firmware}}
+\index{\_\_test\_release\_all\_firmware@{\_\_test\_release\_all\_firmware}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{\_\_test\_release\_all\_firmware()}{\_\_test\_release\_all\_firmware()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+test\+\_\+release\+\_\+all\+\_\+firmware (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{test__firmware_8c_af20c7e211c0937bc220257b0278c01bb}\label{test__firmware_8c_af20c7e211c0937bc220257b0278c01bb}} 
+\index{test\_firmware.c@{test\_firmware.c}!ATTRIBUTE\_GROUPS@{ATTRIBUTE\_GROUPS}}
+\index{ATTRIBUTE\_GROUPS@{ATTRIBUTE\_GROUPS}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{ATTRIBUTE\_GROUPS()}{ATTRIBUTE\_GROUPS()}}
+{\footnotesize\ttfamily A\+T\+T\+R\+I\+B\+U\+T\+E\+\_\+\+G\+R\+O\+U\+PS (\begin{DoxyParamCaption}\item[{test\+\_\+dev}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{test__firmware_8c_a7951a55141608baaec93a36135e3f7d0}\label{test__firmware_8c_a7951a55141608baaec93a36135e3f7d0}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_buf\_size\_show@{config\_buf\_size\_show}}
+\index{config\_buf\_size\_show@{config\_buf\_size\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_buf\_size\_show()}{config\_buf\_size\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+buf\+\_\+size\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{test__firmware_8c_ae005b1f4b1f06a9fb04120f0843f210a}\label{test__firmware_8c_ae005b1f4b1f06a9fb04120f0843f210a}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_buf\_size\_store@{config\_buf\_size\_store}}
+\index{config\_buf\_size\_store@{config\_buf\_size\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_buf\_size\_store()}{config\_buf\_size\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+buf\+\_\+size\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{test__firmware_8c_a26923a6d8fa12bc97dfbeac1bba53d5e}\label{test__firmware_8c_a26923a6d8fa12bc97dfbeac1bba53d5e}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_file\_offset\_show@{config\_file\_offset\_show}}
+\index{config\_file\_offset\_show@{config\_file\_offset\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_file\_offset\_show()}{config\_file\_offset\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+file\+\_\+offset\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{test__firmware_8c_adda1b32b7b2fb808029817236d7c3f76}\label{test__firmware_8c_adda1b32b7b2fb808029817236d7c3f76}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_file\_offset\_store@{config\_file\_offset\_store}}
+\index{config\_file\_offset\_store@{config\_file\_offset\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_file\_offset\_store()}{config\_file\_offset\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+file\+\_\+offset\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{test__firmware_8c_a08ff2f909a08044f9a07b9bfc1df6eb6}\label{test__firmware_8c_a08ff2f909a08044f9a07b9bfc1df6eb6}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_into\_buf\_show@{config\_into\_buf\_show}}
+\index{config\_into\_buf\_show@{config\_into\_buf\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_into\_buf\_show()}{config\_into\_buf\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+into\+\_\+buf\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{test__firmware_8c_a67a8c66fb2f5067056b8d1a6df6fbbae}\label{test__firmware_8c_a67a8c66fb2f5067056b8d1a6df6fbbae}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_into\_buf\_store@{config\_into\_buf\_store}}
+\index{config\_into\_buf\_store@{config\_into\_buf\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_into\_buf\_store()}{config\_into\_buf\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+into\+\_\+buf\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{test__firmware_8c_a401b567b58e3d05062cb3b56c7c8a0de}\label{test__firmware_8c_a401b567b58e3d05062cb3b56c7c8a0de}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_name\_show@{config\_name\_show}}
+\index{config\_name\_show@{config\_name\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_name\_show()}{config\_name\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+name\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{test__firmware_8c_ae88dd05eb3a22512172f07275e552568}\label{test__firmware_8c_ae88dd05eb3a22512172f07275e552568}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_name\_store@{config\_name\_store}}
+\index{config\_name\_store@{config\_name\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_name\_store()}{config\_name\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+name\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{test__firmware_8c_ac3e713d6495a2b5916cec76705c36a6b}\label{test__firmware_8c_ac3e713d6495a2b5916cec76705c36a6b}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_num\_requests\_show@{config\_num\_requests\_show}}
+\index{config\_num\_requests\_show@{config\_num\_requests\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_num\_requests\_show()}{config\_num\_requests\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+num\+\_\+requests\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{test__firmware_8c_a70291732d13f419f8da81f9e2eec3bfd}\label{test__firmware_8c_a70291732d13f419f8da81f9e2eec3bfd}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_num\_requests\_store@{config\_num\_requests\_store}}
+\index{config\_num\_requests\_store@{config\_num\_requests\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_num\_requests\_store()}{config\_num\_requests\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+num\+\_\+requests\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{test__firmware_8c_a16ab2362d591896fc2cd4079425673f8}\label{test__firmware_8c_a16ab2362d591896fc2cd4079425673f8}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_partial\_show@{config\_partial\_show}}
+\index{config\_partial\_show@{config\_partial\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_partial\_show()}{config\_partial\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+partial\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{test__firmware_8c_ad4f78c49562317d8e191cb0e7b35dc81}\label{test__firmware_8c_ad4f78c49562317d8e191cb0e7b35dc81}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_partial\_store@{config\_partial\_store}}
+\index{config\_partial\_store@{config\_partial\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_partial\_store()}{config\_partial\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+partial\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{test__firmware_8c_a2b977628d02679d7b74ece922fa1654b}\label{test__firmware_8c_a2b977628d02679d7b74ece922fa1654b}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_read\_fw\_idx\_show@{config\_read\_fw\_idx\_show}}
+\index{config\_read\_fw\_idx\_show@{config\_read\_fw\_idx\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_read\_fw\_idx\_show()}{config\_read\_fw\_idx\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+read\+\_\+fw\+\_\+idx\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{test__firmware_8c_a41039a4df70f3bf59f6c8b77bbdf2794}\label{test__firmware_8c_a41039a4df70f3bf59f6c8b77bbdf2794}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_read\_fw\_idx\_store@{config\_read\_fw\_idx\_store}}
+\index{config\_read\_fw\_idx\_store@{config\_read\_fw\_idx\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_read\_fw\_idx\_store()}{config\_read\_fw\_idx\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+read\+\_\+fw\+\_\+idx\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{test__firmware_8c_a62e8fac40815de2941f9e26f9b339922}\label{test__firmware_8c_a62e8fac40815de2941f9e26f9b339922}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_send\_uevent\_show@{config\_send\_uevent\_show}}
+\index{config\_send\_uevent\_show@{config\_send\_uevent\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_send\_uevent\_show()}{config\_send\_uevent\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+send\+\_\+uevent\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{test__firmware_8c_a016b444a89165f61db39cf960354b88d}\label{test__firmware_8c_a016b444a89165f61db39cf960354b88d}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_send\_uevent\_store@{config\_send\_uevent\_store}}
+\index{config\_send\_uevent\_store@{config\_send\_uevent\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_send\_uevent\_store()}{config\_send\_uevent\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+send\+\_\+uevent\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{test__firmware_8c_aba83447dc7283569b45a3a925246f407}\label{test__firmware_8c_aba83447dc7283569b45a3a925246f407}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_show@{config\_show}}
+\index{config\_show@{config\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_show()}{config\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{test__firmware_8c_a4a678943bd4f2c3958c3a1becd772695}\label{test__firmware_8c_a4a678943bd4f2c3958c3a1becd772695}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_sync\_direct\_show@{config\_sync\_direct\_show}}
+\index{config\_sync\_direct\_show@{config\_sync\_direct\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_sync\_direct\_show()}{config\_sync\_direct\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+sync\+\_\+direct\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{test__firmware_8c_a8017a8b405c53c9c2a5d09e6aaf9834d}\label{test__firmware_8c_a8017a8b405c53c9c2a5d09e6aaf9834d}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_sync\_direct\_store@{config\_sync\_direct\_store}}
+\index{config\_sync\_direct\_store@{config\_sync\_direct\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_sync\_direct\_store()}{config\_sync\_direct\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+sync\+\_\+direct\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{test__firmware_8c_ad3e0c4f3affc7770b2dc1d9cd48d7090}\label{test__firmware_8c_ad3e0c4f3affc7770b2dc1d9cd48d7090}} 
+\index{test\_firmware.c@{test\_firmware.c}!config\_test\_show\_str@{config\_test\_show\_str}}
+\index{config\_test\_show\_str@{config\_test\_show\_str}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{config\_test\_show\_str()}{config\_test\_show\_str()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} config\+\_\+test\+\_\+show\+\_\+str (\begin{DoxyParamCaption}\item[{char $\ast$}]{dst,  }\item[{char $\ast$}]{src }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{test__firmware_8c_a2417b1bfb70db8a6b1e7e81d7eed5622}\label{test__firmware_8c_a2417b1bfb70db8a6b1e7e81d7eed5622}} 
+\index{test\_firmware.c@{test\_firmware.c}!DECLARE\_COMPLETION@{DECLARE\_COMPLETION}}
+\index{DECLARE\_COMPLETION@{DECLARE\_COMPLETION}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_COMPLETION()}{DECLARE\_COMPLETION()}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+C\+O\+M\+P\+L\+E\+T\+I\+ON (\begin{DoxyParamCaption}\item[{async\+\_\+fw\+\_\+done}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_ae6b1e164ebd666656211432806955115}\label{test__firmware_8c_ae6b1e164ebd666656211432806955115}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{test\+\_\+fw\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_abcf1552f90f042d7e218cc8b01e0c5d8}\label{test__firmware_8c_abcf1552f90f042d7e218cc8b01e0c5d8}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RO@{DEVICE\_ATTR\_RO}}
+\index{DEVICE\_ATTR\_RO@{DEVICE\_ATTR\_RO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RO()}{DEVICE\_ATTR\_RO()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RO (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{deflate_8c_a2e56afa64412e0b968cb288a6d1278ba}{config}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_ae628ae1caed3f37a06a141bad5f3ff86}\label{test__firmware_8c_ae628ae1caed3f37a06a141bad5f3ff86}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RO@{DEVICE\_ATTR\_RO}}
+\index{DEVICE\_ATTR\_RO@{DEVICE\_ATTR\_RO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RO()}{DEVICE\_ATTR\_RO()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RO (\begin{DoxyParamCaption}\item[{read\+\_\+firmware}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a1a125899cd9a2b93e7c3f826570c9386}\label{test__firmware_8c_a1a125899cd9a2b93e7c3f826570c9386}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RO@{DEVICE\_ATTR\_RO}}
+\index{DEVICE\_ATTR\_RO@{DEVICE\_ATTR\_RO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RO()}{DEVICE\_ATTR\_RO()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RO (\begin{DoxyParamCaption}\item[{test\+\_\+result}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a239db97d8cb785a361152b3582d61be1}\label{test__firmware_8c_a239db97d8cb785a361152b3582d61be1}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [1/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+buf\+\_\+size}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a9b3d09ec991665d4e75837db0e338420}\label{test__firmware_8c_a9b3d09ec991665d4e75837db0e338420}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [2/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+file\+\_\+offset}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_ad76645673cf6cf3eb59791b8ab1b14c1}\label{test__firmware_8c_ad76645673cf6cf3eb59791b8ab1b14c1}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [3/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+into\+\_\+buf}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_af27061f53c581946dfa9795d85aed34d}\label{test__firmware_8c_af27061f53c581946dfa9795d85aed34d}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [4/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+name}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a4b16625507ca1a0afe3b9dcdf95d0c58}\label{test__firmware_8c_a4b16625507ca1a0afe3b9dcdf95d0c58}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [5/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+num\+\_\+requests}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a9eb1e1a65f185ca523b3ebfffa18351e}\label{test__firmware_8c_a9eb1e1a65f185ca523b3ebfffa18351e}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [6/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+partial}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_ad6db966137ea499b98313016bc6639bb}\label{test__firmware_8c_ad6db966137ea499b98313016bc6639bb}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [7/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+read\+\_\+fw\+\_\+idx}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_af1f4d403e6a005543ec6a2f160aad2c6}\label{test__firmware_8c_af1f4d403e6a005543ec6a2f160aad2c6}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [8/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+send\+\_\+uevent}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a3eff92cb0fc81117adbcb7475b3d14c3}\label{test__firmware_8c_a3eff92cb0fc81117adbcb7475b3d14c3}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}}
+\index{DEVICE\_ATTR\_RW@{DEVICE\_ATTR\_RW}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_RW()}{DEVICE\_ATTR\_RW()}\hspace{0.1cm}{\footnotesize\ttfamily [9/9]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+RW (\begin{DoxyParamCaption}\item[{config\+\_\+sync\+\_\+direct}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a57b0c6eebf0e1e335ca667000f1c9e21}\label{test__firmware_8c_a57b0c6eebf0e1e335ca667000f1c9e21}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}}
+\index{DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_WO()}{DEVICE\_ATTR\_WO()}\hspace{0.1cm}{\footnotesize\ttfamily [1/7]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO (\begin{DoxyParamCaption}\item[{release\+\_\+all\+\_\+firmware}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a1eaa14e54611d58007fa1feccf539f0b}\label{test__firmware_8c_a1eaa14e54611d58007fa1feccf539f0b}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}}
+\index{DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_WO()}{DEVICE\_ATTR\_WO()}\hspace{0.1cm}{\footnotesize\ttfamily [2/7]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO (\begin{DoxyParamCaption}\item[{reset}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a71d56966b65608dc307228aedae80cb7}\label{test__firmware_8c_a71d56966b65608dc307228aedae80cb7}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}}
+\index{DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_WO()}{DEVICE\_ATTR\_WO()}\hspace{0.1cm}{\footnotesize\ttfamily [3/7]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO (\begin{DoxyParamCaption}\item[{trigger\+\_\+async\+\_\+request}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a22e6ff859491ba8ac906a4212c70a00b}\label{test__firmware_8c_a22e6ff859491ba8ac906a4212c70a00b}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}}
+\index{DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_WO()}{DEVICE\_ATTR\_WO()}\hspace{0.1cm}{\footnotesize\ttfamily [4/7]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO (\begin{DoxyParamCaption}\item[{trigger\+\_\+batched\+\_\+requests}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_aa7010b8e971f4382e8315cdde86b3829}\label{test__firmware_8c_aa7010b8e971f4382e8315cdde86b3829}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}}
+\index{DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_WO()}{DEVICE\_ATTR\_WO()}\hspace{0.1cm}{\footnotesize\ttfamily [5/7]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO (\begin{DoxyParamCaption}\item[{trigger\+\_\+batched\+\_\+requests\+\_\+async}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a19529ea1fe1834f266415b5a3a16b43e}\label{test__firmware_8c_a19529ea1fe1834f266415b5a3a16b43e}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}}
+\index{DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_WO()}{DEVICE\_ATTR\_WO()}\hspace{0.1cm}{\footnotesize\ttfamily [6/7]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO (\begin{DoxyParamCaption}\item[{trigger\+\_\+custom\+\_\+fallback}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_a9820a01302fb4cee6dfc173f5b8a2792}\label{test__firmware_8c_a9820a01302fb4cee6dfc173f5b8a2792}} 
+\index{test\_firmware.c@{test\_firmware.c}!DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}}
+\index{DEVICE\_ATTR\_WO@{DEVICE\_ATTR\_WO}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{DEVICE\_ATTR\_WO()}{DEVICE\_ATTR\_WO()}\hspace{0.1cm}{\footnotesize\ttfamily [7/7]}}
+{\footnotesize\ttfamily static D\+E\+V\+I\+C\+E\+\_\+\+A\+T\+T\+R\+\_\+\+WO (\begin{DoxyParamCaption}\item[{trigger\+\_\+request}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_aa029076839e645699b26422dc54fe034}\label{test__firmware_8c_aa029076839e645699b26422dc54fe034}} 
+\index{test\_firmware.c@{test\_firmware.c}!MODULE\_AUTHOR@{MODULE\_AUTHOR}}
+\index{MODULE\_AUTHOR@{MODULE\_AUTHOR}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_AUTHOR()}{MODULE\_AUTHOR()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR (\begin{DoxyParamCaption}\item[{\char`\"{}Kees Cook $<$keescook@chromium.\+org$>$\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{test__firmware_8c_ad01aca72e9d8af3dd619291a18731e27}\label{test__firmware_8c_ad01aca72e9d8af3dd619291a18731e27}} 
+\index{test\_firmware.c@{test\_firmware.c}!module\_exit@{module\_exit}}
+\index{module\_exit@{module\_exit}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{module\_exit()}{module\_exit()}}
+{\footnotesize\ttfamily module\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{test__firmware_8c_aaa510f8203e9601a69b8d99b6442e7c3}{test\+\_\+firmware\+\_\+exit}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{test__firmware_8c_a2ae7133aeea7b5306e3b1250d3ba3c3a}\label{test__firmware_8c_a2ae7133aeea7b5306e3b1250d3ba3c3a}} 
+\index{test\_firmware.c@{test\_firmware.c}!MODULE\_IMPORT\_NS@{MODULE\_IMPORT\_NS}}
+\index{MODULE\_IMPORT\_NS@{MODULE\_IMPORT\_NS}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_IMPORT\_NS()}{MODULE\_IMPORT\_NS()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+I\+M\+P\+O\+R\+T\+\_\+\+NS (\begin{DoxyParamCaption}\item[{T\+E\+S\+T\+\_\+\+F\+I\+R\+M\+W\+A\+RE}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{test__firmware_8c_a66bc40cd05cfa5d85376ccc5cdbb0d1d}\label{test__firmware_8c_a66bc40cd05cfa5d85376ccc5cdbb0d1d}} 
+\index{test\_firmware.c@{test\_firmware.c}!module\_init@{module\_init}}
+\index{module\_init@{module\_init}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{module\_init()}{module\_init()}}
+{\footnotesize\ttfamily module\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{test__firmware_8c_a15baeb053647e2c7cb1d1dd9591b88ce}{test\+\_\+firmware\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{test__firmware_8c_ad94b36675e7eb067ea3ce6ff9e244a44}\label{test__firmware_8c_ad94b36675e7eb067ea3ce6ff9e244a44}} 
+\index{test\_firmware.c@{test\_firmware.c}!MODULE\_LICENSE@{MODULE\_LICENSE}}
+\index{MODULE\_LICENSE@{MODULE\_LICENSE}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_LICENSE()}{MODULE\_LICENSE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE (\begin{DoxyParamCaption}\item[{\char`\"{}G\+PL\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{test__firmware_8c_aa3d9ab465ce7d3222d699adcdc911227}\label{test__firmware_8c_aa3d9ab465ce7d3222d699adcdc911227}} 
+\index{test\_firmware.c@{test\_firmware.c}!read\_firmware\_show@{read\_firmware\_show}}
+\index{read\_firmware\_show@{read\_firmware\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{read\_firmware\_show()}{read\_firmware\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} read\+\_\+firmware\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{test__firmware_8c_a37c29332a20e2884de1dd6e91e5cccf3}\label{test__firmware_8c_a37c29332a20e2884de1dd6e91e5cccf3}} 
+\index{test\_firmware.c@{test\_firmware.c}!release\_all\_firmware\_store@{release\_all\_firmware\_store}}
+\index{release\_all\_firmware\_store@{release\_all\_firmware\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{release\_all\_firmware\_store()}{release\_all\_firmware\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} release\+\_\+all\+\_\+firmware\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{test__firmware_8c_ac3b3e1f93e8c9fca6ddfe3be9df799c7}\label{test__firmware_8c_ac3b3e1f93e8c9fca6ddfe3be9df799c7}} 
+\index{test\_firmware.c@{test\_firmware.c}!reset\_store@{reset\_store}}
+\index{reset\_store@{reset\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{reset\_store()}{reset\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} reset\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{test__firmware_8c_a5f2cf676b56f471edb6317f5795afaed}\label{test__firmware_8c_a5f2cf676b56f471edb6317f5795afaed}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_config\_show\_bool@{test\_dev\_config\_show\_bool}}
+\index{test\_dev\_config\_show\_bool@{test\_dev\_config\_show\_bool}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_config\_show\_bool()}{test\_dev\_config\_show\_bool()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} test\+\_\+dev\+\_\+config\+\_\+show\+\_\+bool (\begin{DoxyParamCaption}\item[{char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{test__firmware_8c_a9a3884f97cc5a95abb366f3c3b7ef9a5}\label{test__firmware_8c_a9a3884f97cc5a95abb366f3c3b7ef9a5}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_config\_show\_int@{test\_dev\_config\_show\_int}}
+\index{test\_dev\_config\_show\_int@{test\_dev\_config\_show\_int}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_config\_show\_int()}{test\_dev\_config\_show\_int()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} test\+\_\+dev\+\_\+config\+\_\+show\+\_\+int (\begin{DoxyParamCaption}\item[{char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{test__firmware_8c_acdb3c7c16950fe26920ee81427d4c00e}\label{test__firmware_8c_acdb3c7c16950fe26920ee81427d4c00e}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_config\_show\_size\_t@{test\_dev\_config\_show\_size\_t}}
+\index{test\_dev\_config\_show\_size\_t@{test\_dev\_config\_show\_size\_t}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_config\_show\_size\_t()}{test\_dev\_config\_show\_size\_t()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} test\+\_\+dev\+\_\+config\+\_\+show\+\_\+size\+\_\+t (\begin{DoxyParamCaption}\item[{char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{test__firmware_8c_af3c3dacf56648a7f90aa4155cb819ac8}\label{test__firmware_8c_af3c3dacf56648a7f90aa4155cb819ac8}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_config\_show\_u8@{test\_dev\_config\_show\_u8}}
+\index{test\_dev\_config\_show\_u8@{test\_dev\_config\_show\_u8}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_config\_show\_u8()}{test\_dev\_config\_show\_u8()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} test\+\_\+dev\+\_\+config\+\_\+show\+\_\+u8 (\begin{DoxyParamCaption}\item[{char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{test__firmware_8c_aa9f962ce08d8f718a90666557a1b892f}\label{test__firmware_8c_aa9f962ce08d8f718a90666557a1b892f}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_config\_update\_bool@{test\_dev\_config\_update\_bool}}
+\index{test\_dev\_config\_update\_bool@{test\_dev\_config\_update\_bool}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_config\_update\_bool()}{test\_dev\_config\_update\_bool()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} test\+\_\+dev\+\_\+config\+\_\+update\+\_\+bool (\begin{DoxyParamCaption}\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} $\ast$}]{cfg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{test__firmware_8c_a843e5cb05e0ceeeaf9a2e2dd49f59427}\label{test__firmware_8c_a843e5cb05e0ceeeaf9a2e2dd49f59427}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_config\_update\_size\_t@{test\_dev\_config\_update\_size\_t}}
+\index{test\_dev\_config\_update\_size\_t@{test\_dev\_config\_update\_size\_t}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_config\_update\_size\_t()}{test\_dev\_config\_update\_size\_t()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} test\+\_\+dev\+\_\+config\+\_\+update\+\_\+size\+\_\+t (\begin{DoxyParamCaption}\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$}]{cfg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{test__firmware_8c_adb54d427fbc96e15b41b906d0b8ee919}\label{test__firmware_8c_adb54d427fbc96e15b41b906d0b8ee919}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_config\_update\_u8@{test\_dev\_config\_update\_u8}}
+\index{test\_dev\_config\_update\_u8@{test\_dev\_config\_update\_u8}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_config\_update\_u8()}{test\_dev\_config\_update\_u8()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} test\+\_\+dev\+\_\+config\+\_\+update\+\_\+u8 (\begin{DoxyParamCaption}\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{cfg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{test__firmware_8c_aaa510f8203e9601a69b8d99b6442e7c3}\label{test__firmware_8c_aaa510f8203e9601a69b8d99b6442e7c3}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_firmware\_exit@{test\_firmware\_exit}}
+\index{test\_firmware\_exit@{test\_firmware\_exit}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_firmware\_exit()}{test\_firmware\_exit()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} test\+\_\+firmware\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{test__firmware_8c_a15baeb053647e2c7cb1d1dd9591b88ce}\label{test__firmware_8c_a15baeb053647e2c7cb1d1dd9591b88ce}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_firmware\_init@{test\_firmware\_init}}
+\index{test\_firmware\_init@{test\_firmware\_init}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_firmware\_init()}{test\_firmware\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} test\+\_\+firmware\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{test__firmware_8c_adf4c4de3a3dc32c3fd2d2fb425f45e1d}\label{test__firmware_8c_adf4c4de3a3dc32c3fd2d2fb425f45e1d}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_fw\_misc\_read@{test\_fw\_misc\_read}}
+\index{test\_fw\_misc\_read@{test\_fw\_misc\_read}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_fw\_misc\_read()}{test\_fw\_misc\_read()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} test\+\_\+fw\+\_\+misc\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{f,  }\item[{char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{loff\+\_\+t $\ast$}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{test__firmware_8c_a6068f019d39feb5d41d339ba700b8f6e}\label{test__firmware_8c_a6068f019d39feb5d41d339ba700b8f6e}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_fw\_run\_batch\_request@{test\_fw\_run\_batch\_request}}
+\index{test\_fw\_run\_batch\_request@{test\_fw\_run\_batch\_request}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_fw\_run\_batch\_request()}{test\_fw\_run\_batch\_request()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} test\+\_\+fw\+\_\+run\+\_\+batch\+\_\+request (\begin{DoxyParamCaption}\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{test__firmware_8c_a965da1ad1581c56a3c039a03d0aedceb}\label{test__firmware_8c_a965da1ad1581c56a3c039a03d0aedceb}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_release\_all\_firmware@{test\_release\_all\_firmware}}
+\index{test\_release\_all\_firmware@{test\_release\_all\_firmware}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_release\_all\_firmware()}{test\_release\_all\_firmware()}}
+{\footnotesize\ttfamily static void test\+\_\+release\+\_\+all\+\_\+firmware (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{test__firmware_8c_ad27f88a40a06708edb3b2a15d743d9b0}\label{test__firmware_8c_ad27f88a40a06708edb3b2a15d743d9b0}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_result\_show@{test\_result\_show}}
+\index{test\_result\_show@{test\_result\_show}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_result\_show()}{test\_result\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} test\+\_\+result\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{char $\ast$}]{buf }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{test__firmware_8c_a58da2727fc297f4d1a71b4448cabb064}\label{test__firmware_8c_a58da2727fc297f4d1a71b4448cabb064}} 
+\index{test\_firmware.c@{test\_firmware.c}!trigger\_async\_request\_cb@{trigger\_async\_request\_cb}}
+\index{trigger\_async\_request\_cb@{trigger\_async\_request\_cb}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_async\_request\_cb()}{trigger\_async\_request\_cb()}}
+{\footnotesize\ttfamily static void trigger\+\_\+async\+\_\+request\+\_\+cb (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structfirmware}{firmware}} $\ast$}]{fw,  }\item[{void $\ast$}]{context }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{test__firmware_8c_a9d26da0316654d65ad1a2afe9476cccf}\label{test__firmware_8c_a9d26da0316654d65ad1a2afe9476cccf}} 
+\index{test\_firmware.c@{test\_firmware.c}!trigger\_async\_request\_store@{trigger\_async\_request\_store}}
+\index{trigger\_async\_request\_store@{trigger\_async\_request\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_async\_request\_store()}{trigger\_async\_request\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} trigger\+\_\+async\+\_\+request\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{test__firmware_8c_a07c3c6def26163bc6310ed68aed431c7}\label{test__firmware_8c_a07c3c6def26163bc6310ed68aed431c7}} 
+\index{test\_firmware.c@{test\_firmware.c}!trigger\_batched\_cb@{trigger\_batched\_cb}}
+\index{trigger\_batched\_cb@{trigger\_batched\_cb}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_batched\_cb()}{trigger\_batched\_cb()}}
+{\footnotesize\ttfamily static void trigger\+\_\+batched\+\_\+cb (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structfirmware}{firmware}} $\ast$}]{fw,  }\item[{void $\ast$}]{context }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{test__firmware_8c_a0021c22d737bde5dbdee64ac6fe4687b}\label{test__firmware_8c_a0021c22d737bde5dbdee64ac6fe4687b}} 
+\index{test\_firmware.c@{test\_firmware.c}!trigger\_batched\_requests\_async\_store@{trigger\_batched\_requests\_async\_store}}
+\index{trigger\_batched\_requests\_async\_store@{trigger\_batched\_requests\_async\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_batched\_requests\_async\_store()}{trigger\_batched\_requests\_async\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} trigger\+\_\+batched\+\_\+requests\+\_\+async\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{test__firmware_8c_ad701b1478fb105784a27ea58fc69d719}\label{test__firmware_8c_ad701b1478fb105784a27ea58fc69d719}} 
+\index{test\_firmware.c@{test\_firmware.c}!trigger\_batched\_requests\_store@{trigger\_batched\_requests\_store}}
+\index{trigger\_batched\_requests\_store@{trigger\_batched\_requests\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_batched\_requests\_store()}{trigger\_batched\_requests\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} trigger\+\_\+batched\+\_\+requests\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{test__firmware_8c_a7eed4a2277e063e1dedc7f19ed62a36b}\label{test__firmware_8c_a7eed4a2277e063e1dedc7f19ed62a36b}} 
+\index{test\_firmware.c@{test\_firmware.c}!trigger\_custom\_fallback\_store@{trigger\_custom\_fallback\_store}}
+\index{trigger\_custom\_fallback\_store@{trigger\_custom\_fallback\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_custom\_fallback\_store()}{trigger\_custom\_fallback\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} trigger\+\_\+custom\+\_\+fallback\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{test__firmware_8c_a8fa62c4975cf6cff2bdc9120c5f978ba}\label{test__firmware_8c_a8fa62c4975cf6cff2bdc9120c5f978ba}} 
+\index{test\_firmware.c@{test\_firmware.c}!trigger\_request\_store@{trigger\_request\_store}}
+\index{trigger\_request\_store@{trigger\_request\_store}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_request\_store()}{trigger\_request\_store()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} trigger\+\_\+request\+\_\+store (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdevice}{device}} $\ast$}]{dev,  }\item[{struct \mbox{\hyperlink{structdevice__attribute}{device\+\_\+attribute}} $\ast$}]{attr,  }\item[{const char $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{test__firmware_8c_a1b3714934a7ca522f577d99fac85729e}\label{test__firmware_8c_a1b3714934a7ca522f577d99fac85729e}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_dev\_attrs@{test\_dev\_attrs}}
+\index{test\_dev\_attrs@{test\_dev\_attrs}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_dev\_attrs}{test\_dev\_attrs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structattribute}{attribute}}$\ast$ test\+\_\+dev\+\_\+attrs\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_afadeca686978fefdddefc0c214ecf6c4}\label{test__firmware_8c_afadeca686978fefdddefc0c214ecf6c4}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_firmware@{test\_firmware}}
+\index{test\_firmware@{test\_firmware}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_firmware}{test\_firmware}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfirmware}{firmware}}$\ast$ test\+\_\+firmware\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_ae86c03f9746a4dc188fe17ea0cda9db5}\label{test__firmware_8c_ae86c03f9746a4dc188fe17ea0cda9db5}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_fw\_config@{test\_fw\_config}}
+\index{test\_fw\_config@{test\_fw\_config}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_fw\_config}{test\_fw\_config}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtest__config}{test\+\_\+config}}$\ast$ test\+\_\+fw\+\_\+config\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{test__firmware_8c_acc0311ddb201f5d64570cdfe2172e030}\label{test__firmware_8c_acc0311ddb201f5d64570cdfe2172e030}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_fw\_fops@{test\_fw\_fops}}
+\index{test\_fw\_fops@{test\_fw\_fops}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_fw\_fops}{test\_fw\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} test\+\_\+fw\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .owner          = \mbox{\hyperlink{include_2linux_2export_8h_a026ecb225c8ecf49f8a6075a7071a962}{THIS\_MODULE}},}
+\DoxyCodeLine{    .read           = \mbox{\hyperlink{test__firmware_8c_adf4c4de3a3dc32c3fd2d2fb425f45e1d}{test\_fw\_misc\_read}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{test__firmware_8c_a9776fcfe0f92ce8765b1cb46b3cdf523}\label{test__firmware_8c_a9776fcfe0f92ce8765b1cb46b3cdf523}} 
+\index{test\_firmware.c@{test\_firmware.c}!test\_fw\_misc\_device@{test\_fw\_misc\_device}}
+\index{test\_fw\_misc\_device@{test\_fw\_misc\_device}!test\_firmware.c@{test\_firmware.c}}
+\doxysubsubsection{\texorpdfstring{test\_fw\_misc\_device}{test\_fw\_misc\_device}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structmiscdevice}{miscdevice}} test\+\_\+fw\+\_\+misc\+\_\+device\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .minor          = \mbox{\hyperlink{miscdevice_8h_a9a3746c970fa26260572678ce4b00d13}{MISC\_DYNAMIC\_MINOR}},}
+\DoxyCodeLine{    .name           = \textcolor{stringliteral}{"test\_firmware"},}
+\DoxyCodeLine{    .fops           = \&\mbox{\hyperlink{test__firmware_8c_acc0311ddb201f5d64570cdfe2172e030}{test\_fw\_fops}},}
+\DoxyCodeLine{    .groups     = test\_dev\_groups,}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

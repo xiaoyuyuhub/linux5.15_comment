@@ -1,0 +1,1483 @@
+\hypertarget{kmemleak_8c}{}\doxysection{mm/kmemleak.c File Reference}
+\label{kmemleak_8c}\index{mm/kmemleak.c@{mm/kmemleak.c}}
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/list.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/signal.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/task\+\_\+stack.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jiffies.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rbtree.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/seq\+\_\+file.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpumask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rcupdate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/stacktrace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cache.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memblock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pfn.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mmzone.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/thread\+\_\+info.\+h$>$}\newline
+{\ttfamily \#include $<$linux/err.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nodemask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/workqueue.\+h$>$}\newline
+{\ttfamily \#include $<$linux/crc32.\+h$>$}\newline
+{\ttfamily \#include $<$asm/sections.\+h$>$}\newline
+{\ttfamily \#include $<$asm/processor.\+h$>$}\newline
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kasan.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kfence.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kmemleak.\+h$>$}\newline
+{\ttfamily \#include $<$linux/memory\+\_\+hotplug.\+h$>$}\newline
+Include dependency graph for kmemleak.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structkmemleak__scan__area}{kmemleak\+\_\+scan\+\_\+area}}
+\item 
+struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a61466023ed32f84aca4ca0c6942b8753}{M\+A\+X\+\_\+\+T\+R\+A\+CE}}~16	/$\ast$ \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_aa72eb66a35b94ef8c44b1075e083e8b5}{stack}} trace \mbox{\hyperlink{uapi_2linux_2usb_2functionfs_8h_a9f23684b325616481492385eb8583b08}{length}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a8510f4502780f7d725babdfb8de408c6}{M\+S\+E\+C\+S\+\_\+\+M\+I\+N\+\_\+\+A\+GE}}~5000	/$\ast$ minimum object age \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} reporting $\ast$/
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a2e70a35b9177ad3a5a0405651884a531}{S\+E\+C\+S\+\_\+\+F\+I\+R\+S\+T\+\_\+\+S\+C\+AN}}~60	/$\ast$ \mbox{\hyperlink{preemptirq__delay__test_8c_ab04e4956157b6df8791c0d45b81049d8}{delay}} \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} the \mbox{\hyperlink{ceph__fs_8h_adf9c2183bbe8c2f38b1e1e715288a965}{first}} scan $\ast$/
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a3a8e5ca06744a7b01f5c43b819b05a7c}{S\+E\+C\+S\+\_\+\+S\+C\+A\+N\+\_\+\+W\+A\+IT}}~600	/$\ast$ subsequent auto scanning \mbox{\hyperlink{preemptirq__delay__test_8c_ab04e4956157b6df8791c0d45b81049d8}{delay}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a461eae616e99989f74d22bf9dfe37a9a}{M\+A\+X\+\_\+\+S\+C\+A\+N\+\_\+\+S\+I\+ZE}}~4096	/$\ast$ maximum \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} of a scanned \mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}} $\ast$/
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a71f713c335b5d1fada08b7149688a658}{B\+Y\+T\+E\+S\+\_\+\+P\+E\+R\+\_\+\+P\+O\+I\+N\+T\+ER}}~\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(void $\ast$)
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a22e293cda4f60d822c3dd4edd5fecb85}{gfp\+\_\+kmemleak\+\_\+mask}}(\mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a7dbaa1288ceb9622b040aaa5f3a87e24}{K\+M\+E\+M\+L\+E\+A\+K\+\_\+\+G\+R\+EY}}~0
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_ab43b3ae1eeecf339f17aca637fc3096e}{K\+M\+E\+M\+L\+E\+A\+K\+\_\+\+B\+L\+A\+CK}}~-\/1
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a1d164211038d9c5c68f381d5ee7edfd2}{O\+B\+J\+E\+C\+T\+\_\+\+A\+L\+L\+O\+C\+A\+T\+ED}}~(1 $<$$<$ 0)
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a689d849cd5c1f82c85d504c860729f11}{O\+B\+J\+E\+C\+T\+\_\+\+R\+E\+P\+O\+R\+T\+ED}}~(1 $<$$<$ 1)
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a918f5c01f48c10db803c47d01d397b07}{O\+B\+J\+E\+C\+T\+\_\+\+N\+O\+\_\+\+S\+C\+AN}}~(1 $<$$<$ 2)
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a2633b6292bd83cfd18d862d9755a7150}{O\+B\+J\+E\+C\+T\+\_\+\+F\+U\+L\+L\+\_\+\+S\+C\+AN}}~(1 $<$$<$ 3)
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a0d20fc19ec9807c1d7d56c83f33cd9e0}{H\+E\+X\+\_\+\+P\+R\+E\+F\+IX}}~\char`\"{}    \char`\"{}
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a650d89c4ab918a191227629ffb504d9a}{H\+E\+X\+\_\+\+R\+O\+W\+\_\+\+S\+I\+ZE}}~16
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a4389cf591c8869afbaa564b3e53635f2}{H\+E\+X\+\_\+\+G\+R\+O\+U\+P\+\_\+\+S\+I\+ZE}}~1
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_afdeaed2c23ff56bc40c875106c960353}{H\+E\+X\+\_\+\+A\+S\+C\+II}}~1
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a764217e7e434b9f04bf5971356c7de6a}{H\+E\+X\+\_\+\+M\+A\+X\+\_\+\+L\+I\+N\+ES}}~2
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a6acef565f70a12b1f89ebafbf4e9add2}{kmemleak\+\_\+warn}}(x...)
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a49175a0181070f1ea24e3fe92e8972c9}{kmemleak\+\_\+stop}}(x...)
+\item 
+\#define \mbox{\hyperlink{kmemleak_8c_a073235cb8c64f37c7a541b76a23fffb4}{warn\+\_\+or\+\_\+seq\+\_\+printf}}(\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}},  \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, ...)
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{kmemleak_8c_aa9cf7176faba6ac1afc66acb3fa8e89b}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (object\+\_\+list)
+\item 
+static \mbox{\hyperlink{kmemleak_8c_a65dce8f38d63588725aef4c9dd70fd5c}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (gray\+\_\+list)
+\item 
+static \mbox{\hyperlink{kmemleak_8c_ab1a5a3a73167013d46a93580b1648bcf}{L\+I\+S\+T\+\_\+\+H\+E\+AD}} (mem\+\_\+pool\+\_\+free\+\_\+list)
+\item 
+static \mbox{\hyperlink{kmemleak_8c_a7fc1bda9b5acf13f793e45cfa756830c}{D\+E\+F\+I\+N\+E\+\_\+\+R\+A\+W\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (kmemleak\+\_\+lock)
+\item 
+static \mbox{\hyperlink{kmemleak_8c_a392fbc797c0e44a091b772c83a22aeb3}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (scan\+\_\+mutex)
+\item 
+\mbox{\hyperlink{kmemleak_8c_a0a71c7d604b44f6cf257402c5c45bca9}{module\+\_\+param\+\_\+named}} (\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}, \mbox{\hyperlink{kmemleak_8c_a13cc5d2abc0078fdbfca2799c7e6dea3}{kmemleak\+\_\+verbose}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, 0600)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_af705b3624999461ba2c458d13fdccde2}{kmemleak\+\_\+disable}} (void)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ad45e8e05d2aa6d7c4208a00639bd5d19}{warn\+\_\+or\+\_\+seq\+\_\+hex\+\_\+dump}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prefix\+\_\+type, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rowsize, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} groupsize, const void $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} ascii)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a24fd3342e5b6370d00f6bcd4a75e6060}{hex\+\_\+dump\+\_\+object}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kmemleak_8c_a729c7798704aac32c27148de6f133aa7}{color\+\_\+white}} (const struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kmemleak_8c_ae76f12fa2d747a4a4f92177c6e520938}{color\+\_\+gray}} (const struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kmemleak_8c_a4815bfc5eaf95eafc807c0e513207cca}{unreferenced\+\_\+object}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ab38b84e84cc6730d056bbd78a7bdecbb}{print\+\_\+unreferenced}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a3fc24ff0d373f335804725b4f9135d8a}{dump\+\_\+object\+\_\+info}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$ \mbox{\hyperlink{kmemleak_8c_a4d1c71de5b2fa4346235c41874c0dc80}{lookup\+\_\+object}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hugetlb_8c_ae942307f9631e2f8f30b683480be30fb}{alias}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a49419e49db7873aad5fe5f010e7df9bd}{get\+\_\+object}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$ \mbox{\hyperlink{kmemleak_8c_a2141ddbcc228c519ec06c19876e13aeb}{mem\+\_\+pool\+\_\+alloc}} (\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a67c2d74209fcbb733137465a2ff6a6ae}{mem\+\_\+pool\+\_\+free}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ac8e071c9a0f74205e2528def371623fe}{free\+\_\+object\+\_\+rcu}} (struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$\mbox{\hyperlink{workqueue_8c_aa9677537ffa4e40f3c4f3e9fb3b4c76d}{rcu}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a18f06b8d03608f183ece67922052b699}{put\+\_\+object}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$ \mbox{\hyperlink{kmemleak_8c_ac86ed405a91ab52a068f5d4a92a5a896}{find\+\_\+and\+\_\+get\+\_\+object}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hugetlb_8c_ae942307f9631e2f8f30b683480be30fb}{alias}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a9cb16aa8f34dc1e34b1b7bba2e7ebf28}{\+\_\+\+\_\+remove\+\_\+object}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$ \mbox{\hyperlink{kmemleak_8c_abebe881163ebb87303604177fa8cd1ba}{find\+\_\+and\+\_\+remove\+\_\+object}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hugetlb_8c_ae942307f9631e2f8f30b683480be30fb}{alias}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a268ab242090dba5ffb1a69aa848fbc5f}{\+\_\+\+\_\+save\+\_\+stack\+\_\+trace}} (unsigned long $\ast$trace)
+\item 
+static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$ \mbox{\hyperlink{kmemleak_8c_a12cdce83553efde6d5aa0aea5ae40c3e}{create\+\_\+object}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+count, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a712be07d24e138ae9a4ff4e7c49aef13}{\+\_\+\+\_\+delete\+\_\+object}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ab4e86912fe3b2360d2582824c1f46c08}{delete\+\_\+object\+\_\+full}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a8beafeab0b25d21928c14687c5ecbd6b}{delete\+\_\+object\+\_\+part}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a3ed7e270f593da7f8554fbc27425076f}{\+\_\+\+\_\+paint\+\_\+it}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{drm__edid_8h_a0af5b793d88fd82b0b3f8720a33fe93d}{color}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a0207835d1b682952b588b9dae2d8fdf4}{paint\+\_\+it}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{drm__edid_8h_a0af5b793d88fd82b0b3f8720a33fe93d}{color}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a7c2cd7a9e5d1842aaf381f880e6c38c4}{paint\+\_\+ptr}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{drm__edid_8h_a0af5b793d88fd82b0b3f8720a33fe93d}{color}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ac582ed54230434a465db9aef609f98d4}{make\+\_\+gray\+\_\+object}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_aedae45ce9f3bc768371042420d4d6bd0}{make\+\_\+black\+\_\+object}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ac4ecab33c631558775ee6f9519582438}{add\+\_\+scan\+\_\+area}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a3d478527878ca78a23c3708522f6f8fe}{object\+\_\+set\+\_\+excess\+\_\+ref}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, unsigned long excess\+\_\+ref)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a24fbf093ab58bbe06be5f58b747f7c43}{object\+\_\+no\+\_\+scan}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_ac23573953b7101bd680991e44bbc5a57}{kmemleak\+\_\+alloc}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+count, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_abaf0e657cc3e863e2e3ab4ac128ac4d7}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kmemleak_8c_ac23573953b7101bd680991e44bbc5a57}{kmemleak\+\_\+alloc}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a87f723cedd0a6a1641cf1a9a721a692e}{kmemleak\+\_\+alloc\+\_\+percpu}} (const void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_adb5f1651e017b46b32609fbd3acc5c45}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kmemleak_8c_a87f723cedd0a6a1641cf1a9a721a692e}{kmemleak\+\_\+alloc\+\_\+percpu}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a1c30e00847b4344bb5bb000a333390dc}{kmemleak\+\_\+vmalloc}} (const struct \mbox{\hyperlink{structvm__struct}{vm\+\_\+struct}} $\ast$area, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a219079da7db6814fa9824e5cad306c07}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kmemleak_8c_a1c30e00847b4344bb5bb000a333390dc}{kmemleak\+\_\+vmalloc}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_ae88c8f588cf8f7c01b5c7eb40d41865a}{kmemleak\+\_\+free}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_ac3dea1d857eff3f2ee2699751b572995}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kmemleak_8c_ae88c8f588cf8f7c01b5c7eb40d41865a}{kmemleak\+\_\+free}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_aad7da6da873d7550e4e9765a6341fd04}{kmemleak\+\_\+free\+\_\+part}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a04a0a2626a7944bddc82843c5f5042bb}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kmemleak_8c_aad7da6da873d7550e4e9765a6341fd04}{kmemleak\+\_\+free\+\_\+part}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a3c7f484e93d00ed82f6b85fdccb323fe}{kmemleak\+\_\+free\+\_\+percpu}} (const void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_ab34ca34ade8e7e1fa1a3881527e65821}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kmemleak_8c_a3c7f484e93d00ed82f6b85fdccb323fe}{kmemleak\+\_\+free\+\_\+percpu}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a3d2eb22a2a75aba975e8d07057c0c6b9}{kmemleak\+\_\+update\+\_\+trace}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a510c7cb73eca6fd21e0ea0b5d953153e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_a3d2eb22a2a75aba975e8d07057c0c6b9}{kmemleak\+\_\+update\+\_\+trace}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a270faa600567bb308d9cf6c8ff7399bf}{kmemleak\+\_\+not\+\_\+leak}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a731e8e49a0b09958bc52ec4fc49f8ef5}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_a270faa600567bb308d9cf6c8ff7399bf}{kmemleak\+\_\+not\+\_\+leak}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a069a46b2079761e66f995ff3116e895b}{kmemleak\+\_\+ignore}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_aa0799df43e4bc6ef29d3afd2ad4e3878}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_a069a46b2079761e66f995ff3116e895b}{kmemleak\+\_\+ignore}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a7aaa7e9ff9ee5c9370cfbbf4d3c5499d}{kmemleak\+\_\+scan\+\_\+area}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a4482b20bd14a541c2ae437e1028568ec}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{structkmemleak__scan__area}{kmemleak\+\_\+scan\+\_\+area}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a05417551bc9754ee434f2c5539dd5905}{kmemleak\+\_\+no\+\_\+scan}} (const void $\ast$\mbox{\hyperlink{uapi_2sound_2asequencer_8h_add9af9569af79ec26dd741fb226b38ba}{ptr}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a00f4c3f4a779a69a212b197877aed032}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_a05417551bc9754ee434f2c5539dd5905}{kmemleak\+\_\+no\+\_\+scan}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a9e08265dc43deca4649e009e062b9d93}{kmemleak\+\_\+alloc\+\_\+phys}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{uhid_8h_a21ece726f0f5682d175e43cfdb1719fc}{phys}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+count, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a367c70b86bda23566b1cc6ea379af39f}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_a9e08265dc43deca4649e009e062b9d93}{kmemleak\+\_\+alloc\+\_\+phys}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a1ae9eae1d155705daf98ddae6e4113df}{kmemleak\+\_\+free\+\_\+part\+\_\+phys}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{uhid_8h_a21ece726f0f5682d175e43cfdb1719fc}{phys}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a8093966dd6cebb3db8808fed51d3cdaa}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_a1ae9eae1d155705daf98ddae6e4113df}{kmemleak\+\_\+free\+\_\+part\+\_\+phys}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_a2f07a3d32186243ee3fe76733094eeec}{kmemleak\+\_\+not\+\_\+leak\+\_\+phys}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{uhid_8h_a21ece726f0f5682d175e43cfdb1719fc}{phys}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_a3f23b50d6314e0ece64387eb2c576561}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_a2f07a3d32186243ee3fe76733094eeec}{kmemleak\+\_\+not\+\_\+leak\+\_\+phys}})
+\item 
+void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{kmemleak_8c_aa775dac546e1f31b73efc5f7c6eabb8e}{kmemleak\+\_\+ignore\+\_\+phys}} (\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}} \mbox{\hyperlink{uhid_8h_a21ece726f0f5682d175e43cfdb1719fc}{phys}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_ab7cdf4cfcd6302dd3748347e1f068d09}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{kmemleak_8c_aa775dac546e1f31b73efc5f7c6eabb8e}{kmemleak\+\_\+ignore\+\_\+phys}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kmemleak_8c_a97bcc2f4cbffb573662d807c85aa799d}{update\+\_\+checksum}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a64c8d17abe35f1c5d27e4dd252b51ee4}{update\+\_\+refs}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_add8675686290d5124ec07c827f5a6ec8}{scan\+\_\+should\+\_\+stop}} (void)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ae5a585e601418b593240276da2fe604a}{scan\+\_\+block}} (void $\ast$\+\_\+start, void $\ast$\mbox{\hyperlink{include_2asm-generic_2sections_8h_a772c9c2672b018ff066baf87236e425f}{\+\_\+end}}, struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$scanned)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ac03fe9fb73fc19f45b4f64a83dd7a417}{scan\+\_\+object}} (struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$object)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a5155d705c130d5ae05853d2bf61c16dc}{scan\+\_\+gray\+\_\+list}} (void)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ab82c435db92c2b579ba74179de2313b3}{kmemleak\+\_\+scan}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a33829d250c55f8b9c7db8305a27f5837}{kmemleak\+\_\+scan\+\_\+thread}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a324807c6c3b0c7861a74d9536a79e154}{start\+\_\+scan\+\_\+thread}} (void)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_aa339dc8a6f25f4cb708ac91197a91f70}{stop\+\_\+scan\+\_\+thread}} (void)
+\item 
+static void $\ast$ \mbox{\hyperlink{kmemleak_8c_afd6f187b87b343a4c09a6f7eae12bac1}{kmemleak\+\_\+seq\+\_\+start}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static void $\ast$ \mbox{\hyperlink{kmemleak_8c_a9bbca4c016281b9c32a4b36b7e585691}{kmemleak\+\_\+seq\+\_\+next}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, void $\ast$v, loff\+\_\+t $\ast$\mbox{\hyperlink{decompress__unlzma_8c_a29716abd4f651ba9d6f1476ea79fa7ae}{pos}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_ac0c582f3b45e5f840981e8484d6ed10f}{kmemleak\+\_\+seq\+\_\+stop}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, void $\ast$v)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a7db4ac243ea70c5908debba8c875834a}{kmemleak\+\_\+seq\+\_\+show}} (struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, void $\ast$v)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a5f01d4807bd5f4831c6cafac45624e1a}{kmemleak\+\_\+open}} (struct \mbox{\hyperlink{structinode}{inode}} $\ast$\mbox{\hyperlink{structinode}{inode}}, struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a8531ac5855f0cc43f9cd0ac14c875eb4}{dump\+\_\+str\+\_\+object\+\_\+info}} (const char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a9d03b1cfe39f4090d9c224fd1549b08f}{kmemleak\+\_\+clear}} (void)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_a145a1dd773be996a9d49b3c93d5df3be}{\+\_\+\+\_\+kmemleak\+\_\+do\+\_\+cleanup}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} \mbox{\hyperlink{kmemleak_8c_aa2e52fc6a98c937afa34bdd0243dbe86}{kmemleak\+\_\+write}} (struct \mbox{\hyperlink{structfile}{file}} $\ast$\mbox{\hyperlink{structfile}{file}}, const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$user\+\_\+buf, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, loff\+\_\+t $\ast$ppos)
+\item 
+static void \mbox{\hyperlink{kmemleak_8c_af202cd563bd4a6090dd08fc27a2f999f}{kmemleak\+\_\+do\+\_\+cleanup}} (struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$work)
+\item 
+static \mbox{\hyperlink{kmemleak_8c_a3d554c0e97bb626920c86be1bd5b91b9}{D\+E\+C\+L\+A\+R\+E\+\_\+\+W\+O\+RK}} (cleanup\+\_\+work, \mbox{\hyperlink{kmemleak_8c_af202cd563bd4a6090dd08fc27a2f999f}{kmemleak\+\_\+do\+\_\+cleanup}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kmemleak_8c_a9965b076c62bd7cd38caed8c77a1e71e}{kmemleak\+\_\+boot\+\_\+config}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{kmemleak_8c_ad38494ebd7906209f3c778d5a97c2538}{early\+\_\+param}} (\char`\"{}kmemleak\char`\"{}, kmemleak\+\_\+boot\+\_\+config)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kmemleak_8c_a08c1fb6e76862e6cbf17f8457dab8d76}{kmemleak\+\_\+init}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{kmemleak_8c_a91a3a4a7b67050f3b8982a73d47f34b2}{kmemleak\+\_\+late\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{kmemleak_8c_a816c46762d20f9721c9de6baafc606b4}{late\+\_\+initcall}} (\mbox{\hyperlink{kmemleak_8c_a91a3a4a7b67050f3b8982a73d47f34b2}{kmemleak\+\_\+late\+\_\+init}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} \mbox{\hyperlink{kmemleak_8c_a188e96b1142581825836709a7dee26a9}{mem\+\_\+pool}} \mbox{[}C\+O\+N\+F\+I\+G\+\_\+\+D\+E\+B\+U\+G\+\_\+\+K\+M\+E\+M\+L\+E\+A\+K\+\_\+\+M\+E\+M\+\_\+\+P\+O\+O\+L\+\_\+\+S\+I\+ZE\mbox{]}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_ad2c862c0bd2ff004076f0999fe9df921}{mem\+\_\+pool\+\_\+free\+\_\+count}} = \mbox{\hyperlink{linux_2kernel_8h_a3c7c6a69f690fc8d2abf0e385280a532}{A\+R\+R\+A\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{kmemleak_8c_a188e96b1142581825836709a7dee26a9}{mem\+\_\+pool}})
+\item 
+static struct \mbox{\hyperlink{structrb__root}{rb\+\_\+root}} \mbox{\hyperlink{kmemleak_8c_ac6a6dba0f30cdafbf285003a12107bb2}{object\+\_\+tree\+\_\+root}} = \mbox{\hyperlink{rbtree__types_8h_a0dc291988d7286d8dd4268066e9031a4}{R\+B\+\_\+\+R\+O\+OT}}
+\item 
+static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$ \mbox{\hyperlink{kmemleak_8c_a86085662a5963fc06eb151ca84ff4b89}{object\+\_\+cache}}
+\item 
+static struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}} $\ast$ \mbox{\hyperlink{kmemleak_8c_af58eeebe30a8dd93f659f1eb7039ebca}{scan\+\_\+area\+\_\+cache}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_add05e3bcd6cf144e4412cf22a754e57d}{kmemleak\+\_\+enabled}} = 1
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a0968c905467defe96ac38d5413bb75ba}{kmemleak\+\_\+free\+\_\+enabled}} = 1
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a5ee31a053f1b310ef4b8802e9ccf7521}{kmemleak\+\_\+initialized}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_ad755054a39ac22076a30fd5096a66537}{kmemleak\+\_\+warning}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_a500c2cec4362dd381961b672aaf6ef70}{kmemleak\+\_\+error}}
+\item 
+static unsigned long \mbox{\hyperlink{kmemleak_8c_a280cc2f09c487b9a2cfa4e19be781991}{min\+\_\+addr}} = \mbox{\hyperlink{vdso_2limits_8h_a41c51926a1997aab3503f9083935e06c}{U\+L\+O\+N\+G\+\_\+\+M\+AX}}
+\item 
+static unsigned long \mbox{\hyperlink{kmemleak_8c_af25de249a8dd14526aafdcbabed215ed}{max\+\_\+addr}}
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{kmemleak_8c_a811114b20a1a79e7c132f25eb907d2a5}{scan\+\_\+thread}}
+\item 
+static unsigned long \mbox{\hyperlink{kmemleak_8c_aa3871c6a924b73a45af8ae0856910552}{jiffies\+\_\+min\+\_\+age}}
+\item 
+static unsigned long \mbox{\hyperlink{kmemleak_8c_ae505c73305dee8f040160422145c3ec1}{jiffies\+\_\+last\+\_\+scan}}
+\item 
+static unsigned long \mbox{\hyperlink{kmemleak_8c_a64f69726a3e313eb5f49429563bc31fb}{jiffies\+\_\+scan\+\_\+wait}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_aedb64934c4a0861cfdd46a55c4d9af32}{kmemleak\+\_\+stack\+\_\+scan}} = 1
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{kmemleak_8c_aca3f7b3cc6f272a6383b8c99e3559c98}{kmemleak\+\_\+skip\+\_\+disable}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kmemleak_8c_aaba3c6743d39f60d9e24126f3a7818c0}{kmemleak\+\_\+found\+\_\+leaks}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{kmemleak_8c_a13cc5d2abc0078fdbfca2799c7e6dea3}{kmemleak\+\_\+verbose}}
+\item 
+static const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} \mbox{\hyperlink{kmemleak_8c_a5308b8556f9445f661a7cdc9ad099e50}{kmemleak\+\_\+seq\+\_\+ops}}
+\item 
+static const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} \mbox{\hyperlink{kmemleak_8c_a26fcebcf1f2dda3eaf2219441f35b13c}{kmemleak\+\_\+fops}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{kmemleak_8c_a71f713c335b5d1fada08b7149688a658}\label{kmemleak_8c_a71f713c335b5d1fada08b7149688a658}} 
+\index{kmemleak.c@{kmemleak.c}!BYTES\_PER\_POINTER@{BYTES\_PER\_POINTER}}
+\index{BYTES\_PER\_POINTER@{BYTES\_PER\_POINTER}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{BYTES\_PER\_POINTER}{BYTES\_PER\_POINTER}}
+{\footnotesize\ttfamily \#define B\+Y\+T\+E\+S\+\_\+\+P\+E\+R\+\_\+\+P\+O\+I\+N\+T\+ER~\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(void $\ast$)}
+
+\mbox{\Hypertarget{kmemleak_8c_a22e293cda4f60d822c3dd4edd5fecb85}\label{kmemleak_8c_a22e293cda4f60d822c3dd4edd5fecb85}} 
+\index{kmemleak.c@{kmemleak.c}!gfp\_kmemleak\_mask@{gfp\_kmemleak\_mask}}
+\index{gfp\_kmemleak\_mask@{gfp\_kmemleak\_mask}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{gfp\_kmemleak\_mask}{gfp\_kmemleak\_mask}}
+{\footnotesize\ttfamily \#define gfp\+\_\+kmemleak\+\_\+mask(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}} }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                       (((\mbox{\hyperlink{osdmap_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}}) \& (\mbox{\hyperlink{pq_8h_a44b9e863fd60efc9018a5524b77532ee}{GFP\_KERNEL}} | GFP\_ATOMIC | \(\backslash\)}
+\DoxyCodeLine{                       \_\_GFP\_NOLOCKDEP)) | \(\backslash\)}
+\DoxyCodeLine{                 \_\_GFP\_NORETRY | \_\_GFP\_NOMEMALLOC | \(\backslash\)}
+\DoxyCodeLine{                 \_\_GFP\_NOWARN)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kmemleak_8c_afdeaed2c23ff56bc40c875106c960353}\label{kmemleak_8c_afdeaed2c23ff56bc40c875106c960353}} 
+\index{kmemleak.c@{kmemleak.c}!HEX\_ASCII@{HEX\_ASCII}}
+\index{HEX\_ASCII@{HEX\_ASCII}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{HEX\_ASCII}{HEX\_ASCII}}
+{\footnotesize\ttfamily \#define H\+E\+X\+\_\+\+A\+S\+C\+II~1}
+
+\mbox{\Hypertarget{kmemleak_8c_a4389cf591c8869afbaa564b3e53635f2}\label{kmemleak_8c_a4389cf591c8869afbaa564b3e53635f2}} 
+\index{kmemleak.c@{kmemleak.c}!HEX\_GROUP\_SIZE@{HEX\_GROUP\_SIZE}}
+\index{HEX\_GROUP\_SIZE@{HEX\_GROUP\_SIZE}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{HEX\_GROUP\_SIZE}{HEX\_GROUP\_SIZE}}
+{\footnotesize\ttfamily \#define H\+E\+X\+\_\+\+G\+R\+O\+U\+P\+\_\+\+S\+I\+ZE~1}
+
+\mbox{\Hypertarget{kmemleak_8c_a764217e7e434b9f04bf5971356c7de6a}\label{kmemleak_8c_a764217e7e434b9f04bf5971356c7de6a}} 
+\index{kmemleak.c@{kmemleak.c}!HEX\_MAX\_LINES@{HEX\_MAX\_LINES}}
+\index{HEX\_MAX\_LINES@{HEX\_MAX\_LINES}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{HEX\_MAX\_LINES}{HEX\_MAX\_LINES}}
+{\footnotesize\ttfamily \#define H\+E\+X\+\_\+\+M\+A\+X\+\_\+\+L\+I\+N\+ES~2}
+
+\mbox{\Hypertarget{kmemleak_8c_a0d20fc19ec9807c1d7d56c83f33cd9e0}\label{kmemleak_8c_a0d20fc19ec9807c1d7d56c83f33cd9e0}} 
+\index{kmemleak.c@{kmemleak.c}!HEX\_PREFIX@{HEX\_PREFIX}}
+\index{HEX\_PREFIX@{HEX\_PREFIX}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{HEX\_PREFIX}{HEX\_PREFIX}}
+{\footnotesize\ttfamily \#define H\+E\+X\+\_\+\+P\+R\+E\+F\+IX~\char`\"{}    \char`\"{}}
+
+\mbox{\Hypertarget{kmemleak_8c_a650d89c4ab918a191227629ffb504d9a}\label{kmemleak_8c_a650d89c4ab918a191227629ffb504d9a}} 
+\index{kmemleak.c@{kmemleak.c}!HEX\_ROW\_SIZE@{HEX\_ROW\_SIZE}}
+\index{HEX\_ROW\_SIZE@{HEX\_ROW\_SIZE}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{HEX\_ROW\_SIZE}{HEX\_ROW\_SIZE}}
+{\footnotesize\ttfamily \#define H\+E\+X\+\_\+\+R\+O\+W\+\_\+\+S\+I\+ZE~16}
+
+\mbox{\Hypertarget{kmemleak_8c_ab43b3ae1eeecf339f17aca637fc3096e}\label{kmemleak_8c_ab43b3ae1eeecf339f17aca637fc3096e}} 
+\index{kmemleak.c@{kmemleak.c}!KMEMLEAK\_BLACK@{KMEMLEAK\_BLACK}}
+\index{KMEMLEAK\_BLACK@{KMEMLEAK\_BLACK}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{KMEMLEAK\_BLACK}{KMEMLEAK\_BLACK}}
+{\footnotesize\ttfamily \#define K\+M\+E\+M\+L\+E\+A\+K\+\_\+\+B\+L\+A\+CK~-\/1}
+
+\mbox{\Hypertarget{kmemleak_8c_a7dbaa1288ceb9622b040aaa5f3a87e24}\label{kmemleak_8c_a7dbaa1288ceb9622b040aaa5f3a87e24}} 
+\index{kmemleak.c@{kmemleak.c}!KMEMLEAK\_GREY@{KMEMLEAK\_GREY}}
+\index{KMEMLEAK\_GREY@{KMEMLEAK\_GREY}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{KMEMLEAK\_GREY}{KMEMLEAK\_GREY}}
+{\footnotesize\ttfamily \#define K\+M\+E\+M\+L\+E\+A\+K\+\_\+\+G\+R\+EY~0}
+
+\mbox{\Hypertarget{kmemleak_8c_a49175a0181070f1ea24e3fe92e8972c9}\label{kmemleak_8c_a49175a0181070f1ea24e3fe92e8972c9}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_stop@{kmemleak\_stop}}
+\index{kmemleak\_stop@{kmemleak\_stop}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_stop}{kmemleak\_stop}}
+{\footnotesize\ttfamily \#define kmemleak\+\_\+stop(\begin{DoxyParamCaption}\item[{}]{x... }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{    \(\backslash\)}
+\DoxyCodeLine{    kmemleak\_warn(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}});      \(\backslash\)}
+\DoxyCodeLine{    kmemleak\_disable();     \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kmemleak_8c_a6acef565f70a12b1f89ebafbf4e9add2}\label{kmemleak_8c_a6acef565f70a12b1f89ebafbf4e9add2}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_warn@{kmemleak\_warn}}
+\index{kmemleak\_warn@{kmemleak\_warn}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_warn}{kmemleak\_warn}}
+{\footnotesize\ttfamily \#define kmemleak\+\_\+warn(\begin{DoxyParamCaption}\item[{}]{x... }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{        \(\backslash\)}
+\DoxyCodeLine{    pr\_warn(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}});                \(\backslash\)}
+\DoxyCodeLine{    dump\_stack();               \(\backslash\)}
+\DoxyCodeLine{    kmemleak\_warning = 1;           \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kmemleak_8c_a461eae616e99989f74d22bf9dfe37a9a}\label{kmemleak_8c_a461eae616e99989f74d22bf9dfe37a9a}} 
+\index{kmemleak.c@{kmemleak.c}!MAX\_SCAN\_SIZE@{MAX\_SCAN\_SIZE}}
+\index{MAX\_SCAN\_SIZE@{MAX\_SCAN\_SIZE}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_SCAN\_SIZE}{MAX\_SCAN\_SIZE}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+S\+C\+A\+N\+\_\+\+S\+I\+ZE~4096	/$\ast$ maximum \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}} of a scanned \mbox{\hyperlink{uapi_2linux_2videodev2_8h_ad5b858223610a93fb969472d468193f2}{block}} $\ast$/}
+
+\mbox{\Hypertarget{kmemleak_8c_a61466023ed32f84aca4ca0c6942b8753}\label{kmemleak_8c_a61466023ed32f84aca4ca0c6942b8753}} 
+\index{kmemleak.c@{kmemleak.c}!MAX\_TRACE@{MAX\_TRACE}}
+\index{MAX\_TRACE@{MAX\_TRACE}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_TRACE}{MAX\_TRACE}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+T\+R\+A\+CE~16	/$\ast$ \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_aa72eb66a35b94ef8c44b1075e083e8b5}{stack}} trace \mbox{\hyperlink{uapi_2linux_2usb_2functionfs_8h_a9f23684b325616481492385eb8583b08}{length}} $\ast$/}
+
+\mbox{\Hypertarget{kmemleak_8c_a8510f4502780f7d725babdfb8de408c6}\label{kmemleak_8c_a8510f4502780f7d725babdfb8de408c6}} 
+\index{kmemleak.c@{kmemleak.c}!MSECS\_MIN\_AGE@{MSECS\_MIN\_AGE}}
+\index{MSECS\_MIN\_AGE@{MSECS\_MIN\_AGE}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{MSECS\_MIN\_AGE}{MSECS\_MIN\_AGE}}
+{\footnotesize\ttfamily \#define M\+S\+E\+C\+S\+\_\+\+M\+I\+N\+\_\+\+A\+GE~5000	/$\ast$ minimum object age \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} reporting $\ast$/}
+
+\mbox{\Hypertarget{kmemleak_8c_a1d164211038d9c5c68f381d5ee7edfd2}\label{kmemleak_8c_a1d164211038d9c5c68f381d5ee7edfd2}} 
+\index{kmemleak.c@{kmemleak.c}!OBJECT\_ALLOCATED@{OBJECT\_ALLOCATED}}
+\index{OBJECT\_ALLOCATED@{OBJECT\_ALLOCATED}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{OBJECT\_ALLOCATED}{OBJECT\_ALLOCATED}}
+{\footnotesize\ttfamily \#define O\+B\+J\+E\+C\+T\+\_\+\+A\+L\+L\+O\+C\+A\+T\+ED~(1 $<$$<$ 0)}
+
+\mbox{\Hypertarget{kmemleak_8c_a2633b6292bd83cfd18d862d9755a7150}\label{kmemleak_8c_a2633b6292bd83cfd18d862d9755a7150}} 
+\index{kmemleak.c@{kmemleak.c}!OBJECT\_FULL\_SCAN@{OBJECT\_FULL\_SCAN}}
+\index{OBJECT\_FULL\_SCAN@{OBJECT\_FULL\_SCAN}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{OBJECT\_FULL\_SCAN}{OBJECT\_FULL\_SCAN}}
+{\footnotesize\ttfamily \#define O\+B\+J\+E\+C\+T\+\_\+\+F\+U\+L\+L\+\_\+\+S\+C\+AN~(1 $<$$<$ 3)}
+
+\mbox{\Hypertarget{kmemleak_8c_a918f5c01f48c10db803c47d01d397b07}\label{kmemleak_8c_a918f5c01f48c10db803c47d01d397b07}} 
+\index{kmemleak.c@{kmemleak.c}!OBJECT\_NO\_SCAN@{OBJECT\_NO\_SCAN}}
+\index{OBJECT\_NO\_SCAN@{OBJECT\_NO\_SCAN}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{OBJECT\_NO\_SCAN}{OBJECT\_NO\_SCAN}}
+{\footnotesize\ttfamily \#define O\+B\+J\+E\+C\+T\+\_\+\+N\+O\+\_\+\+S\+C\+AN~(1 $<$$<$ 2)}
+
+\mbox{\Hypertarget{kmemleak_8c_a689d849cd5c1f82c85d504c860729f11}\label{kmemleak_8c_a689d849cd5c1f82c85d504c860729f11}} 
+\index{kmemleak.c@{kmemleak.c}!OBJECT\_REPORTED@{OBJECT\_REPORTED}}
+\index{OBJECT\_REPORTED@{OBJECT\_REPORTED}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{OBJECT\_REPORTED}{OBJECT\_REPORTED}}
+{\footnotesize\ttfamily \#define O\+B\+J\+E\+C\+T\+\_\+\+R\+E\+P\+O\+R\+T\+ED~(1 $<$$<$ 1)}
+
+\mbox{\Hypertarget{kmemleak_8c_a1f8c165bf4196327bc3abff648276d92}\label{kmemleak_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{kmemleak.c@{kmemleak.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{kmemleak_8c_a2e70a35b9177ad3a5a0405651884a531}\label{kmemleak_8c_a2e70a35b9177ad3a5a0405651884a531}} 
+\index{kmemleak.c@{kmemleak.c}!SECS\_FIRST\_SCAN@{SECS\_FIRST\_SCAN}}
+\index{SECS\_FIRST\_SCAN@{SECS\_FIRST\_SCAN}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{SECS\_FIRST\_SCAN}{SECS\_FIRST\_SCAN}}
+{\footnotesize\ttfamily \#define S\+E\+C\+S\+\_\+\+F\+I\+R\+S\+T\+\_\+\+S\+C\+AN~60	/$\ast$ \mbox{\hyperlink{preemptirq__delay__test_8c_ab04e4956157b6df8791c0d45b81049d8}{delay}} \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} the \mbox{\hyperlink{ceph__fs_8h_adf9c2183bbe8c2f38b1e1e715288a965}{first}} scan $\ast$/}
+
+\mbox{\Hypertarget{kmemleak_8c_a3a8e5ca06744a7b01f5c43b819b05a7c}\label{kmemleak_8c_a3a8e5ca06744a7b01f5c43b819b05a7c}} 
+\index{kmemleak.c@{kmemleak.c}!SECS\_SCAN\_WAIT@{SECS\_SCAN\_WAIT}}
+\index{SECS\_SCAN\_WAIT@{SECS\_SCAN\_WAIT}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{SECS\_SCAN\_WAIT}{SECS\_SCAN\_WAIT}}
+{\footnotesize\ttfamily \#define S\+E\+C\+S\+\_\+\+S\+C\+A\+N\+\_\+\+W\+A\+IT~600	/$\ast$ subsequent auto scanning \mbox{\hyperlink{preemptirq__delay__test_8c_ab04e4956157b6df8791c0d45b81049d8}{delay}} $\ast$/}
+
+\mbox{\Hypertarget{kmemleak_8c_a073235cb8c64f37c7a541b76a23fffb4}\label{kmemleak_8c_a073235cb8c64f37c7a541b76a23fffb4}} 
+\index{kmemleak.c@{kmemleak.c}!warn\_or\_seq\_printf@{warn\_or\_seq\_printf}}
+\index{warn\_or\_seq\_printf@{warn\_or\_seq\_printf}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{warn\_or\_seq\_printf}{warn\_or\_seq\_printf}}
+{\footnotesize\ttfamily \#define warn\+\_\+or\+\_\+seq\+\_\+printf(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}},  }\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},  }\item[{}]{... }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{    \(\backslash\)}
+\DoxyCodeLine{    if (\mbox{\hyperlink{task__iter_8c_a5491778a23b754c6759b6076cf2632c0}{seq}})                 \(\backslash\)}
+\DoxyCodeLine{        seq\_printf(\mbox{\hyperlink{task__iter_8c_a5491778a23b754c6759b6076cf2632c0}{seq}}, \mbox{\hyperlink{drm__print_8h_a10aa585f6b6209b2e73ce1872f44bb2e}{fmt}}, \#\#\_\_VA\_ARGS\_\_);  \mbox{\hyperlink{linux_2printk_8h_a38e2406dd2d2aa570c3d228c1e326f20}{\(\backslash\)}}}
+\DoxyCodeLine{\mbox{\hyperlink{linux_2printk_8h_a38e2406dd2d2aa570c3d228c1e326f20}{    else                        \(\backslash\)}}}
+\DoxyCodeLine{\mbox{\hyperlink{linux_2printk_8h_a38e2406dd2d2aa570c3d228c1e326f20}{        pr\_warn}}(\mbox{\hyperlink{drm__print_8h_a10aa585f6b6209b2e73ce1872f44bb2e}{fmt}}, \#\#\_\_VA\_ARGS\_\_);        \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{kmemleak_8c_a712be07d24e138ae9a4ff4e7c49aef13}\label{kmemleak_8c_a712be07d24e138ae9a4ff4e7c49aef13}} 
+\index{kmemleak.c@{kmemleak.c}!\_\_delete\_object@{\_\_delete\_object}}
+\index{\_\_delete\_object@{\_\_delete\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{\_\_delete\_object()}{\_\_delete\_object()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+delete\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{kmemleak_8c_a145a1dd773be996a9d49b3c93d5df3be}\label{kmemleak_8c_a145a1dd773be996a9d49b3c93d5df3be}} 
+\index{kmemleak.c@{kmemleak.c}!\_\_kmemleak\_do\_cleanup@{\_\_kmemleak\_do\_cleanup}}
+\index{\_\_kmemleak\_do\_cleanup@{\_\_kmemleak\_do\_cleanup}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{\_\_kmemleak\_do\_cleanup()}{\_\_kmemleak\_do\_cleanup()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+kmemleak\+\_\+do\+\_\+cleanup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{kmemleak_8c_a3ed7e270f593da7f8554fbc27425076f}\label{kmemleak_8c_a3ed7e270f593da7f8554fbc27425076f}} 
+\index{kmemleak.c@{kmemleak.c}!\_\_paint\_it@{\_\_paint\_it}}
+\index{\_\_paint\_it@{\_\_paint\_it}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{\_\_paint\_it()}{\_\_paint\_it()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+paint\+\_\+it (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{color }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{kmemleak_8c_a9cb16aa8f34dc1e34b1b7bba2e7ebf28}\label{kmemleak_8c_a9cb16aa8f34dc1e34b1b7bba2e7ebf28}} 
+\index{kmemleak.c@{kmemleak.c}!\_\_remove\_object@{\_\_remove\_object}}
+\index{\_\_remove\_object@{\_\_remove\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{\_\_remove\_object()}{\_\_remove\_object()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+remove\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{kmemleak_8c_a268ab242090dba5ffb1a69aa848fbc5f}\label{kmemleak_8c_a268ab242090dba5ffb1a69aa848fbc5f}} 
+\index{kmemleak.c@{kmemleak.c}!\_\_save\_stack\_trace@{\_\_save\_stack\_trace}}
+\index{\_\_save\_stack\_trace@{\_\_save\_stack\_trace}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{\_\_save\_stack\_trace()}{\_\_save\_stack\_trace()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+save\+\_\+stack\+\_\+trace (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{trace }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{kmemleak_8c_ac4ecab33c631558775ee6f9519582438}\label{kmemleak_8c_ac4ecab33c631558775ee6f9519582438}} 
+\index{kmemleak.c@{kmemleak.c}!add\_scan\_area@{add\_scan\_area}}
+\index{add\_scan\_area@{add\_scan\_area}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{add\_scan\_area()}{add\_scan\_area()}}
+{\footnotesize\ttfamily static void add\+\_\+scan\+\_\+area (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{kmemleak_8c_ae76f12fa2d747a4a4f92177c6e520938}\label{kmemleak_8c_ae76f12fa2d747a4a4f92177c6e520938}} 
+\index{kmemleak.c@{kmemleak.c}!color\_gray@{color\_gray}}
+\index{color\_gray@{color\_gray}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{color\_gray()}{color\_gray()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} color\+\_\+gray (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{kmemleak_8c_a729c7798704aac32c27148de6f133aa7}\label{kmemleak_8c_a729c7798704aac32c27148de6f133aa7}} 
+\index{kmemleak.c@{kmemleak.c}!color\_white@{color\_white}}
+\index{color\_white@{color\_white}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{color\_white()}{color\_white()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} color\+\_\+white (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{kmemleak_8c_a12cdce83553efde6d5aa0aea5ae40c3e}\label{kmemleak_8c_a12cdce83553efde6d5aa0aea5ae40c3e}} 
+\index{kmemleak.c@{kmemleak.c}!create\_object@{create\_object}}
+\index{create\_object@{create\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{create\_object()}{create\_object()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}}$\ast$ create\+\_\+object (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{min\+\_\+count,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{kmemleak_8c_a3d554c0e97bb626920c86be1bd5b91b9}\label{kmemleak_8c_a3d554c0e97bb626920c86be1bd5b91b9}} 
+\index{kmemleak.c@{kmemleak.c}!DECLARE\_WORK@{DECLARE\_WORK}}
+\index{DECLARE\_WORK@{DECLARE\_WORK}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_WORK()}{DECLARE\_WORK()}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+W\+O\+RK (\begin{DoxyParamCaption}\item[{cleanup\+\_\+work}]{,  }\item[{\mbox{\hyperlink{kmemleak_8c_af202cd563bd4a6090dd08fc27a2f999f}{kmemleak\+\_\+do\+\_\+cleanup}}}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a392fbc797c0e44a091b772c83a22aeb3}\label{kmemleak_8c_a392fbc797c0e44a091b772c83a22aeb3}} 
+\index{kmemleak.c@{kmemleak.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{scan\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a7fc1bda9b5acf13f793e45cfa756830c}\label{kmemleak_8c_a7fc1bda9b5acf13f793e45cfa756830c}} 
+\index{kmemleak.c@{kmemleak.c}!DEFINE\_RAW\_SPINLOCK@{DEFINE\_RAW\_SPINLOCK}}
+\index{DEFINE\_RAW\_SPINLOCK@{DEFINE\_RAW\_SPINLOCK}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_RAW\_SPINLOCK()}{DEFINE\_RAW\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+R\+A\+W\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{kmemleak\+\_\+lock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_ab4e86912fe3b2360d2582824c1f46c08}\label{kmemleak_8c_ab4e86912fe3b2360d2582824c1f46c08}} 
+\index{kmemleak.c@{kmemleak.c}!delete\_object\_full@{delete\_object\_full}}
+\index{delete\_object\_full@{delete\_object\_full}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{delete\_object\_full()}{delete\_object\_full()}}
+{\footnotesize\ttfamily static void delete\+\_\+object\+\_\+full (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{kmemleak_8c_a8beafeab0b25d21928c14687c5ecbd6b}\label{kmemleak_8c_a8beafeab0b25d21928c14687c5ecbd6b}} 
+\index{kmemleak.c@{kmemleak.c}!delete\_object\_part@{delete\_object\_part}}
+\index{delete\_object\_part@{delete\_object\_part}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{delete\_object\_part()}{delete\_object\_part()}}
+{\footnotesize\ttfamily static void delete\+\_\+object\+\_\+part (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{kmemleak_8c_a3fc24ff0d373f335804725b4f9135d8a}\label{kmemleak_8c_a3fc24ff0d373f335804725b4f9135d8a}} 
+\index{kmemleak.c@{kmemleak.c}!dump\_object\_info@{dump\_object\_info}}
+\index{dump\_object\_info@{dump\_object\_info}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{dump\_object\_info()}{dump\_object\_info()}}
+{\footnotesize\ttfamily static void dump\+\_\+object\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{kmemleak_8c_a8531ac5855f0cc43f9cd0ac14c875eb4}\label{kmemleak_8c_a8531ac5855f0cc43f9cd0ac14c875eb4}} 
+\index{kmemleak.c@{kmemleak.c}!dump\_str\_object\_info@{dump\_str\_object\_info}}
+\index{dump\_str\_object\_info@{dump\_str\_object\_info}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{dump\_str\_object\_info()}{dump\_str\_object\_info()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dump\+\_\+str\+\_\+object\+\_\+info (\begin{DoxyParamCaption}\item[{const char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{kmemleak_8c_ad38494ebd7906209f3c778d5a97c2538}\label{kmemleak_8c_ad38494ebd7906209f3c778d5a97c2538}} 
+\index{kmemleak.c@{kmemleak.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}kmemleak\char`\"{}}]{,  }\item[{\mbox{\hyperlink{kmemleak_8c_a9965b076c62bd7cd38caed8c77a1e71e}{kmemleak\+\_\+boot\+\_\+config}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a367c70b86bda23566b1cc6ea379af39f}\label{kmemleak_8c_a367c70b86bda23566b1cc6ea379af39f}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a9e08265dc43deca4649e009e062b9d93}{kmemleak\+\_\+alloc\+\_\+phys}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a8093966dd6cebb3db8808fed51d3cdaa}\label{kmemleak_8c_a8093966dd6cebb3db8808fed51d3cdaa}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a1ae9eae1d155705daf98ddae6e4113df}{kmemleak\+\_\+free\+\_\+part\+\_\+phys}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_aa0799df43e4bc6ef29d3afd2ad4e3878}\label{kmemleak_8c_aa0799df43e4bc6ef29d3afd2ad4e3878}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a069a46b2079761e66f995ff3116e895b}{kmemleak\+\_\+ignore}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_ab7cdf4cfcd6302dd3748347e1f068d09}\label{kmemleak_8c_ab7cdf4cfcd6302dd3748347e1f068d09}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_aa775dac546e1f31b73efc5f7c6eabb8e}{kmemleak\+\_\+ignore\+\_\+phys}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a00f4c3f4a779a69a212b197877aed032}\label{kmemleak_8c_a00f4c3f4a779a69a212b197877aed032}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a05417551bc9754ee434f2c5539dd5905}{kmemleak\+\_\+no\+\_\+scan}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a731e8e49a0b09958bc52ec4fc49f8ef5}\label{kmemleak_8c_a731e8e49a0b09958bc52ec4fc49f8ef5}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a270faa600567bb308d9cf6c8ff7399bf}{kmemleak\+\_\+not\+\_\+leak}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a3f23b50d6314e0ece64387eb2c576561}\label{kmemleak_8c_a3f23b50d6314e0ece64387eb2c576561}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a2f07a3d32186243ee3fe76733094eeec}{kmemleak\+\_\+not\+\_\+leak\+\_\+phys}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a4482b20bd14a541c2ae437e1028568ec}\label{kmemleak_8c_a4482b20bd14a541c2ae437e1028568ec}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structkmemleak__scan__area}{kmemleak\+\_\+scan\+\_\+area}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a510c7cb73eca6fd21e0ea0b5d953153e}\label{kmemleak_8c_a510c7cb73eca6fd21e0ea0b5d953153e}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a3d2eb22a2a75aba975e8d07057c0c6b9}{kmemleak\+\_\+update\+\_\+trace}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_abaf0e657cc3e863e2e3ab4ac128ac4d7}\label{kmemleak_8c_abaf0e657cc3e863e2e3ab4ac128ac4d7}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_ac23573953b7101bd680991e44bbc5a57}{kmemleak\+\_\+alloc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_adb5f1651e017b46b32609fbd3acc5c45}\label{kmemleak_8c_adb5f1651e017b46b32609fbd3acc5c45}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a87f723cedd0a6a1641cf1a9a721a692e}{kmemleak\+\_\+alloc\+\_\+percpu}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_ac3dea1d857eff3f2ee2699751b572995}\label{kmemleak_8c_ac3dea1d857eff3f2ee2699751b572995}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_ae88c8f588cf8f7c01b5c7eb40d41865a}{kmemleak\+\_\+free}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a04a0a2626a7944bddc82843c5f5042bb}\label{kmemleak_8c_a04a0a2626a7944bddc82843c5f5042bb}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_aad7da6da873d7550e4e9765a6341fd04}{kmemleak\+\_\+free\+\_\+part}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_ab34ca34ade8e7e1fa1a3881527e65821}\label{kmemleak_8c_ab34ca34ade8e7e1fa1a3881527e65821}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a3c7f484e93d00ed82f6b85fdccb323fe}{kmemleak\+\_\+free\+\_\+percpu}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a219079da7db6814fa9824e5cad306c07}\label{kmemleak_8c_a219079da7db6814fa9824e5cad306c07}} 
+\index{kmemleak.c@{kmemleak.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a1c30e00847b4344bb5bb000a333390dc}{kmemleak\+\_\+vmalloc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_ac86ed405a91ab52a068f5d4a92a5a896}\label{kmemleak_8c_ac86ed405a91ab52a068f5d4a92a5a896}} 
+\index{kmemleak.c@{kmemleak.c}!find\_and\_get\_object@{find\_and\_get\_object}}
+\index{find\_and\_get\_object@{find\_and\_get\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{find\_and\_get\_object()}{find\_and\_get\_object()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}}$\ast$ find\+\_\+and\+\_\+get\+\_\+object (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{alias }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{kmemleak_8c_abebe881163ebb87303604177fa8cd1ba}\label{kmemleak_8c_abebe881163ebb87303604177fa8cd1ba}} 
+\index{kmemleak.c@{kmemleak.c}!find\_and\_remove\_object@{find\_and\_remove\_object}}
+\index{find\_and\_remove\_object@{find\_and\_remove\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{find\_and\_remove\_object()}{find\_and\_remove\_object()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}}$\ast$ find\+\_\+and\+\_\+remove\+\_\+object (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{alias }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{kmemleak_8c_ac8e071c9a0f74205e2528def371623fe}\label{kmemleak_8c_ac8e071c9a0f74205e2528def371623fe}} 
+\index{kmemleak.c@{kmemleak.c}!free\_object\_rcu@{free\_object\_rcu}}
+\index{free\_object\_rcu@{free\_object\_rcu}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{free\_object\_rcu()}{free\_object\_rcu()}}
+{\footnotesize\ttfamily static void free\+\_\+object\+\_\+rcu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{include_2linux_2types_8h_a31f0e635598a9df4d5c86eb0ebe295ea}{rcu\+\_\+head}} $\ast$}]{rcu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{kmemleak_8c_a49419e49db7873aad5fe5f010e7df9bd}\label{kmemleak_8c_a49419e49db7873aad5fe5f010e7df9bd}} 
+\index{kmemleak.c@{kmemleak.c}!get\_object@{get\_object}}
+\index{get\_object@{get\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{get\_object()}{get\_object()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{kmemleak_8c_a24fd3342e5b6370d00f6bcd4a75e6060}\label{kmemleak_8c_a24fd3342e5b6370d00f6bcd4a75e6060}} 
+\index{kmemleak.c@{kmemleak.c}!hex\_dump\_object@{hex\_dump\_object}}
+\index{hex\_dump\_object@{hex\_dump\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{hex\_dump\_object()}{hex\_dump\_object()}}
+{\footnotesize\ttfamily static void hex\+\_\+dump\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{seq,  }\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{kmemleak_8c_ac23573953b7101bd680991e44bbc5a57}\label{kmemleak_8c_ac23573953b7101bd680991e44bbc5a57}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_alloc@{kmemleak\_alloc}}
+\index{kmemleak\_alloc@{kmemleak\_alloc}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_alloc()}{kmemleak\_alloc()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+alloc (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{min\+\_\+count,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+alloc -\/ register a newly allocated object @ptr\+: pointer to beginning of the object @size\+: size of the object @min\+\_\+count\+: minimum number of references to this object. If during memory scanning a number of references less than @min\+\_\+count is found, the object is reported as a memory leak. If @min\+\_\+count is 0, the object is never reported as a leak. If @min\+\_\+count is -\/1, the object is ignored (not scanned and not reported as a leak) @gfp\+: \mbox{\hyperlink{include_2linux_2slab_8h_a1d68b78a92a928652719a969b7f75f7c}{kmalloc()}} flags used for kmemleak internal memory allocations
+
+This function is called from the kernel allocators when a new object (memory block) is allocated (kmem\+\_\+cache\+\_\+alloc, kmalloc etc.). Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{kmemleak_8c_a87f723cedd0a6a1641cf1a9a721a692e}\label{kmemleak_8c_a87f723cedd0a6a1641cf1a9a721a692e}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_alloc\_percpu@{kmemleak\_alloc\_percpu}}
+\index{kmemleak\_alloc\_percpu@{kmemleak\_alloc\_percpu}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_alloc\_percpu()}{kmemleak\_alloc\_percpu()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+alloc\+\_\+percpu (\begin{DoxyParamCaption}\item[{const void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+alloc\+\_\+percpu -\/ register a newly allocated \+\_\+\+\_\+percpu object @ptr\+: \+\_\+\+\_\+percpu pointer to beginning of the object @size\+: size of the object @gfp\+: flags used for kmemleak internal memory allocations
+
+This function is called from the kernel percpu allocator when a new object (memory block) is allocated (alloc\+\_\+percpu). Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{kmemleak_8c_a9e08265dc43deca4649e009e062b9d93}\label{kmemleak_8c_a9e08265dc43deca4649e009e062b9d93}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_alloc\_phys@{kmemleak\_alloc\_phys}}
+\index{kmemleak\_alloc\_phys@{kmemleak\_alloc\_phys}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_alloc\_phys()}{kmemleak\_alloc\_phys()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+alloc\+\_\+phys (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{phys,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{min\+\_\+count,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+alloc\+\_\+phys -\/ similar to kmemleak\+\_\+alloc but taking a physical address argument @phys\+: physical address of the object @size\+: size of the object @min\+\_\+count\+: minimum number of references to this object. See \mbox{\hyperlink{kmemleak_8c_ac23573953b7101bd680991e44bbc5a57}{kmemleak\+\_\+alloc()}} @gfp\+: \mbox{\hyperlink{include_2linux_2slab_8h_a1d68b78a92a928652719a969b7f75f7c}{kmalloc()}} flags used for kmemleak internal memory allocations Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{kmemleak_8c_a9965b076c62bd7cd38caed8c77a1e71e}\label{kmemleak_8c_a9965b076c62bd7cd38caed8c77a1e71e}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_boot\_config@{kmemleak\_boot\_config}}
+\index{kmemleak\_boot\_config@{kmemleak\_boot\_config}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_boot\_config()}{kmemleak\_boot\_config()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kmemleak\+\_\+boot\+\_\+config (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{kmemleak_8c_a9d03b1cfe39f4090d9c224fd1549b08f}\label{kmemleak_8c_a9d03b1cfe39f4090d9c224fd1549b08f}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_clear@{kmemleak\_clear}}
+\index{kmemleak\_clear@{kmemleak\_clear}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_clear()}{kmemleak\_clear()}}
+{\footnotesize\ttfamily static void kmemleak\+\_\+clear (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{kmemleak_8c_af705b3624999461ba2c458d13fdccde2}\label{kmemleak_8c_af705b3624999461ba2c458d13fdccde2}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_disable@{kmemleak\_disable}}
+\index{kmemleak\_disable@{kmemleak\_disable}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_disable()}{kmemleak\_disable()}}
+{\footnotesize\ttfamily static void kmemleak\+\_\+disable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{kmemleak_8c_af202cd563bd4a6090dd08fc27a2f999f}\label{kmemleak_8c_af202cd563bd4a6090dd08fc27a2f999f}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_do\_cleanup@{kmemleak\_do\_cleanup}}
+\index{kmemleak\_do\_cleanup@{kmemleak\_do\_cleanup}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_do\_cleanup()}{kmemleak\_do\_cleanup()}}
+{\footnotesize\ttfamily static void kmemleak\+\_\+do\+\_\+cleanup (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwork__struct}{work\+\_\+struct}} $\ast$}]{work }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{kmemleak_8c_ae88c8f588cf8f7c01b5c7eb40d41865a}\label{kmemleak_8c_ae88c8f588cf8f7c01b5c7eb40d41865a}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_free@{kmemleak\_free}}
+\index{kmemleak\_free@{kmemleak\_free}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_free()}{kmemleak\_free()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+free (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+free -\/ unregister a previously registered object @ptr\+: pointer to beginning of the object
+
+This function is called from the kernel allocators when an object (memory block) is freed (kmem\+\_\+cache\+\_\+free, kfree, vfree etc.). Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{kmemleak_8c_aad7da6da873d7550e4e9765a6341fd04}\label{kmemleak_8c_aad7da6da873d7550e4e9765a6341fd04}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_free\_part@{kmemleak\_free\_part}}
+\index{kmemleak\_free\_part@{kmemleak\_free\_part}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_free\_part()}{kmemleak\_free\_part()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+free\+\_\+part (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+free\+\_\+part -\/ partially unregister a previously registered object @ptr\+: pointer to the beginning or inside the object. This also represents the start of the range to be freed @size\+: size to be unregistered
+
+This function is called when only a part of a memory block is freed (usually from the bootmem allocator). Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{kmemleak_8c_a1ae9eae1d155705daf98ddae6e4113df}\label{kmemleak_8c_a1ae9eae1d155705daf98ddae6e4113df}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_free\_part\_phys@{kmemleak\_free\_part\_phys}}
+\index{kmemleak\_free\_part\_phys@{kmemleak\_free\_part\_phys}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_free\_part\_phys()}{kmemleak\_free\_part\_phys()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+free\+\_\+part\+\_\+phys (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{phys,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+free\+\_\+part\+\_\+phys -\/ similar to kmemleak\+\_\+free\+\_\+part but taking a physical address argument @phys\+: physical address if the beginning or inside an object. This also represents the start of the range to be freed @size\+: size to be unregistered Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{kmemleak_8c_a3c7f484e93d00ed82f6b85fdccb323fe}\label{kmemleak_8c_a3c7f484e93d00ed82f6b85fdccb323fe}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_free\_percpu@{kmemleak\_free\_percpu}}
+\index{kmemleak\_free\_percpu@{kmemleak\_free\_percpu}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_free\_percpu()}{kmemleak\_free\_percpu()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+free\+\_\+percpu (\begin{DoxyParamCaption}\item[{const void \mbox{\hyperlink{compiler__types_8h_a497f20279760cdb59a5187689f9f5ab1}{\+\_\+\+\_\+percpu}} $\ast$}]{ptr }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+free\+\_\+percpu -\/ unregister a previously registered \+\_\+\+\_\+percpu object @ptr\+: \+\_\+\+\_\+percpu pointer to beginning of the object
+
+This function is called from the kernel percpu allocator when an object (memory block) is freed (free\+\_\+percpu). Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{kmemleak_8c_a069a46b2079761e66f995ff3116e895b}\label{kmemleak_8c_a069a46b2079761e66f995ff3116e895b}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_ignore@{kmemleak\_ignore}}
+\index{kmemleak\_ignore@{kmemleak\_ignore}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_ignore()}{kmemleak\_ignore()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+ignore (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+ignore -\/ ignore an allocated object @ptr\+: pointer to beginning of the object
+
+Calling this function on an object will cause the memory block to be ignored (not scanned and not reported as a leak). This is usually done when it is known that the corresponding block is not a leak and does not contain any references to other allocated memory blocks. Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{kmemleak_8c_aa775dac546e1f31b73efc5f7c6eabb8e}\label{kmemleak_8c_aa775dac546e1f31b73efc5f7c6eabb8e}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_ignore\_phys@{kmemleak\_ignore\_phys}}
+\index{kmemleak\_ignore\_phys@{kmemleak\_ignore\_phys}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_ignore\_phys()}{kmemleak\_ignore\_phys()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+ignore\+\_\+phys (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{phys }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+ignore\+\_\+phys -\/ similar to kmemleak\+\_\+ignore but taking a physical address argument @phys\+: physical address of the object Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{kmemleak_8c_a08c1fb6e76862e6cbf17f8457dab8d76}\label{kmemleak_8c_a08c1fb6e76862e6cbf17f8457dab8d76}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_init@{kmemleak\_init}}
+\index{kmemleak\_init@{kmemleak\_init}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_init()}{kmemleak\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kmemleak\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{kmemleak_8c_a91a3a4a7b67050f3b8982a73d47f34b2}\label{kmemleak_8c_a91a3a4a7b67050f3b8982a73d47f34b2}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_late\_init@{kmemleak\_late\_init}}
+\index{kmemleak\_late\_init@{kmemleak\_late\_init}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_late\_init()}{kmemleak\_late\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} kmemleak\+\_\+late\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{kmemleak_8c_a05417551bc9754ee434f2c5539dd5905}\label{kmemleak_8c_a05417551bc9754ee434f2c5539dd5905}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_no\_scan@{kmemleak\_no\_scan}}
+\index{kmemleak\_no\_scan@{kmemleak\_no\_scan}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_no\_scan()}{kmemleak\_no\_scan()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+no\+\_\+scan (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+no\+\_\+scan -\/ do not scan an allocated object @ptr\+: pointer to beginning of the object
+
+This function notifies kmemleak not to scan the given memory block. Useful in situations where it is known that the given object does not contain any references to other objects. Kmemleak will not scan such objects reducing the number of false negatives. Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{kmemleak_8c_a270faa600567bb308d9cf6c8ff7399bf}\label{kmemleak_8c_a270faa600567bb308d9cf6c8ff7399bf}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_not\_leak@{kmemleak\_not\_leak}}
+\index{kmemleak\_not\_leak@{kmemleak\_not\_leak}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_not\_leak()}{kmemleak\_not\_leak()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+not\+\_\+leak (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+not\+\_\+leak -\/ mark an allocated object as false positive @ptr\+: pointer to beginning of the object
+
+Calling this function on an object will cause the memory block to no longer be reported as leak and always be scanned. Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{kmemleak_8c_a2f07a3d32186243ee3fe76733094eeec}\label{kmemleak_8c_a2f07a3d32186243ee3fe76733094eeec}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_not\_leak\_phys@{kmemleak\_not\_leak\_phys}}
+\index{kmemleak\_not\_leak\_phys@{kmemleak\_not\_leak\_phys}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_not\_leak\_phys()}{kmemleak\_not\_leak\_phys()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+not\+\_\+leak\+\_\+phys (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_a56fa48fbdc1df8e427fd4dac3d575a91}{phys\+\_\+addr\+\_\+t}}}]{phys }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+not\+\_\+leak\+\_\+phys -\/ similar to kmemleak\+\_\+not\+\_\+leak but taking a physical address argument @phys\+: physical address of the object Here is the call graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{kmemleak_8c_a5f01d4807bd5f4831c6cafac45624e1a}\label{kmemleak_8c_a5f01d4807bd5f4831c6cafac45624e1a}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_open@{kmemleak\_open}}
+\index{kmemleak\_open@{kmemleak\_open}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_open()}{kmemleak\_open()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+open (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structinode}{inode}} $\ast$}]{inode,  }\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{kmemleak_8c_ab82c435db92c2b579ba74179de2313b3}\label{kmemleak_8c_ab82c435db92c2b579ba74179de2313b3}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_scan@{kmemleak\_scan}}
+\index{kmemleak\_scan@{kmemleak\_scan}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_scan()}{kmemleak\_scan()}}
+{\footnotesize\ttfamily static void kmemleak\+\_\+scan (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{kmemleak_8c_a7aaa7e9ff9ee5c9370cfbbf4d3c5499d}\label{kmemleak_8c_a7aaa7e9ff9ee5c9370cfbbf4d3c5499d}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_scan\_area@{kmemleak\_scan\_area}}
+\index{kmemleak\_scan\_area@{kmemleak\_scan\_area}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_scan\_area()}{kmemleak\_scan\_area()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} \mbox{\hyperlink{structkmemleak__scan__area}{kmemleak\+\_\+scan\+\_\+area}} (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{structkmemleak__scan__area}{kmemleak\+\_\+scan\+\_\+area}} -\/ limit the range to be scanned in an allocated object @ptr\+: pointer to beginning or inside the object. This also represents the start of the scan area @size\+: size of the scan area @gfp\+: \mbox{\hyperlink{include_2linux_2slab_8h_a1d68b78a92a928652719a969b7f75f7c}{kmalloc()}} flags used for kmemleak internal memory allocations
+
+This function is used when it is known that only certain parts of an object contain references to other objects. Kmemleak will only scan these areas reducing the number false negatives. Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{kmemleak_8c_a33829d250c55f8b9c7db8305a27f5837}\label{kmemleak_8c_a33829d250c55f8b9c7db8305a27f5837}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_scan\_thread@{kmemleak\_scan\_thread}}
+\index{kmemleak\_scan\_thread@{kmemleak\_scan\_thread}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_scan\_thread()}{kmemleak\_scan\_thread()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+scan\+\_\+thread (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{kmemleak_8c_a9bbca4c016281b9c32a4b36b7e585691}\label{kmemleak_8c_a9bbca4c016281b9c32a4b36b7e585691}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_seq\_next@{kmemleak\_seq\_next}}
+\index{kmemleak\_seq\_next@{kmemleak\_seq\_next}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_seq\_next()}{kmemleak\_seq\_next()}}
+{\footnotesize\ttfamily static void$\ast$ kmemleak\+\_\+seq\+\_\+next (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{seq,  }\item[{void $\ast$}]{v,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{kmemleak_8c_a7db4ac243ea70c5908debba8c875834a}\label{kmemleak_8c_a7db4ac243ea70c5908debba8c875834a}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_seq\_show@{kmemleak\_seq\_show}}
+\index{kmemleak\_seq\_show@{kmemleak\_seq\_show}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_seq\_show()}{kmemleak\_seq\_show()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+seq\+\_\+show (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{seq,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{kmemleak_8c_afd6f187b87b343a4c09a6f7eae12bac1}\label{kmemleak_8c_afd6f187b87b343a4c09a6f7eae12bac1}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_seq\_start@{kmemleak\_seq\_start}}
+\index{kmemleak\_seq\_start@{kmemleak\_seq\_start}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_seq\_start()}{kmemleak\_seq\_start()}}
+{\footnotesize\ttfamily static void$\ast$ kmemleak\+\_\+seq\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{seq,  }\item[{loff\+\_\+t $\ast$}]{pos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{kmemleak_8c_ac0c582f3b45e5f840981e8484d6ed10f}\label{kmemleak_8c_ac0c582f3b45e5f840981e8484d6ed10f}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_seq\_stop@{kmemleak\_seq\_stop}}
+\index{kmemleak\_seq\_stop@{kmemleak\_seq\_stop}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_seq\_stop()}{kmemleak\_seq\_stop()}}
+{\footnotesize\ttfamily static void kmemleak\+\_\+seq\+\_\+stop (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{seq,  }\item[{void $\ast$}]{v }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{kmemleak_8c_a3d2eb22a2a75aba975e8d07057c0c6b9}\label{kmemleak_8c_a3d2eb22a2a75aba975e8d07057c0c6b9}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_update\_trace@{kmemleak\_update\_trace}}
+\index{kmemleak\_update\_trace@{kmemleak\_update\_trace}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_update\_trace()}{kmemleak\_update\_trace()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+update\+\_\+trace (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ptr }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+update\+\_\+trace -\/ update object allocation stack trace @ptr\+: pointer to beginning of the object
+
+Override the object allocation stack trace for cases where the actual allocation place is not always useful. Here is the call graph for this function\+:
+% FIG 77
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{kmemleak_8c_a1c30e00847b4344bb5bb000a333390dc}\label{kmemleak_8c_a1c30e00847b4344bb5bb000a333390dc}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_vmalloc@{kmemleak\_vmalloc}}
+\index{kmemleak\_vmalloc@{kmemleak\_vmalloc}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_vmalloc()}{kmemleak\_vmalloc()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2init_8h_af244130b19439e7e4c06b7b12c2b969b}{\+\_\+\+\_\+ref}} kmemleak\+\_\+vmalloc (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structvm__struct}{vm\+\_\+struct}} $\ast$}]{area,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+kmemleak\+\_\+vmalloc -\/ register a newly vmalloc\textquotesingle{}ed object @area\+: pointer to \mbox{\hyperlink{structvm__struct}{vm\+\_\+struct}} @size\+: size of the object @gfp\+: \mbox{\hyperlink{include_2linux_2vmalloc_8h_a009fb2fbfd14944047da9ab30561b14e}{\+\_\+\+\_\+vmalloc()}} flags used for kmemleak internal memory allocations
+
+This function is called from the \mbox{\hyperlink{include_2linux_2vmalloc_8h_a5e7539e7696efb631504a768037b6752}{vmalloc()}} kernel allocator when a new object (memory block) is allocated. Here is the call graph for this function\+:
+% FIG 79
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{kmemleak_8c_aa2e52fc6a98c937afa34bdd0243dbe86}\label{kmemleak_8c_aa2e52fc6a98c937afa34bdd0243dbe86}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_write@{kmemleak\_write}}
+\index{kmemleak\_write@{kmemleak\_write}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_write()}{kmemleak\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_a635dc9ed21bd0472d442fa2ec051f4ce}{ssize\+\_\+t}} kmemleak\+\_\+write (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfile}{file}} $\ast$}]{file,  }\item[{const char \mbox{\hyperlink{test__stackinit_8c_ace6f17999da4ea3b93c4227beafcab95}{\+\_\+\+\_\+user}} $\ast$}]{user\+\_\+buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{kmemleak_8c_a816c46762d20f9721c9de6baafc606b4}\label{kmemleak_8c_a816c46762d20f9721c9de6baafc606b4}} 
+\index{kmemleak.c@{kmemleak.c}!late\_initcall@{late\_initcall}}
+\index{late\_initcall@{late\_initcall}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall()}{late\_initcall()}}
+{\footnotesize\ttfamily late\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kmemleak_8c_a91a3a4a7b67050f3b8982a73d47f34b2}{kmemleak\+\_\+late\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a65dce8f38d63588725aef4c9dd70fd5c}\label{kmemleak_8c_a65dce8f38d63588725aef4c9dd70fd5c}} 
+\index{kmemleak.c@{kmemleak.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{gray\+\_\+list}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_ab1a5a3a73167013d46a93580b1648bcf}\label{kmemleak_8c_ab1a5a3a73167013d46a93580b1648bcf}} 
+\index{kmemleak.c@{kmemleak.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{mem\+\_\+pool\+\_\+free\+\_\+list}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_aa9cf7176faba6ac1afc66acb3fa8e89b}\label{kmemleak_8c_aa9cf7176faba6ac1afc66acb3fa8e89b}} 
+\index{kmemleak.c@{kmemleak.c}!LIST\_HEAD@{LIST\_HEAD}}
+\index{LIST\_HEAD@{LIST\_HEAD}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{LIST\_HEAD()}{LIST\_HEAD()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily static L\+I\+S\+T\+\_\+\+H\+E\+AD (\begin{DoxyParamCaption}\item[{object\+\_\+list}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a4d1c71de5b2fa4346235c41874c0dc80}\label{kmemleak_8c_a4d1c71de5b2fa4346235c41874c0dc80}} 
+\index{kmemleak.c@{kmemleak.c}!lookup\_object@{lookup\_object}}
+\index{lookup\_object@{lookup\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{lookup\_object()}{lookup\_object()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}}$\ast$ lookup\+\_\+object (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{alias }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{kmemleak_8c_aedae45ce9f3bc768371042420d4d6bd0}\label{kmemleak_8c_aedae45ce9f3bc768371042420d4d6bd0}} 
+\index{kmemleak.c@{kmemleak.c}!make\_black\_object@{make\_black\_object}}
+\index{make\_black\_object@{make\_black\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{make\_black\_object()}{make\_black\_object()}}
+{\footnotesize\ttfamily static void make\+\_\+black\+\_\+object (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{kmemleak_8c_ac582ed54230434a465db9aef609f98d4}\label{kmemleak_8c_ac582ed54230434a465db9aef609f98d4}} 
+\index{kmemleak.c@{kmemleak.c}!make\_gray\_object@{make\_gray\_object}}
+\index{make\_gray\_object@{make\_gray\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{make\_gray\_object()}{make\_gray\_object()}}
+{\footnotesize\ttfamily static void make\+\_\+gray\+\_\+object (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{kmemleak_8c_a2141ddbcc228c519ec06c19876e13aeb}\label{kmemleak_8c_a2141ddbcc228c519ec06c19876e13aeb}} 
+\index{kmemleak.c@{kmemleak.c}!mem\_pool\_alloc@{mem\_pool\_alloc}}
+\index{mem\_pool\_alloc@{mem\_pool\_alloc}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{mem\_pool\_alloc()}{mem\_pool\_alloc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}}$\ast$ mem\+\_\+pool\+\_\+alloc (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 88
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{kmemleak_8c_a67c2d74209fcbb733137465a2ff6a6ae}\label{kmemleak_8c_a67c2d74209fcbb733137465a2ff6a6ae}} 
+\index{kmemleak.c@{kmemleak.c}!mem\_pool\_free@{mem\_pool\_free}}
+\index{mem\_pool\_free@{mem\_pool\_free}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{mem\_pool\_free()}{mem\_pool\_free()}}
+{\footnotesize\ttfamily static void mem\+\_\+pool\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 90
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{kmemleak_8c_a0a71c7d604b44f6cf257402c5c45bca9}\label{kmemleak_8c_a0a71c7d604b44f6cf257402c5c45bca9}} 
+\index{kmemleak.c@{kmemleak.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}}]{,  }\item[{\mbox{\hyperlink{kmemleak_8c_a13cc5d2abc0078fdbfca2799c7e6dea3}{kmemleak\+\_\+verbose}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{0600}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{kmemleak_8c_a24fbf093ab58bbe06be5f58b747f7c43}\label{kmemleak_8c_a24fbf093ab58bbe06be5f58b747f7c43}} 
+\index{kmemleak.c@{kmemleak.c}!object\_no\_scan@{object\_no\_scan}}
+\index{object\_no\_scan@{object\_no\_scan}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{object\_no\_scan()}{object\_no\_scan()}}
+{\footnotesize\ttfamily static void object\+\_\+no\+\_\+scan (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 92
+Here is the caller graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{kmemleak_8c_a3d478527878ca78a23c3708522f6f8fe}\label{kmemleak_8c_a3d478527878ca78a23c3708522f6f8fe}} 
+\index{kmemleak.c@{kmemleak.c}!object\_set\_excess\_ref@{object\_set\_excess\_ref}}
+\index{object\_set\_excess\_ref@{object\_set\_excess\_ref}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{object\_set\_excess\_ref()}{object\_set\_excess\_ref()}}
+{\footnotesize\ttfamily static void object\+\_\+set\+\_\+excess\+\_\+ref (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{unsigned long}]{excess\+\_\+ref }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{kmemleak_8c_a0207835d1b682952b588b9dae2d8fdf4}\label{kmemleak_8c_a0207835d1b682952b588b9dae2d8fdf4}} 
+\index{kmemleak.c@{kmemleak.c}!paint\_it@{paint\_it}}
+\index{paint\_it@{paint\_it}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{paint\_it()}{paint\_it()}}
+{\footnotesize\ttfamily static void paint\+\_\+it (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{color }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{kmemleak_8c_a7c2cd7a9e5d1842aaf381f880e6c38c4}\label{kmemleak_8c_a7c2cd7a9e5d1842aaf381f880e6c38c4}} 
+\index{kmemleak.c@{kmemleak.c}!paint\_ptr@{paint\_ptr}}
+\index{paint\_ptr@{paint\_ptr}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{paint\_ptr()}{paint\_ptr()}}
+{\footnotesize\ttfamily static void paint\+\_\+ptr (\begin{DoxyParamCaption}\item[{unsigned long}]{ptr,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{color }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 98
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{kmemleak_8c_ab38b84e84cc6730d056bbd78a7bdecbb}\label{kmemleak_8c_ab38b84e84cc6730d056bbd78a7bdecbb}} 
+\index{kmemleak.c@{kmemleak.c}!print\_unreferenced@{print\_unreferenced}}
+\index{print\_unreferenced@{print\_unreferenced}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{print\_unreferenced()}{print\_unreferenced()}}
+{\footnotesize\ttfamily static void print\+\_\+unreferenced (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{seq,  }\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 100
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{kmemleak_8c_a18f06b8d03608f183ece67922052b699}\label{kmemleak_8c_a18f06b8d03608f183ece67922052b699}} 
+\index{kmemleak.c@{kmemleak.c}!put\_object@{put\_object}}
+\index{put\_object@{put\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{put\_object()}{put\_object()}}
+{\footnotesize\ttfamily static void put\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 102
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{kmemleak_8c_ae5a585e601418b593240276da2fe604a}\label{kmemleak_8c_ae5a585e601418b593240276da2fe604a}} 
+\index{kmemleak.c@{kmemleak.c}!scan\_block@{scan\_block}}
+\index{scan\_block@{scan\_block}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{scan\_block()}{scan\_block()}}
+{\footnotesize\ttfamily static void scan\+\_\+block (\begin{DoxyParamCaption}\item[{void $\ast$}]{\+\_\+start,  }\item[{void $\ast$}]{\+\_\+end,  }\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{scanned }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 104
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{kmemleak_8c_a5155d705c130d5ae05853d2bf61c16dc}\label{kmemleak_8c_a5155d705c130d5ae05853d2bf61c16dc}} 
+\index{kmemleak.c@{kmemleak.c}!scan\_gray\_list@{scan\_gray\_list}}
+\index{scan\_gray\_list@{scan\_gray\_list}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{scan\_gray\_list()}{scan\_gray\_list()}}
+{\footnotesize\ttfamily static void scan\+\_\+gray\+\_\+list (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{kmemleak_8c_ac03fe9fb73fc19f45b4f64a83dd7a417}\label{kmemleak_8c_ac03fe9fb73fc19f45b4f64a83dd7a417}} 
+\index{kmemleak.c@{kmemleak.c}!scan\_object@{scan\_object}}
+\index{scan\_object@{scan\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{scan\_object()}{scan\_object()}}
+{\footnotesize\ttfamily static void scan\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{kmemleak_8c_add8675686290d5124ec07c827f5a6ec8}\label{kmemleak_8c_add8675686290d5124ec07c827f5a6ec8}} 
+\index{kmemleak.c@{kmemleak.c}!scan\_should\_stop@{scan\_should\_stop}}
+\index{scan\_should\_stop@{scan\_should\_stop}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{scan\_should\_stop()}{scan\_should\_stop()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} scan\+\_\+should\+\_\+stop (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{kmemleak_8c_a324807c6c3b0c7861a74d9536a79e154}\label{kmemleak_8c_a324807c6c3b0c7861a74d9536a79e154}} 
+\index{kmemleak.c@{kmemleak.c}!start\_scan\_thread@{start\_scan\_thread}}
+\index{start\_scan\_thread@{start\_scan\_thread}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{start\_scan\_thread()}{start\_scan\_thread()}}
+{\footnotesize\ttfamily static void start\+\_\+scan\+\_\+thread (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 112
+Here is the caller graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{kmemleak_8c_aa339dc8a6f25f4cb708ac91197a91f70}\label{kmemleak_8c_aa339dc8a6f25f4cb708ac91197a91f70}} 
+\index{kmemleak.c@{kmemleak.c}!stop\_scan\_thread@{stop\_scan\_thread}}
+\index{stop\_scan\_thread@{stop\_scan\_thread}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{stop\_scan\_thread()}{stop\_scan\_thread()}}
+{\footnotesize\ttfamily static void stop\+\_\+scan\+\_\+thread (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 114
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{kmemleak_8c_a4815bfc5eaf95eafc807c0e513207cca}\label{kmemleak_8c_a4815bfc5eaf95eafc807c0e513207cca}} 
+\index{kmemleak.c@{kmemleak.c}!unreferenced\_object@{unreferenced\_object}}
+\index{unreferenced\_object@{unreferenced\_object}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{unreferenced\_object()}{unreferenced\_object()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} unreferenced\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 116
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{kmemleak_8c_a97bcc2f4cbffb573662d807c85aa799d}\label{kmemleak_8c_a97bcc2f4cbffb573662d807c85aa799d}} 
+\index{kmemleak.c@{kmemleak.c}!update\_checksum@{update\_checksum}}
+\index{update\_checksum@{update\_checksum}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{update\_checksum()}{update\_checksum()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} update\+\_\+checksum (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 118
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{kmemleak_8c_a64c8d17abe35f1c5d27e4dd252b51ee4}\label{kmemleak_8c_a64c8d17abe35f1c5d27e4dd252b51ee4}} 
+\index{kmemleak.c@{kmemleak.c}!update\_refs@{update\_refs}}
+\index{update\_refs@{update\_refs}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{update\_refs()}{update\_refs()}}
+{\footnotesize\ttfamily static void update\+\_\+refs (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} $\ast$}]{object }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 120
+Here is the caller graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{kmemleak_8c_ad45e8e05d2aa6d7c4208a00639bd5d19}\label{kmemleak_8c_ad45e8e05d2aa6d7c4208a00639bd5d19}} 
+\index{kmemleak.c@{kmemleak.c}!warn\_or\_seq\_hex\_dump@{warn\_or\_seq\_hex\_dump}}
+\index{warn\_or\_seq\_hex\_dump@{warn\_or\_seq\_hex\_dump}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{warn\_or\_seq\_hex\_dump()}{warn\_or\_seq\_hex\_dump()}}
+{\footnotesize\ttfamily static void warn\+\_\+or\+\_\+seq\+\_\+hex\+\_\+dump (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structseq__file}{seq\+\_\+file}} $\ast$}]{seq,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{prefix\+\_\+type,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{rowsize,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{groupsize,  }\item[{const void $\ast$}]{buf,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{len,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{ascii }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 122
+Here is the caller graph for this function\+:
+% FIG 123
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{kmemleak_8c_ae505c73305dee8f040160422145c3ec1}\label{kmemleak_8c_ae505c73305dee8f040160422145c3ec1}} 
+\index{kmemleak.c@{kmemleak.c}!jiffies\_last\_scan@{jiffies\_last\_scan}}
+\index{jiffies\_last\_scan@{jiffies\_last\_scan}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{jiffies\_last\_scan}{jiffies\_last\_scan}}
+{\footnotesize\ttfamily unsigned long jiffies\+\_\+last\+\_\+scan\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_aa3871c6a924b73a45af8ae0856910552}\label{kmemleak_8c_aa3871c6a924b73a45af8ae0856910552}} 
+\index{kmemleak.c@{kmemleak.c}!jiffies\_min\_age@{jiffies\_min\_age}}
+\index{jiffies\_min\_age@{jiffies\_min\_age}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{jiffies\_min\_age}{jiffies\_min\_age}}
+{\footnotesize\ttfamily unsigned long jiffies\+\_\+min\+\_\+age\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a64f69726a3e313eb5f49429563bc31fb}\label{kmemleak_8c_a64f69726a3e313eb5f49429563bc31fb}} 
+\index{kmemleak.c@{kmemleak.c}!jiffies\_scan\_wait@{jiffies\_scan\_wait}}
+\index{jiffies\_scan\_wait@{jiffies\_scan\_wait}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{jiffies\_scan\_wait}{jiffies\_scan\_wait}}
+{\footnotesize\ttfamily unsigned long jiffies\+\_\+scan\+\_\+wait\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_add05e3bcd6cf144e4412cf22a754e57d}\label{kmemleak_8c_add05e3bcd6cf144e4412cf22a754e57d}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_enabled@{kmemleak\_enabled}}
+\index{kmemleak\_enabled@{kmemleak\_enabled}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_enabled}{kmemleak\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+enabled = 1\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a500c2cec4362dd381961b672aaf6ef70}\label{kmemleak_8c_a500c2cec4362dd381961b672aaf6ef70}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_error@{kmemleak\_error}}
+\index{kmemleak\_error@{kmemleak\_error}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_error}{kmemleak\_error}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+error\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a26fcebcf1f2dda3eaf2219441f35b13c}\label{kmemleak_8c_a26fcebcf1f2dda3eaf2219441f35b13c}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_fops@{kmemleak\_fops}}
+\index{kmemleak\_fops@{kmemleak\_fops}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_fops}{kmemleak\_fops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structfile__operations}{file\+\_\+operations}} kmemleak\+\_\+fops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .owner      = \mbox{\hyperlink{include_2linux_2export_8h_a026ecb225c8ecf49f8a6075a7071a962}{THIS\_MODULE}},}
+\DoxyCodeLine{    .open       = \mbox{\hyperlink{kmemleak_8c_a5f01d4807bd5f4831c6cafac45624e1a}{kmemleak\_open}},}
+\DoxyCodeLine{    .read       = \mbox{\hyperlink{seq__file_8h_a3c390ba3ed9f0f6890da2e5c62b3c822}{seq\_read}},}
+\DoxyCodeLine{    .write      = \mbox{\hyperlink{kmemleak_8c_aa2e52fc6a98c937afa34bdd0243dbe86}{kmemleak\_write}},}
+\DoxyCodeLine{    .llseek     = \mbox{\hyperlink{seq__file_8h_afb0190ee914a16a926d673a6a91949a9}{seq\_lseek}},}
+\DoxyCodeLine{    .release    = \mbox{\hyperlink{seq__file_8h_a6516f3a82b6086e24f24388d14198402}{seq\_release}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kmemleak_8c_aaba3c6743d39f60d9e24126f3a7818c0}\label{kmemleak_8c_aaba3c6743d39f60d9e24126f3a7818c0}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_found\_leaks@{kmemleak\_found\_leaks}}
+\index{kmemleak\_found\_leaks@{kmemleak\_found\_leaks}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_found\_leaks}{kmemleak\_found\_leaks}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kmemleak\+\_\+found\+\_\+leaks\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a0968c905467defe96ac38d5413bb75ba}\label{kmemleak_8c_a0968c905467defe96ac38d5413bb75ba}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_free\_enabled@{kmemleak\_free\_enabled}}
+\index{kmemleak\_free\_enabled@{kmemleak\_free\_enabled}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_free\_enabled}{kmemleak\_free\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+free\+\_\+enabled = 1\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a5ee31a053f1b310ef4b8802e9ccf7521}\label{kmemleak_8c_a5ee31a053f1b310ef4b8802e9ccf7521}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_initialized@{kmemleak\_initialized}}
+\index{kmemleak\_initialized@{kmemleak\_initialized}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_initialized}{kmemleak\_initialized}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+initialized\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a5308b8556f9445f661a7cdc9ad099e50}\label{kmemleak_8c_a5308b8556f9445f661a7cdc9ad099e50}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_seq\_ops@{kmemleak\_seq\_ops}}
+\index{kmemleak\_seq\_ops@{kmemleak\_seq\_ops}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_seq\_ops}{kmemleak\_seq\_ops}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structseq__operations}{seq\+\_\+operations}} kmemleak\+\_\+seq\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .start = \mbox{\hyperlink{kmemleak_8c_afd6f187b87b343a4c09a6f7eae12bac1}{kmemleak\_seq\_start}},}
+\DoxyCodeLine{    .next  = \mbox{\hyperlink{kmemleak_8c_a9bbca4c016281b9c32a4b36b7e585691}{kmemleak\_seq\_next}},}
+\DoxyCodeLine{    .stop  = \mbox{\hyperlink{kmemleak_8c_ac0c582f3b45e5f840981e8484d6ed10f}{kmemleak\_seq\_stop}},}
+\DoxyCodeLine{    .show  = \mbox{\hyperlink{kmemleak_8c_a7db4ac243ea70c5908debba8c875834a}{kmemleak\_seq\_show}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{kmemleak_8c_aca3f7b3cc6f272a6383b8c99e3559c98}\label{kmemleak_8c_aca3f7b3cc6f272a6383b8c99e3559c98}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_skip\_disable@{kmemleak\_skip\_disable}}
+\index{kmemleak\_skip\_disable@{kmemleak\_skip\_disable}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_skip\_disable}{kmemleak\_skip\_disable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+skip\+\_\+disable\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_aedb64934c4a0861cfdd46a55c4d9af32}\label{kmemleak_8c_aedb64934c4a0861cfdd46a55c4d9af32}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_stack\_scan@{kmemleak\_stack\_scan}}
+\index{kmemleak\_stack\_scan@{kmemleak\_stack\_scan}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_stack\_scan}{kmemleak\_stack\_scan}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+stack\+\_\+scan = 1\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a13cc5d2abc0078fdbfca2799c7e6dea3}\label{kmemleak_8c_a13cc5d2abc0078fdbfca2799c7e6dea3}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_verbose@{kmemleak\_verbose}}
+\index{kmemleak\_verbose@{kmemleak\_verbose}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_verbose}{kmemleak\_verbose}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} kmemleak\+\_\+verbose\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_ad755054a39ac22076a30fd5096a66537}\label{kmemleak_8c_ad755054a39ac22076a30fd5096a66537}} 
+\index{kmemleak.c@{kmemleak.c}!kmemleak\_warning@{kmemleak\_warning}}
+\index{kmemleak\_warning@{kmemleak\_warning}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{kmemleak\_warning}{kmemleak\_warning}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} kmemleak\+\_\+warning\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_af25de249a8dd14526aafdcbabed215ed}\label{kmemleak_8c_af25de249a8dd14526aafdcbabed215ed}} 
+\index{kmemleak.c@{kmemleak.c}!max\_addr@{max\_addr}}
+\index{max\_addr@{max\_addr}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{max\_addr}{max\_addr}}
+{\footnotesize\ttfamily unsigned long max\+\_\+addr\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a188e96b1142581825836709a7dee26a9}\label{kmemleak_8c_a188e96b1142581825836709a7dee26a9}} 
+\index{kmemleak.c@{kmemleak.c}!mem\_pool@{mem\_pool}}
+\index{mem\_pool@{mem\_pool}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{mem\_pool}{mem\_pool}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkmemleak__object}{kmemleak\+\_\+object}} mem\+\_\+pool\mbox{[}C\+O\+N\+F\+I\+G\+\_\+\+D\+E\+B\+U\+G\+\_\+\+K\+M\+E\+M\+L\+E\+A\+K\+\_\+\+M\+E\+M\+\_\+\+P\+O\+O\+L\+\_\+\+S\+I\+ZE\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_ad2c862c0bd2ff004076f0999fe9df921}\label{kmemleak_8c_ad2c862c0bd2ff004076f0999fe9df921}} 
+\index{kmemleak.c@{kmemleak.c}!mem\_pool\_free\_count@{mem\_pool\_free\_count}}
+\index{mem\_pool\_free\_count@{mem\_pool\_free\_count}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{mem\_pool\_free\_count}{mem\_pool\_free\_count}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mem\+\_\+pool\+\_\+free\+\_\+count = \mbox{\hyperlink{linux_2kernel_8h_a3c7c6a69f690fc8d2abf0e385280a532}{A\+R\+R\+A\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{kmemleak_8c_a188e96b1142581825836709a7dee26a9}{mem\+\_\+pool}})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a280cc2f09c487b9a2cfa4e19be781991}\label{kmemleak_8c_a280cc2f09c487b9a2cfa4e19be781991}} 
+\index{kmemleak.c@{kmemleak.c}!min\_addr@{min\_addr}}
+\index{min\_addr@{min\_addr}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{min\_addr}{min\_addr}}
+{\footnotesize\ttfamily unsigned long min\+\_\+addr = \mbox{\hyperlink{vdso_2limits_8h_a41c51926a1997aab3503f9083935e06c}{U\+L\+O\+N\+G\+\_\+\+M\+AX}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a86085662a5963fc06eb151ca84ff4b89}\label{kmemleak_8c_a86085662a5963fc06eb151ca84ff4b89}} 
+\index{kmemleak.c@{kmemleak.c}!object\_cache@{object\_cache}}
+\index{object\_cache@{object\_cache}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{object\_cache}{object\_cache}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ object\+\_\+cache\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_ac6a6dba0f30cdafbf285003a12107bb2}\label{kmemleak_8c_ac6a6dba0f30cdafbf285003a12107bb2}} 
+\index{kmemleak.c@{kmemleak.c}!object\_tree\_root@{object\_tree\_root}}
+\index{object\_tree\_root@{object\_tree\_root}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{object\_tree\_root}{object\_tree\_root}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structrb__root}{rb\+\_\+root}} object\+\_\+tree\+\_\+root = \mbox{\hyperlink{rbtree__types_8h_a0dc291988d7286d8dd4268066e9031a4}{R\+B\+\_\+\+R\+O\+OT}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_af58eeebe30a8dd93f659f1eb7039ebca}\label{kmemleak_8c_af58eeebe30a8dd93f659f1eb7039ebca}} 
+\index{kmemleak.c@{kmemleak.c}!scan\_area\_cache@{scan\_area\_cache}}
+\index{scan\_area\_cache@{scan\_area\_cache}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{scan\_area\_cache}{scan\_area\_cache}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structkmem__cache}{kmem\+\_\+cache}}$\ast$ scan\+\_\+area\+\_\+cache\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{kmemleak_8c_a811114b20a1a79e7c132f25eb907d2a5}\label{kmemleak_8c_a811114b20a1a79e7c132f25eb907d2a5}} 
+\index{kmemleak.c@{kmemleak.c}!scan\_thread@{scan\_thread}}
+\index{scan\_thread@{scan\_thread}!kmemleak.c@{kmemleak.c}}
+\doxysubsubsection{\texorpdfstring{scan\_thread}{scan\_thread}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$ scan\+\_\+thread\hspace{0.3cm}{\ttfamily [static]}}
+

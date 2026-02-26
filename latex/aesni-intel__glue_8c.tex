@@ -1,0 +1,559 @@
+\hypertarget{aesni-intel__glue_8c}{}\doxysection{arch/x86/crypto/aesni-\/intel\+\_\+glue.c File Reference}
+\label{aesni-intel__glue_8c}\index{arch/x86/crypto/aesni-\/intel\_glue.c@{arch/x86/crypto/aesni-\/intel\_glue.c}}
+{\ttfamily \#include $<$linux/hardirq.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/err.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/algapi.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/aes.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/ctr.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/b128ops.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/gcm.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/xts.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu\+\_\+device\+\_\+id.\+h$>$}\newline
+{\ttfamily \#include $<$asm/simd.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/scatterwalk.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/internal/aead.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/internal/simd.\+h$>$}\newline
+{\ttfamily \#include $<$crypto/internal/skcipher.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jump\+\_\+label.\+h$>$}\newline
+{\ttfamily \#include $<$linux/workqueue.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/static\+\_\+call.\+h$>$}\newline
+Include dependency graph for aesni-\/intel\+\_\+glue.c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structaesni__rfc4106__gcm__ctx}{aesni\+\_\+rfc4106\+\_\+gcm\+\_\+ctx}}
+\item 
+struct \mbox{\hyperlink{structgeneric__gcmaes__ctx}{generic\+\_\+gcmaes\+\_\+ctx}}
+\item 
+struct \mbox{\hyperlink{structaesni__xts__ctx}{aesni\+\_\+xts\+\_\+ctx}}
+\item 
+struct \mbox{\hyperlink{structgcm__context__data}{gcm\+\_\+context\+\_\+data}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_affc9ad4437e235bd0f12bdb1d13754e3}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+GN}}~16
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a156b30fc7704a09aa201bf3aa033502d}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+A\+T\+TR}}~\mbox{\hyperlink{struct____attribute____}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} ((\+\_\+\+\_\+aligned\+\_\+\+\_\+(\mbox{\hyperlink{aesni-intel__glue_8c_affc9ad4437e235bd0f12bdb1d13754e3}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+GN}})))
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a8d32eb647ed83497d2f681c7e9bf4902}{A\+E\+S\+\_\+\+B\+L\+O\+C\+K\+\_\+\+M\+A\+SK}}~($\sim$(\mbox{\hyperlink{aes_8h_af19ab913a847ad1e91c5291215116de1}{A\+E\+S\+\_\+\+B\+L\+O\+C\+K\+\_\+\+S\+I\+ZE}} -\/ 1))
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a8245bd631e3a90d80342cd7690b1efc3}{R\+F\+C4106\+\_\+\+H\+A\+S\+H\+\_\+\+S\+U\+B\+K\+E\+Y\+\_\+\+S\+I\+ZE}}~16
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_ada5ac3a607adb45d9ac54ee743e5a2ea}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+E\+X\+T\+RA}}~((\mbox{\hyperlink{aesni-intel__glue_8c_affc9ad4437e235bd0f12bdb1d13754e3}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+GN}} -\/ 1) \& $\sim$(\mbox{\hyperlink{crypto_8h_ab28494918717429c3148f896906b6268}{C\+R\+Y\+P\+T\+O\+\_\+\+M\+I\+N\+A\+L\+I\+GN}} -\/ 1))
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a37e35f63e8e3c61748b00e0ec2205205}{C\+R\+Y\+P\+T\+O\+\_\+\+A\+E\+S\+\_\+\+C\+T\+X\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}}) + \mbox{\hyperlink{aesni-intel__glue_8c_ada5ac3a607adb45d9ac54ee743e5a2ea}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+E\+X\+T\+RA}})
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a0b08671b20115708b6cbf6c7b5382ed8}{X\+T\+S\+\_\+\+A\+E\+S\+\_\+\+C\+T\+X\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structaesni__xts__ctx}{aesni\+\_\+xts\+\_\+ctx}}) + \mbox{\hyperlink{aesni-intel__glue_8c_ada5ac3a607adb45d9ac54ee743e5a2ea}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+E\+X\+T\+RA}})
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a0110e5cbed7399d725b1cbee24894663}{G\+C\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+L\+EN}}~16
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a20a5c95e1c4b3ec630cb90696a670eeb}{A\+V\+X\+\_\+\+G\+E\+N2\+\_\+\+O\+P\+T\+S\+I\+ZE}}~640
+\item 
+\#define \mbox{\hyperlink{aesni-intel__glue_8c_a261c280ec03f13d3d8538fbcfb7da60d}{A\+V\+X\+\_\+\+G\+E\+N4\+\_\+\+O\+P\+T\+S\+I\+ZE}}~4096
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a3b83c339df7bd8094a4425f1e300b811}{aesni\+\_\+set\+\_\+key}} (struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$in\+\_\+key, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} key\+\_\+len)
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_acad0c868fa9a1b60a313da584814029f}{aesni\+\_\+enc}} (const void $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}})
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_add783fbc27423380d3b77eb3814667ad}{aesni\+\_\+dec}} (const void $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}})
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_a5e2c8ba3a54319107ee3e73e95ae96e5}{aesni\+\_\+ecb\+\_\+enc}} (struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_aba38a81740301d864c0bf8c530fd0504}{aesni\+\_\+ecb\+\_\+dec}} (struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_ad75776d7c657f02357feb051bd93cd5f}{aesni\+\_\+cbc\+\_\+enc}} (struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$iv)
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_ac1408b599b83a40fd778c703923df1b8}{aesni\+\_\+cbc\+\_\+dec}} (struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$iv)
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_acc378535ae26546bac35ae10f1fa1ac3}{aesni\+\_\+cts\+\_\+cbc\+\_\+enc}} (struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$iv)
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_a22903c8783d8bca90002d75106fc6b5a}{aesni\+\_\+cts\+\_\+cbc\+\_\+dec}} (struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$iv)
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_a156c5c4d12279106aa54627a1f67aed9}{aesni\+\_\+xts\+\_\+encrypt}} (const struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$iv)
+\item 
+\mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void \mbox{\hyperlink{aesni-intel__glue_8c_ae19cb2360d14fccef4f6c52ed76df16f}{aesni\+\_\+xts\+\_\+decrypt}} (const struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_a47b83121874b7f9b66b8487838d8cd02}{ctx}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_afffc2d45db6108be751aa028e4f17fec}{out}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$iv)
+\item 
+static struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$ \mbox{\hyperlink{aesni-intel__glue_8c_a41b2264ef5d43b4dda34b2349c922439}{aes\+\_\+ctx}} (void $\ast$raw\+\_\+ctx)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a5ed03168b96d3d22e5a809dc73453c9d}{aes\+\_\+set\+\_\+key\+\_\+common}} (struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$\mbox{\hyperlink{libcrc32c_8c_a6307f4ac6b3edb794be87a13b83a2e18}{tfm}}, void $\ast$raw\+\_\+ctx, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$in\+\_\+key, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} key\+\_\+len)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_af186523f6a4595f7b018caddd84f7b87}{aes\+\_\+set\+\_\+key}} (struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$\mbox{\hyperlink{libcrc32c_8c_a6307f4ac6b3edb794be87a13b83a2e18}{tfm}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$in\+\_\+key, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} key\+\_\+len)
+\item 
+static void \mbox{\hyperlink{aesni-intel__glue_8c_a4e8f40ac1c460d6afd7a918948cd4770}{aesni\+\_\+encrypt}} (struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$\mbox{\hyperlink{libcrc32c_8c_a6307f4ac6b3edb794be87a13b83a2e18}{tfm}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}})
+\item 
+static void \mbox{\hyperlink{aesni-intel__glue_8c_aff492e93efd1a4a2b7fb39352d3e308a}{aesni\+\_\+decrypt}} (struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$\mbox{\hyperlink{libcrc32c_8c_a6307f4ac6b3edb794be87a13b83a2e18}{tfm}}, \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a07184ad4b0362c79c302add5b44bf66c}{aesni\+\_\+skcipher\+\_\+setkey}} (struct \mbox{\hyperlink{structcrypto__skcipher}{crypto\+\_\+skcipher}} $\ast$\mbox{\hyperlink{libcrc32c_8c_a6307f4ac6b3edb794be87a13b83a2e18}{tfm}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a4bf1b4d797d8a6bd7df1e75eca346012}{ecb\+\_\+encrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a1a6b72ac52cc921acc0616caf95299bf}{ecb\+\_\+decrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a9c4104871f0f7fb1486555b7602fd929}{cbc\+\_\+encrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a8ce2ecfaf07040c4fa663a9c95428b53}{cbc\+\_\+decrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_ae90f46ca1d7d01a1641de9801802f94c}{cts\+\_\+cbc\+\_\+encrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a8397badcaca1b5e909c057a38f72e485}{cts\+\_\+cbc\+\_\+decrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a508d61c725afa6db4a347682dc8918a1}{xts\+\_\+aesni\+\_\+setkey}} (struct \mbox{\hyperlink{structcrypto__skcipher}{crypto\+\_\+skcipher}} $\ast$\mbox{\hyperlink{libcrc32c_8c_a6307f4ac6b3edb794be87a13b83a2e18}{tfm}}, const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} keylen)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a3e90236ee548dc2a054dc28e893eee54}{xts\+\_\+crypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} encrypt)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a5b5feda524a010e3ca79e72bef1bf4aa}{xts\+\_\+encrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{aesni-intel__glue_8c_a956c61e625830543d01896fb2d3facbe}{xts\+\_\+decrypt}} (struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$\mbox{\hyperlink{tmc_8h_ab9ffec0beea16f4b087fba102176f633}{req}})
+\item 
+\mbox{\hyperlink{aesni-intel__glue_8c_af9c3b8f5ee8bab4e31ad1fe06e2a4a4d}{M\+O\+D\+U\+L\+E\+\_\+\+D\+E\+V\+I\+C\+E\+\_\+\+T\+A\+B\+LE}} (x86cpu, \mbox{\hyperlink{aesni-intel__glue_8c_addc73775324e5ccc160c3d1207ae1920}{aesni\+\_\+cpu\+\_\+id}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{aesni-intel__glue_8c_a201184b096d9f48165941797eb34c135}{aesni\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} \mbox{\hyperlink{aesni-intel__glue_8c_a3af63bde52608e1a655bf20f264b1ff0}{aesni\+\_\+exit}} (void)
+\item 
+\mbox{\hyperlink{aesni-intel__glue_8c_a9ce29beb235b4cd97f4f3b5546ae5aaf}{late\+\_\+initcall}} (\mbox{\hyperlink{aesni-intel__glue_8c_a201184b096d9f48165941797eb34c135}{aesni\+\_\+init}})
+\item 
+\mbox{\hyperlink{aesni-intel__glue_8c_ab3c77e6907da76aab35ba2f881204d94}{module\+\_\+exit}} (\mbox{\hyperlink{aesni-intel__glue_8c_a3af63bde52608e1a655bf20f264b1ff0}{aesni\+\_\+exit}})
+\item 
+\mbox{\hyperlink{aesni-intel__glue_8c_a9b346b4c9cf77ee4045937a2c7ad6da3}{M\+O\+D\+U\+L\+E\+\_\+\+D\+E\+S\+C\+R\+I\+P\+T\+I\+ON}} (\char`\"{}Rijndael (A\+ES) Cipher Algorithm, Intel A\+ES-\/NI instructions optimized\char`\"{})
+\item 
+\mbox{\hyperlink{aesni-intel__glue_8c_ad94b36675e7eb067ea3ce6ff9e244a44}{M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE}} (\char`\"{}G\+PL\char`\"{})
+\item 
+\mbox{\hyperlink{aesni-intel__glue_8c_ad68fffeb74bb3d7a89510e702a176db7}{M\+O\+D\+U\+L\+E\+\_\+\+A\+L\+I\+A\+S\+\_\+\+C\+R\+Y\+P\+TO}} (\char`\"{}aes\char`\"{})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structcrypto__alg}{crypto\+\_\+alg}} \mbox{\hyperlink{aesni-intel__glue_8c_a53e137d6b60f8ed56504560c8141c185}{aesni\+\_\+cipher\+\_\+alg}}
+\item 
+static struct \mbox{\hyperlink{structskcipher__alg}{skcipher\+\_\+alg}} \mbox{\hyperlink{aesni-intel__glue_8c_a69aefcd235ff198535ee3e4b7bbc7c07}{aesni\+\_\+skciphers}} \mbox{[}$\,$\mbox{]}
+\item 
+static struct simd\+\_\+skcipher\+\_\+alg $\ast$ \mbox{\hyperlink{aesni-intel__glue_8c_a291a3765916fb9c512cb1bcd6a081722}{aesni\+\_\+simd\+\_\+skciphers}} \mbox{[}\mbox{\hyperlink{linux_2kernel_8h_a3c7c6a69f690fc8d2abf0e385280a532}{A\+R\+R\+A\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{aesni-intel__glue_8c_a69aefcd235ff198535ee3e4b7bbc7c07}{aesni\+\_\+skciphers}})\mbox{]}
+\item 
+static struct \mbox{\hyperlink{structaead__alg}{aead\+\_\+alg}} \mbox{\hyperlink{aesni-intel__glue_8c_a8cd710fe3f01ca1327114a6a3326d877}{aesni\+\_\+aeads}} \mbox{[}0\mbox{]}
+\item 
+static struct simd\+\_\+aead\+\_\+alg $\ast$ \mbox{\hyperlink{aesni-intel__glue_8c_abc0ad436fc861febd650681c28f65db4}{aesni\+\_\+simd\+\_\+aeads}} \mbox{[}\mbox{\hyperlink{linux_2kernel_8h_a3c7c6a69f690fc8d2abf0e385280a532}{A\+R\+R\+A\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{aesni-intel__glue_8c_a8cd710fe3f01ca1327114a6a3326d877}{aesni\+\_\+aeads}})\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structx86__cpu__id}{x86\+\_\+cpu\+\_\+id}} \mbox{\hyperlink{aesni-intel__glue_8c_addc73775324e5ccc160c3d1207ae1920}{aesni\+\_\+cpu\+\_\+id}} \mbox{[}$\,$\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{aesni-intel__glue_8c_a8d32eb647ed83497d2f681c7e9bf4902}\label{aesni-intel__glue_8c_a8d32eb647ed83497d2f681c7e9bf4902}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!AES\_BLOCK\_MASK@{AES\_BLOCK\_MASK}}
+\index{AES\_BLOCK\_MASK@{AES\_BLOCK\_MASK}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{AES\_BLOCK\_MASK}{AES\_BLOCK\_MASK}}
+{\footnotesize\ttfamily \#define A\+E\+S\+\_\+\+B\+L\+O\+C\+K\+\_\+\+M\+A\+SK~($\sim$(\mbox{\hyperlink{aes_8h_af19ab913a847ad1e91c5291215116de1}{A\+E\+S\+\_\+\+B\+L\+O\+C\+K\+\_\+\+S\+I\+ZE}} -\/ 1))}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_affc9ad4437e235bd0f12bdb1d13754e3}\label{aesni-intel__glue_8c_affc9ad4437e235bd0f12bdb1d13754e3}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!AESNI\_ALIGN@{AESNI\_ALIGN}}
+\index{AESNI\_ALIGN@{AESNI\_ALIGN}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{AESNI\_ALIGN}{AESNI\_ALIGN}}
+{\footnotesize\ttfamily \#define A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+GN~16}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a156b30fc7704a09aa201bf3aa033502d}\label{aesni-intel__glue_8c_a156b30fc7704a09aa201bf3aa033502d}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!AESNI\_ALIGN\_ATTR@{AESNI\_ALIGN\_ATTR}}
+\index{AESNI\_ALIGN\_ATTR@{AESNI\_ALIGN\_ATTR}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{AESNI\_ALIGN\_ATTR}{AESNI\_ALIGN\_ATTR}}
+{\footnotesize\ttfamily \#define A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+A\+T\+TR~\mbox{\hyperlink{struct____attribute____}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} ((\+\_\+\+\_\+aligned\+\_\+\+\_\+(\mbox{\hyperlink{aesni-intel__glue_8c_affc9ad4437e235bd0f12bdb1d13754e3}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+GN}})))}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_ada5ac3a607adb45d9ac54ee743e5a2ea}\label{aesni-intel__glue_8c_ada5ac3a607adb45d9ac54ee743e5a2ea}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!AESNI\_ALIGN\_EXTRA@{AESNI\_ALIGN\_EXTRA}}
+\index{AESNI\_ALIGN\_EXTRA@{AESNI\_ALIGN\_EXTRA}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{AESNI\_ALIGN\_EXTRA}{AESNI\_ALIGN\_EXTRA}}
+{\footnotesize\ttfamily \#define A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+E\+X\+T\+RA~((\mbox{\hyperlink{aesni-intel__glue_8c_affc9ad4437e235bd0f12bdb1d13754e3}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+GN}} -\/ 1) \& $\sim$(\mbox{\hyperlink{crypto_8h_ab28494918717429c3148f896906b6268}{C\+R\+Y\+P\+T\+O\+\_\+\+M\+I\+N\+A\+L\+I\+GN}} -\/ 1))}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a20a5c95e1c4b3ec630cb90696a670eeb}\label{aesni-intel__glue_8c_a20a5c95e1c4b3ec630cb90696a670eeb}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!AVX\_GEN2\_OPTSIZE@{AVX\_GEN2\_OPTSIZE}}
+\index{AVX\_GEN2\_OPTSIZE@{AVX\_GEN2\_OPTSIZE}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{AVX\_GEN2\_OPTSIZE}{AVX\_GEN2\_OPTSIZE}}
+{\footnotesize\ttfamily \#define A\+V\+X\+\_\+\+G\+E\+N2\+\_\+\+O\+P\+T\+S\+I\+ZE~640}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a261c280ec03f13d3d8538fbcfb7da60d}\label{aesni-intel__glue_8c_a261c280ec03f13d3d8538fbcfb7da60d}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!AVX\_GEN4\_OPTSIZE@{AVX\_GEN4\_OPTSIZE}}
+\index{AVX\_GEN4\_OPTSIZE@{AVX\_GEN4\_OPTSIZE}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{AVX\_GEN4\_OPTSIZE}{AVX\_GEN4\_OPTSIZE}}
+{\footnotesize\ttfamily \#define A\+V\+X\+\_\+\+G\+E\+N4\+\_\+\+O\+P\+T\+S\+I\+ZE~4096}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a37e35f63e8e3c61748b00e0ec2205205}\label{aesni-intel__glue_8c_a37e35f63e8e3c61748b00e0ec2205205}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!CRYPTO\_AES\_CTX\_SIZE@{CRYPTO\_AES\_CTX\_SIZE}}
+\index{CRYPTO\_AES\_CTX\_SIZE@{CRYPTO\_AES\_CTX\_SIZE}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{CRYPTO\_AES\_CTX\_SIZE}{CRYPTO\_AES\_CTX\_SIZE}}
+{\footnotesize\ttfamily \#define C\+R\+Y\+P\+T\+O\+\_\+\+A\+E\+S\+\_\+\+C\+T\+X\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}}) + \mbox{\hyperlink{aesni-intel__glue_8c_ada5ac3a607adb45d9ac54ee743e5a2ea}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+E\+X\+T\+RA}})}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a0110e5cbed7399d725b1cbee24894663}\label{aesni-intel__glue_8c_a0110e5cbed7399d725b1cbee24894663}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!GCM\_BLOCK\_LEN@{GCM\_BLOCK\_LEN}}
+\index{GCM\_BLOCK\_LEN@{GCM\_BLOCK\_LEN}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{GCM\_BLOCK\_LEN}{GCM\_BLOCK\_LEN}}
+{\footnotesize\ttfamily \#define G\+C\+M\+\_\+\+B\+L\+O\+C\+K\+\_\+\+L\+EN~16}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a8245bd631e3a90d80342cd7690b1efc3}\label{aesni-intel__glue_8c_a8245bd631e3a90d80342cd7690b1efc3}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!RFC4106\_HASH\_SUBKEY\_SIZE@{RFC4106\_HASH\_SUBKEY\_SIZE}}
+\index{RFC4106\_HASH\_SUBKEY\_SIZE@{RFC4106\_HASH\_SUBKEY\_SIZE}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{RFC4106\_HASH\_SUBKEY\_SIZE}{RFC4106\_HASH\_SUBKEY\_SIZE}}
+{\footnotesize\ttfamily \#define R\+F\+C4106\+\_\+\+H\+A\+S\+H\+\_\+\+S\+U\+B\+K\+E\+Y\+\_\+\+S\+I\+ZE~16}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a0b08671b20115708b6cbf6c7b5382ed8}\label{aesni-intel__glue_8c_a0b08671b20115708b6cbf6c7b5382ed8}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!XTS\_AES\_CTX\_SIZE@{XTS\_AES\_CTX\_SIZE}}
+\index{XTS\_AES\_CTX\_SIZE@{XTS\_AES\_CTX\_SIZE}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{XTS\_AES\_CTX\_SIZE}{XTS\_AES\_CTX\_SIZE}}
+{\footnotesize\ttfamily \#define X\+T\+S\+\_\+\+A\+E\+S\+\_\+\+C\+T\+X\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(struct \mbox{\hyperlink{structaesni__xts__ctx}{aesni\+\_\+xts\+\_\+ctx}}) + \mbox{\hyperlink{aesni-intel__glue_8c_ada5ac3a607adb45d9ac54ee743e5a2ea}{A\+E\+S\+N\+I\+\_\+\+A\+L\+I\+G\+N\+\_\+\+E\+X\+T\+RA}})}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{aesni-intel__glue_8c_a41b2264ef5d43b4dda34b2349c922439}\label{aesni-intel__glue_8c_a41b2264ef5d43b4dda34b2349c922439}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aes\_ctx@{aes\_ctx}}
+\index{aes\_ctx@{aes\_ctx}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aes\_ctx()}{aes\_ctx()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}}$\ast$ aes\+\_\+ctx (\begin{DoxyParamCaption}\item[{void $\ast$}]{raw\+\_\+ctx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{aesni-intel__glue_8c_af186523f6a4595f7b018caddd84f7b87}\label{aesni-intel__glue_8c_af186523f6a4595f7b018caddd84f7b87}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aes\_set\_key@{aes\_set\_key}}
+\index{aes\_set\_key@{aes\_set\_key}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aes\_set\_key()}{aes\_set\_key()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} aes\+\_\+set\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$}]{tfm,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in\+\_\+key,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{key\+\_\+len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{aesni-intel__glue_8c_a5ed03168b96d3d22e5a809dc73453c9d}\label{aesni-intel__glue_8c_a5ed03168b96d3d22e5a809dc73453c9d}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aes\_set\_key\_common@{aes\_set\_key\_common}}
+\index{aes\_set\_key\_common@{aes\_set\_key\_common}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aes\_set\_key\_common()}{aes\_set\_key\_common()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} aes\+\_\+set\+\_\+key\+\_\+common (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$}]{tfm,  }\item[{void $\ast$}]{raw\+\_\+ctx,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in\+\_\+key,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{key\+\_\+len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{aesni-intel__glue_8c_ac1408b599b83a40fd778c703923df1b8}\label{aesni-intel__glue_8c_ac1408b599b83a40fd778c703923df1b8}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_cbc\_dec@{aesni\_cbc\_dec}}
+\index{aesni\_cbc\_dec@{aesni\_cbc\_dec}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_cbc\_dec()}{aesni\_cbc\_dec()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+cbc\+\_\+dec (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{iv }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{aesni-intel__glue_8c_ad75776d7c657f02357feb051bd93cd5f}\label{aesni-intel__glue_8c_ad75776d7c657f02357feb051bd93cd5f}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_cbc\_enc@{aesni\_cbc\_enc}}
+\index{aesni\_cbc\_enc@{aesni\_cbc\_enc}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_cbc\_enc()}{aesni\_cbc\_enc()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+cbc\+\_\+enc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{iv }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{aesni-intel__glue_8c_a22903c8783d8bca90002d75106fc6b5a}\label{aesni-intel__glue_8c_a22903c8783d8bca90002d75106fc6b5a}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_cts\_cbc\_dec@{aesni\_cts\_cbc\_dec}}
+\index{aesni\_cts\_cbc\_dec@{aesni\_cts\_cbc\_dec}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_cts\_cbc\_dec()}{aesni\_cts\_cbc\_dec()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+cts\+\_\+cbc\+\_\+dec (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{iv }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{aesni-intel__glue_8c_acc378535ae26546bac35ae10f1fa1ac3}\label{aesni-intel__glue_8c_acc378535ae26546bac35ae10f1fa1ac3}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_cts\_cbc\_enc@{aesni\_cts\_cbc\_enc}}
+\index{aesni\_cts\_cbc\_enc@{aesni\_cts\_cbc\_enc}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_cts\_cbc\_enc()}{aesni\_cts\_cbc\_enc()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+cts\+\_\+cbc\+\_\+enc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{iv }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{aesni-intel__glue_8c_add783fbc27423380d3b77eb3814667ad}\label{aesni-intel__glue_8c_add783fbc27423380d3b77eb3814667ad}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_dec@{aesni\_dec}}
+\index{aesni\_dec@{aesni\_dec}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_dec()}{aesni\_dec()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+dec (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{aesni-intel__glue_8c_aff492e93efd1a4a2b7fb39352d3e308a}\label{aesni-intel__glue_8c_aff492e93efd1a4a2b7fb39352d3e308a}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_decrypt@{aesni\_decrypt}}
+\index{aesni\_decrypt@{aesni\_decrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_decrypt()}{aesni\_decrypt()}}
+{\footnotesize\ttfamily static void aesni\+\_\+decrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$}]{tfm,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{dst,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{src }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{aesni-intel__glue_8c_aba38a81740301d864c0bf8c530fd0504}\label{aesni-intel__glue_8c_aba38a81740301d864c0bf8c530fd0504}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_ecb\_dec@{aesni\_ecb\_dec}}
+\index{aesni\_ecb\_dec@{aesni\_ecb\_dec}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_ecb\_dec()}{aesni\_ecb\_dec()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+ecb\+\_\+dec (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{aesni-intel__glue_8c_a5e2c8ba3a54319107ee3e73e95ae96e5}\label{aesni-intel__glue_8c_a5e2c8ba3a54319107ee3e73e95ae96e5}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_ecb\_enc@{aesni\_ecb\_enc}}
+\index{aesni\_ecb\_enc@{aesni\_ecb\_enc}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_ecb\_enc()}{aesni\_ecb\_enc()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+ecb\+\_\+enc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{aesni-intel__glue_8c_acad0c868fa9a1b60a313da584814029f}\label{aesni-intel__glue_8c_acad0c868fa9a1b60a313da584814029f}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_enc@{aesni\_enc}}
+\index{aesni\_enc@{aesni\_enc}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_enc()}{aesni\_enc()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+enc (\begin{DoxyParamCaption}\item[{const void $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{aesni-intel__glue_8c_a4e8f40ac1c460d6afd7a918948cd4770}\label{aesni-intel__glue_8c_a4e8f40ac1c460d6afd7a918948cd4770}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_encrypt@{aesni\_encrypt}}
+\index{aesni\_encrypt@{aesni\_encrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_encrypt()}{aesni\_encrypt()}}
+{\footnotesize\ttfamily static void aesni\+\_\+encrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__tfm}{crypto\+\_\+tfm}} $\ast$}]{tfm,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{dst,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{src }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{aesni-intel__glue_8c_a3af63bde52608e1a655bf20f264b1ff0}\label{aesni-intel__glue_8c_a3af63bde52608e1a655bf20f264b1ff0}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_exit@{aesni\_exit}}
+\index{aesni\_exit@{aesni\_exit}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_exit()}{aesni\_exit()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} aesni\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{aesni-intel__glue_8c_a201184b096d9f48165941797eb34c135}\label{aesni-intel__glue_8c_a201184b096d9f48165941797eb34c135}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_init@{aesni\_init}}
+\index{aesni\_init@{aesni\_init}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_init()}{aesni\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} aesni\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{aesni-intel__glue_8c_a3b83c339df7bd8094a4425f1e300b811}\label{aesni-intel__glue_8c_a3b83c339df7bd8094a4425f1e300b811}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_set\_key@{aesni\_set\_key}}
+\index{aesni\_set\_key@{aesni\_set\_key}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_set\_key()}{aesni\_set\_key()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} aesni\+\_\+set\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in\+\_\+key,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{key\+\_\+len }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{aesni-intel__glue_8c_a07184ad4b0362c79c302add5b44bf66c}\label{aesni-intel__glue_8c_a07184ad4b0362c79c302add5b44bf66c}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_skcipher\_setkey@{aesni\_skcipher\_setkey}}
+\index{aesni\_skcipher\_setkey@{aesni\_skcipher\_setkey}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_skcipher\_setkey()}{aesni\_skcipher\_setkey()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} aesni\+\_\+skcipher\+\_\+setkey (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__skcipher}{crypto\+\_\+skcipher}} $\ast$}]{tfm,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{key,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{aesni-intel__glue_8c_ae19cb2360d14fccef4f6c52ed76df16f}\label{aesni-intel__glue_8c_ae19cb2360d14fccef4f6c52ed76df16f}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_xts\_decrypt@{aesni\_xts\_decrypt}}
+\index{aesni\_xts\_decrypt@{aesni\_xts\_decrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_xts\_decrypt()}{aesni\_xts\_decrypt()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+xts\+\_\+decrypt (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{iv }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{aesni-intel__glue_8c_a156c5c4d12279106aa54627a1f67aed9}\label{aesni-intel__glue_8c_a156c5c4d12279106aa54627a1f67aed9}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_xts\_encrypt@{aesni\_xts\_encrypt}}
+\index{aesni\_xts\_encrypt@{aesni\_xts\_encrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_xts\_encrypt()}{aesni\_xts\_encrypt()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2linkage_8h_a8ee9fea06c87168145e89fc520cbcdd1}{asmlinkage}} void aesni\+\_\+xts\+\_\+encrypt (\begin{DoxyParamCaption}\item[{const struct \mbox{\hyperlink{structcrypto__aes__ctx}{crypto\+\_\+aes\+\_\+ctx}} $\ast$}]{ctx,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{out,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{in,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{len,  }\item[{\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{iv }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{aesni-intel__glue_8c_a8ce2ecfaf07040c4fa663a9c95428b53}\label{aesni-intel__glue_8c_a8ce2ecfaf07040c4fa663a9c95428b53}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!cbc\_decrypt@{cbc\_decrypt}}
+\index{cbc\_decrypt@{cbc\_decrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{cbc\_decrypt()}{cbc\_decrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} cbc\+\_\+decrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{aesni-intel__glue_8c_a9c4104871f0f7fb1486555b7602fd929}\label{aesni-intel__glue_8c_a9c4104871f0f7fb1486555b7602fd929}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!cbc\_encrypt@{cbc\_encrypt}}
+\index{cbc\_encrypt@{cbc\_encrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{cbc\_encrypt()}{cbc\_encrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} cbc\+\_\+encrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{aesni-intel__glue_8c_a8397badcaca1b5e909c057a38f72e485}\label{aesni-intel__glue_8c_a8397badcaca1b5e909c057a38f72e485}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!cts\_cbc\_decrypt@{cts\_cbc\_decrypt}}
+\index{cts\_cbc\_decrypt@{cts\_cbc\_decrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{cts\_cbc\_decrypt()}{cts\_cbc\_decrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} cts\+\_\+cbc\+\_\+decrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{aesni-intel__glue_8c_ae90f46ca1d7d01a1641de9801802f94c}\label{aesni-intel__glue_8c_ae90f46ca1d7d01a1641de9801802f94c}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!cts\_cbc\_encrypt@{cts\_cbc\_encrypt}}
+\index{cts\_cbc\_encrypt@{cts\_cbc\_encrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{cts\_cbc\_encrypt()}{cts\_cbc\_encrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} cts\+\_\+cbc\+\_\+encrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{aesni-intel__glue_8c_a1a6b72ac52cc921acc0616caf95299bf}\label{aesni-intel__glue_8c_a1a6b72ac52cc921acc0616caf95299bf}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!ecb\_decrypt@{ecb\_decrypt}}
+\index{ecb\_decrypt@{ecb\_decrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{ecb\_decrypt()}{ecb\_decrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ecb\+\_\+decrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{aesni-intel__glue_8c_a4bf1b4d797d8a6bd7df1e75eca346012}\label{aesni-intel__glue_8c_a4bf1b4d797d8a6bd7df1e75eca346012}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!ecb\_encrypt@{ecb\_encrypt}}
+\index{ecb\_encrypt@{ecb\_encrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{ecb\_encrypt()}{ecb\_encrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ecb\+\_\+encrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{aesni-intel__glue_8c_a9ce29beb235b4cd97f4f3b5546ae5aaf}\label{aesni-intel__glue_8c_a9ce29beb235b4cd97f4f3b5546ae5aaf}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!late\_initcall@{late\_initcall}}
+\index{late\_initcall@{late\_initcall}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{late\_initcall()}{late\_initcall()}}
+{\footnotesize\ttfamily late\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{aesni-intel__glue_8c_a201184b096d9f48165941797eb34c135}{aesni\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_ad68fffeb74bb3d7a89510e702a176db7}\label{aesni-intel__glue_8c_ad68fffeb74bb3d7a89510e702a176db7}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!MODULE\_ALIAS\_CRYPTO@{MODULE\_ALIAS\_CRYPTO}}
+\index{MODULE\_ALIAS\_CRYPTO@{MODULE\_ALIAS\_CRYPTO}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_ALIAS\_CRYPTO()}{MODULE\_ALIAS\_CRYPTO()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+A\+L\+I\+A\+S\+\_\+\+C\+R\+Y\+P\+TO (\begin{DoxyParamCaption}\item[{\char`\"{}aes\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a9b346b4c9cf77ee4045937a2c7ad6da3}\label{aesni-intel__glue_8c_a9b346b4c9cf77ee4045937a2c7ad6da3}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!MODULE\_DESCRIPTION@{MODULE\_DESCRIPTION}}
+\index{MODULE\_DESCRIPTION@{MODULE\_DESCRIPTION}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_DESCRIPTION()}{MODULE\_DESCRIPTION()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+D\+E\+S\+C\+R\+I\+P\+T\+I\+ON (\begin{DoxyParamCaption}\item[{\char`\"{}Rijndael (A\+ES) Cipher}]{Algorithm,  }\item[{Intel A\+ES-\/NI instructions optimized\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_af9c3b8f5ee8bab4e31ad1fe06e2a4a4d}\label{aesni-intel__glue_8c_af9c3b8f5ee8bab4e31ad1fe06e2a4a4d}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!MODULE\_DEVICE\_TABLE@{MODULE\_DEVICE\_TABLE}}
+\index{MODULE\_DEVICE\_TABLE@{MODULE\_DEVICE\_TABLE}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_DEVICE\_TABLE()}{MODULE\_DEVICE\_TABLE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+D\+E\+V\+I\+C\+E\+\_\+\+T\+A\+B\+LE (\begin{DoxyParamCaption}\item[{x86cpu}]{,  }\item[{\mbox{\hyperlink{aesni-intel__glue_8c_addc73775324e5ccc160c3d1207ae1920}{aesni\+\_\+cpu\+\_\+id}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_ab3c77e6907da76aab35ba2f881204d94}\label{aesni-intel__glue_8c_ab3c77e6907da76aab35ba2f881204d94}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!module\_exit@{module\_exit}}
+\index{module\_exit@{module\_exit}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{module\_exit()}{module\_exit()}}
+{\footnotesize\ttfamily module\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{aesni-intel__glue_8c_a3af63bde52608e1a655bf20f264b1ff0}{aesni\+\_\+exit}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_ad94b36675e7eb067ea3ce6ff9e244a44}\label{aesni-intel__glue_8c_ad94b36675e7eb067ea3ce6ff9e244a44}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!MODULE\_LICENSE@{MODULE\_LICENSE}}
+\index{MODULE\_LICENSE@{MODULE\_LICENSE}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_LICENSE()}{MODULE\_LICENSE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE (\begin{DoxyParamCaption}\item[{\char`\"{}G\+PL\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a508d61c725afa6db4a347682dc8918a1}\label{aesni-intel__glue_8c_a508d61c725afa6db4a347682dc8918a1}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!xts\_aesni\_setkey@{xts\_aesni\_setkey}}
+\index{xts\_aesni\_setkey@{xts\_aesni\_setkey}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{xts\_aesni\_setkey()}{xts\_aesni\_setkey()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xts\+\_\+aesni\+\_\+setkey (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcrypto__skcipher}{crypto\+\_\+skcipher}} $\ast$}]{tfm,  }\item[{const \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} $\ast$}]{key,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{keylen }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{aesni-intel__glue_8c_a3e90236ee548dc2a054dc28e893eee54}\label{aesni-intel__glue_8c_a3e90236ee548dc2a054dc28e893eee54}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!xts\_crypt@{xts\_crypt}}
+\index{xts\_crypt@{xts\_crypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{xts\_crypt()}{xts\_crypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xts\+\_\+crypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{encrypt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{aesni-intel__glue_8c_a956c61e625830543d01896fb2d3facbe}\label{aesni-intel__glue_8c_a956c61e625830543d01896fb2d3facbe}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!xts\_decrypt@{xts\_decrypt}}
+\index{xts\_decrypt@{xts\_decrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{xts\_decrypt()}{xts\_decrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xts\+\_\+decrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{aesni-intel__glue_8c_a5b5feda524a010e3ca79e72bef1bf4aa}\label{aesni-intel__glue_8c_a5b5feda524a010e3ca79e72bef1bf4aa}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!xts\_encrypt@{xts\_encrypt}}
+\index{xts\_encrypt@{xts\_encrypt}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{xts\_encrypt()}{xts\_encrypt()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} xts\+\_\+encrypt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structskcipher__request}{skcipher\+\_\+request}} $\ast$}]{req }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{aesni-intel__glue_8c_a8cd710fe3f01ca1327114a6a3326d877}\label{aesni-intel__glue_8c_a8cd710fe3f01ca1327114a6a3326d877}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_aeads@{aesni\_aeads}}
+\index{aesni\_aeads@{aesni\_aeads}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_aeads}{aesni\_aeads}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structaead__alg}{aead\+\_\+alg}} aesni\+\_\+aeads\mbox{[}0\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a53e137d6b60f8ed56504560c8141c185}\label{aesni-intel__glue_8c_a53e137d6b60f8ed56504560c8141c185}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_cipher\_alg@{aesni\_cipher\_alg}}
+\index{aesni\_cipher\_alg@{aesni\_cipher\_alg}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_cipher\_alg}{aesni\_cipher\_alg}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structcrypto__alg}{crypto\+\_\+alg}} aesni\+\_\+cipher\+\_\+alg\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .cra\_name       = \textcolor{stringliteral}{"aes"},}
+\DoxyCodeLine{    .cra\_driver\_name    = \textcolor{stringliteral}{"aes-\/aesni"},}
+\DoxyCodeLine{    .cra\_priority       = 300,}
+\DoxyCodeLine{    .cra\_flags      = \mbox{\hyperlink{crypto_8h_ab4f9095eda0403cc872f33c4754007e8}{CRYPTO\_ALG\_TYPE\_CIPHER}},}
+\DoxyCodeLine{    .cra\_blocksize      = \mbox{\hyperlink{aes_8h_af19ab913a847ad1e91c5291215116de1}{AES\_BLOCK\_SIZE}},}
+\DoxyCodeLine{    .cra\_ctxsize        = \mbox{\hyperlink{aesni-intel__glue_8c_a37e35f63e8e3c61748b00e0ec2205205}{CRYPTO\_AES\_CTX\_SIZE}},}
+\DoxyCodeLine{    .cra\_module     = \mbox{\hyperlink{include_2linux_2export_8h_a026ecb225c8ecf49f8a6075a7071a962}{THIS\_MODULE}},}
+\DoxyCodeLine{    .cra\_u  = \{}
+\DoxyCodeLine{        .cipher = \{}
+\DoxyCodeLine{            .cia\_min\_keysize    = \mbox{\hyperlink{aes_8h_aec5fc0afab8fe177d95ef53ffce1619a}{AES\_MIN\_KEY\_SIZE}},}
+\DoxyCodeLine{            .cia\_max\_keysize    = \mbox{\hyperlink{aes_8h_ac3c936c490fa55c6836a5bcf0e5de40b}{AES\_MAX\_KEY\_SIZE}},}
+\DoxyCodeLine{            .cia\_setkey     = \mbox{\hyperlink{aesni-intel__glue_8c_af186523f6a4595f7b018caddd84f7b87}{aes\_set\_key}},}
+\DoxyCodeLine{            .cia\_encrypt        = \mbox{\hyperlink{aesni-intel__glue_8c_a4e8f40ac1c460d6afd7a918948cd4770}{aesni\_encrypt}},}
+\DoxyCodeLine{            .cia\_decrypt        = \mbox{\hyperlink{aesni-intel__glue_8c_aff492e93efd1a4a2b7fb39352d3e308a}{aesni\_decrypt}}}
+\DoxyCodeLine{        \}}
+\DoxyCodeLine{    \}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{aesni-intel__glue_8c_addc73775324e5ccc160c3d1207ae1920}\label{aesni-intel__glue_8c_addc73775324e5ccc160c3d1207ae1920}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_cpu\_id@{aesni\_cpu\_id}}
+\index{aesni\_cpu\_id@{aesni\_cpu\_id}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_cpu\_id}{aesni\_cpu\_id}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structx86__cpu__id}{x86\+\_\+cpu\+\_\+id}} aesni\+\_\+cpu\+\_\+id\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \mbox{\hyperlink{cpu__device__id_8h_abf742273cc907e9b5485244e466e0440}{X86\_MATCH\_FEATURE}}(\mbox{\hyperlink{cpufeatures_8h_a3ae1ca89614e2b8109c6a293484fdf53}{X86\_FEATURE\_AES}}, \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}}),}
+\DoxyCodeLine{    \{\}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{aesni-intel__glue_8c_abc0ad436fc861febd650681c28f65db4}\label{aesni-intel__glue_8c_abc0ad436fc861febd650681c28f65db4}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_simd\_aeads@{aesni\_simd\_aeads}}
+\index{aesni\_simd\_aeads@{aesni\_simd\_aeads}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_simd\_aeads}{aesni\_simd\_aeads}}
+{\footnotesize\ttfamily struct simd\+\_\+aead\+\_\+alg$\ast$ aesni\+\_\+simd\+\_\+aeads\mbox{[}\mbox{\hyperlink{linux_2kernel_8h_a3c7c6a69f690fc8d2abf0e385280a532}{A\+R\+R\+A\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{aesni-intel__glue_8c_a8cd710fe3f01ca1327114a6a3326d877}{aesni\+\_\+aeads}})\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a291a3765916fb9c512cb1bcd6a081722}\label{aesni-intel__glue_8c_a291a3765916fb9c512cb1bcd6a081722}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_simd\_skciphers@{aesni\_simd\_skciphers}}
+\index{aesni\_simd\_skciphers@{aesni\_simd\_skciphers}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_simd\_skciphers}{aesni\_simd\_skciphers}}
+{\footnotesize\ttfamily struct simd\+\_\+skcipher\+\_\+alg$\ast$ aesni\+\_\+simd\+\_\+skciphers\mbox{[}\mbox{\hyperlink{linux_2kernel_8h_a3c7c6a69f690fc8d2abf0e385280a532}{A\+R\+R\+A\+Y\+\_\+\+S\+I\+ZE}}(\mbox{\hyperlink{aesni-intel__glue_8c_a69aefcd235ff198535ee3e4b7bbc7c07}{aesni\+\_\+skciphers}})\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{aesni-intel__glue_8c_a69aefcd235ff198535ee3e4b7bbc7c07}\label{aesni-intel__glue_8c_a69aefcd235ff198535ee3e4b7bbc7c07}} 
+\index{aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}!aesni\_skciphers@{aesni\_skciphers}}
+\index{aesni\_skciphers@{aesni\_skciphers}!aesni-\/intel\_glue.c@{aesni-\/intel\_glue.c}}
+\doxysubsubsection{\texorpdfstring{aesni\_skciphers}{aesni\_skciphers}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structskcipher__alg}{skcipher\+\_\+alg}} aesni\+\_\+skciphers\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+

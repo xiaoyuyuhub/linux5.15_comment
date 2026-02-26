@@ -1,0 +1,1096 @@
+\hypertarget{uv__nmi_8c}{}\doxysection{arch/x86/platform/uv/uv\+\_\+nmi.c File Reference}
+\label{uv__nmi_8c}\index{arch/x86/platform/uv/uv\_nmi.c@{arch/x86/platform/uv/uv\_nmi.c}}
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kdb.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kexec.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kgdb.\+h$>$}\newline
+{\ttfamily \#include $<$linux/moduleparam.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/debug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/clocksource.\+h$>$}\newline
+{\ttfamily \#include $<$asm/apic.\+h$>$}\newline
+{\ttfamily \#include $<$asm/current.\+h$>$}\newline
+{\ttfamily \#include $<$asm/kdebug.\+h$>$}\newline
+{\ttfamily \#include $<$asm/local64.\+h$>$}\newline
+{\ttfamily \#include $<$asm/nmi.\+h$>$}\newline
+{\ttfamily \#include $<$asm/reboot.\+h$>$}\newline
+{\ttfamily \#include $<$asm/traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/uv/uv.\+h$>$}\newline
+{\ttfamily \#include $<$asm/uv/uv\+\_\+hub.\+h$>$}\newline
+{\ttfamily \#include $<$asm/uv/uv\+\_\+mmrs.\+h$>$}\newline
+Include dependency graph for uv\+\_\+nmi.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structnmi__action}{nmi\+\_\+action}}
+\item 
+struct \mbox{\hyperlink{structinit__nmi}{init\+\_\+nmi}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_aeba071e300a9f0c0ccffea765d7bf121}{N\+M\+I\+\_\+\+C\+O\+N\+T\+R\+O\+L\+\_\+\+P\+O\+RT}}~0x70
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_aef10c1bafdb237ac76f8475b286179aa}{N\+M\+I\+\_\+\+D\+U\+M\+M\+Y\+\_\+\+P\+O\+RT}}~0x71
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_acaf965f24e88bbac104b9765de8abf9c}{P\+A\+D\+\_\+\+O\+W\+N\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0}}~0x2c
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_acd6cbb8873ebd822a9a477e15c85b5cd}{G\+P\+I\+\_\+\+N\+M\+I\+\_\+\+S\+T\+S\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0}}~0x164
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a6fc3d5903e7d5f3cad2a2e0058170d61}{G\+P\+I\+\_\+\+N\+M\+I\+\_\+\+E\+N\+A\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0}}~0x174
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_ac329fd282796d069485e0c249c512917}{S\+T\+S\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0\+\_\+\+M\+A\+SK}}~0x1
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_ae92447a81cc5afe85051384d472356cf}{P\+A\+D\+\_\+\+C\+F\+G\+\_\+\+D\+W0\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0}}~0x4c0
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a7a470c308115d265a5cdae10f65f8c8a}{G\+P\+I\+R\+O\+U\+T\+N\+MI}}~(1ul $<$$<$ 17)
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_aeed158014dc64eef6543ad9aee0f2d09}{P\+C\+H\+\_\+\+P\+C\+R\+\_\+\+G\+P\+I\+O\+\_\+1\+\_\+\+B\+A\+SE}}~0xfdae0000ul
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a10f3791db4532d7ff4014e77855b56ba}{P\+C\+H\+\_\+\+P\+C\+R\+\_\+\+G\+P\+I\+O\+\_\+\+A\+D\+D\+R\+E\+SS}}(\mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})~(\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$)((\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}})(\mbox{\hyperlink{uv__nmi_8c_ab9406c93b5a51975ac9d50bb76ad7c42}{pch\+\_\+base}}) $\vert$ (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}})(\mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}))
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a1e1274d4471d1d23cf42b68d4d330f6c}{S\+L\+A\+V\+E\+\_\+\+C\+L\+E\+AR}}~0
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a9169727ce277cf85a8d13cab90dc8699}{S\+L\+A\+V\+E\+\_\+\+C\+O\+N\+T\+I\+N\+UE}}~1
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a29352fc5677cf4f5bd6d4559c13a4073}{S\+L\+A\+V\+E\+\_\+\+E\+X\+IT}}~2
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a250b800e7ff78f18301ca8ae1acf46f9}{param\+\_\+check\+\_\+local64}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}},  \mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~\mbox{\hyperlink{moduleparam_8h_ad747b33292407d45e70714582d17ed0d}{\+\_\+\+\_\+param\+\_\+check}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, \mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}})
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a5982536eb41b9997f22d198e19684148}{nmi\+\_\+debug}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}, ...)
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a10f6b7c5cae1a7311f325e96dc456bac}{A\+C\+T\+I\+O\+N\+\_\+\+L\+EN}}~16
+\item 
+\#define \mbox{\hyperlink{uv__nmi_8c_a3a6248adf8c33e287d1e302c8bc4c3be}{param\+\_\+check\+\_\+action}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}},  \mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}})~\mbox{\hyperlink{moduleparam_8h_ad747b33292407d45e70714582d17ed0d}{\+\_\+\+\_\+param\+\_\+check}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, \mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, \mbox{\hyperlink{uv__nmi_8c_a069b27ecb43653789b2a0cae339ebbca}{action\+\_\+t}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef char \mbox{\hyperlink{uv__nmi_8c_a069b27ecb43653789b2a0cae339ebbca}{action\+\_\+t}}\mbox{[}\mbox{\hyperlink{uv__nmi_8c_a10f6b7c5cae1a7311f325e96dc456bac}{A\+C\+T\+I\+O\+N\+\_\+\+L\+EN}}\mbox{]}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{uv__nmi_8c_aa7c9f03ea8e91398e9b9f12bd6a62203}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct uv\+\_\+cpu\+\_\+nmi\+\_\+s, uv\+\_\+cpu\+\_\+nmi)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a18536e4d2a0aa75198a3c6f3b335c95b}{module\+\_\+param\+\_\+named}} (dump\+\_\+loglevel, \mbox{\hyperlink{uv__nmi_8c_a1d5dd13a0bc1d2dbd4ee182b87eadbec}{uv\+\_\+nmi\+\_\+loglevel}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a3007b88ab0bc382a5e5e41e973bc77e9}{param\+\_\+get\+\_\+local64}} (char $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_af6c24d2873ad4a4dffdde91f21f5eb85}{param\+\_\+set\+\_\+local64}} (const char $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a665a8f69c8beb3a2cc06f17b139e3418}{module\+\_\+param\+\_\+named}} (\mbox{\hyperlink{include_2linux_2preempt_8h_a1347a0a196152719a899ad7d1a03c7c4}{nmi\+\_\+count}}, \mbox{\hyperlink{uv__nmi_8c_a621b097ed6bc2ab741b7267b854a62b3}{uv\+\_\+nmi\+\_\+count}}, local64, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a1c67dffe1bb71d6087f57c130c98bf1f}{module\+\_\+param\+\_\+named}} (nmi\+\_\+misses, \mbox{\hyperlink{uv__nmi_8c_a11f9aea34e92ed285da22febbbb4b184}{uv\+\_\+nmi\+\_\+misses}}, local64, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a91e1dfd7c386d1886ca96758d130bdb7}{module\+\_\+param\+\_\+named}} (ping\+\_\+count, \mbox{\hyperlink{uv__nmi_8c_ad04cb8527555721808f831c25bef167a}{uv\+\_\+nmi\+\_\+ping\+\_\+count}}, local64, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a1ab8cd339a8f11454eaa679d571829cc}{module\+\_\+param\+\_\+named}} (ping\+\_\+misses, \mbox{\hyperlink{uv__nmi_8c_a7bb2b3318c62255e98807cec5bfe3ae0}{uv\+\_\+nmi\+\_\+ping\+\_\+misses}}, local64, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a07ffa78583874d8774dc4e28f4fd019f}{module\+\_\+param\+\_\+named}} (initial\+\_\+delay, \mbox{\hyperlink{uv__nmi_8c_a37b4cf35508b4aa0343452ea2c268b83}{uv\+\_\+nmi\+\_\+initial\+\_\+delay}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_ac318957c63722339dbd06e3422c533b2}{module\+\_\+param\+\_\+named}} (slave\+\_\+delay, \mbox{\hyperlink{uv__nmi_8c_a8b969d0b8238c88ae99d6116dc1338b0}{uv\+\_\+nmi\+\_\+slave\+\_\+delay}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_af958132fc6fab0a4c589edb007711b96}{module\+\_\+param\+\_\+named}} (loop\+\_\+delay, \mbox{\hyperlink{uv__nmi_8c_abdabc8e8887e057c022a9090e7756580}{uv\+\_\+nmi\+\_\+loop\+\_\+delay}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_ac396650e2013d9b2eee990400e7974ae}{module\+\_\+param\+\_\+named}} (trigger\+\_\+delay, \mbox{\hyperlink{uv__nmi_8c_abfad55b500f50e62cd3e0a2835d28736}{uv\+\_\+nmi\+\_\+trigger\+\_\+delay}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_abf088b6d3d9b01c0c0331679e8d8f09d}{module\+\_\+param\+\_\+named}} (wait\+\_\+count, \mbox{\hyperlink{uv__nmi_8c_ad3e0c40fa1f45e4ab4afe7bdb5294f8b}{uv\+\_\+nmi\+\_\+wait\+\_\+count}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_ae3b646098cc01dcce4cfb72c19ebd49b}{module\+\_\+param\+\_\+named}} (retry\+\_\+count, \mbox{\hyperlink{uv__nmi_8c_a6715c98a57f1a7d83bcf8f2af73e7903}{uv\+\_\+nmi\+\_\+retry\+\_\+count}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a9b32580575bdc1191b89a7610f30e5bd}{module\+\_\+param\+\_\+named}} (pch\+\_\+intr\+\_\+enable, \mbox{\hyperlink{uv__nmi_8c_aafd55adf85d260a73138750595981ed5}{uv\+\_\+pch\+\_\+intr\+\_\+enable}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a7316946c76236f808b2081c7df78b482}{module\+\_\+param\+\_\+named}} (pch\+\_\+init\+\_\+enable, \mbox{\hyperlink{uv__nmi_8c_a96e1526d6b0eff4ce2a26da6b1474725}{uv\+\_\+pch\+\_\+init\+\_\+enable}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}, 0644)
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a9cd1c0374fff72b4329eeedf529ce1a3}{module\+\_\+param\+\_\+named}} (\mbox{\hyperlink{trident_8h_a423c63689896dd19135186008f229cf0}{debug}}, \mbox{\hyperlink{uv__nmi_8c_abcda63c96d3443bc8a1ee0e8a22ff5be}{uv\+\_\+nmi\+\_\+debug}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, 0644)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a7cad0f32f698fdc6552bafe1212db441}{param\+\_\+get\+\_\+action}} (char $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_acdd2b17873d720f8e0c474857e883a44}{param\+\_\+set\+\_\+action}} (const char $\ast$\mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}}, const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$\mbox{\hyperlink{test__kprobes_8c_a010e7350ec9d1836400e321ba769fd2f}{kp}})
+\item 
+\mbox{\hyperlink{uv__nmi_8c_a017ecb20aaa4ee99ee69c25278a96dae}{module\+\_\+param\+\_\+named}} (\mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}}, \mbox{\hyperlink{uv__nmi_8c_a317dc70bd87decb3d3734a5852bea4a4}{uv\+\_\+nmi\+\_\+action}}, \mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}}, 0644)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{uv__nmi_8c_a090ebd0b2e7aa64449d176d4f1b332ae}{uv\+\_\+nmi\+\_\+action\+\_\+is}} (const char $\ast$\mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a18c4c40847cf6aa196f58f3fdb65bc8e}{uv\+\_\+nmi\+\_\+setup\+\_\+mmrs}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a143dde3d1d25d75b2f6859ded45f5d69}{uv\+\_\+nmi\+\_\+test\+\_\+mmr}} (struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$hub\+\_\+nmi)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_adfd744559ea2ec27c9f1631489750fd1}{uv\+\_\+local\+\_\+mmr\+\_\+clear\+\_\+nmi}} (void)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_afcf5d2c0eacb4f02845d2af39cc57b6a}{uv\+\_\+reassert\+\_\+nmi}} (void)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a2906d75c1226f13d5f15fbe0e3d6e3d1}{uv\+\_\+init\+\_\+hubless\+\_\+pch\+\_\+io}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_a86f23ce4f19240689f6e96752c80ddbf}{mask}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a4a25e659698e272d3870cb0aed7f0e0e}{uv\+\_\+nmi\+\_\+setup\+\_\+hubless\+\_\+intr}} (void)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a3418da08d289b766cf2ef75a0c14da44}{uv\+\_\+init\+\_\+hubless\+\_\+pch\+\_\+d0}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a7a93331ba55a2af12f6bc377b20b012c}{uv\+\_\+nmi\+\_\+test\+\_\+hubless}} (struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$hub\+\_\+nmi)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_aed63746055f358e4a208f97f8fd0f37d}{uv\+\_\+test\+\_\+nmi}} (struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$hub\+\_\+nmi)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_aa4ede09655e2fa56afdce324518f0495}{uv\+\_\+set\+\_\+in\+\_\+nmi}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$hub\+\_\+nmi)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a854b2ebb90eab60029c30991b5e459e3}{uv\+\_\+check\+\_\+nmi}} (struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$hub\+\_\+nmi)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a7d0dfb1e37e7309e00a002f18b91f425}{uv\+\_\+clear\+\_\+nmi}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_abb05caf02c4a396a3aa3d361916ee133}{uv\+\_\+nmi\+\_\+nr\+\_\+cpus\+\_\+ping}} (void)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_afd9150fb80f2bb4c26dd26d296b5e51b}{uv\+\_\+nmi\+\_\+cleanup\+\_\+mask}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a4dbde862e2cfa1b9ec0aaf817610556b}{uv\+\_\+nmi\+\_\+wait\+\_\+cpus}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{ceph__fs_8h_adf9c2183bbe8c2f38b1e1e715288a965}{first}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a8f7e6bc4d3db4e7feb19be13723390de}{uv\+\_\+nmi\+\_\+wait}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_a05bc6c65474d25654fd2fd8a15e8a32e}{master}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a95da898f71dc70860b531e041ad1b4e8}{uv\+\_\+nmi\+\_\+dump\+\_\+cpu\+\_\+ip\+\_\+hdr}} (void)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_aea01286b9521a4032639ccffa8608a66}{uv\+\_\+nmi\+\_\+dump\+\_\+cpu\+\_\+ip}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_adab9e772a9006b531f5c62193be9413c}{uv\+\_\+nmi\+\_\+dump\+\_\+state\+\_\+cpu}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a947b7658c65d60160d970a5003901fd6}{uv\+\_\+nmi\+\_\+trigger\+\_\+dump}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_ae475e0d95c3e8c55329aebdef20ec8d4}{uv\+\_\+nmi\+\_\+sync\+\_\+exit}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_a05bc6c65474d25654fd2fd8a15e8a32e}{master}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a771805352558252b73d7d3c9a79ba6bc}{uv\+\_\+nmi\+\_\+action\+\_\+health}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_a05bc6c65474d25654fd2fd8a15e8a32e}{master}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_ad2f34cae73a233bc603cfdbd59ceb849}{uv\+\_\+nmi\+\_\+dump\+\_\+state}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_a05bc6c65474d25654fd2fd8a15e8a32e}{master}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a74d59df3c92631b9723b1ebc5e977c8b}{uv\+\_\+nmi\+\_\+touch\+\_\+watchdogs}} (void)
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_ae135fdbd1052971583473d2c4490d06f}{uv\+\_\+nmi\+\_\+kdump}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{raid6_2test_2test_8c_a0ddf1224851353fc92bfbff6f499fa97}{main}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_a107d3327a9dabc62fd40cb205bbaa379}{uv\+\_\+call\+\_\+kgdb\+\_\+kdb}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2drm_2i915__drm_8h_a05bc6c65474d25654fd2fd8a15e8a32e}{master}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a470d1630aed6537d99ca40ed587dd21e}{uv\+\_\+handle\+\_\+nmi}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{virtio__scsi_8h_a030a0b6ecb5ef07224008ffff976c268}{reason}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a96c3c6234a437f5117f736d00fc8872a}{uv\+\_\+handle\+\_\+nmi\+\_\+ping}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{virtio__scsi_8h_a030a0b6ecb5ef07224008ffff976c268}{reason}}, struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+static void \mbox{\hyperlink{uv__nmi_8c_af304111eba214d22d1749627a86cdec4}{uv\+\_\+register\+\_\+nmi\+\_\+notifier}} (void)
+\item 
+void \mbox{\hyperlink{uv__nmi_8c_a1763cc3e0fafe0367fe3ca11124a845d}{uv\+\_\+nmi\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{uv__nmi_8c_a05ff08f7cd860f9e823d1250e3f7d31a}{uv\+\_\+nmi\+\_\+setup\+\_\+common}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hubbed)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{uv__nmi_8c_a6e841322430820c83297dd14f89151aa}{uv\+\_\+nmi\+\_\+setup}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{uv__nmi_8c_a9a39f00c5e85b469c26b266f5c68897e}{uv\+\_\+nmi\+\_\+setup\+\_\+hubless}} (void)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$$\ast$ \mbox{\hyperlink{uv__nmi_8c_aaeb6d1a2520c01f439c62072ef6fc176}{uv\+\_\+hub\+\_\+nmi\+\_\+list}}
+\item 
+static unsigned long \mbox{\hyperlink{uv__nmi_8c_abb92f89523d03e90f76f31c8ce59463b}{uvh\+\_\+nmi\+\_\+mmrx}}
+\item 
+static unsigned long \mbox{\hyperlink{uv__nmi_8c_a6921bd15fb839b8ca6d186b5bf896e6e}{uvh\+\_\+nmi\+\_\+mmrx\+\_\+clear}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_aaf6b8690e596d323f367418a6755b240}{uvh\+\_\+nmi\+\_\+mmrx\+\_\+shift}}
+\item 
+static char $\ast$ \mbox{\hyperlink{uv__nmi_8c_ad209a12e6f9cbc9b611c9c840789ccd3}{uvh\+\_\+nmi\+\_\+mmrx\+\_\+type}}
+\item 
+static unsigned long \mbox{\hyperlink{uv__nmi_8c_a5d2b09a0f255eb8621fb545969e5f96c}{uvh\+\_\+nmi\+\_\+mmrx\+\_\+supported}}
+\item 
+static unsigned long \mbox{\hyperlink{uv__nmi_8c_a89901caf0bf1e347ba9bb6032aaf9e6a}{uvh\+\_\+nmi\+\_\+mmrx\+\_\+req}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_aa5a2e83d627a4a9b6364d4a0fa80ff35}{uvh\+\_\+nmi\+\_\+mmrx\+\_\+req\+\_\+shift}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$ \mbox{\hyperlink{uv__nmi_8c_ab9406c93b5a51975ac9d50bb76ad7c42}{pch\+\_\+base}}
+\item 
+static unsigned long \mbox{\hyperlink{uv__nmi_8c_a0ead6300d7cf3d02ac25a384544ba1a8}{nmi\+\_\+mmr}}
+\item 
+static unsigned long \mbox{\hyperlink{uv__nmi_8c_a481398aa6c235ee66f75529db4e0d16f}{nmi\+\_\+mmr\+\_\+clear}}
+\item 
+static unsigned long \mbox{\hyperlink{uv__nmi_8c_ada8d47eb39d4c4bd0eb21958c55949eb}{nmi\+\_\+mmr\+\_\+pending}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a0ab5e81cf0aa13dc42f3c26ffbfbb2a8}{uv\+\_\+in\+\_\+nmi}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a9282e8973ae280ce3665af9215e6ec86}{uv\+\_\+nmi\+\_\+cpu}} = \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{A\+T\+O\+M\+I\+C\+\_\+\+I\+N\+IT}}(-\/1)
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a386138ad14087ffe49441434cab33cc1}{uv\+\_\+nmi\+\_\+cpus\+\_\+in\+\_\+nmi}} = \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{A\+T\+O\+M\+I\+C\+\_\+\+I\+N\+IT}}(-\/1)
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a79e49c6e5bb7aebbe1b1deb80de38035}{uv\+\_\+nmi\+\_\+slave\+\_\+continue}}
+\item 
+static \mbox{\hyperlink{include_2linux_2cpumask_8h_abc33c8ce63d9c12aee03049dad459fb0}{cpumask\+\_\+var\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_ab9437e9fcfc66988c1f23b89b85adcd7}{uv\+\_\+nmi\+\_\+cpu\+\_\+mask}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_addb650b07683d40c584d7817aa77265e}{uv\+\_\+nmi\+\_\+kexec\+\_\+failed}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a1d5dd13a0bc1d2dbd4ee182b87eadbec}{uv\+\_\+nmi\+\_\+loglevel}} = \mbox{\hyperlink{linux_2printk_8h_abf328314e45bf77e01157fa6e60fdd54}{C\+O\+N\+S\+O\+L\+E\+\_\+\+L\+O\+G\+L\+E\+V\+E\+L\+\_\+\+D\+E\+F\+A\+U\+LT}}
+\item 
+static const struct \mbox{\hyperlink{structkernel__param__ops}{kernel\+\_\+param\+\_\+ops}} \mbox{\hyperlink{uv__nmi_8c_ac1d002557567050aef1af3ea5da77983}{param\+\_\+ops\+\_\+local64}}
+\item 
+static \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a621b097ed6bc2ab741b7267b854a62b3}{uv\+\_\+nmi\+\_\+count}}
+\item 
+static \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a11f9aea34e92ed285da22febbbb4b184}{uv\+\_\+nmi\+\_\+misses}}
+\item 
+static \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_ad04cb8527555721808f831c25bef167a}{uv\+\_\+nmi\+\_\+ping\+\_\+count}}
+\item 
+static \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a7bb2b3318c62255e98807cec5bfe3ae0}{uv\+\_\+nmi\+\_\+ping\+\_\+misses}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a37b4cf35508b4aa0343452ea2c268b83}{uv\+\_\+nmi\+\_\+initial\+\_\+delay}} = 100
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a8b969d0b8238c88ae99d6116dc1338b0}{uv\+\_\+nmi\+\_\+slave\+\_\+delay}} = 100
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_abdabc8e8887e057c022a9090e7756580}{uv\+\_\+nmi\+\_\+loop\+\_\+delay}} = 100
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_abfad55b500f50e62cd3e0a2835d28736}{uv\+\_\+nmi\+\_\+trigger\+\_\+delay}} = 10000
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_ad3e0c40fa1f45e4ab4afe7bdb5294f8b}{uv\+\_\+nmi\+\_\+wait\+\_\+count}} = 100
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_a6715c98a57f1a7d83bcf8f2af73e7903}{uv\+\_\+nmi\+\_\+retry\+\_\+count}} = 500
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{uv__nmi_8c_aafd55adf85d260a73138750595981ed5}{uv\+\_\+pch\+\_\+intr\+\_\+enable}} = \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{uv__nmi_8c_a6cee3bafbb89b5812e385df66f8c9296}{uv\+\_\+pch\+\_\+intr\+\_\+now\+\_\+enabled}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{uv__nmi_8c_a96e1526d6b0eff4ce2a26da6b1474725}{uv\+\_\+pch\+\_\+init\+\_\+enable}} = \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uv__nmi_8c_abcda63c96d3443bc8a1ee0e8a22ff5be}{uv\+\_\+nmi\+\_\+debug}}
+\item 
+static struct \mbox{\hyperlink{structnmi__action}{nmi\+\_\+action}} \mbox{\hyperlink{uv__nmi_8c_a205656bde8e71a6c793c2b02b95ae71d}{valid\+\_\+acts}} \mbox{[}$\,$\mbox{]}
+\item 
+static \mbox{\hyperlink{uv__nmi_8c_a069b27ecb43653789b2a0cae339ebbca}{action\+\_\+t}} \mbox{\hyperlink{uv__nmi_8c_a317dc70bd87decb3d3734a5852bea4a4}{uv\+\_\+nmi\+\_\+action}} = \{ \char`\"{}dump\char`\"{} \}
+\item 
+static const struct \mbox{\hyperlink{structkernel__param__ops}{kernel\+\_\+param\+\_\+ops}} \mbox{\hyperlink{uv__nmi_8c_ad92c91332faa8c2c457861f59c8f6056}{param\+\_\+ops\+\_\+action}}
+\item 
+static struct \mbox{\hyperlink{structinit__nmi}{init\+\_\+nmi}} \mbox{\hyperlink{uv__nmi_8c_a0b1d90859c9abe97c0ebd89a6d55f4f9}{init\+\_\+nmi}} \mbox{[}$\,$\mbox{]}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{uv__nmi_8c_a10f6b7c5cae1a7311f325e96dc456bac}\label{uv__nmi_8c_a10f6b7c5cae1a7311f325e96dc456bac}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!ACTION\_LEN@{ACTION\_LEN}}
+\index{ACTION\_LEN@{ACTION\_LEN}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{ACTION\_LEN}{ACTION\_LEN}}
+{\footnotesize\ttfamily \#define A\+C\+T\+I\+O\+N\+\_\+\+L\+EN~16}
+
+\mbox{\Hypertarget{uv__nmi_8c_a6fc3d5903e7d5f3cad2a2e0058170d61}\label{uv__nmi_8c_a6fc3d5903e7d5f3cad2a2e0058170d61}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!GPI\_NMI\_ENA\_GPP\_D\_0@{GPI\_NMI\_ENA\_GPP\_D\_0}}
+\index{GPI\_NMI\_ENA\_GPP\_D\_0@{GPI\_NMI\_ENA\_GPP\_D\_0}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{GPI\_NMI\_ENA\_GPP\_D\_0}{GPI\_NMI\_ENA\_GPP\_D\_0}}
+{\footnotesize\ttfamily \#define G\+P\+I\+\_\+\+N\+M\+I\+\_\+\+E\+N\+A\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0~0x174}
+
+\mbox{\Hypertarget{uv__nmi_8c_acd6cbb8873ebd822a9a477e15c85b5cd}\label{uv__nmi_8c_acd6cbb8873ebd822a9a477e15c85b5cd}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!GPI\_NMI\_STS\_GPP\_D\_0@{GPI\_NMI\_STS\_GPP\_D\_0}}
+\index{GPI\_NMI\_STS\_GPP\_D\_0@{GPI\_NMI\_STS\_GPP\_D\_0}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{GPI\_NMI\_STS\_GPP\_D\_0}{GPI\_NMI\_STS\_GPP\_D\_0}}
+{\footnotesize\ttfamily \#define G\+P\+I\+\_\+\+N\+M\+I\+\_\+\+S\+T\+S\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0~0x164}
+
+\mbox{\Hypertarget{uv__nmi_8c_a7a470c308115d265a5cdae10f65f8c8a}\label{uv__nmi_8c_a7a470c308115d265a5cdae10f65f8c8a}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!GPIROUTNMI@{GPIROUTNMI}}
+\index{GPIROUTNMI@{GPIROUTNMI}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{GPIROUTNMI}{GPIROUTNMI}}
+{\footnotesize\ttfamily \#define G\+P\+I\+R\+O\+U\+T\+N\+MI~(1ul $<$$<$ 17)}
+
+\mbox{\Hypertarget{uv__nmi_8c_aeba071e300a9f0c0ccffea765d7bf121}\label{uv__nmi_8c_aeba071e300a9f0c0ccffea765d7bf121}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!NMI\_CONTROL\_PORT@{NMI\_CONTROL\_PORT}}
+\index{NMI\_CONTROL\_PORT@{NMI\_CONTROL\_PORT}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{NMI\_CONTROL\_PORT}{NMI\_CONTROL\_PORT}}
+{\footnotesize\ttfamily \#define N\+M\+I\+\_\+\+C\+O\+N\+T\+R\+O\+L\+\_\+\+P\+O\+RT~0x70}
+
+\mbox{\Hypertarget{uv__nmi_8c_a5982536eb41b9997f22d198e19684148}\label{uv__nmi_8c_a5982536eb41b9997f22d198e19684148}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!nmi\_debug@{nmi\_debug}}
+\index{nmi\_debug@{nmi\_debug}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{nmi\_debug}{nmi\_debug}}
+{\footnotesize\ttfamily \#define nmi\+\_\+debug(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}},  }\item[{}]{... }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{    \textcolor{keywordflow}{do} \{                        \(\backslash\)}
+\DoxyCodeLine{        if (\mbox{\hyperlink{uv__nmi_8c_abcda63c96d3443bc8a1ee0e8a22ff5be}{uv\_nmi\_debug}})           \(\backslash\)}
+\DoxyCodeLine{            pr\_info(\mbox{\hyperlink{drm__print_8h_a10aa585f6b6209b2e73ce1872f44bb2e}{fmt}}, \#\#\_\_VA\_ARGS\_\_); \(\backslash\)}
+\DoxyCodeLine{    \} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{uv__nmi_8c_aef10c1bafdb237ac76f8475b286179aa}\label{uv__nmi_8c_aef10c1bafdb237ac76f8475b286179aa}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!NMI\_DUMMY\_PORT@{NMI\_DUMMY\_PORT}}
+\index{NMI\_DUMMY\_PORT@{NMI\_DUMMY\_PORT}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{NMI\_DUMMY\_PORT}{NMI\_DUMMY\_PORT}}
+{\footnotesize\ttfamily \#define N\+M\+I\+\_\+\+D\+U\+M\+M\+Y\+\_\+\+P\+O\+RT~0x71}
+
+\mbox{\Hypertarget{uv__nmi_8c_ae92447a81cc5afe85051384d472356cf}\label{uv__nmi_8c_ae92447a81cc5afe85051384d472356cf}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!PAD\_CFG\_DW0\_GPP\_D\_0@{PAD\_CFG\_DW0\_GPP\_D\_0}}
+\index{PAD\_CFG\_DW0\_GPP\_D\_0@{PAD\_CFG\_DW0\_GPP\_D\_0}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{PAD\_CFG\_DW0\_GPP\_D\_0}{PAD\_CFG\_DW0\_GPP\_D\_0}}
+{\footnotesize\ttfamily \#define P\+A\+D\+\_\+\+C\+F\+G\+\_\+\+D\+W0\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0~0x4c0}
+
+\mbox{\Hypertarget{uv__nmi_8c_acaf965f24e88bbac104b9765de8abf9c}\label{uv__nmi_8c_acaf965f24e88bbac104b9765de8abf9c}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!PAD\_OWN\_GPP\_D\_0@{PAD\_OWN\_GPP\_D\_0}}
+\index{PAD\_OWN\_GPP\_D\_0@{PAD\_OWN\_GPP\_D\_0}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{PAD\_OWN\_GPP\_D\_0}{PAD\_OWN\_GPP\_D\_0}}
+{\footnotesize\ttfamily \#define P\+A\+D\+\_\+\+O\+W\+N\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0~0x2c}
+
+\mbox{\Hypertarget{uv__nmi_8c_a3a6248adf8c33e287d1e302c8bc4c3be}\label{uv__nmi_8c_a3a6248adf8c33e287d1e302c8bc4c3be}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_check\_action@{param\_check\_action}}
+\index{param\_check\_action@{param\_check\_action}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_check\_action}{param\_check\_action}}
+{\footnotesize\ttfamily \#define param\+\_\+check\+\_\+action(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}},  }\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~\mbox{\hyperlink{moduleparam_8h_ad747b33292407d45e70714582d17ed0d}{\+\_\+\+\_\+param\+\_\+check}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, \mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, \mbox{\hyperlink{uv__nmi_8c_a069b27ecb43653789b2a0cae339ebbca}{action\+\_\+t}})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a250b800e7ff78f18301ca8ae1acf46f9}\label{uv__nmi_8c_a250b800e7ff78f18301ca8ae1acf46f9}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_check\_local64@{param\_check\_local64}}
+\index{param\_check\_local64@{param\_check\_local64}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_check\_local64}{param\_check\_local64}}
+{\footnotesize\ttfamily \#define param\+\_\+check\+\_\+local64(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}},  }\item[{}]{\mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}} }\end{DoxyParamCaption})~\mbox{\hyperlink{moduleparam_8h_ad747b33292407d45e70714582d17ed0d}{\+\_\+\+\_\+param\+\_\+check}}(\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, \mbox{\hyperlink{lsm__hook__defs_8h_a58f58faafffbe0b2029f93db0b93a8c7}{p}}, \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}})}
+
+\mbox{\Hypertarget{uv__nmi_8c_aeed158014dc64eef6543ad9aee0f2d09}\label{uv__nmi_8c_aeed158014dc64eef6543ad9aee0f2d09}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!PCH\_PCR\_GPIO\_1\_BASE@{PCH\_PCR\_GPIO\_1\_BASE}}
+\index{PCH\_PCR\_GPIO\_1\_BASE@{PCH\_PCR\_GPIO\_1\_BASE}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{PCH\_PCR\_GPIO\_1\_BASE}{PCH\_PCR\_GPIO\_1\_BASE}}
+{\footnotesize\ttfamily \#define P\+C\+H\+\_\+\+P\+C\+R\+\_\+\+G\+P\+I\+O\+\_\+1\+\_\+\+B\+A\+SE~0xfdae0000ul}
+
+\mbox{\Hypertarget{uv__nmi_8c_a10f3791db4532d7ff4014e77855b56ba}\label{uv__nmi_8c_a10f3791db4532d7ff4014e77855b56ba}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!PCH\_PCR\_GPIO\_ADDRESS@{PCH\_PCR\_GPIO\_ADDRESS}}
+\index{PCH\_PCR\_GPIO\_ADDRESS@{PCH\_PCR\_GPIO\_ADDRESS}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{PCH\_PCR\_GPIO\_ADDRESS}{PCH\_PCR\_GPIO\_ADDRESS}}
+{\footnotesize\ttfamily \#define P\+C\+H\+\_\+\+P\+C\+R\+\_\+\+G\+P\+I\+O\+\_\+\+A\+D\+D\+R\+E\+SS(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$)((\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}})(\mbox{\hyperlink{uv__nmi_8c_ab9406c93b5a51975ac9d50bb76ad7c42}{pch\+\_\+base}}) $\vert$ (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}})(\mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}))}
+
+\mbox{\Hypertarget{uv__nmi_8c_a1e1274d4471d1d23cf42b68d4d330f6c}\label{uv__nmi_8c_a1e1274d4471d1d23cf42b68d4d330f6c}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!SLAVE\_CLEAR@{SLAVE\_CLEAR}}
+\index{SLAVE\_CLEAR@{SLAVE\_CLEAR}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{SLAVE\_CLEAR}{SLAVE\_CLEAR}}
+{\footnotesize\ttfamily \#define S\+L\+A\+V\+E\+\_\+\+C\+L\+E\+AR~0}
+
+\mbox{\Hypertarget{uv__nmi_8c_a9169727ce277cf85a8d13cab90dc8699}\label{uv__nmi_8c_a9169727ce277cf85a8d13cab90dc8699}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!SLAVE\_CONTINUE@{SLAVE\_CONTINUE}}
+\index{SLAVE\_CONTINUE@{SLAVE\_CONTINUE}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{SLAVE\_CONTINUE}{SLAVE\_CONTINUE}}
+{\footnotesize\ttfamily \#define S\+L\+A\+V\+E\+\_\+\+C\+O\+N\+T\+I\+N\+UE~1}
+
+\mbox{\Hypertarget{uv__nmi_8c_a29352fc5677cf4f5bd6d4559c13a4073}\label{uv__nmi_8c_a29352fc5677cf4f5bd6d4559c13a4073}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!SLAVE\_EXIT@{SLAVE\_EXIT}}
+\index{SLAVE\_EXIT@{SLAVE\_EXIT}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{SLAVE\_EXIT}{SLAVE\_EXIT}}
+{\footnotesize\ttfamily \#define S\+L\+A\+V\+E\+\_\+\+E\+X\+IT~2}
+
+\mbox{\Hypertarget{uv__nmi_8c_ac329fd282796d069485e0c249c512917}\label{uv__nmi_8c_ac329fd282796d069485e0c249c512917}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!STS\_GPP\_D\_0\_MASK@{STS\_GPP\_D\_0\_MASK}}
+\index{STS\_GPP\_D\_0\_MASK@{STS\_GPP\_D\_0\_MASK}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{STS\_GPP\_D\_0\_MASK}{STS\_GPP\_D\_0\_MASK}}
+{\footnotesize\ttfamily \#define S\+T\+S\+\_\+\+G\+P\+P\+\_\+\+D\+\_\+0\+\_\+\+M\+A\+SK~0x1}
+
+
+
+\doxysubsection{Typedef Documentation}
+\mbox{\Hypertarget{uv__nmi_8c_a069b27ecb43653789b2a0cae339ebbca}\label{uv__nmi_8c_a069b27ecb43653789b2a0cae339ebbca}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!action\_t@{action\_t}}
+\index{action\_t@{action\_t}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{action\_t}{action\_t}}
+{\footnotesize\ttfamily typedef char action\+\_\+t\mbox{[}\mbox{\hyperlink{uv__nmi_8c_a10f6b7c5cae1a7311f325e96dc456bac}{A\+C\+T\+I\+O\+N\+\_\+\+L\+EN}}\mbox{]}}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{uv__nmi_8c_aa7c9f03ea8e91398e9b9f12bd6a62203}\label{uv__nmi_8c_aa7c9f03ea8e91398e9b9f12bd6a62203}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct uv\+\_\+cpu\+\_\+nmi\+\_\+s}]{,  }\item[{uv\+\_\+cpu\+\_\+nmi}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a017ecb20aaa4ee99ee69c25278a96dae}\label{uv__nmi_8c_a017ecb20aaa4ee99ee69c25278a96dae}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [1/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}}}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a317dc70bd87decb3d3734a5852bea4a4}{uv\+\_\+nmi\+\_\+action}}}]{,  }\item[{\mbox{\hyperlink{test__objagg_8c_a2f4ab7bf743142dae2e459aa18f9f1d4}{action}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a9cd1c0374fff72b4329eeedf529ce1a3}\label{uv__nmi_8c_a9cd1c0374fff72b4329eeedf529ce1a3}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [2/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{trident_8h_a423c63689896dd19135186008f229cf0}{debug}}}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_abcda63c96d3443bc8a1ee0e8a22ff5be}{uv\+\_\+nmi\+\_\+debug}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a18536e4d2a0aa75198a3c6f3b335c95b}\label{uv__nmi_8c_a18536e4d2a0aa75198a3c6f3b335c95b}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [3/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{dump\+\_\+loglevel}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a1d5dd13a0bc1d2dbd4ee182b87eadbec}{uv\+\_\+nmi\+\_\+loglevel}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a07ffa78583874d8774dc4e28f4fd019f}\label{uv__nmi_8c_a07ffa78583874d8774dc4e28f4fd019f}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [4/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{initial\+\_\+delay}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a37b4cf35508b4aa0343452ea2c268b83}{uv\+\_\+nmi\+\_\+initial\+\_\+delay}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_af958132fc6fab0a4c589edb007711b96}\label{uv__nmi_8c_af958132fc6fab0a4c589edb007711b96}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [5/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{loop\+\_\+delay}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_abdabc8e8887e057c022a9090e7756580}{uv\+\_\+nmi\+\_\+loop\+\_\+delay}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a665a8f69c8beb3a2cc06f17b139e3418}\label{uv__nmi_8c_a665a8f69c8beb3a2cc06f17b139e3418}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [6/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2preempt_8h_a1347a0a196152719a899ad7d1a03c7c4}{nmi\+\_\+count}}}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a621b097ed6bc2ab741b7267b854a62b3}{uv\+\_\+nmi\+\_\+count}}}]{,  }\item[{local64}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a1c67dffe1bb71d6087f57c130c98bf1f}\label{uv__nmi_8c_a1c67dffe1bb71d6087f57c130c98bf1f}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [7/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{nmi\+\_\+misses}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a11f9aea34e92ed285da22febbbb4b184}{uv\+\_\+nmi\+\_\+misses}}}]{,  }\item[{local64}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a7316946c76236f808b2081c7df78b482}\label{uv__nmi_8c_a7316946c76236f808b2081c7df78b482}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [8/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{pch\+\_\+init\+\_\+enable}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a96e1526d6b0eff4ce2a26da6b1474725}{uv\+\_\+pch\+\_\+init\+\_\+enable}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a9b32580575bdc1191b89a7610f30e5bd}\label{uv__nmi_8c_a9b32580575bdc1191b89a7610f30e5bd}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [9/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{pch\+\_\+intr\+\_\+enable}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_aafd55adf85d260a73138750595981ed5}{uv\+\_\+pch\+\_\+intr\+\_\+enable}}}]{,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a91e1dfd7c386d1886ca96758d130bdb7}\label{uv__nmi_8c_a91e1dfd7c386d1886ca96758d130bdb7}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [10/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{ping\+\_\+count}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_ad04cb8527555721808f831c25bef167a}{uv\+\_\+nmi\+\_\+ping\+\_\+count}}}]{,  }\item[{local64}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a1ab8cd339a8f11454eaa679d571829cc}\label{uv__nmi_8c_a1ab8cd339a8f11454eaa679d571829cc}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [11/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{ping\+\_\+misses}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a7bb2b3318c62255e98807cec5bfe3ae0}{uv\+\_\+nmi\+\_\+ping\+\_\+misses}}}]{,  }\item[{local64}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_ae3b646098cc01dcce4cfb72c19ebd49b}\label{uv__nmi_8c_ae3b646098cc01dcce4cfb72c19ebd49b}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [12/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{retry\+\_\+count}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a6715c98a57f1a7d83bcf8f2af73e7903}{uv\+\_\+nmi\+\_\+retry\+\_\+count}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_ac318957c63722339dbd06e3422c533b2}\label{uv__nmi_8c_ac318957c63722339dbd06e3422c533b2}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [13/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{slave\+\_\+delay}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_a8b969d0b8238c88ae99d6116dc1338b0}{uv\+\_\+nmi\+\_\+slave\+\_\+delay}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_ac396650e2013d9b2eee990400e7974ae}\label{uv__nmi_8c_ac396650e2013d9b2eee990400e7974ae}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [14/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{trigger\+\_\+delay}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_abfad55b500f50e62cd3e0a2835d28736}{uv\+\_\+nmi\+\_\+trigger\+\_\+delay}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_abf088b6d3d9b01c0c0331679e8d8f09d}\label{uv__nmi_8c_abf088b6d3d9b01c0c0331679e8d8f09d}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!module\_param\_named@{module\_param\_named}}
+\index{module\_param\_named@{module\_param\_named}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{module\_param\_named()}{module\_param\_named()}\hspace{0.1cm}{\footnotesize\ttfamily [15/15]}}
+{\footnotesize\ttfamily module\+\_\+param\+\_\+named (\begin{DoxyParamCaption}\item[{wait\+\_\+count}]{,  }\item[{\mbox{\hyperlink{uv__nmi_8c_ad3e0c40fa1f45e4ab4afe7bdb5294f8b}{uv\+\_\+nmi\+\_\+wait\+\_\+count}}}]{,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{0644}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{uv__nmi_8c_a7cad0f32f698fdc6552bafe1212db441}\label{uv__nmi_8c_a7cad0f32f698fdc6552bafe1212db441}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_get\_action@{param\_get\_action}}
+\index{param\_get\_action@{param\_get\_action}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_get\_action()}{param\_get\_action()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} param\+\_\+get\+\_\+action (\begin{DoxyParamCaption}\item[{char $\ast$}]{buffer,  }\item[{const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$}]{kp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{uv__nmi_8c_a3007b88ab0bc382a5e5e41e973bc77e9}\label{uv__nmi_8c_a3007b88ab0bc382a5e5e41e973bc77e9}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_get\_local64@{param\_get\_local64}}
+\index{param\_get\_local64@{param\_get\_local64}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_get\_local64()}{param\_get\_local64()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} param\+\_\+get\+\_\+local64 (\begin{DoxyParamCaption}\item[{char $\ast$}]{buffer,  }\item[{const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$}]{kp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{uv__nmi_8c_acdd2b17873d720f8e0c474857e883a44}\label{uv__nmi_8c_acdd2b17873d720f8e0c474857e883a44}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_set\_action@{param\_set\_action}}
+\index{param\_set\_action@{param\_set\_action}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_set\_action()}{param\_set\_action()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} param\+\_\+set\+\_\+action (\begin{DoxyParamCaption}\item[{const char $\ast$}]{val,  }\item[{const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$}]{kp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{uv__nmi_8c_af6c24d2873ad4a4dffdde91f21f5eb85}\label{uv__nmi_8c_af6c24d2873ad4a4dffdde91f21f5eb85}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_set\_local64@{param\_set\_local64}}
+\index{param\_set\_local64@{param\_set\_local64}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_set\_local64()}{param\_set\_local64()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} param\+\_\+set\+\_\+local64 (\begin{DoxyParamCaption}\item[{const char $\ast$}]{val,  }\item[{const struct \mbox{\hyperlink{structkernel__param}{kernel\+\_\+param}} $\ast$}]{kp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a107d3327a9dabc62fd40cb205bbaa379}\label{uv__nmi_8c_a107d3327a9dabc62fd40cb205bbaa379}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_call\_kgdb\_kdb@{uv\_call\_kgdb\_kdb}}
+\index{uv\_call\_kgdb\_kdb@{uv\_call\_kgdb\_kdb}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_call\_kgdb\_kdb()}{uv\_call\_kgdb\_kdb()}}
+{\footnotesize\ttfamily static void uv\+\_\+call\+\_\+kgdb\+\_\+kdb (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{master }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{uv__nmi_8c_a854b2ebb90eab60029c30991b5e459e3}\label{uv__nmi_8c_a854b2ebb90eab60029c30991b5e459e3}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_check\_nmi@{uv\_check\_nmi}}
+\index{uv\_check\_nmi@{uv\_check\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_check\_nmi()}{uv\_check\_nmi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+check\+\_\+nmi (\begin{DoxyParamCaption}\item[{struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$}]{hub\+\_\+nmi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{uv__nmi_8c_a7d0dfb1e37e7309e00a002f18b91f425}\label{uv__nmi_8c_a7d0dfb1e37e7309e00a002f18b91f425}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_clear\_nmi@{uv\_clear\_nmi}}
+\index{uv\_clear\_nmi@{uv\_clear\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_clear\_nmi()}{uv\_clear\_nmi()}}
+{\footnotesize\ttfamily static void uv\+\_\+clear\+\_\+nmi (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{uv__nmi_8c_a470d1630aed6537d99ca40ed587dd21e}\label{uv__nmi_8c_a470d1630aed6537d99ca40ed587dd21e}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_handle\_nmi@{uv\_handle\_nmi}}
+\index{uv\_handle\_nmi@{uv\_handle\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_handle\_nmi()}{uv\_handle\_nmi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+handle\+\_\+nmi (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{reason,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{uv__nmi_8c_a96c3c6234a437f5117f736d00fc8872a}\label{uv__nmi_8c_a96c3c6234a437f5117f736d00fc8872a}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_handle\_nmi\_ping@{uv\_handle\_nmi\_ping}}
+\index{uv\_handle\_nmi\_ping@{uv\_handle\_nmi\_ping}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_handle\_nmi\_ping()}{uv\_handle\_nmi\_ping()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+handle\+\_\+nmi\+\_\+ping (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{reason,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{uv__nmi_8c_a3418da08d289b766cf2ef75a0c14da44}\label{uv__nmi_8c_a3418da08d289b766cf2ef75a0c14da44}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_init\_hubless\_pch\_d0@{uv\_init\_hubless\_pch\_d0}}
+\index{uv\_init\_hubless\_pch\_d0@{uv\_init\_hubless\_pch\_d0}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_init\_hubless\_pch\_d0()}{uv\_init\_hubless\_pch\_d0()}}
+{\footnotesize\ttfamily static void uv\+\_\+init\+\_\+hubless\+\_\+pch\+\_\+d0 (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{uv__nmi_8c_a2906d75c1226f13d5f15fbe0e3d6e3d1}\label{uv__nmi_8c_a2906d75c1226f13d5f15fbe0e3d6e3d1}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_init\_hubless\_pch\_io@{uv\_init\_hubless\_pch\_io}}
+\index{uv\_init\_hubless\_pch\_io@{uv\_init\_hubless\_pch\_io}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_init\_hubless\_pch\_io()}{uv\_init\_hubless\_pch\_io()}}
+{\footnotesize\ttfamily static void uv\+\_\+init\+\_\+hubless\+\_\+pch\+\_\+io (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{offset,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{mask,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{uv__nmi_8c_adfd744559ea2ec27c9f1631489750fd1}\label{uv__nmi_8c_adfd744559ea2ec27c9f1631489750fd1}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_local\_mmr\_clear\_nmi@{uv\_local\_mmr\_clear\_nmi}}
+\index{uv\_local\_mmr\_clear\_nmi@{uv\_local\_mmr\_clear\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_local\_mmr\_clear\_nmi()}{uv\_local\_mmr\_clear\_nmi()}}
+{\footnotesize\ttfamily static void uv\+\_\+local\+\_\+mmr\+\_\+clear\+\_\+nmi (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{uv__nmi_8c_a771805352558252b73d7d3c9a79ba6bc}\label{uv__nmi_8c_a771805352558252b73d7d3c9a79ba6bc}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_action\_health@{uv\_nmi\_action\_health}}
+\index{uv\_nmi\_action\_health@{uv\_nmi\_action\_health}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_action\_health()}{uv\_nmi\_action\_health()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+action\+\_\+health (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{master }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{uv__nmi_8c_a090ebd0b2e7aa64449d176d4f1b332ae}\label{uv__nmi_8c_a090ebd0b2e7aa64449d176d4f1b332ae}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_action\_is@{uv\_nmi\_action\_is}}
+\index{uv\_nmi\_action\_is@{uv\_nmi\_action\_is}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_action\_is()}{uv\_nmi\_action\_is()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} uv\+\_\+nmi\+\_\+action\+\_\+is (\begin{DoxyParamCaption}\item[{const char $\ast$}]{action }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{uv__nmi_8c_afd9150fb80f2bb4c26dd26d296b5e51b}\label{uv__nmi_8c_afd9150fb80f2bb4c26dd26d296b5e51b}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_cleanup\_mask@{uv\_nmi\_cleanup\_mask}}
+\index{uv\_nmi\_cleanup\_mask@{uv\_nmi\_cleanup\_mask}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_cleanup\_mask()}{uv\_nmi\_cleanup\_mask()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+cleanup\+\_\+mask (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{uv__nmi_8c_aea01286b9521a4032639ccffa8608a66}\label{uv__nmi_8c_aea01286b9521a4032639ccffa8608a66}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_dump\_cpu\_ip@{uv\_nmi\_dump\_cpu\_ip}}
+\index{uv\_nmi\_dump\_cpu\_ip@{uv\_nmi\_dump\_cpu\_ip}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_dump\_cpu\_ip()}{uv\_nmi\_dump\_cpu\_ip()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+dump\+\_\+cpu\+\_\+ip (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{uv__nmi_8c_a95da898f71dc70860b531e041ad1b4e8}\label{uv__nmi_8c_a95da898f71dc70860b531e041ad1b4e8}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_dump\_cpu\_ip\_hdr@{uv\_nmi\_dump\_cpu\_ip\_hdr}}
+\index{uv\_nmi\_dump\_cpu\_ip\_hdr@{uv\_nmi\_dump\_cpu\_ip\_hdr}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_dump\_cpu\_ip\_hdr()}{uv\_nmi\_dump\_cpu\_ip\_hdr()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+dump\+\_\+cpu\+\_\+ip\+\_\+hdr (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{uv__nmi_8c_ad2f34cae73a233bc603cfdbd59ceb849}\label{uv__nmi_8c_ad2f34cae73a233bc603cfdbd59ceb849}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_dump\_state@{uv\_nmi\_dump\_state}}
+\index{uv\_nmi\_dump\_state@{uv\_nmi\_dump\_state}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_dump\_state()}{uv\_nmi\_dump\_state()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+dump\+\_\+state (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{master }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{uv__nmi_8c_adab9e772a9006b531f5c62193be9413c}\label{uv__nmi_8c_adab9e772a9006b531f5c62193be9413c}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_dump\_state\_cpu@{uv\_nmi\_dump\_state\_cpu}}
+\index{uv\_nmi\_dump\_state\_cpu@{uv\_nmi\_dump\_state\_cpu}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_dump\_state\_cpu()}{uv\_nmi\_dump\_state\_cpu()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+dump\+\_\+state\+\_\+cpu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{uv__nmi_8c_a1763cc3e0fafe0367fe3ca11124a845d}\label{uv__nmi_8c_a1763cc3e0fafe0367fe3ca11124a845d}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_init@{uv\_nmi\_init}}
+\index{uv\_nmi\_init@{uv\_nmi\_init}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_init()}{uv\_nmi\_init()}}
+{\footnotesize\ttfamily void uv\+\_\+nmi\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{uv__nmi_8c_ae135fdbd1052971583473d2c4490d06f}\label{uv__nmi_8c_ae135fdbd1052971583473d2c4490d06f}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_kdump@{uv\_nmi\_kdump}}
+\index{uv\_nmi\_kdump@{uv\_nmi\_kdump}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_kdump()}{uv\_nmi\_kdump()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+kdump (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{main,  }\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{uv__nmi_8c_abb05caf02c4a396a3aa3d361916ee133}\label{uv__nmi_8c_abb05caf02c4a396a3aa3d361916ee133}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_nr\_cpus\_ping@{uv\_nmi\_nr\_cpus\_ping}}
+\index{uv\_nmi\_nr\_cpus\_ping@{uv\_nmi\_nr\_cpus\_ping}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_nr\_cpus\_ping()}{uv\_nmi\_nr\_cpus\_ping()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+nr\+\_\+cpus\+\_\+ping (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{uv__nmi_8c_a6e841322430820c83297dd14f89151aa}\label{uv__nmi_8c_a6e841322430820c83297dd14f89151aa}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_setup@{uv\_nmi\_setup}}
+\index{uv\_nmi\_setup@{uv\_nmi\_setup}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_setup()}{uv\_nmi\_setup()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} uv\+\_\+nmi\+\_\+setup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{uv__nmi_8c_a05ff08f7cd860f9e823d1250e3f7d31a}\label{uv__nmi_8c_a05ff08f7cd860f9e823d1250e3f7d31a}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_setup\_common@{uv\_nmi\_setup\_common}}
+\index{uv\_nmi\_setup\_common@{uv\_nmi\_setup\_common}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_setup\_common()}{uv\_nmi\_setup\_common()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} uv\+\_\+nmi\+\_\+setup\+\_\+common (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{hubbed }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{uv__nmi_8c_a9a39f00c5e85b469c26b266f5c68897e}\label{uv__nmi_8c_a9a39f00c5e85b469c26b266f5c68897e}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_setup\_hubless@{uv\_nmi\_setup\_hubless}}
+\index{uv\_nmi\_setup\_hubless@{uv\_nmi\_setup\_hubless}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_setup\_hubless()}{uv\_nmi\_setup\_hubless()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} uv\+\_\+nmi\+\_\+setup\+\_\+hubless (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{uv__nmi_8c_a4a25e659698e272d3870cb0aed7f0e0e}\label{uv__nmi_8c_a4a25e659698e272d3870cb0aed7f0e0e}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_setup\_hubless\_intr@{uv\_nmi\_setup\_hubless\_intr}}
+\index{uv\_nmi\_setup\_hubless\_intr@{uv\_nmi\_setup\_hubless\_intr}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_setup\_hubless\_intr()}{uv\_nmi\_setup\_hubless\_intr()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+setup\+\_\+hubless\+\_\+intr (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{uv__nmi_8c_a18c4c40847cf6aa196f58f3fdb65bc8e}\label{uv__nmi_8c_a18c4c40847cf6aa196f58f3fdb65bc8e}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_setup\_mmrs@{uv\_nmi\_setup\_mmrs}}
+\index{uv\_nmi\_setup\_mmrs@{uv\_nmi\_setup\_mmrs}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_setup\_mmrs()}{uv\_nmi\_setup\_mmrs()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+setup\+\_\+mmrs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{uv__nmi_8c_ae475e0d95c3e8c55329aebdef20ec8d4}\label{uv__nmi_8c_ae475e0d95c3e8c55329aebdef20ec8d4}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_sync\_exit@{uv\_nmi\_sync\_exit}}
+\index{uv\_nmi\_sync\_exit@{uv\_nmi\_sync\_exit}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_sync\_exit()}{uv\_nmi\_sync\_exit()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+sync\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{master }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{uv__nmi_8c_a7a93331ba55a2af12f6bc377b20b012c}\label{uv__nmi_8c_a7a93331ba55a2af12f6bc377b20b012c}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_test\_hubless@{uv\_nmi\_test\_hubless}}
+\index{uv\_nmi\_test\_hubless@{uv\_nmi\_test\_hubless}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_test\_hubless()}{uv\_nmi\_test\_hubless()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+test\+\_\+hubless (\begin{DoxyParamCaption}\item[{struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$}]{hub\+\_\+nmi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{uv__nmi_8c_a143dde3d1d25d75b2f6859ded45f5d69}\label{uv__nmi_8c_a143dde3d1d25d75b2f6859ded45f5d69}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_test\_mmr@{uv\_nmi\_test\_mmr}}
+\index{uv\_nmi\_test\_mmr@{uv\_nmi\_test\_mmr}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_test\_mmr()}{uv\_nmi\_test\_mmr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+test\+\_\+mmr (\begin{DoxyParamCaption}\item[{struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$}]{hub\+\_\+nmi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{uv__nmi_8c_a74d59df3c92631b9723b1ebc5e977c8b}\label{uv__nmi_8c_a74d59df3c92631b9723b1ebc5e977c8b}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_touch\_watchdogs@{uv\_nmi\_touch\_watchdogs}}
+\index{uv\_nmi\_touch\_watchdogs@{uv\_nmi\_touch\_watchdogs}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_touch\_watchdogs()}{uv\_nmi\_touch\_watchdogs()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+touch\+\_\+watchdogs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{uv__nmi_8c_a947b7658c65d60160d970a5003901fd6}\label{uv__nmi_8c_a947b7658c65d60160d970a5003901fd6}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_trigger\_dump@{uv\_nmi\_trigger\_dump}}
+\index{uv\_nmi\_trigger\_dump@{uv\_nmi\_trigger\_dump}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_trigger\_dump()}{uv\_nmi\_trigger\_dump()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+trigger\+\_\+dump (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{uv__nmi_8c_a8f7e6bc4d3db4e7feb19be13723390de}\label{uv__nmi_8c_a8f7e6bc4d3db4e7feb19be13723390de}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_wait@{uv\_nmi\_wait}}
+\index{uv\_nmi\_wait@{uv\_nmi\_wait}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_wait()}{uv\_nmi\_wait()}}
+{\footnotesize\ttfamily static void uv\+\_\+nmi\+\_\+wait (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{master }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{uv__nmi_8c_a4dbde862e2cfa1b9ec0aaf817610556b}\label{uv__nmi_8c_a4dbde862e2cfa1b9ec0aaf817610556b}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_wait\_cpus@{uv\_nmi\_wait\_cpus}}
+\index{uv\_nmi\_wait\_cpus@{uv\_nmi\_wait\_cpus}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_wait\_cpus()}{uv\_nmi\_wait\_cpus()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+wait\+\_\+cpus (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{first }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{uv__nmi_8c_afcf5d2c0eacb4f02845d2af39cc57b6a}\label{uv__nmi_8c_afcf5d2c0eacb4f02845d2af39cc57b6a}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_reassert\_nmi@{uv\_reassert\_nmi}}
+\index{uv\_reassert\_nmi@{uv\_reassert\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_reassert\_nmi()}{uv\_reassert\_nmi()}}
+{\footnotesize\ttfamily static void uv\+\_\+reassert\+\_\+nmi (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{uv__nmi_8c_af304111eba214d22d1749627a86cdec4}\label{uv__nmi_8c_af304111eba214d22d1749627a86cdec4}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_register\_nmi\_notifier@{uv\_register\_nmi\_notifier}}
+\index{uv\_register\_nmi\_notifier@{uv\_register\_nmi\_notifier}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_register\_nmi\_notifier()}{uv\_register\_nmi\_notifier()}}
+{\footnotesize\ttfamily static void uv\+\_\+register\+\_\+nmi\+\_\+notifier (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{uv__nmi_8c_aa4ede09655e2fa56afdce324518f0495}\label{uv__nmi_8c_aa4ede09655e2fa56afdce324518f0495}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_set\_in\_nmi@{uv\_set\_in\_nmi}}
+\index{uv\_set\_in\_nmi@{uv\_set\_in\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_set\_in\_nmi()}{uv\_set\_in\_nmi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+set\+\_\+in\+\_\+nmi (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$}]{hub\+\_\+nmi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{uv__nmi_8c_aed63746055f358e4a208f97f8fd0f37d}\label{uv__nmi_8c_aed63746055f358e4a208f97f8fd0f37d}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_test\_nmi@{uv\_test\_nmi}}
+\index{uv\_test\_nmi@{uv\_test\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_test\_nmi()}{uv\_test\_nmi()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+test\+\_\+nmi (\begin{DoxyParamCaption}\item[{struct uv\+\_\+hub\+\_\+nmi\+\_\+s $\ast$}]{hub\+\_\+nmi }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{uv__nmi_8c_a0b1d90859c9abe97c0ebd89a6d55f4f9}\label{uv__nmi_8c_a0b1d90859c9abe97c0ebd89a6d55f4f9}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!init\_nmi@{init\_nmi}}
+\index{init\_nmi@{init\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{init\_nmi}{init\_nmi}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structinit__nmi}{init\+\_\+nmi}} \mbox{\hyperlink{structinit__nmi}{init\+\_\+nmi}}\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a0ead6300d7cf3d02ac25a384544ba1a8}\label{uv__nmi_8c_a0ead6300d7cf3d02ac25a384544ba1a8}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!nmi\_mmr@{nmi\_mmr}}
+\index{nmi\_mmr@{nmi\_mmr}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{nmi\_mmr}{nmi\_mmr}}
+{\footnotesize\ttfamily unsigned long nmi\+\_\+mmr\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a481398aa6c235ee66f75529db4e0d16f}\label{uv__nmi_8c_a481398aa6c235ee66f75529db4e0d16f}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!nmi\_mmr\_clear@{nmi\_mmr\_clear}}
+\index{nmi\_mmr\_clear@{nmi\_mmr\_clear}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{nmi\_mmr\_clear}{nmi\_mmr\_clear}}
+{\footnotesize\ttfamily unsigned long nmi\+\_\+mmr\+\_\+clear\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_ada8d47eb39d4c4bd0eb21958c55949eb}\label{uv__nmi_8c_ada8d47eb39d4c4bd0eb21958c55949eb}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!nmi\_mmr\_pending@{nmi\_mmr\_pending}}
+\index{nmi\_mmr\_pending@{nmi\_mmr\_pending}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{nmi\_mmr\_pending}{nmi\_mmr\_pending}}
+{\footnotesize\ttfamily unsigned long nmi\+\_\+mmr\+\_\+pending\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_ad92c91332faa8c2c457861f59c8f6056}\label{uv__nmi_8c_ad92c91332faa8c2c457861f59c8f6056}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_ops\_action@{param\_ops\_action}}
+\index{param\_ops\_action@{param\_ops\_action}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_ops\_action}{param\_ops\_action}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structkernel__param__ops}{kernel\+\_\+param\+\_\+ops}} param\+\_\+ops\+\_\+action\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .get = \mbox{\hyperlink{uv__nmi_8c_a7cad0f32f698fdc6552bafe1212db441}{param\_get\_action}},}
+\DoxyCodeLine{    .set = \mbox{\hyperlink{uv__nmi_8c_acdd2b17873d720f8e0c474857e883a44}{param\_set\_action}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{uv__nmi_8c_ac1d002557567050aef1af3ea5da77983}\label{uv__nmi_8c_ac1d002557567050aef1af3ea5da77983}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!param\_ops\_local64@{param\_ops\_local64}}
+\index{param\_ops\_local64@{param\_ops\_local64}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{param\_ops\_local64}{param\_ops\_local64}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structkernel__param__ops}{kernel\+\_\+param\+\_\+ops}} param\+\_\+ops\+\_\+local64\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .get = \mbox{\hyperlink{uv__nmi_8c_a3007b88ab0bc382a5e5e41e973bc77e9}{param\_get\_local64}},}
+\DoxyCodeLine{    .set = \mbox{\hyperlink{uv__nmi_8c_af6c24d2873ad4a4dffdde91f21f5eb85}{param\_set\_local64}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{uv__nmi_8c_ab9406c93b5a51975ac9d50bb76ad7c42}\label{uv__nmi_8c_ab9406c93b5a51975ac9d50bb76ad7c42}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!pch\_base@{pch\_base}}
+\index{pch\_base@{pch\_base}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{pch\_base}{pch\_base}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}$\ast$ pch\+\_\+base\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_aaeb6d1a2520c01f439c62072ef6fc176}\label{uv__nmi_8c_aaeb6d1a2520c01f439c62072ef6fc176}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_hub\_nmi\_list@{uv\_hub\_nmi\_list}}
+\index{uv\_hub\_nmi\_list@{uv\_hub\_nmi\_list}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_hub\_nmi\_list}{uv\_hub\_nmi\_list}}
+{\footnotesize\ttfamily struct uv\+\_\+hub\+\_\+nmi\+\_\+s$\ast$$\ast$ uv\+\_\+hub\+\_\+nmi\+\_\+list\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a0ab5e81cf0aa13dc42f3c26ffbfbb2a8}\label{uv__nmi_8c_a0ab5e81cf0aa13dc42f3c26ffbfbb2a8}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_in\_nmi@{uv\_in\_nmi}}
+\index{uv\_in\_nmi@{uv\_in\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_in\_nmi}{uv\_in\_nmi}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} uv\+\_\+in\+\_\+nmi\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a317dc70bd87decb3d3734a5852bea4a4}\label{uv__nmi_8c_a317dc70bd87decb3d3734a5852bea4a4}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_action@{uv\_nmi\_action}}
+\index{uv\_nmi\_action@{uv\_nmi\_action}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_action}{uv\_nmi\_action}}
+{\footnotesize\ttfamily \mbox{\hyperlink{uv__nmi_8c_a069b27ecb43653789b2a0cae339ebbca}{action\+\_\+t}} uv\+\_\+nmi\+\_\+action = \{ \char`\"{}dump\char`\"{} \}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a621b097ed6bc2ab741b7267b854a62b3}\label{uv__nmi_8c_a621b097ed6bc2ab741b7267b854a62b3}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_count@{uv\_nmi\_count}}
+\index{uv\_nmi\_count@{uv\_nmi\_count}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_count}{uv\_nmi\_count}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} uv\+\_\+nmi\+\_\+count\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a9282e8973ae280ce3665af9215e6ec86}\label{uv__nmi_8c_a9282e8973ae280ce3665af9215e6ec86}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_cpu@{uv\_nmi\_cpu}}
+\index{uv\_nmi\_cpu@{uv\_nmi\_cpu}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_cpu}{uv\_nmi\_cpu}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} uv\+\_\+nmi\+\_\+cpu = \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{A\+T\+O\+M\+I\+C\+\_\+\+I\+N\+IT}}(-\/1)\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_ab9437e9fcfc66988c1f23b89b85adcd7}\label{uv__nmi_8c_ab9437e9fcfc66988c1f23b89b85adcd7}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_cpu\_mask@{uv\_nmi\_cpu\_mask}}
+\index{uv\_nmi\_cpu\_mask@{uv\_nmi\_cpu\_mask}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_cpu\_mask}{uv\_nmi\_cpu\_mask}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2cpumask_8h_abc33c8ce63d9c12aee03049dad459fb0}{cpumask\+\_\+var\+\_\+t}} uv\+\_\+nmi\+\_\+cpu\+\_\+mask\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a386138ad14087ffe49441434cab33cc1}\label{uv__nmi_8c_a386138ad14087ffe49441434cab33cc1}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_cpus\_in\_nmi@{uv\_nmi\_cpus\_in\_nmi}}
+\index{uv\_nmi\_cpus\_in\_nmi@{uv\_nmi\_cpus\_in\_nmi}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_cpus\_in\_nmi}{uv\_nmi\_cpus\_in\_nmi}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} uv\+\_\+nmi\+\_\+cpus\+\_\+in\+\_\+nmi = \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{A\+T\+O\+M\+I\+C\+\_\+\+I\+N\+IT}}(-\/1)\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_abcda63c96d3443bc8a1ee0e8a22ff5be}\label{uv__nmi_8c_abcda63c96d3443bc8a1ee0e8a22ff5be}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_debug@{uv\_nmi\_debug}}
+\index{uv\_nmi\_debug@{uv\_nmi\_debug}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_debug}{uv\_nmi\_debug}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+debug\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a37b4cf35508b4aa0343452ea2c268b83}\label{uv__nmi_8c_a37b4cf35508b4aa0343452ea2c268b83}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_initial\_delay@{uv\_nmi\_initial\_delay}}
+\index{uv\_nmi\_initial\_delay@{uv\_nmi\_initial\_delay}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_initial\_delay}{uv\_nmi\_initial\_delay}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+initial\+\_\+delay = 100\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_addb650b07683d40c584d7817aa77265e}\label{uv__nmi_8c_addb650b07683d40c584d7817aa77265e}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_kexec\_failed@{uv\_nmi\_kexec\_failed}}
+\index{uv\_nmi\_kexec\_failed@{uv\_nmi\_kexec\_failed}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_kexec\_failed}{uv\_nmi\_kexec\_failed}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} uv\+\_\+nmi\+\_\+kexec\+\_\+failed\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a1d5dd13a0bc1d2dbd4ee182b87eadbec}\label{uv__nmi_8c_a1d5dd13a0bc1d2dbd4ee182b87eadbec}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_loglevel@{uv\_nmi\_loglevel}}
+\index{uv\_nmi\_loglevel@{uv\_nmi\_loglevel}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_loglevel}{uv\_nmi\_loglevel}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+loglevel = \mbox{\hyperlink{linux_2printk_8h_abf328314e45bf77e01157fa6e60fdd54}{C\+O\+N\+S\+O\+L\+E\+\_\+\+L\+O\+G\+L\+E\+V\+E\+L\+\_\+\+D\+E\+F\+A\+U\+LT}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_abdabc8e8887e057c022a9090e7756580}\label{uv__nmi_8c_abdabc8e8887e057c022a9090e7756580}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_loop\_delay@{uv\_nmi\_loop\_delay}}
+\index{uv\_nmi\_loop\_delay@{uv\_nmi\_loop\_delay}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_loop\_delay}{uv\_nmi\_loop\_delay}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+loop\+\_\+delay = 100\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a11f9aea34e92ed285da22febbbb4b184}\label{uv__nmi_8c_a11f9aea34e92ed285da22febbbb4b184}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_misses@{uv\_nmi\_misses}}
+\index{uv\_nmi\_misses@{uv\_nmi\_misses}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_misses}{uv\_nmi\_misses}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} uv\+\_\+nmi\+\_\+misses\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_ad04cb8527555721808f831c25bef167a}\label{uv__nmi_8c_ad04cb8527555721808f831c25bef167a}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_ping\_count@{uv\_nmi\_ping\_count}}
+\index{uv\_nmi\_ping\_count@{uv\_nmi\_ping\_count}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_ping\_count}{uv\_nmi\_ping\_count}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} uv\+\_\+nmi\+\_\+ping\+\_\+count\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a7bb2b3318c62255e98807cec5bfe3ae0}\label{uv__nmi_8c_a7bb2b3318c62255e98807cec5bfe3ae0}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_ping\_misses@{uv\_nmi\_ping\_misses}}
+\index{uv\_nmi\_ping\_misses@{uv\_nmi\_ping\_misses}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_ping\_misses}{uv\_nmi\_ping\_misses}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structlocal64__t}{local64\+\_\+t}} uv\+\_\+nmi\+\_\+ping\+\_\+misses\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a6715c98a57f1a7d83bcf8f2af73e7903}\label{uv__nmi_8c_a6715c98a57f1a7d83bcf8f2af73e7903}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_retry\_count@{uv\_nmi\_retry\_count}}
+\index{uv\_nmi\_retry\_count@{uv\_nmi\_retry\_count}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_retry\_count}{uv\_nmi\_retry\_count}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+retry\+\_\+count = 500\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a79e49c6e5bb7aebbe1b1deb80de38035}\label{uv__nmi_8c_a79e49c6e5bb7aebbe1b1deb80de38035}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_slave\_continue@{uv\_nmi\_slave\_continue}}
+\index{uv\_nmi\_slave\_continue@{uv\_nmi\_slave\_continue}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_slave\_continue}{uv\_nmi\_slave\_continue}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} uv\+\_\+nmi\+\_\+slave\+\_\+continue\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a8b969d0b8238c88ae99d6116dc1338b0}\label{uv__nmi_8c_a8b969d0b8238c88ae99d6116dc1338b0}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_slave\_delay@{uv\_nmi\_slave\_delay}}
+\index{uv\_nmi\_slave\_delay@{uv\_nmi\_slave\_delay}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_slave\_delay}{uv\_nmi\_slave\_delay}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+slave\+\_\+delay = 100\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_abfad55b500f50e62cd3e0a2835d28736}\label{uv__nmi_8c_abfad55b500f50e62cd3e0a2835d28736}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_trigger\_delay@{uv\_nmi\_trigger\_delay}}
+\index{uv\_nmi\_trigger\_delay@{uv\_nmi\_trigger\_delay}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_trigger\_delay}{uv\_nmi\_trigger\_delay}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+trigger\+\_\+delay = 10000\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_ad3e0c40fa1f45e4ab4afe7bdb5294f8b}\label{uv__nmi_8c_ad3e0c40fa1f45e4ab4afe7bdb5294f8b}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_nmi\_wait\_count@{uv\_nmi\_wait\_count}}
+\index{uv\_nmi\_wait\_count@{uv\_nmi\_wait\_count}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_nmi\_wait\_count}{uv\_nmi\_wait\_count}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uv\+\_\+nmi\+\_\+wait\+\_\+count = 100\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a96e1526d6b0eff4ce2a26da6b1474725}\label{uv__nmi_8c_a96e1526d6b0eff4ce2a26da6b1474725}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_pch\_init\_enable@{uv\_pch\_init\_enable}}
+\index{uv\_pch\_init\_enable@{uv\_pch\_init\_enable}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_pch\_init\_enable}{uv\_pch\_init\_enable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} uv\+\_\+pch\+\_\+init\+\_\+enable = \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_aafd55adf85d260a73138750595981ed5}\label{uv__nmi_8c_aafd55adf85d260a73138750595981ed5}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_pch\_intr\_enable@{uv\_pch\_intr\_enable}}
+\index{uv\_pch\_intr\_enable@{uv\_pch\_intr\_enable}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_pch\_intr\_enable}{uv\_pch\_intr\_enable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} uv\+\_\+pch\+\_\+intr\+\_\+enable = \mbox{\hyperlink{linux_2stddef_8h_a55053030c3a61be39883df7b96936fb2a08f175a5505a10b9ed657defeb050e4b}{true}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a6cee3bafbb89b5812e385df66f8c9296}\label{uv__nmi_8c_a6cee3bafbb89b5812e385df66f8c9296}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uv\_pch\_intr\_now\_enabled@{uv\_pch\_intr\_now\_enabled}}
+\index{uv\_pch\_intr\_now\_enabled@{uv\_pch\_intr\_now\_enabled}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uv\_pch\_intr\_now\_enabled}{uv\_pch\_intr\_now\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} uv\+\_\+pch\+\_\+intr\+\_\+now\+\_\+enabled\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_abb92f89523d03e90f76f31c8ce59463b}\label{uv__nmi_8c_abb92f89523d03e90f76f31c8ce59463b}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uvh\_nmi\_mmrx@{uvh\_nmi\_mmrx}}
+\index{uvh\_nmi\_mmrx@{uvh\_nmi\_mmrx}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uvh\_nmi\_mmrx}{uvh\_nmi\_mmrx}}
+{\footnotesize\ttfamily unsigned long uvh\+\_\+nmi\+\_\+mmrx\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a6921bd15fb839b8ca6d186b5bf896e6e}\label{uv__nmi_8c_a6921bd15fb839b8ca6d186b5bf896e6e}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uvh\_nmi\_mmrx\_clear@{uvh\_nmi\_mmrx\_clear}}
+\index{uvh\_nmi\_mmrx\_clear@{uvh\_nmi\_mmrx\_clear}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uvh\_nmi\_mmrx\_clear}{uvh\_nmi\_mmrx\_clear}}
+{\footnotesize\ttfamily unsigned long uvh\+\_\+nmi\+\_\+mmrx\+\_\+clear\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a89901caf0bf1e347ba9bb6032aaf9e6a}\label{uv__nmi_8c_a89901caf0bf1e347ba9bb6032aaf9e6a}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uvh\_nmi\_mmrx\_req@{uvh\_nmi\_mmrx\_req}}
+\index{uvh\_nmi\_mmrx\_req@{uvh\_nmi\_mmrx\_req}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uvh\_nmi\_mmrx\_req}{uvh\_nmi\_mmrx\_req}}
+{\footnotesize\ttfamily unsigned long uvh\+\_\+nmi\+\_\+mmrx\+\_\+req\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_aa5a2e83d627a4a9b6364d4a0fa80ff35}\label{uv__nmi_8c_aa5a2e83d627a4a9b6364d4a0fa80ff35}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uvh\_nmi\_mmrx\_req\_shift@{uvh\_nmi\_mmrx\_req\_shift}}
+\index{uvh\_nmi\_mmrx\_req\_shift@{uvh\_nmi\_mmrx\_req\_shift}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uvh\_nmi\_mmrx\_req\_shift}{uvh\_nmi\_mmrx\_req\_shift}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uvh\+\_\+nmi\+\_\+mmrx\+\_\+req\+\_\+shift\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_aaf6b8690e596d323f367418a6755b240}\label{uv__nmi_8c_aaf6b8690e596d323f367418a6755b240}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uvh\_nmi\_mmrx\_shift@{uvh\_nmi\_mmrx\_shift}}
+\index{uvh\_nmi\_mmrx\_shift@{uvh\_nmi\_mmrx\_shift}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uvh\_nmi\_mmrx\_shift}{uvh\_nmi\_mmrx\_shift}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} uvh\+\_\+nmi\+\_\+mmrx\+\_\+shift\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a5d2b09a0f255eb8621fb545969e5f96c}\label{uv__nmi_8c_a5d2b09a0f255eb8621fb545969e5f96c}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uvh\_nmi\_mmrx\_supported@{uvh\_nmi\_mmrx\_supported}}
+\index{uvh\_nmi\_mmrx\_supported@{uvh\_nmi\_mmrx\_supported}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uvh\_nmi\_mmrx\_supported}{uvh\_nmi\_mmrx\_supported}}
+{\footnotesize\ttfamily unsigned long uvh\+\_\+nmi\+\_\+mmrx\+\_\+supported\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_ad209a12e6f9cbc9b611c9c840789ccd3}\label{uv__nmi_8c_ad209a12e6f9cbc9b611c9c840789ccd3}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!uvh\_nmi\_mmrx\_type@{uvh\_nmi\_mmrx\_type}}
+\index{uvh\_nmi\_mmrx\_type@{uvh\_nmi\_mmrx\_type}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{uvh\_nmi\_mmrx\_type}{uvh\_nmi\_mmrx\_type}}
+{\footnotesize\ttfamily char$\ast$ uvh\+\_\+nmi\+\_\+mmrx\+\_\+type\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{uv__nmi_8c_a205656bde8e71a6c793c2b02b95ae71d}\label{uv__nmi_8c_a205656bde8e71a6c793c2b02b95ae71d}} 
+\index{uv\_nmi.c@{uv\_nmi.c}!valid\_acts@{valid\_acts}}
+\index{valid\_acts@{valid\_acts}!uv\_nmi.c@{uv\_nmi.c}}
+\doxysubsubsection{\texorpdfstring{valid\_acts}{valid\_acts}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structnmi__action}{nmi\+\_\+action}} valid\+\_\+acts\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{   \textcolor{stringliteral}{"kdump"},    \textcolor{stringliteral}{"do kernel crash dump"}          \},}
+\DoxyCodeLine{    \{   \textcolor{stringliteral}{"dump"},     \textcolor{stringliteral}{"dump process stack for each cpu"}   \},}
+\DoxyCodeLine{    \{   \textcolor{stringliteral}{"ips"},      \textcolor{stringliteral}{"dump Inst Ptr info for each cpu"}   \},}
+\DoxyCodeLine{    \{   \textcolor{stringliteral}{"kdb"},      \textcolor{stringliteral}{"enter KDB (needs kgdboc= assignment)"}  \},}
+\DoxyCodeLine{    \{   \textcolor{stringliteral}{"kgdb"},     \textcolor{stringliteral}{"enter KGDB (needs gdb target remote)"}  \},}
+\DoxyCodeLine{    \{   \textcolor{stringliteral}{"health"},   \textcolor{stringliteral}{"check if CPUs respond to NMI"}      \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

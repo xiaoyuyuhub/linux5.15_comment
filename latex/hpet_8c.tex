@@ -1,0 +1,656 @@
+\hypertarget{hpet_8c}{}\doxysection{arch/x86/kernel/hpet.c File Reference}
+\label{hpet_8c}\index{arch/x86/kernel/hpet.c@{arch/x86/kernel/hpet.c}}
+{\ttfamily \#include $<$linux/clockchips.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/hpet.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irq.\+h$>$}\newline
+{\ttfamily \#include $<$asm/irq\+\_\+remapping.\+h$>$}\newline
+{\ttfamily \#include $<$asm/hpet.\+h$>$}\newline
+{\ttfamily \#include $<$asm/time.\+h$>$}\newline
+{\ttfamily \#include $<$asm/mwait.\+h$>$}\newline
+Include dependency graph for hpet.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structhpet__channel}{hpet\+\_\+channel}}
+\item 
+struct \mbox{\hyperlink{structhpet__base}{hpet\+\_\+base}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{hpet_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}hpet\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{hpet_8c_a1eaa1a111d17bd62990d0345e0ed1c85}{H\+P\+E\+T\+\_\+\+M\+A\+SK}}~\mbox{\hyperlink{include_2linux_2clocksource_8h_a0215ef1fd778064e5c136ee00c2bdccf}{C\+L\+O\+C\+K\+S\+O\+U\+R\+C\+E\+\_\+\+M\+A\+SK}}(32)
+\item 
+\#define \mbox{\hyperlink{hpet_8c_ac8062f4547b2ed3e0ce4f643cc3afa2c}{H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+C\+Y\+C\+L\+ES}}~128
+\item 
+\#define \mbox{\hyperlink{hpet_8c_ae912970f3b00df13eebef1da46e81974}{H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+P\+R\+O\+G\+\_\+\+D\+E\+L\+TA}}~(\mbox{\hyperlink{hpet_8c_ac8062f4547b2ed3e0ce4f643cc3afa2c}{H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+C\+Y\+C\+L\+ES}} + (\mbox{\hyperlink{hpet_8c_ac8062f4547b2ed3e0ce4f643cc3afa2c}{H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+C\+Y\+C\+L\+ES}} $>$$>$ 1))
+\item 
+\#define \mbox{\hyperlink{hpet_8c_a87b7ec5bb2f8ea6d49386ebcba68e73b}{hpet\+\_\+print\+\_\+config}}()
+\item 
+\#define \mbox{\hyperlink{hpet_8c_a25a02bb36d068ef3dccee3c46260d3fa}{hpet\+\_\+cpuhp\+\_\+online}}~\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}
+\item 
+\#define \mbox{\hyperlink{hpet_8c_a470b55434090f97bc13e7d02357d78de}{hpet\+\_\+cpuhp\+\_\+dead}}~\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{hpet_8c_aff9650175df2788f64a66cfebc0fe09d}{hpet\+\_\+mode}} \{ \mbox{\hyperlink{hpet_8c_aff9650175df2788f64a66cfebc0fe09da298855ce47b00f771c030f2a51fa24ca}{H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+U\+N\+U\+S\+ED}}, 
+\mbox{\hyperlink{hpet_8c_aff9650175df2788f64a66cfebc0fe09da4e8cc91c5dd5aaec2192023017f9417e}{H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+L\+E\+G\+A\+CY}}, 
+\mbox{\hyperlink{hpet_8c_aff9650175df2788f64a66cfebc0fe09dae169efa497dc78dbec692319b162ceca}{H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+C\+L\+O\+C\+K\+E\+VT}}, 
+\mbox{\hyperlink{hpet_8c_aff9650175df2788f64a66cfebc0fe09da595cc8acab3b2e62b871c0a65b152634}{H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+D\+E\+V\+I\+CE}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structhpet__channel}{hpet\+\_\+channel}} $\ast$ \mbox{\hyperlink{hpet_8c_a58aee9be9b925a817f3180c8cbb5b6b5}{clockevent\+\_\+to\+\_\+channel}} (struct clock\+\_\+event\+\_\+device $\ast$evt)
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_ad0720a9a192a39dc06d1a104e045f5a0}{hpet\+\_\+readl}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} a)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a72071935ed61c98f11836b7189ffd18a}{hpet\+\_\+writel}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{desc__defs_8h_a2700247be955059d67a044885e065e5c}{d}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} a)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a962c4e1ec2354a82023fa70007a9c8b0}{hpet\+\_\+set\+\_\+mapping}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a4cd7c9290645bb43e0558919de1e345d}{hpet\+\_\+clear\+\_\+mapping}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_a1b82f9d616d71be7c0c543c3967ef810}{hpet\+\_\+setup}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{hpet_8c_a4b75a9c715165e4f9680cfac6f5c39d8}{\+\_\+\+\_\+setup}} (\char`\"{}hpet=\char`\"{}, hpet\+\_\+setup)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_a7a04bca4d427cb641fffc0d7d454f763}{disable\+\_\+hpet}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{hpet_8c_a3c79902ddefa2dca80796294612833d1}{\+\_\+\+\_\+setup}} (\char`\"{}nohpet\char`\"{}, disable\+\_\+hpet)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_a68b26956e1799cd181a4c4296789cc02}{is\+\_\+hpet\+\_\+capable}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_a643593f7fdfe283115108ea88c3c84cb}{is\+\_\+hpet\+\_\+enabled}} (void)
+\item 
+\mbox{\hyperlink{hpet_8c_a353109f410d510818df5c387308060ca}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{hpet_8c_a643593f7fdfe283115108ea88c3c84cb}{is\+\_\+hpet\+\_\+enabled}})
+\item 
+static void \mbox{\hyperlink{hpet_8c_a77d54e38d535cd2f64d3be934a46cf36}{\+\_\+hpet\+\_\+print\+\_\+config}} (const char $\ast$\mbox{\hyperlink{media_8h_affd81467a787987afc753b0bae981a0e}{function}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2videodev2_8h_a7387fb74af8bab543f8f007513b7c499}{line}})
+\item 
+static void \mbox{\hyperlink{hpet_8c_aa695c46fbbe52d7588e2f480b93d96ce}{hpet\+\_\+reserve\+\_\+platform\+\_\+timers}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a64667a141496fb367868682c750895bd}{hpet\+\_\+select\+\_\+device\+\_\+channel}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a2d04da11e82d3a241ec3a882b0529042}{hpet\+\_\+stop\+\_\+counter}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_aa245a01b3f345d1c5a847111a0d8c6d6}{hpet\+\_\+reset\+\_\+counter}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_aa045cb7760d916100d41c3ee5e42ee3e}{hpet\+\_\+start\+\_\+counter}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a809d4a98660b6b6db7bd3d916e8b29cd}{hpet\+\_\+restart\+\_\+counter}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a1cc89b0edb4ee725148b2e6b3405bb0f}{hpet\+\_\+resume\+\_\+device}} (void)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a4cced1552f199e6d89998d3788009c80}{hpet\+\_\+resume\+\_\+counter}} (struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$cs)
+\item 
+static void \mbox{\hyperlink{hpet_8c_aa31bf8a6e16b16ebdf1c91126ab5a361}{hpet\+\_\+enable\+\_\+legacy\+\_\+int}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_aa4dc95e6b9034bcd8e67bc83d9f40698}{hpet\+\_\+clkevt\+\_\+set\+\_\+state\+\_\+periodic}} (struct clock\+\_\+event\+\_\+device $\ast$evt)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_ac4a9944215374803ac7de4920bbc25ec}{hpet\+\_\+clkevt\+\_\+set\+\_\+state\+\_\+oneshot}} (struct clock\+\_\+event\+\_\+device $\ast$evt)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_a620cf29a5925ab99aa997bab0a951434}{hpet\+\_\+clkevt\+\_\+set\+\_\+state\+\_\+shutdown}} (struct clock\+\_\+event\+\_\+device $\ast$evt)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_ae34e23c90f19742a9d2849af1764b0ef}{hpet\+\_\+clkevt\+\_\+legacy\+\_\+resume}} (struct clock\+\_\+event\+\_\+device $\ast$evt)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_a8485342b0a3438465fda4f4ad6704f01}{hpet\+\_\+clkevt\+\_\+set\+\_\+next\+\_\+event}} (unsigned long \mbox{\hyperlink{structdelta}{delta}}, struct clock\+\_\+event\+\_\+device $\ast$evt)
+\item 
+static void \mbox{\hyperlink{hpet_8c_aaacaeb98f92ec40aa7583b2d5eba665d}{hpet\+\_\+init\+\_\+clockevent}} (struct \mbox{\hyperlink{structhpet__channel}{hpet\+\_\+channel}} $\ast$hc, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} rating)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_a2126ae6cdebe26f8fe1eb08eb36cf530}{hpet\+\_\+legacy\+\_\+clockevent\+\_\+register}} (struct \mbox{\hyperlink{structhpet__channel}{hpet\+\_\+channel}} $\ast$hc)
+\item 
+static void \mbox{\hyperlink{hpet_8c_a0a3645b68ce6d7f550a454f90d8338fd}{hpet\+\_\+select\+\_\+clockevents}} (void)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{hpet_8c_ac66e7ac9c691e0c09e38b84c168e76bd}{read\+\_\+hpet}} (struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$cs)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_aa9d52736cdc28c9181a8f620007e2c02}{hpet\+\_\+cfg\+\_\+working}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_a893ca32ff52ea942c316d8feb836c847}{hpet\+\_\+counting}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_a73931ee2aed54f0eec535f2a02e21304}{mwait\+\_\+pc10\+\_\+supported}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_ac97a42b933b44f7dc9e6e6517e4d7bf8}{hpet\+\_\+is\+\_\+pc10\+\_\+damaged}} (void)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{hpet_8c_ab589dedaa220d3154abe8e2a81cfbe13}{hpet\+\_\+enable}} (void)
+\item 
+static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{hpet_8c_a43d85d0f74b72823da747604371c8bca}{hpet\+\_\+late\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{hpet_8c_a6156f4490821073bcf11bf7f5dc31d3d}{fs\+\_\+initcall}} (\mbox{\hyperlink{hpet_8c_a43d85d0f74b72823da747604371c8bca}{hpet\+\_\+late\+\_\+init}})
+\item 
+void \mbox{\hyperlink{hpet_8c_a05a717f7013931490c96de9dc03abacd}{hpet\+\_\+disable}} (void)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+unsigned long \mbox{\hyperlink{hpet_8c_ad0c98573e63aad68ce29600bd94d2a54}{hpet\+\_\+address}}
+\item 
+\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{hpet_8c_affaed8817250f8abd450634d6ddef6a8}{hpet\+\_\+blockid}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{hpet_8c_a223b5fcecd39cc711ed40e408bb998ec}{hpet\+\_\+msi\+\_\+disable}}
+\item 
+static void \mbox{\hyperlink{compiler__types_8h_af6b4077d1d8ce49175e6fcb91788634a}{\+\_\+\+\_\+iomem}} $\ast$ \mbox{\hyperlink{hpet_8c_a2fe213f69adebdd41dece0487e77eaba}{hpet\+\_\+virt\+\_\+address}}
+\item 
+static struct \mbox{\hyperlink{structhpet__base}{hpet\+\_\+base}} \mbox{\hyperlink{hpet_8c_a73667ff4e01633cd982e462a369eaab6}{hpet\+\_\+base}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{hpet_8c_a4737b474269e70cd700cae79213f4dee}{hpet\+\_\+legacy\+\_\+int\+\_\+enabled}}
+\item 
+static unsigned long \mbox{\hyperlink{hpet_8c_a81785060183ca5483c47f1b3736d53dc}{hpet\+\_\+freq}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{hpet_8c_afc1722d9b7b5c227f1afebbde37ac470}{boot\+\_\+hpet\+\_\+disable}}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{hpet_8c_ab2fa37bcb953e2215b11de32937c0800}{hpet\+\_\+force\+\_\+user}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{hpet_8c_ad5993503e2ca2f47773c22e83ff13d6e}{hpet\+\_\+verbose}}
+\item 
+static struct \mbox{\hyperlink{structclocksource}{clocksource}} \mbox{\hyperlink{hpet_8c_a47935be90cac02fe5f69ed4f99b0859e}{clocksource\+\_\+hpet}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{hpet_8c_a470b55434090f97bc13e7d02357d78de}\label{hpet_8c_a470b55434090f97bc13e7d02357d78de}} 
+\index{hpet.c@{hpet.c}!hpet\_cpuhp\_dead@{hpet\_cpuhp\_dead}}
+\index{hpet\_cpuhp\_dead@{hpet\_cpuhp\_dead}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_cpuhp\_dead}{hpet\_cpuhp\_dead}}
+{\footnotesize\ttfamily \#define hpet\+\_\+cpuhp\+\_\+dead~\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}}
+
+\mbox{\Hypertarget{hpet_8c_a25a02bb36d068ef3dccee3c46260d3fa}\label{hpet_8c_a25a02bb36d068ef3dccee3c46260d3fa}} 
+\index{hpet.c@{hpet.c}!hpet\_cpuhp\_online@{hpet\_cpuhp\_online}}
+\index{hpet\_cpuhp\_online@{hpet\_cpuhp\_online}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_cpuhp\_online}{hpet\_cpuhp\_online}}
+{\footnotesize\ttfamily \#define hpet\+\_\+cpuhp\+\_\+online~\mbox{\hyperlink{linux_2stddef_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{N\+U\+LL}}}
+
+\mbox{\Hypertarget{hpet_8c_a1eaa1a111d17bd62990d0345e0ed1c85}\label{hpet_8c_a1eaa1a111d17bd62990d0345e0ed1c85}} 
+\index{hpet.c@{hpet.c}!HPET\_MASK@{HPET\_MASK}}
+\index{HPET\_MASK@{HPET\_MASK}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{HPET\_MASK}{HPET\_MASK}}
+{\footnotesize\ttfamily \#define H\+P\+E\+T\+\_\+\+M\+A\+SK~\mbox{\hyperlink{include_2linux_2clocksource_8h_a0215ef1fd778064e5c136ee00c2bdccf}{C\+L\+O\+C\+K\+S\+O\+U\+R\+C\+E\+\_\+\+M\+A\+SK}}(32)}
+
+\mbox{\Hypertarget{hpet_8c_ac8062f4547b2ed3e0ce4f643cc3afa2c}\label{hpet_8c_ac8062f4547b2ed3e0ce4f643cc3afa2c}} 
+\index{hpet.c@{hpet.c}!HPET\_MIN\_CYCLES@{HPET\_MIN\_CYCLES}}
+\index{HPET\_MIN\_CYCLES@{HPET\_MIN\_CYCLES}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{HPET\_MIN\_CYCLES}{HPET\_MIN\_CYCLES}}
+{\footnotesize\ttfamily \#define H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+C\+Y\+C\+L\+ES~128}
+
+\mbox{\Hypertarget{hpet_8c_ae912970f3b00df13eebef1da46e81974}\label{hpet_8c_ae912970f3b00df13eebef1da46e81974}} 
+\index{hpet.c@{hpet.c}!HPET\_MIN\_PROG\_DELTA@{HPET\_MIN\_PROG\_DELTA}}
+\index{HPET\_MIN\_PROG\_DELTA@{HPET\_MIN\_PROG\_DELTA}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{HPET\_MIN\_PROG\_DELTA}{HPET\_MIN\_PROG\_DELTA}}
+{\footnotesize\ttfamily \#define H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+P\+R\+O\+G\+\_\+\+D\+E\+L\+TA~(\mbox{\hyperlink{hpet_8c_ac8062f4547b2ed3e0ce4f643cc3afa2c}{H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+C\+Y\+C\+L\+ES}} + (\mbox{\hyperlink{hpet_8c_ac8062f4547b2ed3e0ce4f643cc3afa2c}{H\+P\+E\+T\+\_\+\+M\+I\+N\+\_\+\+C\+Y\+C\+L\+ES}} $>$$>$ 1))}
+
+\mbox{\Hypertarget{hpet_8c_a87b7ec5bb2f8ea6d49386ebcba68e73b}\label{hpet_8c_a87b7ec5bb2f8ea6d49386ebcba68e73b}} 
+\index{hpet.c@{hpet.c}!hpet\_print\_config@{hpet\_print\_config}}
+\index{hpet\_print\_config@{hpet\_print\_config}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_print\_config}{hpet\_print\_config}}
+{\footnotesize\ttfamily \#define hpet\+\_\+print\+\_\+config(\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keywordflow}{do} \{                                \(\backslash\)}
+\DoxyCodeLine{    if (\mbox{\hyperlink{hpet_8c_ad5993503e2ca2f47773c22e83ff13d6e}{hpet\_verbose}})                   \(\backslash\)}
+\DoxyCodeLine{        \_hpet\_print\_config(\_\_func\_\_, \_\_LINE\_\_); \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (0)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{hpet_8c_a1f8c165bf4196327bc3abff648276d92}\label{hpet_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{hpet.c@{hpet.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}hpet\+: \char`\"{} fmt}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{hpet_8c_aff9650175df2788f64a66cfebc0fe09d}\label{hpet_8c_aff9650175df2788f64a66cfebc0fe09d}} 
+\index{hpet.c@{hpet.c}!hpet\_mode@{hpet\_mode}}
+\index{hpet\_mode@{hpet\_mode}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_mode}{hpet\_mode}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{hpet_8c_aff9650175df2788f64a66cfebc0fe09d}{hpet\+\_\+mode}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HPET\_MODE\_UNUSED@{HPET\_MODE\_UNUSED}!hpet.c@{hpet.c}}\index{hpet.c@{hpet.c}!HPET\_MODE\_UNUSED@{HPET\_MODE\_UNUSED}}}\mbox{\Hypertarget{hpet_8c_aff9650175df2788f64a66cfebc0fe09da298855ce47b00f771c030f2a51fa24ca}\label{hpet_8c_aff9650175df2788f64a66cfebc0fe09da298855ce47b00f771c030f2a51fa24ca}} 
+H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+U\+N\+U\+S\+ED&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HPET\_MODE\_LEGACY@{HPET\_MODE\_LEGACY}!hpet.c@{hpet.c}}\index{hpet.c@{hpet.c}!HPET\_MODE\_LEGACY@{HPET\_MODE\_LEGACY}}}\mbox{\Hypertarget{hpet_8c_aff9650175df2788f64a66cfebc0fe09da4e8cc91c5dd5aaec2192023017f9417e}\label{hpet_8c_aff9650175df2788f64a66cfebc0fe09da4e8cc91c5dd5aaec2192023017f9417e}} 
+H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+L\+E\+G\+A\+CY&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HPET\_MODE\_CLOCKEVT@{HPET\_MODE\_CLOCKEVT}!hpet.c@{hpet.c}}\index{hpet.c@{hpet.c}!HPET\_MODE\_CLOCKEVT@{HPET\_MODE\_CLOCKEVT}}}\mbox{\Hypertarget{hpet_8c_aff9650175df2788f64a66cfebc0fe09dae169efa497dc78dbec692319b162ceca}\label{hpet_8c_aff9650175df2788f64a66cfebc0fe09dae169efa497dc78dbec692319b162ceca}} 
+H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+C\+L\+O\+C\+K\+E\+VT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HPET\_MODE\_DEVICE@{HPET\_MODE\_DEVICE}!hpet.c@{hpet.c}}\index{hpet.c@{hpet.c}!HPET\_MODE\_DEVICE@{HPET\_MODE\_DEVICE}}}\mbox{\Hypertarget{hpet_8c_aff9650175df2788f64a66cfebc0fe09da595cc8acab3b2e62b871c0a65b152634}\label{hpet_8c_aff9650175df2788f64a66cfebc0fe09da595cc8acab3b2e62b871c0a65b152634}} 
+H\+P\+E\+T\+\_\+\+M\+O\+D\+E\+\_\+\+D\+E\+V\+I\+CE&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{hpet_8c_a4b75a9c715165e4f9680cfac6f5c39d8}\label{hpet_8c_a4b75a9c715165e4f9680cfac6f5c39d8}} 
+\index{hpet.c@{hpet.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{hpet_8c_a3c79902ddefa2dca80796294612833d1}\label{hpet_8c_a3c79902ddefa2dca80796294612833d1}} 
+\index{hpet.c@{hpet.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}\item[{\char`\"{}nohpet\char`\"{}}]{,  }\item[{\mbox{\hyperlink{hpet_8c_a7a04bca4d427cb641fffc0d7d454f763}{disable\+\_\+hpet}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{hpet_8c_a77d54e38d535cd2f64d3be934a46cf36}\label{hpet_8c_a77d54e38d535cd2f64d3be934a46cf36}} 
+\index{hpet.c@{hpet.c}!\_hpet\_print\_config@{\_hpet\_print\_config}}
+\index{\_hpet\_print\_config@{\_hpet\_print\_config}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{\_hpet\_print\_config()}{\_hpet\_print\_config()}}
+{\footnotesize\ttfamily static void \+\_\+hpet\+\_\+print\+\_\+config (\begin{DoxyParamCaption}\item[{const char $\ast$}]{function,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{line }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{hpet_8c_a58aee9be9b925a817f3180c8cbb5b6b5}\label{hpet_8c_a58aee9be9b925a817f3180c8cbb5b6b5}} 
+\index{hpet.c@{hpet.c}!clockevent\_to\_channel@{clockevent\_to\_channel}}
+\index{clockevent\_to\_channel@{clockevent\_to\_channel}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{clockevent\_to\_channel()}{clockevent\_to\_channel()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structhpet__channel}{hpet\+\_\+channel}}$\ast$ clockevent\+\_\+to\+\_\+channel (\begin{DoxyParamCaption}\item[{struct clock\+\_\+event\+\_\+device $\ast$}]{evt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{hpet_8c_a7a04bca4d427cb641fffc0d7d454f763}\label{hpet_8c_a7a04bca4d427cb641fffc0d7d454f763}} 
+\index{hpet.c@{hpet.c}!disable\_hpet@{disable\_hpet}}
+\index{disable\_hpet@{disable\_hpet}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{disable\_hpet()}{disable\_hpet()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} disable\+\_\+hpet (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{hpet_8c_a353109f410d510818df5c387308060ca}\label{hpet_8c_a353109f410d510818df5c387308060ca}} 
+\index{hpet.c@{hpet.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{hpet_8c_a643593f7fdfe283115108ea88c3c84cb}{is\+\_\+hpet\+\_\+enabled}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{hpet_8c_a6156f4490821073bcf11bf7f5dc31d3d}\label{hpet_8c_a6156f4490821073bcf11bf7f5dc31d3d}} 
+\index{hpet.c@{hpet.c}!fs\_initcall@{fs\_initcall}}
+\index{fs\_initcall@{fs\_initcall}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{fs\_initcall()}{fs\_initcall()}}
+{\footnotesize\ttfamily fs\+\_\+initcall (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{hpet_8c_a43d85d0f74b72823da747604371c8bca}{hpet\+\_\+late\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{hpet_8c_aa9d52736cdc28c9181a8f620007e2c02}\label{hpet_8c_aa9d52736cdc28c9181a8f620007e2c02}} 
+\index{hpet.c@{hpet.c}!hpet\_cfg\_working@{hpet\_cfg\_working}}
+\index{hpet\_cfg\_working@{hpet\_cfg\_working}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_cfg\_working()}{hpet\_cfg\_working()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hpet\+\_\+cfg\+\_\+working (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{hpet_8c_a4cd7c9290645bb43e0558919de1e345d}\label{hpet_8c_a4cd7c9290645bb43e0558919de1e345d}} 
+\index{hpet.c@{hpet.c}!hpet\_clear\_mapping@{hpet\_clear\_mapping}}
+\index{hpet\_clear\_mapping@{hpet\_clear\_mapping}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_clear\_mapping()}{hpet\_clear\_mapping()}}
+{\footnotesize\ttfamily static void hpet\+\_\+clear\+\_\+mapping (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{hpet_8c_ae34e23c90f19742a9d2849af1764b0ef}\label{hpet_8c_ae34e23c90f19742a9d2849af1764b0ef}} 
+\index{hpet.c@{hpet.c}!hpet\_clkevt\_legacy\_resume@{hpet\_clkevt\_legacy\_resume}}
+\index{hpet\_clkevt\_legacy\_resume@{hpet\_clkevt\_legacy\_resume}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_clkevt\_legacy\_resume()}{hpet\_clkevt\_legacy\_resume()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hpet\+\_\+clkevt\+\_\+legacy\+\_\+resume (\begin{DoxyParamCaption}\item[{struct clock\+\_\+event\+\_\+device $\ast$}]{evt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{hpet_8c_a8485342b0a3438465fda4f4ad6704f01}\label{hpet_8c_a8485342b0a3438465fda4f4ad6704f01}} 
+\index{hpet.c@{hpet.c}!hpet\_clkevt\_set\_next\_event@{hpet\_clkevt\_set\_next\_event}}
+\index{hpet\_clkevt\_set\_next\_event@{hpet\_clkevt\_set\_next\_event}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_clkevt\_set\_next\_event()}{hpet\_clkevt\_set\_next\_event()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hpet\+\_\+clkevt\+\_\+set\+\_\+next\+\_\+event (\begin{DoxyParamCaption}\item[{unsigned long}]{delta,  }\item[{struct clock\+\_\+event\+\_\+device $\ast$}]{evt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{hpet_8c_ac4a9944215374803ac7de4920bbc25ec}\label{hpet_8c_ac4a9944215374803ac7de4920bbc25ec}} 
+\index{hpet.c@{hpet.c}!hpet\_clkevt\_set\_state\_oneshot@{hpet\_clkevt\_set\_state\_oneshot}}
+\index{hpet\_clkevt\_set\_state\_oneshot@{hpet\_clkevt\_set\_state\_oneshot}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_clkevt\_set\_state\_oneshot()}{hpet\_clkevt\_set\_state\_oneshot()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hpet\+\_\+clkevt\+\_\+set\+\_\+state\+\_\+oneshot (\begin{DoxyParamCaption}\item[{struct clock\+\_\+event\+\_\+device $\ast$}]{evt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{hpet_8c_aa4dc95e6b9034bcd8e67bc83d9f40698}\label{hpet_8c_aa4dc95e6b9034bcd8e67bc83d9f40698}} 
+\index{hpet.c@{hpet.c}!hpet\_clkevt\_set\_state\_periodic@{hpet\_clkevt\_set\_state\_periodic}}
+\index{hpet\_clkevt\_set\_state\_periodic@{hpet\_clkevt\_set\_state\_periodic}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_clkevt\_set\_state\_periodic()}{hpet\_clkevt\_set\_state\_periodic()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hpet\+\_\+clkevt\+\_\+set\+\_\+state\+\_\+periodic (\begin{DoxyParamCaption}\item[{struct clock\+\_\+event\+\_\+device $\ast$}]{evt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{hpet_8c_a620cf29a5925ab99aa997bab0a951434}\label{hpet_8c_a620cf29a5925ab99aa997bab0a951434}} 
+\index{hpet.c@{hpet.c}!hpet\_clkevt\_set\_state\_shutdown@{hpet\_clkevt\_set\_state\_shutdown}}
+\index{hpet\_clkevt\_set\_state\_shutdown@{hpet\_clkevt\_set\_state\_shutdown}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_clkevt\_set\_state\_shutdown()}{hpet\_clkevt\_set\_state\_shutdown()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hpet\+\_\+clkevt\+\_\+set\+\_\+state\+\_\+shutdown (\begin{DoxyParamCaption}\item[{struct clock\+\_\+event\+\_\+device $\ast$}]{evt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{hpet_8c_a893ca32ff52ea942c316d8feb836c847}\label{hpet_8c_a893ca32ff52ea942c316d8feb836c847}} 
+\index{hpet.c@{hpet.c}!hpet\_counting@{hpet\_counting}}
+\index{hpet\_counting@{hpet\_counting}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_counting()}{hpet\_counting()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hpet\+\_\+counting (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{hpet_8c_a05a717f7013931490c96de9dc03abacd}\label{hpet_8c_a05a717f7013931490c96de9dc03abacd}} 
+\index{hpet.c@{hpet.c}!hpet\_disable@{hpet\_disable}}
+\index{hpet\_disable@{hpet\_disable}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_disable()}{hpet\_disable()}}
+{\footnotesize\ttfamily void hpet\+\_\+disable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{hpet_8c_ab589dedaa220d3154abe8e2a81cfbe13}\label{hpet_8c_ab589dedaa220d3154abe8e2a81cfbe13}} 
+\index{hpet.c@{hpet.c}!hpet\_enable@{hpet\_enable}}
+\index{hpet\_enable@{hpet\_enable}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_enable()}{hpet\_enable()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hpet\+\_\+enable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+hpet\+\_\+enable -\/ Try to setup the H\+P\+ET timer. Returns 1 on success. Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{hpet_8c_aa31bf8a6e16b16ebdf1c91126ab5a361}\label{hpet_8c_aa31bf8a6e16b16ebdf1c91126ab5a361}} 
+\index{hpet.c@{hpet.c}!hpet\_enable\_legacy\_int@{hpet\_enable\_legacy\_int}}
+\index{hpet\_enable\_legacy\_int@{hpet\_enable\_legacy\_int}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_enable\_legacy\_int()}{hpet\_enable\_legacy\_int()}}
+{\footnotesize\ttfamily static void hpet\+\_\+enable\+\_\+legacy\+\_\+int (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{hpet_8c_aaacaeb98f92ec40aa7583b2d5eba665d}\label{hpet_8c_aaacaeb98f92ec40aa7583b2d5eba665d}} 
+\index{hpet.c@{hpet.c}!hpet\_init\_clockevent@{hpet\_init\_clockevent}}
+\index{hpet\_init\_clockevent@{hpet\_init\_clockevent}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_init\_clockevent()}{hpet\_init\_clockevent()}}
+{\footnotesize\ttfamily static void hpet\+\_\+init\+\_\+clockevent (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhpet__channel}{hpet\+\_\+channel}} $\ast$}]{hc,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{rating }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{hpet_8c_ac97a42b933b44f7dc9e6e6517e4d7bf8}\label{hpet_8c_ac97a42b933b44f7dc9e6e6517e4d7bf8}} 
+\index{hpet.c@{hpet.c}!hpet\_is\_pc10\_damaged@{hpet\_is\_pc10\_damaged}}
+\index{hpet\_is\_pc10\_damaged@{hpet\_is\_pc10\_damaged}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_is\_pc10\_damaged()}{hpet\_is\_pc10\_damaged()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hpet\+\_\+is\+\_\+pc10\+\_\+damaged (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{hpet_8c_a43d85d0f74b72823da747604371c8bca}\label{hpet_8c_a43d85d0f74b72823da747604371c8bca}} 
+\index{hpet.c@{hpet.c}!hpet\_late\_init@{hpet\_late\_init}}
+\index{hpet\_late\_init@{hpet\_late\_init}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_late\_init()}{hpet\_late\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hpet\+\_\+late\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{hpet_8c_a2126ae6cdebe26f8fe1eb08eb36cf530}\label{hpet_8c_a2126ae6cdebe26f8fe1eb08eb36cf530}} 
+\index{hpet.c@{hpet.c}!hpet\_legacy\_clockevent\_register@{hpet\_legacy\_clockevent\_register}}
+\index{hpet\_legacy\_clockevent\_register@{hpet\_legacy\_clockevent\_register}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_legacy\_clockevent\_register()}{hpet\_legacy\_clockevent\_register()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hpet\+\_\+legacy\+\_\+clockevent\+\_\+register (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structhpet__channel}{hpet\+\_\+channel}} $\ast$}]{hc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{hpet_8c_ad0720a9a192a39dc06d1a104e045f5a0}\label{hpet_8c_ad0720a9a192a39dc06d1a104e045f5a0}} 
+\index{hpet.c@{hpet.c}!hpet\_readl@{hpet\_readl}}
+\index{hpet\_readl@{hpet\_readl}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_readl()}{hpet\_readl()}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} hpet\+\_\+readl (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{a }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{hpet_8c_aa695c46fbbe52d7588e2f480b93d96ce}\label{hpet_8c_aa695c46fbbe52d7588e2f480b93d96ce}} 
+\index{hpet.c@{hpet.c}!hpet\_reserve\_platform\_timers@{hpet\_reserve\_platform\_timers}}
+\index{hpet\_reserve\_platform\_timers@{hpet\_reserve\_platform\_timers}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_reserve\_platform\_timers()}{hpet\_reserve\_platform\_timers()}}
+{\footnotesize\ttfamily static void hpet\+\_\+reserve\+\_\+platform\+\_\+timers (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{hpet_8c_aa245a01b3f345d1c5a847111a0d8c6d6}\label{hpet_8c_aa245a01b3f345d1c5a847111a0d8c6d6}} 
+\index{hpet.c@{hpet.c}!hpet\_reset\_counter@{hpet\_reset\_counter}}
+\index{hpet\_reset\_counter@{hpet\_reset\_counter}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_reset\_counter()}{hpet\_reset\_counter()}}
+{\footnotesize\ttfamily static void hpet\+\_\+reset\+\_\+counter (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{hpet_8c_a809d4a98660b6b6db7bd3d916e8b29cd}\label{hpet_8c_a809d4a98660b6b6db7bd3d916e8b29cd}} 
+\index{hpet.c@{hpet.c}!hpet\_restart\_counter@{hpet\_restart\_counter}}
+\index{hpet\_restart\_counter@{hpet\_restart\_counter}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_restart\_counter()}{hpet\_restart\_counter()}}
+{\footnotesize\ttfamily static void hpet\+\_\+restart\+\_\+counter (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{hpet_8c_a4cced1552f199e6d89998d3788009c80}\label{hpet_8c_a4cced1552f199e6d89998d3788009c80}} 
+\index{hpet.c@{hpet.c}!hpet\_resume\_counter@{hpet\_resume\_counter}}
+\index{hpet\_resume\_counter@{hpet\_resume\_counter}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_resume\_counter()}{hpet\_resume\_counter()}}
+{\footnotesize\ttfamily static void hpet\+\_\+resume\+\_\+counter (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$}]{cs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{hpet_8c_a1cc89b0edb4ee725148b2e6b3405bb0f}\label{hpet_8c_a1cc89b0edb4ee725148b2e6b3405bb0f}} 
+\index{hpet.c@{hpet.c}!hpet\_resume\_device@{hpet\_resume\_device}}
+\index{hpet\_resume\_device@{hpet\_resume\_device}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_resume\_device()}{hpet\_resume\_device()}}
+{\footnotesize\ttfamily static void hpet\+\_\+resume\+\_\+device (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{hpet_8c_a0a3645b68ce6d7f550a454f90d8338fd}\label{hpet_8c_a0a3645b68ce6d7f550a454f90d8338fd}} 
+\index{hpet.c@{hpet.c}!hpet\_select\_clockevents@{hpet\_select\_clockevents}}
+\index{hpet\_select\_clockevents@{hpet\_select\_clockevents}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_select\_clockevents()}{hpet\_select\_clockevents()}}
+{\footnotesize\ttfamily static void hpet\+\_\+select\+\_\+clockevents (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{hpet_8c_a64667a141496fb367868682c750895bd}\label{hpet_8c_a64667a141496fb367868682c750895bd}} 
+\index{hpet.c@{hpet.c}!hpet\_select\_device\_channel@{hpet\_select\_device\_channel}}
+\index{hpet\_select\_device\_channel@{hpet\_select\_device\_channel}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_select\_device\_channel()}{hpet\_select\_device\_channel()}}
+{\footnotesize\ttfamily static void hpet\+\_\+select\+\_\+device\+\_\+channel (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{hpet_8c_a962c4e1ec2354a82023fa70007a9c8b0}\label{hpet_8c_a962c4e1ec2354a82023fa70007a9c8b0}} 
+\index{hpet.c@{hpet.c}!hpet\_set\_mapping@{hpet\_set\_mapping}}
+\index{hpet\_set\_mapping@{hpet\_set\_mapping}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_set\_mapping()}{hpet\_set\_mapping()}}
+{\footnotesize\ttfamily static void hpet\+\_\+set\+\_\+mapping (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{hpet_8c_a1b82f9d616d71be7c0c543c3967ef810}\label{hpet_8c_a1b82f9d616d71be7c0c543c3967ef810}} 
+\index{hpet.c@{hpet.c}!hpet\_setup@{hpet\_setup}}
+\index{hpet\_setup@{hpet\_setup}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_setup()}{hpet\_setup()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} hpet\+\_\+setup (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{hpet_8c_aa045cb7760d916100d41c3ee5e42ee3e}\label{hpet_8c_aa045cb7760d916100d41c3ee5e42ee3e}} 
+\index{hpet.c@{hpet.c}!hpet\_start\_counter@{hpet\_start\_counter}}
+\index{hpet\_start\_counter@{hpet\_start\_counter}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_start\_counter()}{hpet\_start\_counter()}}
+{\footnotesize\ttfamily static void hpet\+\_\+start\+\_\+counter (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{hpet_8c_a2d04da11e82d3a241ec3a882b0529042}\label{hpet_8c_a2d04da11e82d3a241ec3a882b0529042}} 
+\index{hpet.c@{hpet.c}!hpet\_stop\_counter@{hpet\_stop\_counter}}
+\index{hpet\_stop\_counter@{hpet\_stop\_counter}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_stop\_counter()}{hpet\_stop\_counter()}}
+{\footnotesize\ttfamily static void hpet\+\_\+stop\+\_\+counter (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{hpet_8c_a72071935ed61c98f11836b7189ffd18a}\label{hpet_8c_a72071935ed61c98f11836b7189ffd18a}} 
+\index{hpet.c@{hpet.c}!hpet\_writel@{hpet\_writel}}
+\index{hpet\_writel@{hpet\_writel}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_writel()}{hpet\_writel()}}
+{\footnotesize\ttfamily static void hpet\+\_\+writel (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{d,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{a }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{hpet_8c_a68b26956e1799cd181a4c4296789cc02}\label{hpet_8c_a68b26956e1799cd181a4c4296789cc02}} 
+\index{hpet.c@{hpet.c}!is\_hpet\_capable@{is\_hpet\_capable}}
+\index{is\_hpet\_capable@{is\_hpet\_capable}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{is\_hpet\_capable()}{is\_hpet\_capable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} is\+\_\+hpet\+\_\+capable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{hpet_8c_a643593f7fdfe283115108ea88c3c84cb}\label{hpet_8c_a643593f7fdfe283115108ea88c3c84cb}} 
+\index{hpet.c@{hpet.c}!is\_hpet\_enabled@{is\_hpet\_enabled}}
+\index{is\_hpet\_enabled@{is\_hpet\_enabled}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{is\_hpet\_enabled()}{is\_hpet\_enabled()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} is\+\_\+hpet\+\_\+enabled (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+is\+\_\+hpet\+\_\+enabled -\/ Check whether the legacy H\+P\+ET timer interrupt is enabled Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{hpet_8c_a73931ee2aed54f0eec535f2a02e21304}\label{hpet_8c_a73931ee2aed54f0eec535f2a02e21304}} 
+\index{hpet.c@{hpet.c}!mwait\_pc10\_supported@{mwait\_pc10\_supported}}
+\index{mwait\_pc10\_supported@{mwait\_pc10\_supported}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{mwait\_pc10\_supported()}{mwait\_pc10\_supported()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mwait\+\_\+pc10\+\_\+supported (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{hpet_8c_ac66e7ac9c691e0c09e38b84c168e76bd}\label{hpet_8c_ac66e7ac9c691e0c09e38b84c168e76bd}} 
+\index{hpet.c@{hpet.c}!read\_hpet@{read\_hpet}}
+\index{read\_hpet@{read\_hpet}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{read\_hpet()}{read\_hpet()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} read\+\_\+hpet (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclocksource}{clocksource}} $\ast$}]{cs }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{hpet_8c_afc1722d9b7b5c227f1afebbde37ac470}\label{hpet_8c_afc1722d9b7b5c227f1afebbde37ac470}} 
+\index{hpet.c@{hpet.c}!boot\_hpet\_disable@{boot\_hpet\_disable}}
+\index{boot\_hpet\_disable@{boot\_hpet\_disable}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{boot\_hpet\_disable}{boot\_hpet\_disable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} boot\+\_\+hpet\+\_\+disable}
+
+\mbox{\Hypertarget{hpet_8c_a47935be90cac02fe5f69ed4f99b0859e}\label{hpet_8c_a47935be90cac02fe5f69ed4f99b0859e}} 
+\index{hpet.c@{hpet.c}!clocksource\_hpet@{clocksource\_hpet}}
+\index{clocksource\_hpet@{clocksource\_hpet}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{clocksource\_hpet}{clocksource\_hpet}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structclocksource}{clocksource}} clocksource\+\_\+hpet\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"hpet"},}
+\DoxyCodeLine{    .rating     = 250,}
+\DoxyCodeLine{    .read       = \mbox{\hyperlink{hpet_8c_ac66e7ac9c691e0c09e38b84c168e76bd}{read\_hpet}},}
+\DoxyCodeLine{    .mask       = \mbox{\hyperlink{hpet_8c_a1eaa1a111d17bd62990d0345e0ed1c85}{HPET\_MASK}},}
+\DoxyCodeLine{    .flags      = \mbox{\hyperlink{include_2linux_2clocksource_8h_a799a3f94ab071f91018691d5686cd326}{CLOCK\_SOURCE\_IS\_CONTINUOUS}},}
+\DoxyCodeLine{    .resume     = \mbox{\hyperlink{hpet_8c_a4cced1552f199e6d89998d3788009c80}{hpet\_resume\_counter}},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{hpet_8c_ad0c98573e63aad68ce29600bd94d2a54}\label{hpet_8c_ad0c98573e63aad68ce29600bd94d2a54}} 
+\index{hpet.c@{hpet.c}!hpet\_address@{hpet\_address}}
+\index{hpet\_address@{hpet\_address}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_address}{hpet\_address}}
+{\footnotesize\ttfamily unsigned long hpet\+\_\+address}
+
+\mbox{\Hypertarget{hpet_8c_a73667ff4e01633cd982e462a369eaab6}\label{hpet_8c_a73667ff4e01633cd982e462a369eaab6}} 
+\index{hpet.c@{hpet.c}!hpet\_base@{hpet\_base}}
+\index{hpet\_base@{hpet\_base}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_base}{hpet\_base}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structhpet__base}{hpet\+\_\+base}} \mbox{\hyperlink{structhpet__base}{hpet\+\_\+base}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{hpet_8c_affaed8817250f8abd450634d6ddef6a8}\label{hpet_8c_affaed8817250f8abd450634d6ddef6a8}} 
+\index{hpet.c@{hpet.c}!hpet\_blockid@{hpet\_blockid}}
+\index{hpet\_blockid@{hpet\_blockid}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_blockid}{hpet\_blockid}}
+{\footnotesize\ttfamily \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} hpet\+\_\+blockid}
+
+\mbox{\Hypertarget{hpet_8c_ab2fa37bcb953e2215b11de32937c0800}\label{hpet_8c_ab2fa37bcb953e2215b11de32937c0800}} 
+\index{hpet.c@{hpet.c}!hpet\_force\_user@{hpet\_force\_user}}
+\index{hpet\_force\_user@{hpet\_force\_user}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_force\_user}{hpet\_force\_user}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hpet\+\_\+force\+\_\+user}
+
+\mbox{\Hypertarget{hpet_8c_a81785060183ca5483c47f1b3736d53dc}\label{hpet_8c_a81785060183ca5483c47f1b3736d53dc}} 
+\index{hpet.c@{hpet.c}!hpet\_freq@{hpet\_freq}}
+\index{hpet\_freq@{hpet\_freq}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_freq}{hpet\_freq}}
+{\footnotesize\ttfamily unsigned long hpet\+\_\+freq\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{hpet_8c_a4737b474269e70cd700cae79213f4dee}\label{hpet_8c_a4737b474269e70cd700cae79213f4dee}} 
+\index{hpet.c@{hpet.c}!hpet\_legacy\_int\_enabled@{hpet\_legacy\_int\_enabled}}
+\index{hpet\_legacy\_int\_enabled@{hpet\_legacy\_int\_enabled}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_legacy\_int\_enabled}{hpet\_legacy\_int\_enabled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hpet\+\_\+legacy\+\_\+int\+\_\+enabled\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{hpet_8c_a223b5fcecd39cc711ed40e408bb998ec}\label{hpet_8c_a223b5fcecd39cc711ed40e408bb998ec}} 
+\index{hpet.c@{hpet.c}!hpet\_msi\_disable@{hpet\_msi\_disable}}
+\index{hpet\_msi\_disable@{hpet\_msi\_disable}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_msi\_disable}{hpet\_msi\_disable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hpet\+\_\+msi\+\_\+disable}
+
+\mbox{\Hypertarget{hpet_8c_ad5993503e2ca2f47773c22e83ff13d6e}\label{hpet_8c_ad5993503e2ca2f47773c22e83ff13d6e}} 
+\index{hpet.c@{hpet.c}!hpet\_verbose@{hpet\_verbose}}
+\index{hpet\_verbose@{hpet\_verbose}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_verbose}{hpet\_verbose}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} hpet\+\_\+verbose\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{hpet_8c_a2fe213f69adebdd41dece0487e77eaba}\label{hpet_8c_a2fe213f69adebdd41dece0487e77eaba}} 
+\index{hpet.c@{hpet.c}!hpet\_virt\_address@{hpet\_virt\_address}}
+\index{hpet\_virt\_address@{hpet\_virt\_address}!hpet.c@{hpet.c}}
+\doxysubsubsection{\texorpdfstring{hpet\_virt\_address}{hpet\_virt\_address}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{compiler__types_8h_af6b4077d1d8ce49175e6fcb91788634a}{\+\_\+\+\_\+iomem}}$\ast$ hpet\+\_\+virt\+\_\+address\hspace{0.3cm}{\ttfamily [static]}}
+

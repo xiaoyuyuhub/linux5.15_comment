@@ -1,0 +1,1306 @@
+\hypertarget{page-writeback_8c}{}\doxysection{mm/page-\/writeback.c File Reference}
+\label{page-writeback_8c}\index{mm/page-\/writeback.c@{mm/page-\/writeback.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagemap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/writeback.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/backing-\/dev.\+h$>$}\newline
+{\ttfamily \#include $<$linux/task\+\_\+io\+\_\+accounting\+\_\+ops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/blkdev.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mpage.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rmap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sysctl.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscalls.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagevec.\+h$>$}\newline
+{\ttfamily \#include $<$linux/timer.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/rt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/signal.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm\+\_\+inline.\+h$>$}\newline
+{\ttfamily \#include $<$trace/events/writeback.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}internal.\+h\char`\"{}}\newline
+Include dependency graph for page-\/writeback.c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_aff1f62baf2052bda00b4c783e9a54537}{M\+A\+X\+\_\+\+P\+A\+U\+SE}}~\mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}}(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}/5, 1)
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_a3b77fee425fe500f98edd9cbdd1aca6a}{D\+I\+R\+T\+Y\+\_\+\+P\+O\+L\+L\+\_\+\+T\+H\+R\+E\+SH}}~(128 $>$$>$ (\mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} -\/ 10))
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_a84eae8f2109f1820d1cc8141aa1d5570}{B\+A\+N\+D\+W\+I\+D\+T\+H\+\_\+\+I\+N\+T\+E\+R\+V\+AL}}~\mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}}(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}/5, 1)
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_a8b15f18d83ecaa87bc0e0a4686aec4ec}{R\+A\+T\+E\+L\+I\+M\+I\+T\+\_\+\+C\+A\+L\+C\+\_\+\+S\+H\+I\+FT}}~10
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_ae92cfb2d95bc70465e805fa4f9d738a3}{V\+M\+\_\+\+C\+O\+M\+P\+L\+E\+T\+I\+O\+N\+S\+\_\+\+P\+E\+R\+I\+O\+D\+\_\+\+L\+EN}}~(3$\ast$\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}})
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_ac8fd43cbf6446e34fbce0c8e36472353}{G\+D\+T\+C\+\_\+\+I\+N\+IT}}(\+\_\+\+\_\+wb)
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_a40a7f994bf5f9c19e4808b5d74d6e32c}{G\+D\+T\+C\+\_\+\+I\+N\+I\+T\+\_\+\+N\+O\+\_\+\+WB}}
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_af92fb77862cb466c642c02033b96de40}{M\+D\+T\+C\+\_\+\+I\+N\+IT}}(\+\_\+\+\_\+wb,  \+\_\+\+\_\+gdtc)
+\item 
+\#define \mbox{\hyperlink{page-writeback_8c_a75f67f569d4aa912bce399511717eea4}{W\+B\+\_\+\+B\+A\+N\+D\+W\+I\+D\+T\+H\+\_\+\+I\+D\+L\+E\+\_\+\+J\+IF}}~(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{page-writeback_8c_a79fc8084751e438197b20a5a78467323}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{page-writeback_8c_aa2eb3e20bb768878369cbeec75bb4a77}{dirty\+\_\+writeback\+\_\+interval}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a55b4d264ed10fb5cce372dbced949b62}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_acaa8856c7e5e72245946002ef48e26f4}{laptop\+\_\+mode}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{page-writeback_8c_aa5d8abe02e9785e8ec1230c005817ca0}{mdtc\+\_\+valid}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc)
+\item 
+static struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} $\ast$ \mbox{\hyperlink{page-writeback_8c_ab205b3f7a7d55732540e4881bcd4350a}{dtc\+\_\+dom}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc)
+\item 
+static struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$ \mbox{\hyperlink{page-writeback_8c_a5cc8e1c1f35e3686f08f44c5f77c1d2c}{mdtc\+\_\+gdtc}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$mdtc)
+\item 
+static struct \mbox{\hyperlink{structfprop__local__percpu}{fprop\+\_\+local\+\_\+percpu}} $\ast$ \mbox{\hyperlink{page-writeback_8c_a5b1301507cfb3612d6eef1c4400234d0}{wb\+\_\+memcg\+\_\+completions}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a034125f2a8a2ce8033c22da1b1c3dda3}{wb\+\_\+min\+\_\+max\+\_\+ratio}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb, unsigned long $\ast$minp, unsigned long $\ast$maxp)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_ac3ee1dd0c76f287cccd68be1e345eb2f}{node\+\_\+dirtyable\+\_\+memory}} (struct \mbox{\hyperlink{structpglist__data}{pglist\+\_\+data}} $\ast$pgdat)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a588d5f3e8c768daf6e66c5c9177a88b8}{highmem\+\_\+dirtyable\+\_\+memory}} (unsigned long total)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a2a613b88a61be50875fb8b4ae3d8c84f}{global\+\_\+dirtyable\+\_\+memory}} (void)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a8c71aa750ecaf21372e56df1df17d1f7}{domain\+\_\+dirty\+\_\+limits}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a3fd02f03d7de5936a7206d643b000995}{global\+\_\+dirty\+\_\+limits}} (unsigned long $\ast$pbackground, unsigned long $\ast$pdirty)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a37f0f7466d94f44aed4b48c72c796383}{node\+\_\+dirty\+\_\+limit}} (struct \mbox{\hyperlink{structpglist__data}{pglist\+\_\+data}} $\ast$pgdat)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{page-writeback_8c_ab42215875c8200b143f56ad316b0039a}{node\+\_\+dirty\+\_\+ok}} (struct \mbox{\hyperlink{structpglist__data}{pglist\+\_\+data}} $\ast$pgdat)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a58e165c9ba574d53c005350c415f7e04}{dirty\+\_\+background\+\_\+ratio\+\_\+handler}} (struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$\mbox{\hyperlink{pcbios_8c_a2d51b19a27a1d26f3beb5bbf7fa90d73}{table}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write, void $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$lenp, loff\+\_\+t $\ast$ppos)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a72c080548c63a4708931a362f7adf151}{dirty\+\_\+background\+\_\+bytes\+\_\+handler}} (struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$\mbox{\hyperlink{pcbios_8c_a2d51b19a27a1d26f3beb5bbf7fa90d73}{table}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write, void $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$lenp, loff\+\_\+t $\ast$ppos)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_ac6cf165b45f87b8e0b787b9157c2f4d8}{dirty\+\_\+ratio\+\_\+handler}} (struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$\mbox{\hyperlink{pcbios_8c_a2d51b19a27a1d26f3beb5bbf7fa90d73}{table}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write, void $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$lenp, loff\+\_\+t $\ast$ppos)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a9f8635ba623a24a27631cf8eea71aeaf}{dirty\+\_\+bytes\+\_\+handler}} (struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$\mbox{\hyperlink{pcbios_8c_a2d51b19a27a1d26f3beb5bbf7fa90d73}{table}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write, void $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$lenp, loff\+\_\+t $\ast$ppos)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a8b79df855ec335d6657ba209fc8dcd0a}{wp\+\_\+next\+\_\+time}} (unsigned long cur\+\_\+time)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a60a0b496d5f0a474af13c271aa5f6f44}{wb\+\_\+domain\+\_\+writeout\+\_\+inc}} (struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} $\ast$dom, struct \mbox{\hyperlink{structfprop__local__percpu}{fprop\+\_\+local\+\_\+percpu}} $\ast$completions, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} max\+\_\+prop\+\_\+frac)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a7645183139530e9697e4844bf82fed14}{\+\_\+\+\_\+wb\+\_\+writeout\+\_\+inc}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a64a07f0d1d0532719a6af50a8577c615}{wb\+\_\+writeout\+\_\+inc}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+\mbox{\hyperlink{page-writeback_8c_a24a4ed3554e1b9eeb927264ebd7a7a5b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{page-writeback_8c_a64a07f0d1d0532719a6af50a8577c615}{wb\+\_\+writeout\+\_\+inc}})
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a74a7f4c28f2bc5c6966ded42b2f2bf04}{writeout\+\_\+period}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a1a72dc2746a329be9a87b6e7b13535ac}{wb\+\_\+domain\+\_\+init}} (struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} $\ast$dom, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a15d170eba1912a892b4c073f99b3c7fc}{bdi\+\_\+set\+\_\+min\+\_\+ratio}} (struct \mbox{\hyperlink{structbacking__dev__info}{backing\+\_\+dev\+\_\+info}} $\ast$bdi, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} min\+\_\+ratio)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_aa1b7b3ca711683ea7e3638d8c58fdd89}{bdi\+\_\+set\+\_\+max\+\_\+ratio}} (struct \mbox{\hyperlink{structbacking__dev__info}{backing\+\_\+dev\+\_\+info}} $\ast$bdi, unsigned max\+\_\+ratio)
+\item 
+\mbox{\hyperlink{page-writeback_8c_a8b98006a9986d508511919e8bdaaaec9}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_aa1b7b3ca711683ea7e3638d8c58fdd89}{bdi\+\_\+set\+\_\+max\+\_\+ratio}})
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a25774c686d88e688ffc02ba030402452}{dirty\+\_\+freerun\+\_\+ceiling}} (unsigned long thresh, unsigned long bg\+\_\+thresh)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a9d54ef1ce1a8238a5381599623694d23}{hard\+\_\+dirty\+\_\+limit}} (struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} $\ast$dom, unsigned long thresh)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a844af9968ee35a1a9406abb12bc333ab}{mdtc\+\_\+calc\+\_\+avail}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$mdtc, unsigned long filepages, unsigned long headroom)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a9eb1160206d2dcfa50046142c8f5e2f3}{\+\_\+\+\_\+wb\+\_\+calc\+\_\+thresh}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc)
+\item 
+unsigned long \mbox{\hyperlink{page-writeback_8c_a678c03b59184e8d7d9d127241517b67e}{wb\+\_\+calc\+\_\+thresh}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb, unsigned long thresh)
+\item 
+static long long \mbox{\hyperlink{page-writeback_8c_a41b38fce64e07057cff1f6191a9cbd91}{pos\+\_\+ratio\+\_\+polynom}} (unsigned long setpoint, unsigned long \mbox{\hyperlink{page-flags_8h_ae2b0770d50c15309a4ac910adac7e54a}{dirty}}, unsigned long \mbox{\hyperlink{btrfs__tree_8h_a6a0e45edc335b6afe58a4ff0f9b5731f}{limit}})
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_ae0be3c7d53a6baf187149fe96e1d6153}{wb\+\_\+position\+\_\+ratio}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a168bf2410f309cd9577185807485c13b}{wb\+\_\+update\+\_\+write\+\_\+bandwidth}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb, unsigned long elapsed, unsigned long written)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a240d0cab0e302cc638edc5796d1fe1dc}{update\+\_\+dirty\+\_\+limit}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a28c62f3e9937b4a8fb7e8258a24eb6f5}{domain\+\_\+update\+\_\+dirty\+\_\+limit}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc, unsigned long now)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a31fbe1c354fe15caecf8493fc5c769b5}{wb\+\_\+update\+\_\+dirty\+\_\+ratelimit}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc, unsigned long dirtied, unsigned long elapsed)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a22b5bdf8540d383d10ffab2afdd354bb}{\+\_\+\+\_\+wb\+\_\+update\+\_\+bandwidth}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$gdtc, struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$mdtc, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} update\+\_\+ratelimit)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a62e6eac422175946ae833247a05ab5e5}{wb\+\_\+update\+\_\+bandwidth}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a098e6c73f6a131f733fb245b5be0055f}{wb\+\_\+bandwidth\+\_\+estimate\+\_\+start}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_a0dc180e90fd2643d6057514e00f64030}{dirty\+\_\+poll\+\_\+interval}} (unsigned long \mbox{\hyperlink{page-flags_8h_ae2b0770d50c15309a4ac910adac7e54a}{dirty}}, unsigned long thresh)
+\item 
+static unsigned long \mbox{\hyperlink{page-writeback_8c_af264bc8d120b2a7317f22f9ab0f48a34}{wb\+\_\+max\+\_\+pause}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb, unsigned long wb\+\_\+dirty)
+\item 
+static long \mbox{\hyperlink{page-writeback_8c_a56d22f69216743ed9ffcd1b0295f4775}{wb\+\_\+min\+\_\+pause}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb, long max\+\_\+pause, unsigned long task\+\_\+ratelimit, unsigned long dirty\+\_\+ratelimit, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$nr\+\_\+dirtied\+\_\+pause)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a09fd23a342f4e11d760955709a689714}{wb\+\_\+dirty\+\_\+limits}} (struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$dtc)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a56109bc117ee6cf3f60de70f23186763}{balance\+\_\+dirty\+\_\+pages}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb, unsigned long pages\+\_\+dirtied)
+\item 
+static \mbox{\hyperlink{page-writeback_8c_a84fde496abe7c6e1ddb447fbf18466da}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, bdp\+\_\+ratelimits)
+\item 
+\mbox{\hyperlink{page-writeback_8c_adebc1119f4a4c05c168d0b54cd6ab55e}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, dirty\+\_\+throttle\+\_\+leaks)=0
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a19def185453950149becff94faea75ac}{balance\+\_\+dirty\+\_\+pages\+\_\+ratelimited}} (struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping)
+\item 
+\mbox{\hyperlink{page-writeback_8c_a1e0d3e51e340b93cf0fabd195d53f84e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_a19def185453950149becff94faea75ac}{balance\+\_\+dirty\+\_\+pages\+\_\+ratelimited}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{page-writeback_8c_a2ae256e0ca787191d945cac08f7665e5}{wb\+\_\+over\+\_\+bg\+\_\+thresh}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a293391a9193c57ea0df8c4cafe82655d}{dirty\+\_\+writeback\+\_\+centisecs\+\_\+handler}} (struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$\mbox{\hyperlink{pcbios_8c_a2d51b19a27a1d26f3beb5bbf7fa90d73}{table}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write, void $\ast$\mbox{\hyperlink{compress__offload_8h_abe951f23271de7d394425d471915c862}{buffer}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$\mbox{\hyperlink{uapi_2linux_2usb_2functionfs_8h_a9f23684b325616481492385eb8583b08}{length}}, loff\+\_\+t $\ast$ppos)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_ace306d39913a1a340b8b578d1fc67efd}{laptop\+\_\+mode\+\_\+timer\+\_\+fn}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a5330d3efe1dba9f7a2157899521e2b3c}{laptop\+\_\+io\+\_\+completion}} (struct \mbox{\hyperlink{structbacking__dev__info}{backing\+\_\+dev\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}})
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a9601a381ec854d792ed1282c547fd630}{laptop\+\_\+sync\+\_\+completion}} (void)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_af8e4f23a542f0e8c654efee884368de0}{writeback\+\_\+set\+\_\+ratelimit}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a560f8f03c26178d579703a9a58c865bd}{page\+\_\+writeback\+\_\+cpu\+\_\+online}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{page-writeback_8c_a5020387c1cd40d7b75bee4d99102e540}{page\+\_\+writeback\+\_\+init}} (void)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_aafca99c730667962d3cbf0dfca526397}{tag\+\_\+pages\+\_\+for\+\_\+writeback}} (struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, \mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}} \mbox{\hyperlink{uhid_8h_ae3260ebbe17a3f6a94854bb51dd56a2e}{start}}, \mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}} \mbox{\hyperlink{btrfs__tree_8h_a73cfb8bbdc6633710bdc684e77230b96}{end}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a0a5a7c8a7f1c4e6067eef6b53fd821e6}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_aafca99c730667962d3cbf0dfca526397}{tag\+\_\+pages\+\_\+for\+\_\+writeback}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_ad83faa6ca10ae0129d9882f79130ba05}{write\+\_\+cache\+\_\+pages}} (struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$wbc, \mbox{\hyperlink{linux_2writeback_8h_a3ee4642fd231c708eb211bd34af1eca1}{writepage\+\_\+t}} writepage, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a03453b26a5b48dba6f0faef91ce11026}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_ad83faa6ca10ae0129d9882f79130ba05}{write\+\_\+cache\+\_\+pages}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_ad95bf80f5e1fedbd37d7a1b656c2b2de}{\+\_\+\+\_\+writepage}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$wbc, void $\ast$\mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a6052dd17845b5fa2d04f372855a3bc0c}{generic\+\_\+writepages}} (struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$wbc)
+\item 
+\mbox{\hyperlink{page-writeback_8c_a296f84459842ff21322f64f299b56d90}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_a6052dd17845b5fa2d04f372855a3bc0c}{generic\+\_\+writepages}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a96428cbcb300469995cc6ea7f81f1f16}{do\+\_\+writepages}} (struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$wbc)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a3b31fdac5f460cf6d3998c19f48e30ef}{write\+\_\+one\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_af0714346fd6a87078788a15296073875}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_a3b31fdac5f460cf6d3998c19f48e30ef}{write\+\_\+one\+\_\+page}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_acdfa57d5e12e9b292be1097bcde040d2}{\+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+no\+\_\+writeback}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a2c2d9492624fa6a35d8af3a1484bd9d9}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_acdfa57d5e12e9b292be1097bcde040d2}{\+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+no\+\_\+writeback}})
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_acedc7ffacce621a0fa42599f42a4062d}{account\+\_\+page\+\_\+dirtied}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a29eb9804ca6f0d1c8778aa0463f08805}{account\+\_\+page\+\_\+cleaned}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a458aadaed6fe3384c18ac175e19fefd4}{\+\_\+\+\_\+set\+\_\+page\+\_\+dirty}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$mapping, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{purgatory_8c_afb1d82c66e02c14038ab93eed650519d}{warn}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_ab5859379697be67fb25b736bc2048255}{\+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+nobuffers}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a15387899a284ef5972eda2880fa14f34}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_ab5859379697be67fb25b736bc2048255}{\+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+nobuffers}})
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a98aadda2a77f1ae2dc3b558ae7267135}{account\+\_\+page\+\_\+redirty}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a2ef7624a16e9efc06cb995871b238a72}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_a98aadda2a77f1ae2dc3b558ae7267135}{account\+\_\+page\+\_\+redirty}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_ab1e1bb81f40b1474652e814b7a78731a}{redirty\+\_\+page\+\_\+for\+\_\+writepage}} (struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$wbc, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a7b5f046537becdc342041c8b2d665452}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_ab1e1bb81f40b1474652e814b7a78731a}{redirty\+\_\+page\+\_\+for\+\_\+writepage}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a7336f3a590bed267e17c0c13752753db}{set\+\_\+page\+\_\+dirty}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_acb14a6979c083dd637c35bb02b0cd482}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_a7336f3a590bed267e17c0c13752753db}{set\+\_\+page\+\_\+dirty}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_add65097ae40e9c74fc839379ea5f23a1}{set\+\_\+page\+\_\+dirty\+\_\+lock}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a389dea01f4346bcfc58d49c1dff98111}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_add65097ae40e9c74fc839379ea5f23a1}{set\+\_\+page\+\_\+dirty\+\_\+lock}})
+\item 
+void \mbox{\hyperlink{page-writeback_8c_aac68df08d9407954822e594336ba25a1}{\+\_\+\+\_\+cancel\+\_\+dirty\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a6371fa029de8d873925628179fa37562}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_aac68df08d9407954822e594336ba25a1}{\+\_\+\+\_\+cancel\+\_\+dirty\+\_\+page}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_ad962555afbf45a86dd52609d6b6b97cc}{clear\+\_\+page\+\_\+dirty\+\_\+for\+\_\+io}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a1639da5c5093f218845afb1b6ec9a989}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_ad962555afbf45a86dd52609d6b6b97cc}{clear\+\_\+page\+\_\+dirty\+\_\+for\+\_\+io}})
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a7bdc20fd362678da8cdd4fa57e06a2e8}{wb\+\_\+inode\+\_\+writeback\+\_\+start}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+static void \mbox{\hyperlink{page-writeback_8c_a104d9dc6d3c1ff44926cc50675a72c51}{wb\+\_\+inode\+\_\+writeback\+\_\+end}} (struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$wb)
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a1708920aa559db8f9dfd582dd4762c11}{test\+\_\+clear\+\_\+page\+\_\+writeback}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a6d6cd44d30d07406d0852a63092b50d3}{\+\_\+\+\_\+test\+\_\+set\+\_\+page\+\_\+writeback}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} keep\+\_\+write)
+\item 
+\mbox{\hyperlink{page-writeback_8c_afb760426b817d1efced49cda09198f28}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{page-writeback_8c_a6d6cd44d30d07406d0852a63092b50d3}{\+\_\+\+\_\+test\+\_\+set\+\_\+page\+\_\+writeback}})
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a29d56381a70b8a066eb3fde1b03fa797}{wait\+\_\+on\+\_\+page\+\_\+writeback}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_ab9347cbfecd98bf44ab743d4a64f3e68}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{page-writeback_8c_a29d56381a70b8a066eb3fde1b03fa797}{wait\+\_\+on\+\_\+page\+\_\+writeback}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a4c107fb6e4bd93e82dfe9fb55076303b}{wait\+\_\+on\+\_\+page\+\_\+writeback\+\_\+killable}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_ad26b2b288dde38e3216653c04aebfed3}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{page-writeback_8c_a4c107fb6e4bd93e82dfe9fb55076303b}{wait\+\_\+on\+\_\+page\+\_\+writeback\+\_\+killable}})
+\item 
+void \mbox{\hyperlink{page-writeback_8c_a6894dab407ad5c4678e36da2e2ea1c5c}{wait\+\_\+for\+\_\+stable\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+\mbox{\hyperlink{page-writeback_8c_a3a4fccd18f8f03127683fd64c7cacebf}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{page-writeback_8c_a6894dab407ad5c4678e36da2e2ea1c5c}{wait\+\_\+for\+\_\+stable\+\_\+page}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static long \mbox{\hyperlink{page-writeback_8c_a2ed521a2e76f5a9cf22804102e01ebab}{ratelimit\+\_\+pages}} = 32
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_af9c231ea6b1dbc69274a85d1341d6676}{dirty\+\_\+background\+\_\+ratio}} = 10
+\item 
+unsigned long \mbox{\hyperlink{page-writeback_8c_ae64f32038cdcba5241d08762e432d188}{dirty\+\_\+background\+\_\+bytes}}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a13a183930d014f7db4a0fcb38f07da61}{vm\+\_\+highmem\+\_\+is\+\_\+dirtyable}}
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_aaa635bdf3fa1ede4748bb67f547e6e55}{vm\+\_\+dirty\+\_\+ratio}} = 20
+\item 
+unsigned long \mbox{\hyperlink{page-writeback_8c_a378ae62959afd8c8d860ffa80a82e762}{vm\+\_\+dirty\+\_\+bytes}}
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_aa2eb3e20bb768878369cbeec75bb4a77}{dirty\+\_\+writeback\+\_\+interval}} = 5 $\ast$ 100
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_acbb42773ceeeba04b1a6ae5a9c8984e6}{dirty\+\_\+expire\+\_\+interval}} = 30 $\ast$ 100
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_acaa8856c7e5e72245946002ef48e26f4}{laptop\+\_\+mode}}
+\item 
+struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} \mbox{\hyperlink{page-writeback_8c_a37e9e0c148dd8c366ffda97dc0c5eb22}{global\+\_\+wb\+\_\+domain}}
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{page-writeback_8c_a23a06c176aac9b412bc0568de4009f14}{bdi\+\_\+min\+\_\+ratio}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{page-writeback_8c_a84eae8f2109f1820d1cc8141aa1d5570}\label{page-writeback_8c_a84eae8f2109f1820d1cc8141aa1d5570}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!BANDWIDTH\_INTERVAL@{BANDWIDTH\_INTERVAL}}
+\index{BANDWIDTH\_INTERVAL@{BANDWIDTH\_INTERVAL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{BANDWIDTH\_INTERVAL}{BANDWIDTH\_INTERVAL}}
+{\footnotesize\ttfamily \#define B\+A\+N\+D\+W\+I\+D\+T\+H\+\_\+\+I\+N\+T\+E\+R\+V\+AL~\mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}}(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}/5, 1)}
+
+\mbox{\Hypertarget{page-writeback_8c_a3b77fee425fe500f98edd9cbdd1aca6a}\label{page-writeback_8c_a3b77fee425fe500f98edd9cbdd1aca6a}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!DIRTY\_POLL\_THRESH@{DIRTY\_POLL\_THRESH}}
+\index{DIRTY\_POLL\_THRESH@{DIRTY\_POLL\_THRESH}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{DIRTY\_POLL\_THRESH}{DIRTY\_POLL\_THRESH}}
+{\footnotesize\ttfamily \#define D\+I\+R\+T\+Y\+\_\+\+P\+O\+L\+L\+\_\+\+T\+H\+R\+E\+SH~(128 $>$$>$ (\mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} -\/ 10))}
+
+\mbox{\Hypertarget{page-writeback_8c_ac8fd43cbf6446e34fbce0c8e36472353}\label{page-writeback_8c_ac8fd43cbf6446e34fbce0c8e36472353}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!GDTC\_INIT@{GDTC\_INIT}}
+\index{GDTC\_INIT@{GDTC\_INIT}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{GDTC\_INIT}{GDTC\_INIT}}
+{\footnotesize\ttfamily \#define G\+D\+T\+C\+\_\+\+I\+N\+IT(\begin{DoxyParamCaption}\item[{}]{\+\_\+\+\_\+wb }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                .wb = (\_\_wb),                           \(\backslash\)}
+\DoxyCodeLine{                .wb\_completions = \&(\_\_wb)-\/>completions}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{page-writeback_8c_a40a7f994bf5f9c19e4808b5d74d6e32c}\label{page-writeback_8c_a40a7f994bf5f9c19e4808b5d74d6e32c}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!GDTC\_INIT\_NO\_WB@{GDTC\_INIT\_NO\_WB}}
+\index{GDTC\_INIT\_NO\_WB@{GDTC\_INIT\_NO\_WB}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{GDTC\_INIT\_NO\_WB}{GDTC\_INIT\_NO\_WB}}
+{\footnotesize\ttfamily \#define G\+D\+T\+C\+\_\+\+I\+N\+I\+T\+\_\+\+N\+O\+\_\+\+WB}
+
+\mbox{\Hypertarget{page-writeback_8c_aff1f62baf2052bda00b4c783e9a54537}\label{page-writeback_8c_aff1f62baf2052bda00b4c783e9a54537}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!MAX\_PAUSE@{MAX\_PAUSE}}
+\index{MAX\_PAUSE@{MAX\_PAUSE}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_PAUSE}{MAX\_PAUSE}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+P\+A\+U\+SE~\mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}}(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}}/5, 1)}
+
+\mbox{\Hypertarget{page-writeback_8c_af92fb77862cb466c642c02033b96de40}\label{page-writeback_8c_af92fb77862cb466c642c02033b96de40}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!MDTC\_INIT@{MDTC\_INIT}}
+\index{MDTC\_INIT@{MDTC\_INIT}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{MDTC\_INIT}{MDTC\_INIT}}
+{\footnotesize\ttfamily \#define M\+D\+T\+C\+\_\+\+I\+N\+IT(\begin{DoxyParamCaption}\item[{}]{\+\_\+\+\_\+wb,  }\item[{}]{\+\_\+\+\_\+gdtc }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a8b15f18d83ecaa87bc0e0a4686aec4ec}\label{page-writeback_8c_a8b15f18d83ecaa87bc0e0a4686aec4ec}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!RATELIMIT\_CALC\_SHIFT@{RATELIMIT\_CALC\_SHIFT}}
+\index{RATELIMIT\_CALC\_SHIFT@{RATELIMIT\_CALC\_SHIFT}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{RATELIMIT\_CALC\_SHIFT}{RATELIMIT\_CALC\_SHIFT}}
+{\footnotesize\ttfamily \#define R\+A\+T\+E\+L\+I\+M\+I\+T\+\_\+\+C\+A\+L\+C\+\_\+\+S\+H\+I\+FT~10}
+
+\mbox{\Hypertarget{page-writeback_8c_ae92cfb2d95bc70465e805fa4f9d738a3}\label{page-writeback_8c_ae92cfb2d95bc70465e805fa4f9d738a3}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!VM\_COMPLETIONS\_PERIOD\_LEN@{VM\_COMPLETIONS\_PERIOD\_LEN}}
+\index{VM\_COMPLETIONS\_PERIOD\_LEN@{VM\_COMPLETIONS\_PERIOD\_LEN}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{VM\_COMPLETIONS\_PERIOD\_LEN}{VM\_COMPLETIONS\_PERIOD\_LEN}}
+{\footnotesize\ttfamily \#define V\+M\+\_\+\+C\+O\+M\+P\+L\+E\+T\+I\+O\+N\+S\+\_\+\+P\+E\+R\+I\+O\+D\+\_\+\+L\+EN~(3$\ast$\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}})}
+
+\mbox{\Hypertarget{page-writeback_8c_a75f67f569d4aa912bce399511717eea4}\label{page-writeback_8c_a75f67f569d4aa912bce399511717eea4}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!WB\_BANDWIDTH\_IDLE\_JIF@{WB\_BANDWIDTH\_IDLE\_JIF}}
+\index{WB\_BANDWIDTH\_IDLE\_JIF@{WB\_BANDWIDTH\_IDLE\_JIF}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{WB\_BANDWIDTH\_IDLE\_JIF}{WB\_BANDWIDTH\_IDLE\_JIF}}
+{\footnotesize\ttfamily \#define W\+B\+\_\+\+B\+A\+N\+D\+W\+I\+D\+T\+H\+\_\+\+I\+D\+L\+E\+\_\+\+J\+IF~(\mbox{\hyperlink{include_2uapi_2asm-generic_2param_8h_a8489802eaedf42fdb5f2ce1708eaffa2}{HZ}})}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{page-writeback_8c_aac68df08d9407954822e594336ba25a1}\label{page-writeback_8c_aac68df08d9407954822e594336ba25a1}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_cancel\_dirty\_page@{\_\_cancel\_dirty\_page}}
+\index{\_\_cancel\_dirty\_page@{\_\_cancel\_dirty\_page}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_cancel\_dirty\_page()}{\_\_cancel\_dirty\_page()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+cancel\+\_\+dirty\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 1
+\mbox{\Hypertarget{page-writeback_8c_a458aadaed6fe3384c18ac175e19fefd4}\label{page-writeback_8c_a458aadaed6fe3384c18ac175e19fefd4}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_set\_page\_dirty@{\_\_set\_page\_dirty}}
+\index{\_\_set\_page\_dirty@{\_\_set\_page\_dirty}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_set\_page\_dirty()}{\_\_set\_page\_dirty()}}
+{\footnotesize\ttfamily void \+\_\+\+\_\+set\+\_\+page\+\_\+dirty (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{warn }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 2
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{page-writeback_8c_acdfa57d5e12e9b292be1097bcde040d2}\label{page-writeback_8c_acdfa57d5e12e9b292be1097bcde040d2}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_set\_page\_dirty\_no\_writeback@{\_\_set\_page\_dirty\_no\_writeback}}
+\index{\_\_set\_page\_dirty\_no\_writeback@{\_\_set\_page\_dirty\_no\_writeback}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_set\_page\_dirty\_no\_writeback()}{\_\_set\_page\_dirty\_no\_writeback()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+no\+\_\+writeback (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{page-writeback_8c_ab5859379697be67fb25b736bc2048255}\label{page-writeback_8c_ab5859379697be67fb25b736bc2048255}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_set\_page\_dirty\_nobuffers@{\_\_set\_page\_dirty\_nobuffers}}
+\index{\_\_set\_page\_dirty\_nobuffers@{\_\_set\_page\_dirty\_nobuffers}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_set\_page\_dirty\_nobuffers()}{\_\_set\_page\_dirty\_nobuffers()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+nobuffers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{page-writeback_8c_a6d6cd44d30d07406d0852a63092b50d3}\label{page-writeback_8c_a6d6cd44d30d07406d0852a63092b50d3}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_test\_set\_page\_writeback@{\_\_test\_set\_page\_writeback}}
+\index{\_\_test\_set\_page\_writeback@{\_\_test\_set\_page\_writeback}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_test\_set\_page\_writeback()}{\_\_test\_set\_page\_writeback()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+test\+\_\+set\+\_\+page\+\_\+writeback (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{keep\+\_\+write }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{page-writeback_8c_a9eb1160206d2dcfa50046142c8f5e2f3}\label{page-writeback_8c_a9eb1160206d2dcfa50046142c8f5e2f3}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_wb\_calc\_thresh@{\_\_wb\_calc\_thresh}}
+\index{\_\_wb\_calc\_thresh@{\_\_wb\_calc\_thresh}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_wb\_calc\_thresh()}{\_\_wb\_calc\_thresh()}}
+{\footnotesize\ttfamily static unsigned long \+\_\+\+\_\+wb\+\_\+calc\+\_\+thresh (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\+\_\+\+\_\+wb\+\_\+calc\+\_\+thresh -\/ @wb\textquotesingle{}s share of dirty throttling threshold @dtc\+: dirty\+\_\+throttle\+\_\+context of interest
+
+Note that \mbox{\hyperlink{page-writeback_8c_a56109bc117ee6cf3f60de70f23186763}{balance\+\_\+dirty\+\_\+pages()}} will only seriously take it as a hard limit when sleeping max\+\_\+pause per page is not enough to keep the dirty pages under control. For example, when the device is completely stalled due to some error conditions, or when there are 1000 dd tasks writing to a slow 10M\+B/s U\+SB key. In the other normal situations, it acts more gently by throttling the tasks more (rather than completely block them) when the wb dirty pages go high.
+
+It allocates high/low dirty limits to fast/slow devices, in order to prevent
+\begin{DoxyItemize}
+\item starving fast devices
+\item piling up dirty pages (that will take long time to sync) on slow devices
+\end{DoxyItemize}
+
+\mbox{\hyperlink{classThe}{The}} wb\textquotesingle{}s share of dirty limit will be adapting to its throughput and bounded by the bdi-\/$>$min\+\_\+ratio and/or bdi-\/$>$max\+\_\+ratio parameters, if set.
+
+Return\+: @wb\textquotesingle{}s dirty limit in pages. \mbox{\hyperlink{classThe}{The}} term \char`\"{}dirty\char`\"{} in the context of dirty balancing includes all P\+G\+\_\+dirty and P\+G\+\_\+writeback pages. Here is the call graph for this function\+:
+% FIG 8
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{page-writeback_8c_a22b5bdf8540d383d10ffab2afdd354bb}\label{page-writeback_8c_a22b5bdf8540d383d10ffab2afdd354bb}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_wb\_update\_bandwidth@{\_\_wb\_update\_bandwidth}}
+\index{\_\_wb\_update\_bandwidth@{\_\_wb\_update\_bandwidth}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_wb\_update\_bandwidth()}{\_\_wb\_update\_bandwidth()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+wb\+\_\+update\+\_\+bandwidth (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{gdtc,  }\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{mdtc,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{update\+\_\+ratelimit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{page-writeback_8c_a7645183139530e9697e4844bf82fed14}\label{page-writeback_8c_a7645183139530e9697e4844bf82fed14}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_wb\_writeout\_inc@{\_\_wb\_writeout\_inc}}
+\index{\_\_wb\_writeout\_inc@{\_\_wb\_writeout\_inc}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_wb\_writeout\_inc()}{\_\_wb\_writeout\_inc()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+wb\+\_\+writeout\+\_\+inc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{page-writeback_8c_ad95bf80f5e1fedbd37d7a1b656c2b2de}\label{page-writeback_8c_ad95bf80f5e1fedbd37d7a1b656c2b2de}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!\_\_writepage@{\_\_writepage}}
+\index{\_\_writepage@{\_\_writepage}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{\_\_writepage()}{\_\_writepage()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+writepage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$}]{wbc,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{page-writeback_8c_a29eb9804ca6f0d1c8778aa0463f08805}\label{page-writeback_8c_a29eb9804ca6f0d1c8778aa0463f08805}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!account\_page\_cleaned@{account\_page\_cleaned}}
+\index{account\_page\_cleaned@{account\_page\_cleaned}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{account\_page\_cleaned()}{account\_page\_cleaned()}}
+{\footnotesize\ttfamily void account\+\_\+page\+\_\+cleaned (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{page-writeback_8c_acedc7ffacce621a0fa42599f42a4062d}\label{page-writeback_8c_acedc7ffacce621a0fa42599f42a4062d}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!account\_page\_dirtied@{account\_page\_dirtied}}
+\index{account\_page\_dirtied@{account\_page\_dirtied}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{account\_page\_dirtied()}{account\_page\_dirtied()}}
+{\footnotesize\ttfamily static void account\+\_\+page\+\_\+dirtied (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{page-writeback_8c_a98aadda2a77f1ae2dc3b558ae7267135}\label{page-writeback_8c_a98aadda2a77f1ae2dc3b558ae7267135}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!account\_page\_redirty@{account\_page\_redirty}}
+\index{account\_page\_redirty@{account\_page\_redirty}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{account\_page\_redirty()}{account\_page\_redirty()}}
+{\footnotesize\ttfamily void account\+\_\+page\+\_\+redirty (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{page-writeback_8c_a56109bc117ee6cf3f60de70f23186763}\label{page-writeback_8c_a56109bc117ee6cf3f60de70f23186763}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!balance\_dirty\_pages@{balance\_dirty\_pages}}
+\index{balance\_dirty\_pages@{balance\_dirty\_pages}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{balance\_dirty\_pages()}{balance\_dirty\_pages()}}
+{\footnotesize\ttfamily static void balance\+\_\+dirty\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb,  }\item[{unsigned long}]{pages\+\_\+dirtied }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{page-writeback_8c_a19def185453950149becff94faea75ac}\label{page-writeback_8c_a19def185453950149becff94faea75ac}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!balance\_dirty\_pages\_ratelimited@{balance\_dirty\_pages\_ratelimited}}
+\index{balance\_dirty\_pages\_ratelimited@{balance\_dirty\_pages\_ratelimited}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{balance\_dirty\_pages\_ratelimited()}{balance\_dirty\_pages\_ratelimited()}}
+{\footnotesize\ttfamily void balance\+\_\+dirty\+\_\+pages\+\_\+ratelimited (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping }\end{DoxyParamCaption})}
+
+balance\+\_\+dirty\+\_\+pages\+\_\+ratelimited -\/ balance dirty memory state @mapping\+: \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} which was dirtied
+
+Processes which are dirtying memory should call in here once for each page which was newly dirtied. \mbox{\hyperlink{classThe}{The}} function will periodically check the system\textquotesingle{}s dirty state and will initiate writeback if needed.
+
+Once we\textquotesingle{}re over the dirty memory limit we decrease the ratelimiting by a lot, to prevent individual processes from overshooting the limit by (ratelimit\+\_\+pages) each. Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{page-writeback_8c_aa1b7b3ca711683ea7e3638d8c58fdd89}\label{page-writeback_8c_aa1b7b3ca711683ea7e3638d8c58fdd89}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!bdi\_set\_max\_ratio@{bdi\_set\_max\_ratio}}
+\index{bdi\_set\_max\_ratio@{bdi\_set\_max\_ratio}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{bdi\_set\_max\_ratio()}{bdi\_set\_max\_ratio()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bdi\+\_\+set\+\_\+max\+\_\+ratio (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbacking__dev__info}{backing\+\_\+dev\+\_\+info}} $\ast$}]{bdi,  }\item[{unsigned}]{max\+\_\+ratio }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{page-writeback_8c_a15d170eba1912a892b4c073f99b3c7fc}\label{page-writeback_8c_a15d170eba1912a892b4c073f99b3c7fc}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!bdi\_set\_min\_ratio@{bdi\_set\_min\_ratio}}
+\index{bdi\_set\_min\_ratio@{bdi\_set\_min\_ratio}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{bdi\_set\_min\_ratio()}{bdi\_set\_min\_ratio()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bdi\+\_\+set\+\_\+min\+\_\+ratio (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbacking__dev__info}{backing\+\_\+dev\+\_\+info}} $\ast$}]{bdi,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{min\+\_\+ratio }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{page-writeback_8c_ad962555afbf45a86dd52609d6b6b97cc}\label{page-writeback_8c_ad962555afbf45a86dd52609d6b6b97cc}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!clear\_page\_dirty\_for\_io@{clear\_page\_dirty\_for\_io}}
+\index{clear\_page\_dirty\_for\_io@{clear\_page\_dirty\_for\_io}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{clear\_page\_dirty\_for\_io()}{clear\_page\_dirty\_for\_io()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} clear\+\_\+page\+\_\+dirty\+\_\+for\+\_\+io (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{page-writeback_8c_a84fde496abe7c6e1ddb447fbf18466da}\label{page-writeback_8c_a84fde496abe7c6e1ddb447fbf18466da}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{bdp\+\_\+ratelimits}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{page-writeback_8c_adebc1119f4a4c05c168d0b54cd6ab55e}\label{page-writeback_8c_adebc1119f4a4c05c168d0b54cd6ab55e}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{dirty\+\_\+throttle\+\_\+leaks}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [pure virtual]}}
+
+\mbox{\Hypertarget{page-writeback_8c_a72c080548c63a4708931a362f7adf151}\label{page-writeback_8c_a72c080548c63a4708931a362f7adf151}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_background\_bytes\_handler@{dirty\_background\_bytes\_handler}}
+\index{dirty\_background\_bytes\_handler@{dirty\_background\_bytes\_handler}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_background\_bytes\_handler()}{dirty\_background\_bytes\_handler()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+background\+\_\+bytes\+\_\+handler (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$}]{table,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{write,  }\item[{void $\ast$}]{buffer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$}]{lenp,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{page-writeback_8c_a58e165c9ba574d53c005350c415f7e04}\label{page-writeback_8c_a58e165c9ba574d53c005350c415f7e04}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_background\_ratio\_handler@{dirty\_background\_ratio\_handler}}
+\index{dirty\_background\_ratio\_handler@{dirty\_background\_ratio\_handler}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_background\_ratio\_handler()}{dirty\_background\_ratio\_handler()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+background\+\_\+ratio\+\_\+handler (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$}]{table,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{write,  }\item[{void $\ast$}]{buffer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$}]{lenp,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{page-writeback_8c_a9f8635ba623a24a27631cf8eea71aeaf}\label{page-writeback_8c_a9f8635ba623a24a27631cf8eea71aeaf}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_bytes\_handler@{dirty\_bytes\_handler}}
+\index{dirty\_bytes\_handler@{dirty\_bytes\_handler}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_bytes\_handler()}{dirty\_bytes\_handler()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+bytes\+\_\+handler (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$}]{table,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{write,  }\item[{void $\ast$}]{buffer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$}]{lenp,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{page-writeback_8c_a25774c686d88e688ffc02ba030402452}\label{page-writeback_8c_a25774c686d88e688ffc02ba030402452}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_freerun\_ceiling@{dirty\_freerun\_ceiling}}
+\index{dirty\_freerun\_ceiling@{dirty\_freerun\_ceiling}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_freerun\_ceiling()}{dirty\_freerun\_ceiling()}}
+{\footnotesize\ttfamily static unsigned long dirty\+\_\+freerun\+\_\+ceiling (\begin{DoxyParamCaption}\item[{unsigned long}]{thresh,  }\item[{unsigned long}]{bg\+\_\+thresh }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{page-writeback_8c_a0dc180e90fd2643d6057514e00f64030}\label{page-writeback_8c_a0dc180e90fd2643d6057514e00f64030}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_poll\_interval@{dirty\_poll\_interval}}
+\index{dirty\_poll\_interval@{dirty\_poll\_interval}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_poll\_interval()}{dirty\_poll\_interval()}}
+{\footnotesize\ttfamily static unsigned long dirty\+\_\+poll\+\_\+interval (\begin{DoxyParamCaption}\item[{unsigned long}]{dirty,  }\item[{unsigned long}]{thresh }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{page-writeback_8c_ac6cf165b45f87b8e0b787b9157c2f4d8}\label{page-writeback_8c_ac6cf165b45f87b8e0b787b9157c2f4d8}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_ratio\_handler@{dirty\_ratio\_handler}}
+\index{dirty\_ratio\_handler@{dirty\_ratio\_handler}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_ratio\_handler()}{dirty\_ratio\_handler()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+ratio\+\_\+handler (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$}]{table,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{write,  }\item[{void $\ast$}]{buffer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$}]{lenp,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{page-writeback_8c_a293391a9193c57ea0df8c4cafe82655d}\label{page-writeback_8c_a293391a9193c57ea0df8c4cafe82655d}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_writeback\_centisecs\_handler@{dirty\_writeback\_centisecs\_handler}}
+\index{dirty\_writeback\_centisecs\_handler@{dirty\_writeback\_centisecs\_handler}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_writeback\_centisecs\_handler()}{dirty\_writeback\_centisecs\_handler()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+writeback\+\_\+centisecs\+\_\+handler (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structctl__table}{ctl\+\_\+table}} $\ast$}]{table,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{write,  }\item[{void $\ast$}]{buffer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} $\ast$}]{length,  }\item[{loff\+\_\+t $\ast$}]{ppos }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{page-writeback_8c_a96428cbcb300469995cc6ea7f81f1f16}\label{page-writeback_8c_a96428cbcb300469995cc6ea7f81f1f16}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!do\_writepages@{do\_writepages}}
+\index{do\_writepages@{do\_writepages}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{do\_writepages()}{do\_writepages()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} do\+\_\+writepages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$}]{wbc }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{page-writeback_8c_a8c71aa750ecaf21372e56df1df17d1f7}\label{page-writeback_8c_a8c71aa750ecaf21372e56df1df17d1f7}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!domain\_dirty\_limits@{domain\_dirty\_limits}}
+\index{domain\_dirty\_limits@{domain\_dirty\_limits}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{domain\_dirty\_limits()}{domain\_dirty\_limits()}}
+{\footnotesize\ttfamily static void domain\+\_\+dirty\+\_\+limits (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+domain\+\_\+dirty\+\_\+limits -\/ calculate thresh and bg\+\_\+thresh for a \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} @dtc\+: \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} of interest
+
+Calculate @dtc-\/$>$thresh and -\/$>$bg\+\_\+thresh considering vm\+\_\+dirty\+\_\+\{bytes$\vert$ratio\} and dirty\+\_\+background\+\_\+\{bytes$\vert$ratio\}. \mbox{\hyperlink{classThe}{The}} caller must ensure that @dtc-\/$>$avail is set before calling this function. \mbox{\hyperlink{classThe}{The}} dirty limits will be lifted by 1/4 for real-\/time tasks. Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{page-writeback_8c_a28c62f3e9937b4a8fb7e8258a24eb6f5}\label{page-writeback_8c_a28c62f3e9937b4a8fb7e8258a24eb6f5}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!domain\_update\_dirty\_limit@{domain\_update\_dirty\_limit}}
+\index{domain\_update\_dirty\_limit@{domain\_update\_dirty\_limit}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{domain\_update\_dirty\_limit()}{domain\_update\_dirty\_limit()}}
+{\footnotesize\ttfamily static void domain\+\_\+update\+\_\+dirty\+\_\+limit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc,  }\item[{unsigned long}]{now }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{page-writeback_8c_ab205b3f7a7d55732540e4881bcd4350a}\label{page-writeback_8c_ab205b3f7a7d55732540e4881bcd4350a}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dtc\_dom@{dtc\_dom}}
+\index{dtc\_dom@{dtc\_dom}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dtc\_dom()}{dtc\_dom()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}}$\ast$ dtc\+\_\+dom (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{page-writeback_8c_a6371fa029de8d873925628179fa37562}\label{page-writeback_8c_a6371fa029de8d873925628179fa37562}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_aac68df08d9407954822e594336ba25a1}{\+\_\+\+\_\+cancel\+\_\+dirty\+\_\+page}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a2c2d9492624fa6a35d8af3a1484bd9d9}\label{page-writeback_8c_a2c2d9492624fa6a35d8af3a1484bd9d9}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_acdfa57d5e12e9b292be1097bcde040d2}{\+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+no\+\_\+writeback}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a15387899a284ef5972eda2880fa14f34}\label{page-writeback_8c_a15387899a284ef5972eda2880fa14f34}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_ab5859379697be67fb25b736bc2048255}{\+\_\+\+\_\+set\+\_\+page\+\_\+dirty\+\_\+nobuffers}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_afb760426b817d1efced49cda09198f28}\label{page-writeback_8c_afb760426b817d1efced49cda09198f28}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a6d6cd44d30d07406d0852a63092b50d3}{\+\_\+\+\_\+test\+\_\+set\+\_\+page\+\_\+writeback}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a2ef7624a16e9efc06cb995871b238a72}\label{page-writeback_8c_a2ef7624a16e9efc06cb995871b238a72}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a98aadda2a77f1ae2dc3b558ae7267135}{account\+\_\+page\+\_\+redirty}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a1e0d3e51e340b93cf0fabd195d53f84e}\label{page-writeback_8c_a1e0d3e51e340b93cf0fabd195d53f84e}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a19def185453950149becff94faea75ac}{balance\+\_\+dirty\+\_\+pages\+\_\+ratelimited}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a8b98006a9986d508511919e8bdaaaec9}\label{page-writeback_8c_a8b98006a9986d508511919e8bdaaaec9}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_aa1b7b3ca711683ea7e3638d8c58fdd89}{bdi\+\_\+set\+\_\+max\+\_\+ratio}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a1639da5c5093f218845afb1b6ec9a989}\label{page-writeback_8c_a1639da5c5093f218845afb1b6ec9a989}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_ad962555afbf45a86dd52609d6b6b97cc}{clear\+\_\+page\+\_\+dirty\+\_\+for\+\_\+io}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a296f84459842ff21322f64f299b56d90}\label{page-writeback_8c_a296f84459842ff21322f64f299b56d90}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a6052dd17845b5fa2d04f372855a3bc0c}{generic\+\_\+writepages}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a55b4d264ed10fb5cce372dbced949b62}\label{page-writeback_8c_a55b4d264ed10fb5cce372dbced949b62}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_acaa8856c7e5e72245946002ef48e26f4}{laptop\+\_\+mode}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a7b5f046537becdc342041c8b2d665452}\label{page-writeback_8c_a7b5f046537becdc342041c8b2d665452}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [11/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_ab1e1bb81f40b1474652e814b7a78731a}{redirty\+\_\+page\+\_\+for\+\_\+writepage}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_acb14a6979c083dd637c35bb02b0cd482}\label{page-writeback_8c_acb14a6979c083dd637c35bb02b0cd482}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [12/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a7336f3a590bed267e17c0c13752753db}{set\+\_\+page\+\_\+dirty}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a389dea01f4346bcfc58d49c1dff98111}\label{page-writeback_8c_a389dea01f4346bcfc58d49c1dff98111}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [13/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_add65097ae40e9c74fc839379ea5f23a1}{set\+\_\+page\+\_\+dirty\+\_\+lock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a0a5a7c8a7f1c4e6067eef6b53fd821e6}\label{page-writeback_8c_a0a5a7c8a7f1c4e6067eef6b53fd821e6}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [14/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_aafca99c730667962d3cbf0dfca526397}{tag\+\_\+pages\+\_\+for\+\_\+writeback}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a03453b26a5b48dba6f0faef91ce11026}\label{page-writeback_8c_a03453b26a5b48dba6f0faef91ce11026}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [15/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_ad83faa6ca10ae0129d9882f79130ba05}{write\+\_\+cache\+\_\+pages}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_af0714346fd6a87078788a15296073875}\label{page-writeback_8c_af0714346fd6a87078788a15296073875}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [16/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a3b31fdac5f460cf6d3998c19f48e30ef}{write\+\_\+one\+\_\+page}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a79fc8084751e438197b20a5a78467323}\label{page-writeback_8c_a79fc8084751e438197b20a5a78467323}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_aa2eb3e20bb768878369cbeec75bb4a77}{dirty\+\_\+writeback\+\_\+interval}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a3a4fccd18f8f03127683fd64c7cacebf}\label{page-writeback_8c_a3a4fccd18f8f03127683fd64c7cacebf}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a6894dab407ad5c4678e36da2e2ea1c5c}{wait\+\_\+for\+\_\+stable\+\_\+page}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_ab9347cbfecd98bf44ab743d4a64f3e68}\label{page-writeback_8c_ab9347cbfecd98bf44ab743d4a64f3e68}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a29d56381a70b8a066eb3fde1b03fa797}{wait\+\_\+on\+\_\+page\+\_\+writeback}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_ad26b2b288dde38e3216653c04aebfed3}\label{page-writeback_8c_ad26b2b288dde38e3216653c04aebfed3}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a4c107fb6e4bd93e82dfe9fb55076303b}{wait\+\_\+on\+\_\+page\+\_\+writeback\+\_\+killable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a24a4ed3554e1b9eeb927264ebd7a7a5b}\label{page-writeback_8c_a24a4ed3554e1b9eeb927264ebd7a7a5b}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/5]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{page-writeback_8c_a64a07f0d1d0532719a6af50a8577c615}{wb\+\_\+writeout\+\_\+inc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{page-writeback_8c_a6052dd17845b5fa2d04f372855a3bc0c}\label{page-writeback_8c_a6052dd17845b5fa2d04f372855a3bc0c}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!generic\_writepages@{generic\_writepages}}
+\index{generic\_writepages@{generic\_writepages}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{generic\_writepages()}{generic\_writepages()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} generic\+\_\+writepages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$}]{wbc }\end{DoxyParamCaption})}
+
+generic\+\_\+writepages -\/ walk the list of dirty pages of the given address space and writepage() all of them. @mapping\+: address space structure to write @wbc\+: subtract the number of written pages from $\ast$@wbc-\/$>$nr\+\_\+to\+\_\+write
+
+This is a library function, which implements the writepages() address\+\_\+space\+\_\+operation.
+
+Return\+: \%0 on success, negative error code otherwise Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{page-writeback_8c_a3fd02f03d7de5936a7206d643b000995}\label{page-writeback_8c_a3fd02f03d7de5936a7206d643b000995}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!global\_dirty\_limits@{global\_dirty\_limits}}
+\index{global\_dirty\_limits@{global\_dirty\_limits}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{global\_dirty\_limits()}{global\_dirty\_limits()}}
+{\footnotesize\ttfamily void global\+\_\+dirty\+\_\+limits (\begin{DoxyParamCaption}\item[{unsigned long $\ast$}]{pbackground,  }\item[{unsigned long $\ast$}]{pdirty }\end{DoxyParamCaption})}
+
+global\+\_\+dirty\+\_\+limits -\/ background-\/writeback and dirty-\/throttling thresholds @pbackground\+: out parameter for bg\+\_\+thresh @pdirty\+: out parameter for thresh
+
+Calculate bg\+\_\+thresh and thresh for global\+\_\+wb\+\_\+domain. See \mbox{\hyperlink{page-writeback_8c_a8c71aa750ecaf21372e56df1df17d1f7}{domain\+\_\+dirty\+\_\+limits()}} for details. Here is the call graph for this function\+:
+% FIG 47
+Here is the caller graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{page-writeback_8c_a2a613b88a61be50875fb8b4ae3d8c84f}\label{page-writeback_8c_a2a613b88a61be50875fb8b4ae3d8c84f}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!global\_dirtyable\_memory@{global\_dirtyable\_memory}}
+\index{global\_dirtyable\_memory@{global\_dirtyable\_memory}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{global\_dirtyable\_memory()}{global\_dirtyable\_memory()}}
+{\footnotesize\ttfamily static unsigned long global\+\_\+dirtyable\+\_\+memory (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+global\+\_\+dirtyable\+\_\+memory -\/ number of globally dirtyable pages
+
+Return\+: the global number of pages potentially available for dirty page cache. This is the base value for the global dirty limits. Here is the call graph for this function\+:
+% FIG 49
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{page-writeback_8c_a9d54ef1ce1a8238a5381599623694d23}\label{page-writeback_8c_a9d54ef1ce1a8238a5381599623694d23}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!hard\_dirty\_limit@{hard\_dirty\_limit}}
+\index{hard\_dirty\_limit@{hard\_dirty\_limit}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{hard\_dirty\_limit()}{hard\_dirty\_limit()}}
+{\footnotesize\ttfamily static unsigned long hard\+\_\+dirty\+\_\+limit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} $\ast$}]{dom,  }\item[{unsigned long}]{thresh }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{page-writeback_8c_a588d5f3e8c768daf6e66c5c9177a88b8}\label{page-writeback_8c_a588d5f3e8c768daf6e66c5c9177a88b8}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!highmem\_dirtyable\_memory@{highmem\_dirtyable\_memory}}
+\index{highmem\_dirtyable\_memory@{highmem\_dirtyable\_memory}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{highmem\_dirtyable\_memory()}{highmem\_dirtyable\_memory()}}
+{\footnotesize\ttfamily static unsigned long highmem\+\_\+dirtyable\+\_\+memory (\begin{DoxyParamCaption}\item[{unsigned long}]{total }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{page-writeback_8c_a5330d3efe1dba9f7a2157899521e2b3c}\label{page-writeback_8c_a5330d3efe1dba9f7a2157899521e2b3c}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!laptop\_io\_completion@{laptop\_io\_completion}}
+\index{laptop\_io\_completion@{laptop\_io\_completion}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{laptop\_io\_completion()}{laptop\_io\_completion()}}
+{\footnotesize\ttfamily void laptop\+\_\+io\+\_\+completion (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbacking__dev__info}{backing\+\_\+dev\+\_\+info}} $\ast$}]{info }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{page-writeback_8c_ace306d39913a1a340b8b578d1fc67efd}\label{page-writeback_8c_ace306d39913a1a340b8b578d1fc67efd}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!laptop\_mode\_timer\_fn@{laptop\_mode\_timer\_fn}}
+\index{laptop\_mode\_timer\_fn@{laptop\_mode\_timer\_fn}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{laptop\_mode\_timer\_fn()}{laptop\_mode\_timer\_fn()}}
+{\footnotesize\ttfamily void laptop\+\_\+mode\+\_\+timer\+\_\+fn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{t }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{page-writeback_8c_a9601a381ec854d792ed1282c547fd630}\label{page-writeback_8c_a9601a381ec854d792ed1282c547fd630}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!laptop\_sync\_completion@{laptop\_sync\_completion}}
+\index{laptop\_sync\_completion@{laptop\_sync\_completion}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{laptop\_sync\_completion()}{laptop\_sync\_completion()}}
+{\footnotesize\ttfamily void laptop\+\_\+sync\+\_\+completion (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{page-writeback_8c_a844af9968ee35a1a9406abb12bc333ab}\label{page-writeback_8c_a844af9968ee35a1a9406abb12bc333ab}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!mdtc\_calc\_avail@{mdtc\_calc\_avail}}
+\index{mdtc\_calc\_avail@{mdtc\_calc\_avail}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{mdtc\_calc\_avail()}{mdtc\_calc\_avail()}}
+{\footnotesize\ttfamily static void mdtc\+\_\+calc\+\_\+avail (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{mdtc,  }\item[{unsigned long}]{filepages,  }\item[{unsigned long}]{headroom }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{page-writeback_8c_a5cc8e1c1f35e3686f08f44c5f77c1d2c}\label{page-writeback_8c_a5cc8e1c1f35e3686f08f44c5f77c1d2c}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!mdtc\_gdtc@{mdtc\_gdtc}}
+\index{mdtc\_gdtc@{mdtc\_gdtc}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{mdtc\_gdtc()}{mdtc\_gdtc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}}$\ast$ mdtc\+\_\+gdtc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{mdtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{page-writeback_8c_aa5d8abe02e9785e8ec1230c005817ca0}\label{page-writeback_8c_aa5d8abe02e9785e8ec1230c005817ca0}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!mdtc\_valid@{mdtc\_valid}}
+\index{mdtc\_valid@{mdtc\_valid}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{mdtc\_valid()}{mdtc\_valid()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} mdtc\+\_\+valid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{page-writeback_8c_a37f0f7466d94f44aed4b48c72c796383}\label{page-writeback_8c_a37f0f7466d94f44aed4b48c72c796383}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!node\_dirty\_limit@{node\_dirty\_limit}}
+\index{node\_dirty\_limit@{node\_dirty\_limit}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{node\_dirty\_limit()}{node\_dirty\_limit()}}
+{\footnotesize\ttfamily static unsigned long node\+\_\+dirty\+\_\+limit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpglist__data}{pglist\+\_\+data}} $\ast$}]{pgdat }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+node\+\_\+dirty\+\_\+limit -\/ maximum number of dirty pages allowed in a node @pgdat\+: the node
+
+Return\+: the maximum number of dirty pages allowed in a node, based on the node\textquotesingle{}s dirtyable memory. Here is the call graph for this function\+:
+% FIG 62
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{page-writeback_8c_ab42215875c8200b143f56ad316b0039a}\label{page-writeback_8c_ab42215875c8200b143f56ad316b0039a}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!node\_dirty\_ok@{node\_dirty\_ok}}
+\index{node\_dirty\_ok@{node\_dirty\_ok}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{node\_dirty\_ok()}{node\_dirty\_ok()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} node\+\_\+dirty\+\_\+ok (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpglist__data}{pglist\+\_\+data}} $\ast$}]{pgdat }\end{DoxyParamCaption})}
+
+node\+\_\+dirty\+\_\+ok -\/ tells whether a node is within its dirty limits @pgdat\+: the node to check
+
+Return\+: true when the dirty pages in @pgdat are within the node\textquotesingle{}s dirty limit, false if the limit is exceeded. Here is the call graph for this function\+:
+% FIG 64
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{page-writeback_8c_ac3ee1dd0c76f287cccd68be1e345eb2f}\label{page-writeback_8c_ac3ee1dd0c76f287cccd68be1e345eb2f}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!node\_dirtyable\_memory@{node\_dirtyable\_memory}}
+\index{node\_dirtyable\_memory@{node\_dirtyable\_memory}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{node\_dirtyable\_memory()}{node\_dirtyable\_memory()}}
+{\footnotesize\ttfamily static unsigned long node\+\_\+dirtyable\+\_\+memory (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpglist__data}{pglist\+\_\+data}} $\ast$}]{pgdat }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+node\+\_\+dirtyable\+\_\+memory -\/ number of dirtyable pages in a node @pgdat\+: the node
+
+Return\+: the node\textquotesingle{}s number of pages potentially available for dirty page cache. This is the base value for the per-\/node dirty limits. Here is the call graph for this function\+:
+% FIG 66
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{page-writeback_8c_a560f8f03c26178d579703a9a58c865bd}\label{page-writeback_8c_a560f8f03c26178d579703a9a58c865bd}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!page\_writeback\_cpu\_online@{page\_writeback\_cpu\_online}}
+\index{page\_writeback\_cpu\_online@{page\_writeback\_cpu\_online}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{page\_writeback\_cpu\_online()}{page\_writeback\_cpu\_online()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} page\+\_\+writeback\+\_\+cpu\+\_\+online (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{page-writeback_8c_a5020387c1cd40d7b75bee4d99102e540}\label{page-writeback_8c_a5020387c1cd40d7b75bee4d99102e540}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!page\_writeback\_init@{page\_writeback\_init}}
+\index{page\_writeback\_init@{page\_writeback\_init}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{page\_writeback\_init()}{page\_writeback\_init()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} page\+\_\+writeback\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{page-writeback_8c_a41b38fce64e07057cff1f6191a9cbd91}\label{page-writeback_8c_a41b38fce64e07057cff1f6191a9cbd91}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!pos\_ratio\_polynom@{pos\_ratio\_polynom}}
+\index{pos\_ratio\_polynom@{pos\_ratio\_polynom}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{pos\_ratio\_polynom()}{pos\_ratio\_polynom()}}
+{\footnotesize\ttfamily static long long pos\+\_\+ratio\+\_\+polynom (\begin{DoxyParamCaption}\item[{unsigned long}]{setpoint,  }\item[{unsigned long}]{dirty,  }\item[{unsigned long}]{limit }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{page-writeback_8c_ab1e1bb81f40b1474652e814b7a78731a}\label{page-writeback_8c_ab1e1bb81f40b1474652e814b7a78731a}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!redirty\_page\_for\_writepage@{redirty\_page\_for\_writepage}}
+\index{redirty\_page\_for\_writepage@{redirty\_page\_for\_writepage}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{redirty\_page\_for\_writepage()}{redirty\_page\_for\_writepage()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} redirty\+\_\+page\+\_\+for\+\_\+writepage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$}]{wbc,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{page-writeback_8c_a7336f3a590bed267e17c0c13752753db}\label{page-writeback_8c_a7336f3a590bed267e17c0c13752753db}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!set\_page\_dirty@{set\_page\_dirty}}
+\index{set\_page\_dirty@{set\_page\_dirty}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{set\_page\_dirty()}{set\_page\_dirty()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} set\+\_\+page\+\_\+dirty (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{page-writeback_8c_add65097ae40e9c74fc839379ea5f23a1}\label{page-writeback_8c_add65097ae40e9c74fc839379ea5f23a1}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!set\_page\_dirty\_lock@{set\_page\_dirty\_lock}}
+\index{set\_page\_dirty\_lock@{set\_page\_dirty\_lock}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{set\_page\_dirty\_lock()}{set\_page\_dirty\_lock()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} set\+\_\+page\+\_\+dirty\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{page-writeback_8c_aafca99c730667962d3cbf0dfca526397}\label{page-writeback_8c_aafca99c730667962d3cbf0dfca526397}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!tag\_pages\_for\_writeback@{tag\_pages\_for\_writeback}}
+\index{tag\_pages\_for\_writeback@{tag\_pages\_for\_writeback}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{tag\_pages\_for\_writeback()}{tag\_pages\_for\_writeback()}}
+{\footnotesize\ttfamily void tag\+\_\+pages\+\_\+for\+\_\+writeback (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}}}]{start,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ae3c121c712f5512be1aa352b15942649}{pgoff\+\_\+t}}}]{end }\end{DoxyParamCaption})}
+
+tag\+\_\+pages\+\_\+for\+\_\+writeback -\/ tag pages to be written by write\+\_\+cache\+\_\+pages @mapping\+: address space structure to write @start\+: starting page index @end\+: ending page index (inclusive)
+
+This function scans the page range from @start to @end (inclusive) and tags all pages that have D\+I\+R\+TY tag set with a special T\+O\+W\+R\+I\+TE tag. \mbox{\hyperlink{classThe}{The}} idea is that write\+\_\+cache\+\_\+pages (or whoever calls this function) will then use T\+O\+W\+R\+I\+TE tag to identify pages eligible for writeback. This mechanism is used to avoid livelocking of writeback by a process steadily creating new dirty pages in the file (thus it is important for this function to be quick so that it can tag pages faster than a dirtying process can create them). Here is the call graph for this function\+:
+% FIG 78
+Here is the caller graph for this function\+:
+% FIG 79
+\mbox{\Hypertarget{page-writeback_8c_a1708920aa559db8f9dfd582dd4762c11}\label{page-writeback_8c_a1708920aa559db8f9dfd582dd4762c11}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!test\_clear\_page\_writeback@{test\_clear\_page\_writeback}}
+\index{test\_clear\_page\_writeback@{test\_clear\_page\_writeback}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{test\_clear\_page\_writeback()}{test\_clear\_page\_writeback()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} test\+\_\+clear\+\_\+page\+\_\+writeback (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 80
+Here is the caller graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{page-writeback_8c_a240d0cab0e302cc638edc5796d1fe1dc}\label{page-writeback_8c_a240d0cab0e302cc638edc5796d1fe1dc}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!update\_dirty\_limit@{update\_dirty\_limit}}
+\index{update\_dirty\_limit@{update\_dirty\_limit}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{update\_dirty\_limit()}{update\_dirty\_limit()}}
+{\footnotesize\ttfamily static void update\+\_\+dirty\+\_\+limit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 82
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{page-writeback_8c_a6894dab407ad5c4678e36da2e2ea1c5c}\label{page-writeback_8c_a6894dab407ad5c4678e36da2e2ea1c5c}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wait\_for\_stable\_page@{wait\_for\_stable\_page}}
+\index{wait\_for\_stable\_page@{wait\_for\_stable\_page}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wait\_for\_stable\_page()}{wait\_for\_stable\_page()}}
+{\footnotesize\ttfamily void wait\+\_\+for\+\_\+stable\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{page-writeback_8c_a29d56381a70b8a066eb3fde1b03fa797}\label{page-writeback_8c_a29d56381a70b8a066eb3fde1b03fa797}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wait\_on\_page\_writeback@{wait\_on\_page\_writeback}}
+\index{wait\_on\_page\_writeback@{wait\_on\_page\_writeback}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wait\_on\_page\_writeback()}{wait\_on\_page\_writeback()}}
+{\footnotesize\ttfamily void wait\+\_\+on\+\_\+page\+\_\+writeback (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{page-writeback_8c_a4c107fb6e4bd93e82dfe9fb55076303b}\label{page-writeback_8c_a4c107fb6e4bd93e82dfe9fb55076303b}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wait\_on\_page\_writeback\_killable@{wait\_on\_page\_writeback\_killable}}
+\index{wait\_on\_page\_writeback\_killable@{wait\_on\_page\_writeback\_killable}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wait\_on\_page\_writeback\_killable()}{wait\_on\_page\_writeback\_killable()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} wait\+\_\+on\+\_\+page\+\_\+writeback\+\_\+killable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{page-writeback_8c_a098e6c73f6a131f733fb245b5be0055f}\label{page-writeback_8c_a098e6c73f6a131f733fb245b5be0055f}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_bandwidth\_estimate\_start@{wb\_bandwidth\_estimate\_start}}
+\index{wb\_bandwidth\_estimate\_start@{wb\_bandwidth\_estimate\_start}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_bandwidth\_estimate\_start()}{wb\_bandwidth\_estimate\_start()}}
+{\footnotesize\ttfamily static void wb\+\_\+bandwidth\+\_\+estimate\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 89
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{page-writeback_8c_a678c03b59184e8d7d9d127241517b67e}\label{page-writeback_8c_a678c03b59184e8d7d9d127241517b67e}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_calc\_thresh@{wb\_calc\_thresh}}
+\index{wb\_calc\_thresh@{wb\_calc\_thresh}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_calc\_thresh()}{wb\_calc\_thresh()}}
+{\footnotesize\ttfamily unsigned long wb\+\_\+calc\+\_\+thresh (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb,  }\item[{unsigned long}]{thresh }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 91
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{page-writeback_8c_a09fd23a342f4e11d760955709a689714}\label{page-writeback_8c_a09fd23a342f4e11d760955709a689714}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_dirty\_limits@{wb\_dirty\_limits}}
+\index{wb\_dirty\_limits@{wb\_dirty\_limits}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_dirty\_limits()}{wb\_dirty\_limits()}}
+{\footnotesize\ttfamily static void wb\+\_\+dirty\+\_\+limits (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 93
+Here is the caller graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{page-writeback_8c_a1a72dc2746a329be9a87b6e7b13535ac}\label{page-writeback_8c_a1a72dc2746a329be9a87b6e7b13535ac}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_domain\_init@{wb\_domain\_init}}
+\index{wb\_domain\_init@{wb\_domain\_init}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_domain\_init()}{wb\_domain\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} wb\+\_\+domain\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} $\ast$}]{dom,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 95
+Here is the caller graph for this function\+:
+% FIG 96
+\mbox{\Hypertarget{page-writeback_8c_a60a0b496d5f0a474af13c271aa5f6f44}\label{page-writeback_8c_a60a0b496d5f0a474af13c271aa5f6f44}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_domain\_writeout\_inc@{wb\_domain\_writeout\_inc}}
+\index{wb\_domain\_writeout\_inc@{wb\_domain\_writeout\_inc}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_domain\_writeout\_inc()}{wb\_domain\_writeout\_inc()}}
+{\footnotesize\ttfamily static void wb\+\_\+domain\+\_\+writeout\+\_\+inc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} $\ast$}]{dom,  }\item[{struct \mbox{\hyperlink{structfprop__local__percpu}{fprop\+\_\+local\+\_\+percpu}} $\ast$}]{completions,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{max\+\_\+prop\+\_\+frac }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 97
+Here is the caller graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{page-writeback_8c_a104d9dc6d3c1ff44926cc50675a72c51}\label{page-writeback_8c_a104d9dc6d3c1ff44926cc50675a72c51}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_inode\_writeback\_end@{wb\_inode\_writeback\_end}}
+\index{wb\_inode\_writeback\_end@{wb\_inode\_writeback\_end}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_inode\_writeback\_end()}{wb\_inode\_writeback\_end()}}
+{\footnotesize\ttfamily static void wb\+\_\+inode\+\_\+writeback\+\_\+end (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 99
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{page-writeback_8c_a7bdc20fd362678da8cdd4fa57e06a2e8}\label{page-writeback_8c_a7bdc20fd362678da8cdd4fa57e06a2e8}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_inode\_writeback\_start@{wb\_inode\_writeback\_start}}
+\index{wb\_inode\_writeback\_start@{wb\_inode\_writeback\_start}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_inode\_writeback\_start()}{wb\_inode\_writeback\_start()}}
+{\footnotesize\ttfamily static void wb\+\_\+inode\+\_\+writeback\+\_\+start (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 101
+Here is the caller graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{page-writeback_8c_af264bc8d120b2a7317f22f9ab0f48a34}\label{page-writeback_8c_af264bc8d120b2a7317f22f9ab0f48a34}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_max\_pause@{wb\_max\_pause}}
+\index{wb\_max\_pause@{wb\_max\_pause}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_max\_pause()}{wb\_max\_pause()}}
+{\footnotesize\ttfamily static unsigned long wb\+\_\+max\+\_\+pause (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb,  }\item[{unsigned long}]{wb\+\_\+dirty }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{page-writeback_8c_a5b1301507cfb3612d6eef1c4400234d0}\label{page-writeback_8c_a5b1301507cfb3612d6eef1c4400234d0}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_memcg\_completions@{wb\_memcg\_completions}}
+\index{wb\_memcg\_completions@{wb\_memcg\_completions}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_memcg\_completions()}{wb\_memcg\_completions()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structfprop__local__percpu}{fprop\+\_\+local\+\_\+percpu}}$\ast$ wb\+\_\+memcg\+\_\+completions (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{page-writeback_8c_a034125f2a8a2ce8033c22da1b1c3dda3}\label{page-writeback_8c_a034125f2a8a2ce8033c22da1b1c3dda3}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_min\_max\_ratio@{wb\_min\_max\_ratio}}
+\index{wb\_min\_max\_ratio@{wb\_min\_max\_ratio}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_min\_max\_ratio()}{wb\_min\_max\_ratio()}}
+{\footnotesize\ttfamily static void wb\+\_\+min\+\_\+max\+\_\+ratio (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb,  }\item[{unsigned long $\ast$}]{minp,  }\item[{unsigned long $\ast$}]{maxp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{page-writeback_8c_a56d22f69216743ed9ffcd1b0295f4775}\label{page-writeback_8c_a56d22f69216743ed9ffcd1b0295f4775}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_min\_pause@{wb\_min\_pause}}
+\index{wb\_min\_pause@{wb\_min\_pause}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_min\_pause()}{wb\_min\_pause()}}
+{\footnotesize\ttfamily static long wb\+\_\+min\+\_\+pause (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb,  }\item[{long}]{max\+\_\+pause,  }\item[{unsigned long}]{task\+\_\+ratelimit,  }\item[{unsigned long}]{dirty\+\_\+ratelimit,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{nr\+\_\+dirtied\+\_\+pause }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 106
+\mbox{\Hypertarget{page-writeback_8c_a2ae256e0ca787191d945cac08f7665e5}\label{page-writeback_8c_a2ae256e0ca787191d945cac08f7665e5}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_over\_bg\_thresh@{wb\_over\_bg\_thresh}}
+\index{wb\_over\_bg\_thresh@{wb\_over\_bg\_thresh}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_over\_bg\_thresh()}{wb\_over\_bg\_thresh()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} wb\+\_\+over\+\_\+bg\+\_\+thresh (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})}
+
+wb\+\_\+over\+\_\+bg\+\_\+thresh -\/ does @wb need to be written back? @wb\+: \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} of interest
+
+Determines whether background writeback should keep writing @wb or it\textquotesingle{}s clean enough.
+
+Return\+: true if writeback should continue. Here is the call graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{page-writeback_8c_ae0be3c7d53a6baf187149fe96e1d6153}\label{page-writeback_8c_ae0be3c7d53a6baf187149fe96e1d6153}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_position\_ratio@{wb\_position\_ratio}}
+\index{wb\_position\_ratio@{wb\_position\_ratio}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_position\_ratio()}{wb\_position\_ratio()}}
+{\footnotesize\ttfamily static void wb\+\_\+position\+\_\+ratio (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{page-writeback_8c_a62e6eac422175946ae833247a05ab5e5}\label{page-writeback_8c_a62e6eac422175946ae833247a05ab5e5}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_update\_bandwidth@{wb\_update\_bandwidth}}
+\index{wb\_update\_bandwidth@{wb\_update\_bandwidth}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_update\_bandwidth()}{wb\_update\_bandwidth()}}
+{\footnotesize\ttfamily void wb\+\_\+update\+\_\+bandwidth (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{page-writeback_8c_a31fbe1c354fe15caecf8493fc5c769b5}\label{page-writeback_8c_a31fbe1c354fe15caecf8493fc5c769b5}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_update\_dirty\_ratelimit@{wb\_update\_dirty\_ratelimit}}
+\index{wb\_update\_dirty\_ratelimit@{wb\_update\_dirty\_ratelimit}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_update\_dirty\_ratelimit()}{wb\_update\_dirty\_ratelimit()}}
+{\footnotesize\ttfamily static void wb\+\_\+update\+\_\+dirty\+\_\+ratelimit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structdirty__throttle__control}{dirty\+\_\+throttle\+\_\+control}} $\ast$}]{dtc,  }\item[{unsigned long}]{dirtied,  }\item[{unsigned long}]{elapsed }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 112
+Here is the caller graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{page-writeback_8c_a168bf2410f309cd9577185807485c13b}\label{page-writeback_8c_a168bf2410f309cd9577185807485c13b}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_update\_write\_bandwidth@{wb\_update\_write\_bandwidth}}
+\index{wb\_update\_write\_bandwidth@{wb\_update\_write\_bandwidth}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_update\_write\_bandwidth()}{wb\_update\_write\_bandwidth()}}
+{\footnotesize\ttfamily static void wb\+\_\+update\+\_\+write\+\_\+bandwidth (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb,  }\item[{unsigned long}]{elapsed,  }\item[{unsigned long}]{written }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 114
+Here is the caller graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{page-writeback_8c_a64a07f0d1d0532719a6af50a8577c615}\label{page-writeback_8c_a64a07f0d1d0532719a6af50a8577c615}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wb\_writeout\_inc@{wb\_writeout\_inc}}
+\index{wb\_writeout\_inc@{wb\_writeout\_inc}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wb\_writeout\_inc()}{wb\_writeout\_inc()}}
+{\footnotesize\ttfamily void wb\+\_\+writeout\+\_\+inc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structbdi__writeback}{bdi\+\_\+writeback}} $\ast$}]{wb }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 116
+\mbox{\Hypertarget{page-writeback_8c_a8b79df855ec335d6657ba209fc8dcd0a}\label{page-writeback_8c_a8b79df855ec335d6657ba209fc8dcd0a}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!wp\_next\_time@{wp\_next\_time}}
+\index{wp\_next\_time@{wp\_next\_time}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{wp\_next\_time()}{wp\_next\_time()}}
+{\footnotesize\ttfamily static unsigned long wp\+\_\+next\+\_\+time (\begin{DoxyParamCaption}\item[{unsigned long}]{cur\+\_\+time }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 117
+\mbox{\Hypertarget{page-writeback_8c_ad83faa6ca10ae0129d9882f79130ba05}\label{page-writeback_8c_ad83faa6ca10ae0129d9882f79130ba05}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!write\_cache\_pages@{write\_cache\_pages}}
+\index{write\_cache\_pages@{write\_cache\_pages}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{write\_cache\_pages()}{write\_cache\_pages()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write\+\_\+cache\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structaddress__space}{address\+\_\+space}} $\ast$}]{mapping,  }\item[{struct \mbox{\hyperlink{structwriteback__control}{writeback\+\_\+control}} $\ast$}]{wbc,  }\item[{\mbox{\hyperlink{linux_2writeback_8h_a3ee4642fd231c708eb211bd34af1eca1}{writepage\+\_\+t}}}]{writepage,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+write\+\_\+cache\+\_\+pages -\/ walk the list of dirty pages of the given address space and write all of them. @mapping\+: address space structure to write @wbc\+: subtract the number of written pages from $\ast$@wbc-\/$>$nr\+\_\+to\+\_\+write @writepage\+: function called for each page @data\+: data passed to writepage function
+
+If a page is already under I/O, \mbox{\hyperlink{page-writeback_8c_ad83faa6ca10ae0129d9882f79130ba05}{write\+\_\+cache\+\_\+pages()}} skips it, even if it\textquotesingle{}s dirty. This is desirable behaviour for memory-\/cleaning writeback, but it is I\+N\+C\+O\+R\+R\+E\+CT for data-\/integrity system calls such as fsync(). fsync() and msync() need to guarantee that all the data which was dirty at the time the call was made get new I/O started against them. If wbc-\/$>$sync\+\_\+mode is W\+B\+\_\+\+S\+Y\+N\+C\+\_\+\+A\+LL then we were called for data integrity and we must wait for existing IO to complete.
+
+To avoid livelocks (when other process dirties new pages), we first tag pages which should be written back with T\+O\+W\+R\+I\+TE tag and only then start writing them. For data-\/integrity sync we have to be careful so that we do not miss some pages (e.\+g., because some other process has cleared T\+O\+W\+R\+I\+TE tag we set). \mbox{\hyperlink{classThe}{The}} rule we follow is that T\+O\+W\+R\+I\+TE tag can be cleared only by the process clearing the D\+I\+R\+TY tag (and submitting the page for IO).
+
+To avoid deadlocks between range\+\_\+cyclic writeback and callers that hold pages in Page\+Writeback to aggregate IO until \mbox{\hyperlink{page-writeback_8c_ad83faa6ca10ae0129d9882f79130ba05}{write\+\_\+cache\+\_\+pages()}} returns, we do not loop back to the start of the file. Doing so causes a page lock/page writeback access order inversion -\/ we should only ever lock multiple pages in ascending page-\/$>$index order, and looping back to the start of the file violates that rule and causes deadlocks.
+
+Return\+: \%0 on success, negative error code otherwise Here is the call graph for this function\+:
+% FIG 118
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{page-writeback_8c_a3b31fdac5f460cf6d3998c19f48e30ef}\label{page-writeback_8c_a3b31fdac5f460cf6d3998c19f48e30ef}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!write\_one\_page@{write\_one\_page}}
+\index{write\_one\_page@{write\_one\_page}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{write\_one\_page()}{write\_one\_page()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} write\+\_\+one\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 120
+\mbox{\Hypertarget{page-writeback_8c_af8e4f23a542f0e8c654efee884368de0}\label{page-writeback_8c_af8e4f23a542f0e8c654efee884368de0}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!writeback\_set\_ratelimit@{writeback\_set\_ratelimit}}
+\index{writeback\_set\_ratelimit@{writeback\_set\_ratelimit}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{writeback\_set\_ratelimit()}{writeback\_set\_ratelimit()}}
+{\footnotesize\ttfamily void writeback\+\_\+set\+\_\+ratelimit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 121
+Here is the caller graph for this function\+:
+% FIG 122
+\mbox{\Hypertarget{page-writeback_8c_a74a7f4c28f2bc5c6966ded42b2f2bf04}\label{page-writeback_8c_a74a7f4c28f2bc5c6966ded42b2f2bf04}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!writeout\_period@{writeout\_period}}
+\index{writeout\_period@{writeout\_period}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{writeout\_period()}{writeout\_period()}}
+{\footnotesize\ttfamily static void writeout\+\_\+period (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 123
+Here is the caller graph for this function\+:
+% FIG 124
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{page-writeback_8c_a23a06c176aac9b412bc0568de4009f14}\label{page-writeback_8c_a23a06c176aac9b412bc0568de4009f14}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!bdi\_min\_ratio@{bdi\_min\_ratio}}
+\index{bdi\_min\_ratio@{bdi\_min\_ratio}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{bdi\_min\_ratio}{bdi\_min\_ratio}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} bdi\+\_\+min\+\_\+ratio\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{page-writeback_8c_ae64f32038cdcba5241d08762e432d188}\label{page-writeback_8c_ae64f32038cdcba5241d08762e432d188}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_background\_bytes@{dirty\_background\_bytes}}
+\index{dirty\_background\_bytes@{dirty\_background\_bytes}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_background\_bytes}{dirty\_background\_bytes}}
+{\footnotesize\ttfamily unsigned long dirty\+\_\+background\+\_\+bytes}
+
+\mbox{\Hypertarget{page-writeback_8c_af9c231ea6b1dbc69274a85d1341d6676}\label{page-writeback_8c_af9c231ea6b1dbc69274a85d1341d6676}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_background\_ratio@{dirty\_background\_ratio}}
+\index{dirty\_background\_ratio@{dirty\_background\_ratio}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_background\_ratio}{dirty\_background\_ratio}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+background\+\_\+ratio = 10}
+
+\mbox{\Hypertarget{page-writeback_8c_acbb42773ceeeba04b1a6ae5a9c8984e6}\label{page-writeback_8c_acbb42773ceeeba04b1a6ae5a9c8984e6}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_expire\_interval@{dirty\_expire\_interval}}
+\index{dirty\_expire\_interval@{dirty\_expire\_interval}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_expire\_interval}{dirty\_expire\_interval}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+expire\+\_\+interval = 30 $\ast$ 100}
+
+\mbox{\Hypertarget{page-writeback_8c_aa2eb3e20bb768878369cbeec75bb4a77}\label{page-writeback_8c_aa2eb3e20bb768878369cbeec75bb4a77}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!dirty\_writeback\_interval@{dirty\_writeback\_interval}}
+\index{dirty\_writeback\_interval@{dirty\_writeback\_interval}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{dirty\_writeback\_interval}{dirty\_writeback\_interval}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} dirty\+\_\+writeback\+\_\+interval = 5 $\ast$ 100}
+
+\mbox{\Hypertarget{page-writeback_8c_a37e9e0c148dd8c366ffda97dc0c5eb22}\label{page-writeback_8c_a37e9e0c148dd8c366ffda97dc0c5eb22}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!global\_wb\_domain@{global\_wb\_domain}}
+\index{global\_wb\_domain@{global\_wb\_domain}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{global\_wb\_domain}{global\_wb\_domain}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structwb__domain}{wb\+\_\+domain}} global\+\_\+wb\+\_\+domain}
+
+\mbox{\Hypertarget{page-writeback_8c_acaa8856c7e5e72245946002ef48e26f4}\label{page-writeback_8c_acaa8856c7e5e72245946002ef48e26f4}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!laptop\_mode@{laptop\_mode}}
+\index{laptop\_mode@{laptop\_mode}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{laptop\_mode}{laptop\_mode}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} laptop\+\_\+mode}
+
+\mbox{\Hypertarget{page-writeback_8c_a2ed521a2e76f5a9cf22804102e01ebab}\label{page-writeback_8c_a2ed521a2e76f5a9cf22804102e01ebab}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!ratelimit\_pages@{ratelimit\_pages}}
+\index{ratelimit\_pages@{ratelimit\_pages}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{ratelimit\_pages}{ratelimit\_pages}}
+{\footnotesize\ttfamily long ratelimit\+\_\+pages = 32\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{page-writeback_8c_a378ae62959afd8c8d860ffa80a82e762}\label{page-writeback_8c_a378ae62959afd8c8d860ffa80a82e762}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!vm\_dirty\_bytes@{vm\_dirty\_bytes}}
+\index{vm\_dirty\_bytes@{vm\_dirty\_bytes}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{vm\_dirty\_bytes}{vm\_dirty\_bytes}}
+{\footnotesize\ttfamily unsigned long vm\+\_\+dirty\+\_\+bytes}
+
+\mbox{\Hypertarget{page-writeback_8c_aaa635bdf3fa1ede4748bb67f547e6e55}\label{page-writeback_8c_aaa635bdf3fa1ede4748bb67f547e6e55}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!vm\_dirty\_ratio@{vm\_dirty\_ratio}}
+\index{vm\_dirty\_ratio@{vm\_dirty\_ratio}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{vm\_dirty\_ratio}{vm\_dirty\_ratio}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} vm\+\_\+dirty\+\_\+ratio = 20}
+
+\mbox{\Hypertarget{page-writeback_8c_a13a183930d014f7db4a0fcb38f07da61}\label{page-writeback_8c_a13a183930d014f7db4a0fcb38f07da61}} 
+\index{page-\/writeback.c@{page-\/writeback.c}!vm\_highmem\_is\_dirtyable@{vm\_highmem\_is\_dirtyable}}
+\index{vm\_highmem\_is\_dirtyable@{vm\_highmem\_is\_dirtyable}!page-\/writeback.c@{page-\/writeback.c}}
+\doxysubsubsection{\texorpdfstring{vm\_highmem\_is\_dirtyable}{vm\_highmem\_is\_dirtyable}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} vm\+\_\+highmem\+\_\+is\+\_\+dirtyable}
+

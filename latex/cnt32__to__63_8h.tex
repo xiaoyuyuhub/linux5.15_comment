@@ -1,0 +1,69 @@
+\hypertarget{cnt32__to__63_8h}{}\doxysection{include/linux/cnt32\+\_\+to\+\_\+63.h File Reference}
+\label{cnt32__to__63_8h}\index{include/linux/cnt32\_to\_63.h@{include/linux/cnt32\_to\_63.h}}
+{\ttfamily \#include $<$linux/compiler.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$asm/byteorder.\+h$>$}\newline
+Include dependency graph for cnt32\+\_\+to\+\_\+63.\+h\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+union \mbox{\hyperlink{unioncnt32__to__63}{cnt32\+\_\+to\+\_\+63}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{cnt32__to__63_8h_a091a8bffe13336212ca94d5125207587}{cnt32\+\_\+to\+\_\+63}}(cnt\+\_\+lo)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{cnt32__to__63_8h_a091a8bffe13336212ca94d5125207587}\label{cnt32__to__63_8h_a091a8bffe13336212ca94d5125207587}} 
+\index{cnt32\_to\_63.h@{cnt32\_to\_63.h}!cnt32\_to\_63@{cnt32\_to\_63}}
+\index{cnt32\_to\_63@{cnt32\_to\_63}!cnt32\_to\_63.h@{cnt32\_to\_63.h}}
+\doxysubsubsection{\texorpdfstring{cnt32\_to\_63}{cnt32\_to\_63}}
+{\footnotesize\ttfamily \#define \mbox{\hyperlink{unioncnt32__to__63}{cnt32\+\_\+to\+\_\+63}}(\begin{DoxyParamCaption}\item[{}]{cnt\+\_\+lo }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{(\{ \(\backslash\)}
+\DoxyCodeLine{    static \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \_\_m\_cnt\_hi; \(\backslash\)}
+\DoxyCodeLine{    union \mbox{\hyperlink{unioncnt32__to__63}{cnt32\_to\_63}} \_\_x; \(\backslash\)}
+\DoxyCodeLine{    \_\_x.hi = \_\_m\_cnt\_hi; \(\backslash\)}
+\DoxyCodeLine{    smp\_rmb(); \(\backslash\)}
+\DoxyCodeLine{    \_\_x.lo = (cnt\_lo); \(\backslash\)}
+\DoxyCodeLine{    if (\mbox{\hyperlink{insn__decoder__test_8c_a6e951923c66693f5d308458676313f2e}{unlikely}}((\mbox{\hyperlink{asm-generic_2int-ll64_8h_a11ec34ef758da01f2b58048ee9f341a4}{s32}})(\_\_x.hi \string^ \_\_x.lo) < 0)) \(\backslash\)}
+\DoxyCodeLine{        \_\_m\_cnt\_hi = \_\_x.hi = (\_\_x.hi \string^ 0x80000000) + (\_\_x.hi >> 31); \(\backslash\)}
+\DoxyCodeLine{    \_\_x.val; \(\backslash\)}
+\DoxyCodeLine{\})}
+
+\end{DoxyCode}
+\mbox{\hyperlink{unioncnt32__to__63}{cnt32\+\_\+to\+\_\+63}} -\/ Expand a 32-\/bit counter to a 63-\/bit counter @cnt\+\_\+lo\+: \mbox{\hyperlink{classThe}{The}} low part of the counter
+
+Many hardware clock counters are only 32 bits wide and therefore have a relatively short period making wrap-\/arounds rather frequent. This is a problem when implementing \mbox{\hyperlink{tsc_8c_aabe9553f0e7e14e3a42e686fd7ae3eed}{sched\+\_\+clock()}} for example, where a 64-\/bit non-\/wrapping monotonic value is expected to be returned.
+
+To overcome that limitation, let\textquotesingle{}s extend a 32-\/bit counter to 63 bits in a completely lock free fashion. Bits 0 to 31 of the clock are provided by the hardware while bits 32 to 62 are stored in memory. \mbox{\hyperlink{classThe}{The}} top bit in memory is used to synchronize with the hardware clock half-\/period. When the top bit of both counters (hardware and in memory) differ then the memory is updated with a new value, incrementing it when the hardware counter wraps around.
+
+Because a word store in memory is atomic then the incremented value will always be in synch with the top bit indicating to any potential concurrent reader if the value in memory is up to date or not with regards to the needed increment. And any race in updating the value in memory is harmless as the same value would simply be stored more than once.
+
+\mbox{\hyperlink{classThe}{The}} restrictions for the algorithm to work properly are\+:
+
+1) this code must be called at least once per each half period of the 32-\/bit counter;
+
+2) this code must not be preempted for a duration longer than the 32-\/bit counter half period minus the longest period between two calls to this code;
+
+Those requirements ensure proper update to the state bit in memory. This is usually not a problem in practice, but if it is then a kernel timer should be scheduled to manage for this code to be executed often enough.
+
+And finally\+:
+
+3) the cnt\+\_\+lo argument must be seen as a globally incrementing value, meaning that it should be a direct reference to the counter data which can be evaluated according to a specific ordering within the macro, and not the result of a previous evaluation stored in a variable.
+
+For example, this is wrong\+:
+
+u32 partial = get\+\_\+hw\+\_\+count(); u64 full = \mbox{\hyperlink{cnt32__to__63_8h_a091a8bffe13336212ca94d5125207587}{cnt32\+\_\+to\+\_\+63(partial)}}; return full;
+
+This is fine\+:
+
+u64 full = \mbox{\hyperlink{cnt32__to__63_8h_a091a8bffe13336212ca94d5125207587}{cnt32\+\_\+to\+\_\+63(get\+\_\+hw\+\_\+count())}}; return full;
+
+Note that the top bit (bit 63) in the returned value should be considered as garbage. It is not cleared here because callers are likely to use a multiplier on the returned value which can get rid of the top bit implicitly by making the multiplier even, therefore saving on a runtime clear-\/bit instruction. Otherwise caller must remember to clear the top bit explicitly. 

@@ -1,0 +1,1536 @@
+\hypertarget{zsmalloc_8c}{}\doxysection{mm/zsmalloc.c File Reference}
+\label{zsmalloc_8c}\index{mm/zsmalloc.c@{mm/zsmalloc.c}}
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/magic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/errno.\+h$>$}\newline
+{\ttfamily \#include $<$linux/highmem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pgtable.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpumask.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/vmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/preempt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/shrinker.\+h$>$}\newline
+{\ttfamily \#include $<$linux/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/debugfs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/zsmalloc.\+h$>$}\newline
+{\ttfamily \#include $<$linux/zpool.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mount.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pseudo\+\_\+fs.\+h$>$}\newline
+{\ttfamily \#include $<$linux/migrate.\+h$>$}\newline
+{\ttfamily \#include $<$linux/wait.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pagemap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/fs.\+h$>$}\newline
+Include dependency graph for zsmalloc.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structzs__size__stat}{zs\+\_\+size\+\_\+stat}}
+\item 
+struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}}
+\item 
+struct \mbox{\hyperlink{structlink__free}{link\+\_\+free}}
+\item 
+struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}}
+\item 
+struct \mbox{\hyperlink{structzspage}{zspage}}
+\item 
+struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}}
+\item 
+struct \mbox{\hyperlink{structzs__compact__control}{zs\+\_\+compact\+\_\+control}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_aa4fa5da731b2025746f80d6029d1924c}{Z\+S\+P\+A\+G\+E\+\_\+\+M\+A\+G\+IC}}~0x58
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a924dc3e276a7a014f72ca7f880ba4060}{Z\+S\+\_\+\+A\+L\+I\+GN}}~8
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a0d9d92f0b7229c512418c640cb5a3ef7}{Z\+S\+\_\+\+M\+A\+X\+\_\+\+Z\+S\+P\+A\+G\+E\+\_\+\+O\+R\+D\+ER}}~2
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_af1f7b06c7a83ffd2f37dc615fbffa959}{Z\+S\+\_\+\+M\+A\+X\+\_\+\+P\+A\+G\+E\+S\+\_\+\+P\+E\+R\+\_\+\+Z\+S\+P\+A\+GE}}~(\mbox{\hyperlink{uapi_2linux_2const_8h_a807728c093518f6db61f62160774fb49}{\+\_\+\+AC}}(1, \mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}}) $<$$<$ \mbox{\hyperlink{zsmalloc_8c_a0d9d92f0b7229c512418c640cb5a3ef7}{Z\+S\+\_\+\+M\+A\+X\+\_\+\+Z\+S\+P\+A\+G\+E\+\_\+\+O\+R\+D\+ER}})
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a526c4397e22f2d955c85e54f3800a575}{Z\+S\+\_\+\+H\+A\+N\+D\+L\+E\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(unsigned long))
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a00681735cf7f1ffead57f88e8e230bd9}{M\+A\+X\+\_\+\+P\+O\+S\+S\+I\+B\+L\+E\+\_\+\+P\+H\+Y\+S\+M\+E\+M\+\_\+\+B\+I\+TS}}~\mbox{\hyperlink{pq_8h_a2f660aa23a5dbc0f4b8df48b4302b8c3}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+L\+O\+NG}}
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a509dcb940ed086a6491beb170eb26f5d}{\+\_\+\+P\+F\+N\+\_\+\+B\+I\+TS}}~(\mbox{\hyperlink{zsmalloc_8c_a00681735cf7f1ffead57f88e8e230bd9}{M\+A\+X\+\_\+\+P\+O\+S\+S\+I\+B\+L\+E\+\_\+\+P\+H\+Y\+S\+M\+E\+M\+\_\+\+B\+I\+TS}} -\/ \mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}})
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a0227114c825e9f12228bb41a99f02472}{H\+A\+N\+D\+L\+E\+\_\+\+P\+I\+N\+\_\+\+B\+IT}}~0
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a88b6b79cef5e9097760690936bf02c64}{O\+B\+J\+\_\+\+A\+L\+L\+O\+C\+A\+T\+E\+D\+\_\+\+T\+AG}}~1
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a36fb9889362865fd333720d0952d9043}{O\+B\+J\+\_\+\+T\+A\+G\+\_\+\+B\+I\+TS}}~1
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a22e07e1428d15b887f7ccf0ce774174f}{O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+B\+I\+TS}}~(\mbox{\hyperlink{pq_8h_a2f660aa23a5dbc0f4b8df48b4302b8c3}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+L\+O\+NG}} -\/ \mbox{\hyperlink{zsmalloc_8c_a509dcb940ed086a6491beb170eb26f5d}{\+\_\+\+P\+F\+N\+\_\+\+B\+I\+TS}} -\/ \mbox{\hyperlink{zsmalloc_8c_a36fb9889362865fd333720d0952d9043}{O\+B\+J\+\_\+\+T\+A\+G\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a69d63b8157a39a7f80349972731a6166}{O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+M\+A\+SK}}~((\mbox{\hyperlink{uapi_2linux_2const_8h_a807728c093518f6db61f62160774fb49}{\+\_\+\+AC}}(1, \mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}}) $<$$<$ \mbox{\hyperlink{zsmalloc_8c_a22e07e1428d15b887f7ccf0ce774174f}{O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+B\+I\+TS}}) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a5e7c7b8ce55f263b5404fb811f8c9125}{F\+U\+L\+L\+N\+E\+S\+S\+\_\+\+B\+I\+TS}}~2
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a4540995708a9e324f9fb5c60f249a054}{C\+L\+A\+S\+S\+\_\+\+B\+I\+TS}}~8
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a3912b3d85a9a07d1ab59312522b9319b}{I\+S\+O\+L\+A\+T\+E\+D\+\_\+\+B\+I\+TS}}~3
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_ad83ea4d12a3fc248e58b99f89660c5fe}{M\+A\+G\+I\+C\+\_\+\+V\+A\+L\+\_\+\+B\+I\+TS}}~8
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_afa99ec4acc4ecb2dc3c2d05da15d0e3f}{M\+AX}}(a,  \mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}})~((a) $>$= (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}) ? (a) \+: (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}))
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a5bbaec5e8d179fe92c80f8400083d57e}{Z\+S\+\_\+\+M\+I\+N\+\_\+\+A\+L\+L\+O\+C\+\_\+\+S\+I\+ZE}}~\mbox{\hyperlink{zstd__internal_8h_afa99ec4acc4ecb2dc3c2d05da15d0e3f}{M\+AX}}(32, (\mbox{\hyperlink{zsmalloc_8c_af1f7b06c7a83ffd2f37dc615fbffa959}{Z\+S\+\_\+\+M\+A\+X\+\_\+\+P\+A\+G\+E\+S\+\_\+\+P\+E\+R\+\_\+\+Z\+S\+P\+A\+GE}} $<$$<$ \mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} $>$$>$ \mbox{\hyperlink{zsmalloc_8c_a22e07e1428d15b887f7ccf0ce774174f}{O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+B\+I\+TS}}))
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a6dcedf09799171e72aed9d85fc1c0be1}{Z\+S\+\_\+\+M\+A\+X\+\_\+\+A\+L\+L\+O\+C\+\_\+\+S\+I\+ZE}}~\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}}
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a6dffdc9a5deb8dfdbf4359962e99e39c}{Z\+S\+\_\+\+S\+I\+Z\+E\+\_\+\+C\+L\+A\+S\+S\+\_\+\+D\+E\+L\+TA}}~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} $>$$>$ \mbox{\hyperlink{zsmalloc_8c_a4540995708a9e324f9fb5c60f249a054}{C\+L\+A\+S\+S\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{zsmalloc_8c_a4864db1fc833cab58b5f01cbacaaf594}{Z\+S\+\_\+\+S\+I\+Z\+E\+\_\+\+C\+L\+A\+S\+S\+ES}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} \{ \newline
+\mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07caba5ce194477d301f9ef0aba6659ba05c}{Z\+S\+\_\+\+E\+M\+P\+TY}}, 
+\mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07ca9bfbfe839bbe585f9bbf4f1452f80d22}{Z\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+E\+M\+P\+TY}}, 
+\mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07cafa45fc77f4db8653ed4c2d69f1f062b5}{Z\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+F\+U\+LL}}, 
+\mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07ca61ea7d65809250843d78ee9eef1c7943}{Z\+S\+\_\+\+F\+U\+LL}}, 
+\newline
+\mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07cad7ffead425584cc7361bfc760590b496}{N\+R\+\_\+\+Z\+S\+\_\+\+F\+U\+L\+L\+N\+E\+SS}}
+ \}
+\item 
+enum \mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5}{zs\+\_\+stat\+\_\+type}} \{ \newline
+\mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a649f2f533758dfcb2e0f042e672bcb2b}{C\+L\+A\+S\+S\+\_\+\+E\+M\+P\+TY}}, 
+\mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a8580342764065a98255d6f77c051db93}{C\+L\+A\+S\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+E\+M\+P\+TY}}, 
+\mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a2059b16030b0e73ee0271d94207d0412}{C\+L\+A\+S\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+F\+U\+LL}}, 
+\mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a574a611c65c98f73c2eb67c6b20db8d5}{C\+L\+A\+S\+S\+\_\+\+F\+U\+LL}}, 
+\newline
+\mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5af1f0e5cf0765aca2da6d38094f809a8e}{O\+B\+J\+\_\+\+A\+L\+L\+O\+C\+A\+T\+ED}}, 
+\mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5ace8728ad8df44416aa7a1e574495f7bf}{O\+B\+J\+\_\+\+U\+S\+ED}}, 
+\mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a84fe00a108b1c6fee0d2ecdc3ba0df2a}{N\+R\+\_\+\+Z\+S\+\_\+\+S\+T\+A\+T\+\_\+\+T\+Y\+PE}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_aef71655e8ac6d92978f2c1db110ade77}{Set\+Page\+Huge\+Object}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a2fe3dde4e61f168ffd22e8ebd6bba3f3}{Clear\+Page\+Huge\+Object}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a02972b4865d871683e3ffa9180307fc3}{Page\+Huge\+Object}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a13b3f3e52cc2ed327d449920d11b9b1a}{zsmalloc\+\_\+mount}} (void)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a0b27763965e17cb8c7a694cc4d37ebb6}{zsmalloc\+\_\+unmount}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a33d5b4920af8fcd6a23ba9fa96a727ee}{zs\+\_\+register\+\_\+migration}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a0b3182949cb4f1b7ef75cf4ae337296d}{zs\+\_\+unregister\+\_\+migration}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a97718345456cf5d70b5b1a3f331ee0d7}{migrate\+\_\+lock\+\_\+init}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_ad20c8ab112258976a055023803c7fed9}{migrate\+\_\+read\+\_\+lock}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a33e190fbe4476e19d0b5e1bbe35cb9ed}{migrate\+\_\+read\+\_\+unlock}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a290cf9ca35054ac122d9cc92f89dc881}{kick\+\_\+deferred\+\_\+free}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a4c0a58f8b5ad497e02270821c7ec2a25}{init\+\_\+deferred\+\_\+free}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a94f06e0f1e251d9e5bd0d13e277b4cdd}{Set\+Zs\+Page\+Movable}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_ad4bd09d4a5f9afaa4f82b39cb9975b6b}{create\+\_\+cache}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a50ce47d2f1f0a7beb113d7c2432e2d68}{destroy\+\_\+cache}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_a61226d03786c2395a3a4e9d396b7379e}{cache\+\_\+alloc\+\_\+handle}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a3e8c13cb86f20c96859646dce5b66d27}{cache\+\_\+free\+\_\+handle}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_ac2e5d107c8382414071e8dfb8c659014}{cache\+\_\+alloc\+\_\+zspage}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a711f1688caef1302d1c2ff27b0ad8ff8}{cache\+\_\+free\+\_\+zspage}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a87efe187c73a1aef85da1068ce07988d}{record\+\_\+obj}} (unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, unsigned long obj)
+\item 
+static \mbox{\hyperlink{zsmalloc_8c_a5132a42cf8bef0835ea470e4b6a60e1a}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}}, zs\+\_\+map\+\_\+area)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{zsmalloc_8c_ab32cf70d004c22cc1cee3206afd20abe}{is\+\_\+zspage\+\_\+isolated}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a8b292a108d9a1b64d919fe68941212ca}{is\+\_\+first\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_ad76542e0100eac368fd6efcd55d70c06}{get\+\_\+zspage\+\_\+inuse}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a748a14be3ae34afe73eb2c5e55fbff8f}{mod\+\_\+zspage\+\_\+inuse}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{virtio__balloon_8h_a0ad0ce031265c3c7174438c5511109b7}{val}})
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_a890ad94d537f9d686e9994080014728d}{get\+\_\+first\+\_\+page}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_aeed8cabf5011acfd79127299286e20e8}{get\+\_\+first\+\_\+obj\+\_\+offset}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a85cbb0e083cdb4f1ddceb737ca208637}{set\+\_\+first\+\_\+obj\+\_\+offset}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a70ba9a7f90e3e25dc66429e1bb2e3cc2}{get\+\_\+freeobj}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a8be5d19525075e74e0c5531826870879}{set\+\_\+freeobj}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} obj)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a67b98218889f71fb4a3811a3d66ae7dd}{get\+\_\+zspage\+\_\+mapping}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$class\+\_\+idx, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} $\ast$fullness)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a3e7937edb2b9de7605413f1f128c1ac7}{set\+\_\+zspage\+\_\+mapping}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} class\+\_\+idx, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} fullness)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a75690d394cd5c2ee80262715c41999ad}{get\+\_\+size\+\_\+class\+\_\+index}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a9cea5842691a2298c078ef2ad74fc9da}{zs\+\_\+stat\+\_\+inc}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, unsigned long \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_abebf53e2f70ef14bb0df4b0a147609d1}{zs\+\_\+stat\+\_\+dec}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}}, unsigned long \mbox{\hyperlink{linux_2filter_8h_a474d718cd49b11728ee9101f026f9917}{cnt}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_ad751cf48cca2e73b4c24f061dac98cad}{zs\+\_\+stat\+\_\+get}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a64b438758dd4d9a029c8d9a1e95f359a}{type}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{zsmalloc_8c_a4b9d47d9128451baec196cd9d013605d}{zs\+\_\+stat\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} \mbox{\hyperlink{zsmalloc_8c_a7487e971698d72fffbb3070fd01c7440}{zs\+\_\+stat\+\_\+exit}} (void)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a169bd41a2e790656f3572ac0d3f98e6f}{zs\+\_\+pool\+\_\+stat\+\_\+create}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a9311875e6296f9a27a2f33b1d2fbe2ed}{zs\+\_\+pool\+\_\+stat\+\_\+destroy}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} \mbox{\hyperlink{zsmalloc_8c_ad6fbaaa9944408c323cfe0c67fd5f0db}{get\+\_\+fullness\+\_\+group}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_af1b6cc7ccd6b8a6f69b9dae9fadcfc26}{insert\+\_\+zspage}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} fullness)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a716e80983f6f31b89a598f2d2d51ad93}{remove\+\_\+zspage}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} fullness)
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} \mbox{\hyperlink{zsmalloc_8c_a1c3fd8d828a31223ce0dc54d35024e45}{fix\+\_\+fullness\+\_\+group}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_aace032422d9f83cfd436b986b520b0bd}{get\+\_\+pages\+\_\+per\+\_\+zspage}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} class\+\_\+size)
+\item 
+static struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_a58ee1e61d27cfdf3ee52197af96ed558}{get\+\_\+zspage}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static struct \mbox{\hyperlink{structpage}{page}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_a994a90afa458daf5251e106095a88216}{get\+\_\+next\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a1f1a28613eab8ddb2b6f47d5a2b0c7b0}{obj\+\_\+to\+\_\+location}} (unsigned long obj, struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$\mbox{\hyperlink{structpage}{page}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$obj\+\_\+idx)
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_a0d217f1344d70cbdadc8a13083b03349}{location\+\_\+to\+\_\+obj}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} obj\+\_\+idx)
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_a3fda6ed97e68b9385372de9b7b523e4c}{handle\+\_\+to\+\_\+obj}} (unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_a5599e6e683f7a4a15ac4c0c99eb1aeaa}{obj\+\_\+to\+\_\+head}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, void $\ast$obj)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_ae3c40b55c7d475c473a1135a8a3b6b18}{testpin\+\_\+tag}} (unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a5a658c26dda4cf08c3b76a6e07556998}{trypin\+\_\+tag}} (unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_aeef05e7996e89045ce361e48573aa95f}{pin\+\_\+tag}} (unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(bitlock)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a5b7d1c6cdb3383a7cbf207e9200e4fd8}{unpin\+\_\+tag}} (unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(bitlock)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_ac798e747ad55c22cb3f376713e4ac27b}{reset\+\_\+page}} (struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_ad689c76b9671d230094b39725b60d966}{trylock\+\_\+zspage}} (struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a30219a0a6ca2db4dbdda36a40205783f}{\+\_\+\+\_\+free\+\_\+zspage}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a913d677777bc8d7b7a2100d52ca61eed}{free\+\_\+zspage}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_acd5db7e368bd209d45d60638912818a7}{init\+\_\+zspage}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a1779969597a9c864844740ccd5d69b32}{create\+\_\+page\+\_\+chain}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{uapi_2linux_2screen__info_8h_a362b4344d8e47752e8852e0ae5ccea7d}{pages}}\mbox{[}$\,$\mbox{]})
+\item 
+static struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_a51cc79a9c7dfc3ee918b4378377b2211}{alloc\+\_\+zspage}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+static struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_afb1a3916c14413137fff35f6f52925b8}{find\+\_\+get\+\_\+zspage}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_ab53e58f0fa92866280113a94c8d5b9ca}{\+\_\+\+\_\+zs\+\_\+cpu\+\_\+up}} (struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$area)
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_ab198e2ffdbad4489a3cf1c258c0090f5}{\+\_\+\+\_\+zs\+\_\+cpu\+\_\+down}} (struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$area)
+\item 
+static void $\ast$ \mbox{\hyperlink{zsmalloc_8c_a3b2a04a56c29b45d2be83aa9125d055e}{\+\_\+\+\_\+zs\+\_\+map\+\_\+object}} (struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$area, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{uapi_2linux_2screen__info_8h_a362b4344d8e47752e8852e0ae5ccea7d}{pages}}\mbox{[}2\mbox{]}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a5bbccbf2a74845e6fbc6f9c253aaf711}{\+\_\+\+\_\+zs\+\_\+unmap\+\_\+object}} (struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$area, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{uapi_2linux_2screen__info_8h_a362b4344d8e47752e8852e0ae5ccea7d}{pages}}\mbox{[}2\mbox{]}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} off, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a2a18e588cb6673c10fdd4c31dd2c10cf}{zs\+\_\+cpu\+\_\+prepare}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_aed95e63acf735cd68455eea1250464fe}{zs\+\_\+cpu\+\_\+dead}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{zsmalloc_8c_aba5164b59ea1e4be21157687792f08f7}{can\+\_\+merge}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{mm_2interval__tree_8c_a79511b35a6c382701f3d62fa2a4aa741}{prev}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} pages\+\_\+per\+\_\+zspage, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} objs\+\_\+per\+\_\+zspage)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{zsmalloc_8c_a183ed21c91f5950774d934fe100079ef}{zspage\+\_\+full}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+unsigned long \mbox{\hyperlink{zsmalloc_8c_aaa9a967ad4413854987410eaf5f477b8}{zs\+\_\+get\+\_\+total\+\_\+pages}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a7c0e38a6d5704eedc5edc188f4194687}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_aaa9a967ad4413854987410eaf5f477b8}{zs\+\_\+get\+\_\+total\+\_\+pages}})
+\item 
+void $\ast$ \mbox{\hyperlink{zsmalloc_8c_a24e0a90dfea164b785d3077c79fce9d1}{zs\+\_\+map\+\_\+object}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}}, \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8h_acbba142fffcbfc865631d647519e730d}{zs\+\_\+mapmode}} mm)
+\item 
+\mbox{\hyperlink{zsmalloc_8c_ad414c748d1124aa25ea11b64c0d837a6}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_a24e0a90dfea164b785d3077c79fce9d1}{zs\+\_\+map\+\_\+object}})
+\item 
+void \mbox{\hyperlink{zsmalloc_8c_a81b23602ff260117675af22823b4bd5c}{zs\+\_\+unmap\+\_\+object}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a44f87231b63ddc95bd2c0d70190d05f4}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_a81b23602ff260117675af22823b4bd5c}{zs\+\_\+unmap\+\_\+object}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{zsmalloc_8c_a4952e5e499cea723cfaba6595841737f}{zs\+\_\+huge\+\_\+class\+\_\+size}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a4fe28910c5dbb6d545d67c973036f8e8}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_a4952e5e499cea723cfaba6595841737f}{zs\+\_\+huge\+\_\+class\+\_\+size}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_a96448a4cbf2cc4d5d11d337aeeab5887}{obj\+\_\+malloc}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}}, unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+unsigned long \mbox{\hyperlink{zsmalloc_8c_a62d66dd3ef99c0d74025295c067c8e9c}{zs\+\_\+malloc}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, \mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}} \mbox{\hyperlink{include_2linux_2device_8h_a3425f2355c37e8d3dd9de13c2c6454c0}{gfp}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_aab9123b7bd1ed582eb5cbcb71a70ef72}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_a62d66dd3ef99c0d74025295c067c8e9c}{zs\+\_\+malloc}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_aea08c38245c60e8c23550f9e2e792aa2}{obj\+\_\+free}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, unsigned long obj)
+\item 
+void \mbox{\hyperlink{zsmalloc_8c_a9270062d044a6dcdc538e6488745d767}{zs\+\_\+free}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, unsigned long \mbox{\hyperlink{blkif_8h_ac2dc8509e08d23fda8936bc839c75fad}{handle}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a33ed0b8590898ab301fe568da3ac8d4e}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_a9270062d044a6dcdc538e6488745d767}{zs\+\_\+free}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a82cd27b92296dca66bb7319e3d7c951a}{zs\+\_\+object\+\_\+copy}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, unsigned long \mbox{\hyperlink{iscsi__if_8h_a17d34709e3606b87e5469db13637f1b8}{dst}}, unsigned long \mbox{\hyperlink{iscsi__if_8h_a73580c8f9a19d1e069ad9656f1a3cd82}{src}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_a99c47ad12d0fb4cd3c42b6aee4ab2ac1}{find\+\_\+alloced\+\_\+obj}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structpage}{page}} $\ast$\mbox{\hyperlink{structpage}{page}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$obj\+\_\+idx)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a25b97dc10fc0834b948e6bbaaca97137}{migrate\+\_\+zspage}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzs__compact__control}{zs\+\_\+compact\+\_\+control}} $\ast$cc)
+\item 
+static struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_aeb2d514deec7d1d067a04a20e7aa110a}{isolate\+\_\+zspage}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{uapi_2sound_2asoc_8h_af57b2622b9deca25c3fb72bd3df9b77a}{source}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} \mbox{\hyperlink{zsmalloc_8c_aee08ba749f59d269d7267cb3d5318a97}{putback\+\_\+zspage}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}}, struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$\mbox{\hyperlink{structzspage}{zspage}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_ae2a9c98069b92eb32bf061c96f74ec28}{zs\+\_\+can\+\_\+compact}} (struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_a47076abd4b76775fcdb27ffbc4f220b9}{\+\_\+\+\_\+zs\+\_\+compact}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$\mbox{\hyperlink{structclass}{class}})
+\item 
+unsigned long \mbox{\hyperlink{zsmalloc_8c_a179a42df0e56320cc600f8c2f310d5d3}{zs\+\_\+compact}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a9d2bcdf1e5b6c4e13cb7586903f905be}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_a179a42df0e56320cc600f8c2f310d5d3}{zs\+\_\+compact}})
+\item 
+void \mbox{\hyperlink{zsmalloc_8c_a3607ff89120c42dcb0736c6d8790bd40}{zs\+\_\+pool\+\_\+stats}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}}, struct \mbox{\hyperlink{structzs__pool__stats}{zs\+\_\+pool\+\_\+stats}} $\ast$stats)
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a5eeb1ba6950b14b92bed47cfeab2482b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{structzs__pool__stats}{zs\+\_\+pool\+\_\+stats}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_aa6cc919a5653fea6468ee5925abf5d34}{zs\+\_\+shrinker\+\_\+scan}} (struct \mbox{\hyperlink{structshrinker}{shrinker}} $\ast$\mbox{\hyperlink{structshrinker}{shrinker}}, struct \mbox{\hyperlink{structshrink__control}{shrink\+\_\+control}} $\ast$\mbox{\hyperlink{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}{sc}})
+\item 
+static unsigned long \mbox{\hyperlink{zsmalloc_8c_ad2802820cc6ef1c80546391a2712aa50}{zs\+\_\+shrinker\+\_\+count}} (struct \mbox{\hyperlink{structshrinker}{shrinker}} $\ast$\mbox{\hyperlink{structshrinker}{shrinker}}, struct \mbox{\hyperlink{structshrink__control}{shrink\+\_\+control}} $\ast$\mbox{\hyperlink{memory-failure_8c_a03ede5fb0d1eb2158dbb5f2aeb7a5066}{sc}})
+\item 
+static void \mbox{\hyperlink{zsmalloc_8c_a807fa531541f27f8c50ab50874fad7e2}{zs\+\_\+unregister\+\_\+shrinker}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a93bff9dc0eac88f4d78efaeb3df92421}{zs\+\_\+register\+\_\+shrinker}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\end{DoxyCompactItemize}
+\begin{Indent}\textbf{ \+: pool name to be created}\par
+{\em zs\+\_\+create\+\_\+pool -\/ Creates an allocation pool to work from.
+
+This function must be called before anything when using the zsmalloc allocator.
+
+On success, a pointer to the newly created pool is returned, otherwise N\+U\+LL. }\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$ \mbox{\hyperlink{zsmalloc_8c_a17972af265b44f55f7bfd888b01057a1}{zs\+\_\+create\+\_\+pool}} (const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_aa2bc4a2b33ed386054ab00ebd2a368c6}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_a17972af265b44f55f7bfd888b01057a1}{zs\+\_\+create\+\_\+pool}})
+\item 
+void \mbox{\hyperlink{zsmalloc_8c_ab9d3268726e0e93c2ced98aa79c2f015}{zs\+\_\+destroy\+\_\+pool}} (struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$\mbox{\hyperlink{include_2uapi_2linux_2hyperv_8h_a97fce22aa161771cbb71b2cc2c531398}{pool}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_add8ee81132d4e41fd186eeb534c739f3}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{zsmalloc_8c_ab9d3268726e0e93c2ced98aa79c2f015}{zs\+\_\+destroy\+\_\+pool}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{zsmalloc_8c_a5056cd93540db381550770ede1967fb1}{zs\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} \mbox{\hyperlink{zsmalloc_8c_ac50ce1f665189c6ccfe985ebaf292198}{zs\+\_\+exit}} (void)
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a5f9abe95763c10acbbb51f6c23cb1d2d}{module\+\_\+init}} (\mbox{\hyperlink{zsmalloc_8c_a5056cd93540db381550770ede1967fb1}{zs\+\_\+init}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_ab37c50ae9bb41463316de19dc5862858}{module\+\_\+exit}} (\mbox{\hyperlink{zsmalloc_8c_ac50ce1f665189c6ccfe985ebaf292198}{zs\+\_\+exit}})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a5c95e2cd11cba226f5f3513060a8928e}{M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE}} (\char`\"{}Dual B\+SD/G\+PL\char`\"{})
+\item 
+\mbox{\hyperlink{zsmalloc_8c_a2d28005c571731e72d69413c357cfdfe}{M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR}} (\char`\"{}Nitin Gupta $<$ngupta@vflare.\+org$>$\char`\"{})
+\end{DoxyCompactItemize}
+\end{Indent}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{zsmalloc_8c_a9b9f1f70498b640504a0b1795ec2d147}{fullness\+\_\+threshold\+\_\+frac}} = 4
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} \mbox{\hyperlink{zsmalloc_8c_a9b97249d5202bc77c9cc9a53b4bfce57}{huge\+\_\+class\+\_\+size}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{zsmalloc_8c_a509dcb940ed086a6491beb170eb26f5d}\label{zsmalloc_8c_a509dcb940ed086a6491beb170eb26f5d}} 
+\index{zsmalloc.c@{zsmalloc.c}!\_PFN\_BITS@{\_PFN\_BITS}}
+\index{\_PFN\_BITS@{\_PFN\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{\_PFN\_BITS}{\_PFN\_BITS}}
+{\footnotesize\ttfamily \#define \+\_\+\+P\+F\+N\+\_\+\+B\+I\+TS~(\mbox{\hyperlink{zsmalloc_8c_a00681735cf7f1ffead57f88e8e230bd9}{M\+A\+X\+\_\+\+P\+O\+S\+S\+I\+B\+L\+E\+\_\+\+P\+H\+Y\+S\+M\+E\+M\+\_\+\+B\+I\+TS}} -\/ \mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a4540995708a9e324f9fb5c60f249a054}\label{zsmalloc_8c_a4540995708a9e324f9fb5c60f249a054}} 
+\index{zsmalloc.c@{zsmalloc.c}!CLASS\_BITS@{CLASS\_BITS}}
+\index{CLASS\_BITS@{CLASS\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{CLASS\_BITS}{CLASS\_BITS}}
+{\footnotesize\ttfamily \#define C\+L\+A\+S\+S\+\_\+\+B\+I\+TS~8}
+
+\mbox{\Hypertarget{zsmalloc_8c_a5e7c7b8ce55f263b5404fb811f8c9125}\label{zsmalloc_8c_a5e7c7b8ce55f263b5404fb811f8c9125}} 
+\index{zsmalloc.c@{zsmalloc.c}!FULLNESS\_BITS@{FULLNESS\_BITS}}
+\index{FULLNESS\_BITS@{FULLNESS\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{FULLNESS\_BITS}{FULLNESS\_BITS}}
+{\footnotesize\ttfamily \#define F\+U\+L\+L\+N\+E\+S\+S\+\_\+\+B\+I\+TS~2}
+
+\mbox{\Hypertarget{zsmalloc_8c_a0227114c825e9f12228bb41a99f02472}\label{zsmalloc_8c_a0227114c825e9f12228bb41a99f02472}} 
+\index{zsmalloc.c@{zsmalloc.c}!HANDLE\_PIN\_BIT@{HANDLE\_PIN\_BIT}}
+\index{HANDLE\_PIN\_BIT@{HANDLE\_PIN\_BIT}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{HANDLE\_PIN\_BIT}{HANDLE\_PIN\_BIT}}
+{\footnotesize\ttfamily \#define H\+A\+N\+D\+L\+E\+\_\+\+P\+I\+N\+\_\+\+B\+IT~0}
+
+\mbox{\Hypertarget{zsmalloc_8c_a3912b3d85a9a07d1ab59312522b9319b}\label{zsmalloc_8c_a3912b3d85a9a07d1ab59312522b9319b}} 
+\index{zsmalloc.c@{zsmalloc.c}!ISOLATED\_BITS@{ISOLATED\_BITS}}
+\index{ISOLATED\_BITS@{ISOLATED\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ISOLATED\_BITS}{ISOLATED\_BITS}}
+{\footnotesize\ttfamily \#define I\+S\+O\+L\+A\+T\+E\+D\+\_\+\+B\+I\+TS~3}
+
+\mbox{\Hypertarget{zsmalloc_8c_ad83ea4d12a3fc248e58b99f89660c5fe}\label{zsmalloc_8c_ad83ea4d12a3fc248e58b99f89660c5fe}} 
+\index{zsmalloc.c@{zsmalloc.c}!MAGIC\_VAL\_BITS@{MAGIC\_VAL\_BITS}}
+\index{MAGIC\_VAL\_BITS@{MAGIC\_VAL\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{MAGIC\_VAL\_BITS}{MAGIC\_VAL\_BITS}}
+{\footnotesize\ttfamily \#define M\+A\+G\+I\+C\+\_\+\+V\+A\+L\+\_\+\+B\+I\+TS~8}
+
+\mbox{\Hypertarget{zsmalloc_8c_afa99ec4acc4ecb2dc3c2d05da15d0e3f}\label{zsmalloc_8c_afa99ec4acc4ecb2dc3c2d05da15d0e3f}} 
+\index{zsmalloc.c@{zsmalloc.c}!MAX@{MAX}}
+\index{MAX@{MAX}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{MAX}{MAX}}
+{\footnotesize\ttfamily \#define M\+AX(\begin{DoxyParamCaption}\item[{}]{a,  }\item[{}]{\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}} }\end{DoxyParamCaption})~((a) $>$= (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}) ? (a) \+: (\mbox{\hyperlink{decode__rs_8c_adad2d2844d2cae7f88113513e8a11817}{b}}))}
+
+\mbox{\Hypertarget{zsmalloc_8c_a00681735cf7f1ffead57f88e8e230bd9}\label{zsmalloc_8c_a00681735cf7f1ffead57f88e8e230bd9}} 
+\index{zsmalloc.c@{zsmalloc.c}!MAX\_POSSIBLE\_PHYSMEM\_BITS@{MAX\_POSSIBLE\_PHYSMEM\_BITS}}
+\index{MAX\_POSSIBLE\_PHYSMEM\_BITS@{MAX\_POSSIBLE\_PHYSMEM\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_POSSIBLE\_PHYSMEM\_BITS}{MAX\_POSSIBLE\_PHYSMEM\_BITS}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+P\+O\+S\+S\+I\+B\+L\+E\+\_\+\+P\+H\+Y\+S\+M\+E\+M\+\_\+\+B\+I\+TS~\mbox{\hyperlink{pq_8h_a2f660aa23a5dbc0f4b8df48b4302b8c3}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+L\+O\+NG}}}
+
+\mbox{\Hypertarget{zsmalloc_8c_a88b6b79cef5e9097760690936bf02c64}\label{zsmalloc_8c_a88b6b79cef5e9097760690936bf02c64}} 
+\index{zsmalloc.c@{zsmalloc.c}!OBJ\_ALLOCATED\_TAG@{OBJ\_ALLOCATED\_TAG}}
+\index{OBJ\_ALLOCATED\_TAG@{OBJ\_ALLOCATED\_TAG}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{OBJ\_ALLOCATED\_TAG}{OBJ\_ALLOCATED\_TAG}}
+{\footnotesize\ttfamily \#define O\+B\+J\+\_\+\+A\+L\+L\+O\+C\+A\+T\+E\+D\+\_\+\+T\+AG~1}
+
+\mbox{\Hypertarget{zsmalloc_8c_a22e07e1428d15b887f7ccf0ce774174f}\label{zsmalloc_8c_a22e07e1428d15b887f7ccf0ce774174f}} 
+\index{zsmalloc.c@{zsmalloc.c}!OBJ\_INDEX\_BITS@{OBJ\_INDEX\_BITS}}
+\index{OBJ\_INDEX\_BITS@{OBJ\_INDEX\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{OBJ\_INDEX\_BITS}{OBJ\_INDEX\_BITS}}
+{\footnotesize\ttfamily \#define O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+B\+I\+TS~(\mbox{\hyperlink{pq_8h_a2f660aa23a5dbc0f4b8df48b4302b8c3}{B\+I\+T\+S\+\_\+\+P\+E\+R\+\_\+\+L\+O\+NG}} -\/ \mbox{\hyperlink{zsmalloc_8c_a509dcb940ed086a6491beb170eb26f5d}{\+\_\+\+P\+F\+N\+\_\+\+B\+I\+TS}} -\/ \mbox{\hyperlink{zsmalloc_8c_a36fb9889362865fd333720d0952d9043}{O\+B\+J\+\_\+\+T\+A\+G\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a69d63b8157a39a7f80349972731a6166}\label{zsmalloc_8c_a69d63b8157a39a7f80349972731a6166}} 
+\index{zsmalloc.c@{zsmalloc.c}!OBJ\_INDEX\_MASK@{OBJ\_INDEX\_MASK}}
+\index{OBJ\_INDEX\_MASK@{OBJ\_INDEX\_MASK}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{OBJ\_INDEX\_MASK}{OBJ\_INDEX\_MASK}}
+{\footnotesize\ttfamily \#define O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+M\+A\+SK~((\mbox{\hyperlink{uapi_2linux_2const_8h_a807728c093518f6db61f62160774fb49}{\+\_\+\+AC}}(1, \mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}}) $<$$<$ \mbox{\hyperlink{zsmalloc_8c_a22e07e1428d15b887f7ccf0ce774174f}{O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+B\+I\+TS}}) -\/ 1)}
+
+\mbox{\Hypertarget{zsmalloc_8c_a36fb9889362865fd333720d0952d9043}\label{zsmalloc_8c_a36fb9889362865fd333720d0952d9043}} 
+\index{zsmalloc.c@{zsmalloc.c}!OBJ\_TAG\_BITS@{OBJ\_TAG\_BITS}}
+\index{OBJ\_TAG\_BITS@{OBJ\_TAG\_BITS}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{OBJ\_TAG\_BITS}{OBJ\_TAG\_BITS}}
+{\footnotesize\ttfamily \#define O\+B\+J\+\_\+\+T\+A\+G\+\_\+\+B\+I\+TS~1}
+
+\mbox{\Hypertarget{zsmalloc_8c_a1f8c165bf4196327bc3abff648276d92}\label{zsmalloc_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{zsmalloc.c@{zsmalloc.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{test__stackinit_8c_a5da7f75d94cc9304af39b614c001bcee}{K\+B\+U\+I\+L\+D\+\_\+\+M\+O\+D\+N\+A\+ME}} \char`\"{}\+: \char`\"{} \mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{zsmalloc_8c_a924dc3e276a7a014f72ca7f880ba4060}\label{zsmalloc_8c_a924dc3e276a7a014f72ca7f880ba4060}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_ALIGN@{ZS\_ALIGN}}
+\index{ZS\_ALIGN@{ZS\_ALIGN}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_ALIGN}{ZS\_ALIGN}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+A\+L\+I\+GN~8}
+
+\mbox{\Hypertarget{zsmalloc_8c_a526c4397e22f2d955c85e54f3800a575}\label{zsmalloc_8c_a526c4397e22f2d955c85e54f3800a575}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_HANDLE\_SIZE@{ZS\_HANDLE\_SIZE}}
+\index{ZS\_HANDLE\_SIZE@{ZS\_HANDLE\_SIZE}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_HANDLE\_SIZE}{ZS\_HANDLE\_SIZE}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+H\+A\+N\+D\+L\+E\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{decode__rs_8c_a2d68861066e81ad24c5915e5d7e9f079}{sizeof}}(unsigned long))}
+
+\mbox{\Hypertarget{zsmalloc_8c_a6dcedf09799171e72aed9d85fc1c0be1}\label{zsmalloc_8c_a6dcedf09799171e72aed9d85fc1c0be1}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_MAX\_ALLOC\_SIZE@{ZS\_MAX\_ALLOC\_SIZE}}
+\index{ZS\_MAX\_ALLOC\_SIZE@{ZS\_MAX\_ALLOC\_SIZE}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_MAX\_ALLOC\_SIZE}{ZS\_MAX\_ALLOC\_SIZE}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+M\+A\+X\+\_\+\+A\+L\+L\+O\+C\+\_\+\+S\+I\+ZE~\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}}}
+
+\mbox{\Hypertarget{zsmalloc_8c_af1f7b06c7a83ffd2f37dc615fbffa959}\label{zsmalloc_8c_af1f7b06c7a83ffd2f37dc615fbffa959}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_MAX\_PAGES\_PER\_ZSPAGE@{ZS\_MAX\_PAGES\_PER\_ZSPAGE}}
+\index{ZS\_MAX\_PAGES\_PER\_ZSPAGE@{ZS\_MAX\_PAGES\_PER\_ZSPAGE}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_MAX\_PAGES\_PER\_ZSPAGE}{ZS\_MAX\_PAGES\_PER\_ZSPAGE}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+M\+A\+X\+\_\+\+P\+A\+G\+E\+S\+\_\+\+P\+E\+R\+\_\+\+Z\+S\+P\+A\+GE~(\mbox{\hyperlink{uapi_2linux_2const_8h_a807728c093518f6db61f62160774fb49}{\+\_\+\+AC}}(1, \mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}}) $<$$<$ \mbox{\hyperlink{zsmalloc_8c_a0d9d92f0b7229c512418c640cb5a3ef7}{Z\+S\+\_\+\+M\+A\+X\+\_\+\+Z\+S\+P\+A\+G\+E\+\_\+\+O\+R\+D\+ER}})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a0d9d92f0b7229c512418c640cb5a3ef7}\label{zsmalloc_8c_a0d9d92f0b7229c512418c640cb5a3ef7}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_MAX\_ZSPAGE\_ORDER@{ZS\_MAX\_ZSPAGE\_ORDER}}
+\index{ZS\_MAX\_ZSPAGE\_ORDER@{ZS\_MAX\_ZSPAGE\_ORDER}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_MAX\_ZSPAGE\_ORDER}{ZS\_MAX\_ZSPAGE\_ORDER}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+M\+A\+X\+\_\+\+Z\+S\+P\+A\+G\+E\+\_\+\+O\+R\+D\+ER~2}
+
+\mbox{\Hypertarget{zsmalloc_8c_a5bbaec5e8d179fe92c80f8400083d57e}\label{zsmalloc_8c_a5bbaec5e8d179fe92c80f8400083d57e}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_MIN\_ALLOC\_SIZE@{ZS\_MIN\_ALLOC\_SIZE}}
+\index{ZS\_MIN\_ALLOC\_SIZE@{ZS\_MIN\_ALLOC\_SIZE}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_MIN\_ALLOC\_SIZE}{ZS\_MIN\_ALLOC\_SIZE}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+M\+I\+N\+\_\+\+A\+L\+L\+O\+C\+\_\+\+S\+I\+ZE~\mbox{\hyperlink{zstd__internal_8h_afa99ec4acc4ecb2dc3c2d05da15d0e3f}{M\+AX}}(32, (\mbox{\hyperlink{zsmalloc_8c_af1f7b06c7a83ffd2f37dc615fbffa959}{Z\+S\+\_\+\+M\+A\+X\+\_\+\+P\+A\+G\+E\+S\+\_\+\+P\+E\+R\+\_\+\+Z\+S\+P\+A\+GE}} $<$$<$ \mbox{\hyperlink{pq_8h_a850d80ca2291d26b40dc6b25c419f81a}{P\+A\+G\+E\+\_\+\+S\+H\+I\+FT}} $>$$>$ \mbox{\hyperlink{zsmalloc_8c_a22e07e1428d15b887f7ccf0ce774174f}{O\+B\+J\+\_\+\+I\+N\+D\+E\+X\+\_\+\+B\+I\+TS}}))}
+
+\mbox{\Hypertarget{zsmalloc_8c_a6dffdc9a5deb8dfdbf4359962e99e39c}\label{zsmalloc_8c_a6dffdc9a5deb8dfdbf4359962e99e39c}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_SIZE\_CLASS\_DELTA@{ZS\_SIZE\_CLASS\_DELTA}}
+\index{ZS\_SIZE\_CLASS\_DELTA@{ZS\_SIZE\_CLASS\_DELTA}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_SIZE\_CLASS\_DELTA}{ZS\_SIZE\_CLASS\_DELTA}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+S\+I\+Z\+E\+\_\+\+C\+L\+A\+S\+S\+\_\+\+D\+E\+L\+TA~(\mbox{\hyperlink{pq_8h_a7d467c1d283fdfa1f2081ba1e0d01b6e}{P\+A\+G\+E\+\_\+\+S\+I\+ZE}} $>$$>$ \mbox{\hyperlink{zsmalloc_8c_a4540995708a9e324f9fb5c60f249a054}{C\+L\+A\+S\+S\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a4864db1fc833cab58b5f01cbacaaf594}\label{zsmalloc_8c_a4864db1fc833cab58b5f01cbacaaf594}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZS\_SIZE\_CLASSES@{ZS\_SIZE\_CLASSES}}
+\index{ZS\_SIZE\_CLASSES@{ZS\_SIZE\_CLASSES}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZS\_SIZE\_CLASSES}{ZS\_SIZE\_CLASSES}}
+{\footnotesize\ttfamily \#define Z\+S\+\_\+\+S\+I\+Z\+E\+\_\+\+C\+L\+A\+S\+S\+ES}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                      (\mbox{\hyperlink{math_8h_ab70ffcffa591efaf0981a349740f389c}{DIV\_ROUND\_UP}}(\mbox{\hyperlink{zsmalloc_8c_a6dcedf09799171e72aed9d85fc1c0be1}{ZS\_MAX\_ALLOC\_SIZE}} -\/ \mbox{\hyperlink{zsmalloc_8c_a5bbaec5e8d179fe92c80f8400083d57e}{ZS\_MIN\_ALLOC\_SIZE}}, \(\backslash\)}
+\DoxyCodeLine{                      \mbox{\hyperlink{zsmalloc_8c_a6dffdc9a5deb8dfdbf4359962e99e39c}{ZS\_SIZE\_CLASS\_DELTA}}) + 1)}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{zsmalloc_8c_aa4fa5da731b2025746f80d6029d1924c}\label{zsmalloc_8c_aa4fa5da731b2025746f80d6029d1924c}} 
+\index{zsmalloc.c@{zsmalloc.c}!ZSPAGE\_MAGIC@{ZSPAGE\_MAGIC}}
+\index{ZSPAGE\_MAGIC@{ZSPAGE\_MAGIC}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ZSPAGE\_MAGIC}{ZSPAGE\_MAGIC}}
+{\footnotesize\ttfamily \#define Z\+S\+P\+A\+G\+E\+\_\+\+M\+A\+G\+IC~0x58}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}\label{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}} 
+\index{zsmalloc.c@{zsmalloc.c}!fullness\_group@{fullness\_group}}
+\index{fullness\_group@{fullness\_group}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{fullness\_group}{fullness\_group}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{ZS\_EMPTY@{ZS\_EMPTY}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!ZS\_EMPTY@{ZS\_EMPTY}}}\mbox{\Hypertarget{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07caba5ce194477d301f9ef0aba6659ba05c}\label{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07caba5ce194477d301f9ef0aba6659ba05c}} 
+Z\+S\+\_\+\+E\+M\+P\+TY&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{ZS\_ALMOST\_EMPTY@{ZS\_ALMOST\_EMPTY}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!ZS\_ALMOST\_EMPTY@{ZS\_ALMOST\_EMPTY}}}\mbox{\Hypertarget{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07ca9bfbfe839bbe585f9bbf4f1452f80d22}\label{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07ca9bfbfe839bbe585f9bbf4f1452f80d22}} 
+Z\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+E\+M\+P\+TY&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{ZS\_ALMOST\_FULL@{ZS\_ALMOST\_FULL}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!ZS\_ALMOST\_FULL@{ZS\_ALMOST\_FULL}}}\mbox{\Hypertarget{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07cafa45fc77f4db8653ed4c2d69f1f062b5}\label{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07cafa45fc77f4db8653ed4c2d69f1f062b5}} 
+Z\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+F\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{ZS\_FULL@{ZS\_FULL}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!ZS\_FULL@{ZS\_FULL}}}\mbox{\Hypertarget{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07ca61ea7d65809250843d78ee9eef1c7943}\label{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07ca61ea7d65809250843d78ee9eef1c7943}} 
+Z\+S\+\_\+\+F\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{NR\_ZS\_FULLNESS@{NR\_ZS\_FULLNESS}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!NR\_ZS\_FULLNESS@{NR\_ZS\_FULLNESS}}}\mbox{\Hypertarget{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07cad7ffead425584cc7361bfc760590b496}\label{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07cad7ffead425584cc7361bfc760590b496}} 
+N\+R\+\_\+\+Z\+S\+\_\+\+F\+U\+L\+L\+N\+E\+SS&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_stat\_type@{zs\_stat\_type}}
+\index{zs\_stat\_type@{zs\_stat\_type}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_stat\_type}{zs\_stat\_type}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5}{zs\+\_\+stat\+\_\+type}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{CLASS\_EMPTY@{CLASS\_EMPTY}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!CLASS\_EMPTY@{CLASS\_EMPTY}}}\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a649f2f533758dfcb2e0f042e672bcb2b}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a649f2f533758dfcb2e0f042e672bcb2b}} 
+C\+L\+A\+S\+S\+\_\+\+E\+M\+P\+TY&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{CLASS\_ALMOST\_EMPTY@{CLASS\_ALMOST\_EMPTY}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!CLASS\_ALMOST\_EMPTY@{CLASS\_ALMOST\_EMPTY}}}\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a8580342764065a98255d6f77c051db93}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a8580342764065a98255d6f77c051db93}} 
+C\+L\+A\+S\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+E\+M\+P\+TY&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{CLASS\_ALMOST\_FULL@{CLASS\_ALMOST\_FULL}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!CLASS\_ALMOST\_FULL@{CLASS\_ALMOST\_FULL}}}\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a2059b16030b0e73ee0271d94207d0412}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a2059b16030b0e73ee0271d94207d0412}} 
+C\+L\+A\+S\+S\+\_\+\+A\+L\+M\+O\+S\+T\+\_\+\+F\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{CLASS\_FULL@{CLASS\_FULL}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!CLASS\_FULL@{CLASS\_FULL}}}\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a574a611c65c98f73c2eb67c6b20db8d5}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a574a611c65c98f73c2eb67c6b20db8d5}} 
+C\+L\+A\+S\+S\+\_\+\+F\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{OBJ\_ALLOCATED@{OBJ\_ALLOCATED}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!OBJ\_ALLOCATED@{OBJ\_ALLOCATED}}}\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5af1f0e5cf0765aca2da6d38094f809a8e}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5af1f0e5cf0765aca2da6d38094f809a8e}} 
+O\+B\+J\+\_\+\+A\+L\+L\+O\+C\+A\+T\+ED&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{OBJ\_USED@{OBJ\_USED}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!OBJ\_USED@{OBJ\_USED}}}\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5ace8728ad8df44416aa7a1e574495f7bf}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5ace8728ad8df44416aa7a1e574495f7bf}} 
+O\+B\+J\+\_\+\+U\+S\+ED&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{NR\_ZS\_STAT\_TYPE@{NR\_ZS\_STAT\_TYPE}!zsmalloc.c@{zsmalloc.c}}\index{zsmalloc.c@{zsmalloc.c}!NR\_ZS\_STAT\_TYPE@{NR\_ZS\_STAT\_TYPE}}}\mbox{\Hypertarget{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a84fe00a108b1c6fee0d2ecdc3ba0df2a}\label{zsmalloc_8c_a3c9a5468ad2962d37d9d97132b0cedb5a84fe00a108b1c6fee0d2ecdc3ba0df2a}} 
+N\+R\+\_\+\+Z\+S\+\_\+\+S\+T\+A\+T\+\_\+\+T\+Y\+PE&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{zsmalloc_8c_a30219a0a6ca2db4dbdda36a40205783f}\label{zsmalloc_8c_a30219a0a6ca2db4dbdda36a40205783f}} 
+\index{zsmalloc.c@{zsmalloc.c}!\_\_free\_zspage@{\_\_free\_zspage}}
+\index{\_\_free\_zspage@{\_\_free\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_free\_zspage()}{\_\_free\_zspage()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+free\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{zsmalloc_8c_a47076abd4b76775fcdb27ffbc4f220b9}\label{zsmalloc_8c_a47076abd4b76775fcdb27ffbc4f220b9}} 
+\index{zsmalloc.c@{zsmalloc.c}!\_\_zs\_compact@{\_\_zs\_compact}}
+\index{\_\_zs\_compact@{\_\_zs\_compact}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_zs\_compact()}{\_\_zs\_compact()}}
+{\footnotesize\ttfamily static unsigned long \+\_\+\+\_\+zs\+\_\+compact (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{zsmalloc_8c_ab198e2ffdbad4489a3cf1c258c0090f5}\label{zsmalloc_8c_ab198e2ffdbad4489a3cf1c258c0090f5}} 
+\index{zsmalloc.c@{zsmalloc.c}!\_\_zs\_cpu\_down@{\_\_zs\_cpu\_down}}
+\index{\_\_zs\_cpu\_down@{\_\_zs\_cpu\_down}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_zs\_cpu\_down()}{\_\_zs\_cpu\_down()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+zs\+\_\+cpu\+\_\+down (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$}]{area }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{zsmalloc_8c_ab53e58f0fa92866280113a94c8d5b9ca}\label{zsmalloc_8c_ab53e58f0fa92866280113a94c8d5b9ca}} 
+\index{zsmalloc.c@{zsmalloc.c}!\_\_zs\_cpu\_up@{\_\_zs\_cpu\_up}}
+\index{\_\_zs\_cpu\_up@{\_\_zs\_cpu\_up}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_zs\_cpu\_up()}{\_\_zs\_cpu\_up()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+zs\+\_\+cpu\+\_\+up (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$}]{area }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{zsmalloc_8c_a3b2a04a56c29b45d2be83aa9125d055e}\label{zsmalloc_8c_a3b2a04a56c29b45d2be83aa9125d055e}} 
+\index{zsmalloc.c@{zsmalloc.c}!\_\_zs\_map\_object@{\_\_zs\_map\_object}}
+\index{\_\_zs\_map\_object@{\_\_zs\_map\_object}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_zs\_map\_object()}{\_\_zs\_map\_object()}}
+{\footnotesize\ttfamily static void$\ast$ \+\_\+\+\_\+zs\+\_\+map\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$}]{area,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{pages\mbox{[}2\mbox{]},  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{zsmalloc_8c_a5bbccbf2a74845e6fbc6f9c253aaf711}\label{zsmalloc_8c_a5bbccbf2a74845e6fbc6f9c253aaf711}} 
+\index{zsmalloc.c@{zsmalloc.c}!\_\_zs\_unmap\_object@{\_\_zs\_unmap\_object}}
+\index{\_\_zs\_unmap\_object@{\_\_zs\_unmap\_object}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{\_\_zs\_unmap\_object()}{\_\_zs\_unmap\_object()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+zs\+\_\+unmap\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}} $\ast$}]{area,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{pages\mbox{[}2\mbox{]},  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{off,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{zsmalloc_8c_a51cc79a9c7dfc3ee918b4378377b2211}\label{zsmalloc_8c_a51cc79a9c7dfc3ee918b4378377b2211}} 
+\index{zsmalloc.c@{zsmalloc.c}!alloc\_zspage@{alloc\_zspage}}
+\index{alloc\_zspage@{alloc\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{alloc\_zspage()}{alloc\_zspage()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structzspage}{zspage}}$\ast$ alloc\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{zsmalloc_8c_a61226d03786c2395a3a4e9d396b7379e}\label{zsmalloc_8c_a61226d03786c2395a3a4e9d396b7379e}} 
+\index{zsmalloc.c@{zsmalloc.c}!cache\_alloc\_handle@{cache\_alloc\_handle}}
+\index{cache\_alloc\_handle@{cache\_alloc\_handle}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{cache\_alloc\_handle()}{cache\_alloc\_handle()}}
+{\footnotesize\ttfamily static unsigned long cache\+\_\+alloc\+\_\+handle (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{zsmalloc_8c_ac2e5d107c8382414071e8dfb8c659014}\label{zsmalloc_8c_ac2e5d107c8382414071e8dfb8c659014}} 
+\index{zsmalloc.c@{zsmalloc.c}!cache\_alloc\_zspage@{cache\_alloc\_zspage}}
+\index{cache\_alloc\_zspage@{cache\_alloc\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{cache\_alloc\_zspage()}{cache\_alloc\_zspage()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structzspage}{zspage}}$\ast$ cache\+\_\+alloc\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{flags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{zsmalloc_8c_a3e8c13cb86f20c96859646dce5b66d27}\label{zsmalloc_8c_a3e8c13cb86f20c96859646dce5b66d27}} 
+\index{zsmalloc.c@{zsmalloc.c}!cache\_free\_handle@{cache\_free\_handle}}
+\index{cache\_free\_handle@{cache\_free\_handle}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{cache\_free\_handle()}{cache\_free\_handle()}}
+{\footnotesize\ttfamily static void cache\+\_\+free\+\_\+handle (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{unsigned long}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{zsmalloc_8c_a711f1688caef1302d1c2ff27b0ad8ff8}\label{zsmalloc_8c_a711f1688caef1302d1c2ff27b0ad8ff8}} 
+\index{zsmalloc.c@{zsmalloc.c}!cache\_free\_zspage@{cache\_free\_zspage}}
+\index{cache\_free\_zspage@{cache\_free\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{cache\_free\_zspage()}{cache\_free\_zspage()}}
+{\footnotesize\ttfamily static void cache\+\_\+free\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{zsmalloc_8c_aba5164b59ea1e4be21157687792f08f7}\label{zsmalloc_8c_aba5164b59ea1e4be21157687792f08f7}} 
+\index{zsmalloc.c@{zsmalloc.c}!can\_merge@{can\_merge}}
+\index{can\_merge@{can\_merge}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{can\_merge()}{can\_merge()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} can\+\_\+merge (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{prev,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{pages\+\_\+per\+\_\+zspage,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{objs\+\_\+per\+\_\+zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{zsmalloc_8c_a2fe3dde4e61f168ffd22e8ebd6bba3f3}\label{zsmalloc_8c_a2fe3dde4e61f168ffd22e8ebd6bba3f3}} 
+\index{zsmalloc.c@{zsmalloc.c}!ClearPageHugeObject@{ClearPageHugeObject}}
+\index{ClearPageHugeObject@{ClearPageHugeObject}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{ClearPageHugeObject()}{ClearPageHugeObject()}}
+{\footnotesize\ttfamily static void Clear\+Page\+Huge\+Object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{zsmalloc_8c_ad4bd09d4a5f9afaa4f82b39cb9975b6b}\label{zsmalloc_8c_ad4bd09d4a5f9afaa4f82b39cb9975b6b}} 
+\index{zsmalloc.c@{zsmalloc.c}!create\_cache@{create\_cache}}
+\index{create\_cache@{create\_cache}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{create\_cache()}{create\_cache()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} create\+\_\+cache (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{zsmalloc_8c_a1779969597a9c864844740ccd5d69b32}\label{zsmalloc_8c_a1779969597a9c864844740ccd5d69b32}} 
+\index{zsmalloc.c@{zsmalloc.c}!create\_page\_chain@{create\_page\_chain}}
+\index{create\_page\_chain@{create\_page\_chain}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{create\_page\_chain()}{create\_page\_chain()}}
+{\footnotesize\ttfamily static void create\+\_\+page\+\_\+chain (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{pages\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{zsmalloc_8c_a5132a42cf8bef0835ea470e4b6a60e1a}\label{zsmalloc_8c_a5132a42cf8bef0835ea470e4b6a60e1a}} 
+\index{zsmalloc.c@{zsmalloc.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structmapping__area}{mapping\+\_\+area}}}]{,  }\item[{zs\+\_\+map\+\_\+area}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{zsmalloc_8c_a50ce47d2f1f0a7beb113d7c2432e2d68}\label{zsmalloc_8c_a50ce47d2f1f0a7beb113d7c2432e2d68}} 
+\index{zsmalloc.c@{zsmalloc.c}!destroy\_cache@{destroy\_cache}}
+\index{destroy\_cache@{destroy\_cache}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{destroy\_cache()}{destroy\_cache()}}
+{\footnotesize\ttfamily static void destroy\+\_\+cache (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{zsmalloc_8c_a9d2bcdf1e5b6c4e13cb7586903f905be}\label{zsmalloc_8c_a9d2bcdf1e5b6c4e13cb7586903f905be}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a179a42df0e56320cc600f8c2f310d5d3}{zs\+\_\+compact}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_aa2bc4a2b33ed386054ab00ebd2a368c6}\label{zsmalloc_8c_aa2bc4a2b33ed386054ab00ebd2a368c6}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a17972af265b44f55f7bfd888b01057a1}{zs\+\_\+create\+\_\+pool}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_add8ee81132d4e41fd186eeb534c739f3}\label{zsmalloc_8c_add8ee81132d4e41fd186eeb534c739f3}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_ab9d3268726e0e93c2ced98aa79c2f015}{zs\+\_\+destroy\+\_\+pool}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a33ed0b8590898ab301fe568da3ac8d4e}\label{zsmalloc_8c_a33ed0b8590898ab301fe568da3ac8d4e}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a9270062d044a6dcdc538e6488745d767}{zs\+\_\+free}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a7c0e38a6d5704eedc5edc188f4194687}\label{zsmalloc_8c_a7c0e38a6d5704eedc5edc188f4194687}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_aaa9a967ad4413854987410eaf5f477b8}{zs\+\_\+get\+\_\+total\+\_\+pages}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a4fe28910c5dbb6d545d67c973036f8e8}\label{zsmalloc_8c_a4fe28910c5dbb6d545d67c973036f8e8}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a4952e5e499cea723cfaba6595841737f}{zs\+\_\+huge\+\_\+class\+\_\+size}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_aab9123b7bd1ed582eb5cbcb71a70ef72}\label{zsmalloc_8c_aab9123b7bd1ed582eb5cbcb71a70ef72}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a62d66dd3ef99c0d74025295c067c8e9c}{zs\+\_\+malloc}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_ad414c748d1124aa25ea11b64c0d837a6}\label{zsmalloc_8c_ad414c748d1124aa25ea11b64c0d837a6}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a24e0a90dfea164b785d3077c79fce9d1}{zs\+\_\+map\+\_\+object}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a5eeb1ba6950b14b92bed47cfeab2482b}\label{zsmalloc_8c_a5eeb1ba6950b14b92bed47cfeab2482b}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structzs__pool__stats}{zs\+\_\+pool\+\_\+stats}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a44f87231b63ddc95bd2c0d70190d05f4}\label{zsmalloc_8c_a44f87231b63ddc95bd2c0d70190d05f4}} 
+\index{zsmalloc.c@{zsmalloc.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/10]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a81b23602ff260117675af22823b4bd5c}{zs\+\_\+unmap\+\_\+object}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a99c47ad12d0fb4cd3c42b6aee4ab2ac1}\label{zsmalloc_8c_a99c47ad12d0fb4cd3c42b6aee4ab2ac1}} 
+\index{zsmalloc.c@{zsmalloc.c}!find\_alloced\_obj@{find\_alloced\_obj}}
+\index{find\_alloced\_obj@{find\_alloced\_obj}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{find\_alloced\_obj()}{find\_alloced\_obj()}}
+{\footnotesize\ttfamily static unsigned long find\+\_\+alloced\+\_\+obj (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{obj\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{zsmalloc_8c_afb1a3916c14413137fff35f6f52925b8}\label{zsmalloc_8c_afb1a3916c14413137fff35f6f52925b8}} 
+\index{zsmalloc.c@{zsmalloc.c}!find\_get\_zspage@{find\_get\_zspage}}
+\index{find\_get\_zspage@{find\_get\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{find\_get\_zspage()}{find\_get\_zspage()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structzspage}{zspage}}$\ast$ find\+\_\+get\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{zsmalloc_8c_a1c3fd8d828a31223ce0dc54d35024e45}\label{zsmalloc_8c_a1c3fd8d828a31223ce0dc54d35024e45}} 
+\index{zsmalloc.c@{zsmalloc.c}!fix\_fullness\_group@{fix\_fullness\_group}}
+\index{fix\_fullness\_group@{fix\_fullness\_group}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{fix\_fullness\_group()}{fix\_fullness\_group()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} fix\+\_\+fullness\+\_\+group (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{zsmalloc_8c_a913d677777bc8d7b7a2100d52ca61eed}\label{zsmalloc_8c_a913d677777bc8d7b7a2100d52ca61eed}} 
+\index{zsmalloc.c@{zsmalloc.c}!free\_zspage@{free\_zspage}}
+\index{free\_zspage@{free\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{free\_zspage()}{free\_zspage()}}
+{\footnotesize\ttfamily static void free\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{zsmalloc_8c_aeed8cabf5011acfd79127299286e20e8}\label{zsmalloc_8c_aeed8cabf5011acfd79127299286e20e8}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_first\_obj\_offset@{get\_first\_obj\_offset}}
+\index{get\_first\_obj\_offset@{get\_first\_obj\_offset}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_first\_obj\_offset()}{get\_first\_obj\_offset()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+first\+\_\+obj\+\_\+offset (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{zsmalloc_8c_a890ad94d537f9d686e9994080014728d}\label{zsmalloc_8c_a890ad94d537f9d686e9994080014728d}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_first\_page@{get\_first\_page}}
+\index{get\_first\_page@{get\_first\_page}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_first\_page()}{get\_first\_page()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ get\+\_\+first\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{zsmalloc_8c_a70ba9a7f90e3e25dc66429e1bb2e3cc2}\label{zsmalloc_8c_a70ba9a7f90e3e25dc66429e1bb2e3cc2}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_freeobj@{get\_freeobj}}
+\index{get\_freeobj@{get\_freeobj}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_freeobj()}{get\_freeobj()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+freeobj (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{zsmalloc_8c_ad6fbaaa9944408c323cfe0c67fd5f0db}\label{zsmalloc_8c_ad6fbaaa9944408c323cfe0c67fd5f0db}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_fullness\_group@{get\_fullness\_group}}
+\index{get\_fullness\_group@{get\_fullness\_group}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_fullness\_group()}{get\_fullness\_group()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} get\+\_\+fullness\+\_\+group (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{zsmalloc_8c_a994a90afa458daf5251e106095a88216}\label{zsmalloc_8c_a994a90afa458daf5251e106095a88216}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_next\_page@{get\_next\_page}}
+\index{get\_next\_page@{get\_next\_page}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_next\_page()}{get\_next\_page()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structpage}{page}}$\ast$ get\+\_\+next\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{zsmalloc_8c_aace032422d9f83cfd436b986b520b0bd}\label{zsmalloc_8c_aace032422d9f83cfd436b986b520b0bd}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_pages\_per\_zspage@{get\_pages\_per\_zspage}}
+\index{get\_pages\_per\_zspage@{get\_pages\_per\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_pages\_per\_zspage()}{get\_pages\_per\_zspage()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+pages\+\_\+per\+\_\+zspage (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{class\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{zsmalloc_8c_a75690d394cd5c2ee80262715c41999ad}\label{zsmalloc_8c_a75690d394cd5c2ee80262715c41999ad}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_size\_class\_index@{get\_size\_class\_index}}
+\index{get\_size\_class\_index@{get\_size\_class\_index}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_size\_class\_index()}{get\_size\_class\_index()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+size\+\_\+class\+\_\+index (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{zsmalloc_8c_a58ee1e61d27cfdf3ee52197af96ed558}\label{zsmalloc_8c_a58ee1e61d27cfdf3ee52197af96ed558}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_zspage@{get\_zspage}}
+\index{get\_zspage@{get\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_zspage()}{get\_zspage()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structzspage}{zspage}}$\ast$ get\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{zsmalloc_8c_ad76542e0100eac368fd6efcd55d70c06}\label{zsmalloc_8c_ad76542e0100eac368fd6efcd55d70c06}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_zspage\_inuse@{get\_zspage\_inuse}}
+\index{get\_zspage\_inuse@{get\_zspage\_inuse}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_zspage\_inuse()}{get\_zspage\_inuse()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} get\+\_\+zspage\+\_\+inuse (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{zsmalloc_8c_a67b98218889f71fb4a3811a3d66ae7dd}\label{zsmalloc_8c_a67b98218889f71fb4a3811a3d66ae7dd}} 
+\index{zsmalloc.c@{zsmalloc.c}!get\_zspage\_mapping@{get\_zspage\_mapping}}
+\index{get\_zspage\_mapping@{get\_zspage\_mapping}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{get\_zspage\_mapping()}{get\_zspage\_mapping()}}
+{\footnotesize\ttfamily static void get\+\_\+zspage\+\_\+mapping (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{class\+\_\+idx,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} $\ast$}]{fullness }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 51
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{zsmalloc_8c_a3fda6ed97e68b9385372de9b7b523e4c}\label{zsmalloc_8c_a3fda6ed97e68b9385372de9b7b523e4c}} 
+\index{zsmalloc.c@{zsmalloc.c}!handle\_to\_obj@{handle\_to\_obj}}
+\index{handle\_to\_obj@{handle\_to\_obj}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{handle\_to\_obj()}{handle\_to\_obj()}}
+{\footnotesize\ttfamily static unsigned long handle\+\_\+to\+\_\+obj (\begin{DoxyParamCaption}\item[{unsigned long}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{zsmalloc_8c_a4c0a58f8b5ad497e02270821c7ec2a25}\label{zsmalloc_8c_a4c0a58f8b5ad497e02270821c7ec2a25}} 
+\index{zsmalloc.c@{zsmalloc.c}!init\_deferred\_free@{init\_deferred\_free}}
+\index{init\_deferred\_free@{init\_deferred\_free}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{init\_deferred\_free()}{init\_deferred\_free()}}
+{\footnotesize\ttfamily static void init\+\_\+deferred\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{zsmalloc_8c_acd5db7e368bd209d45d60638912818a7}\label{zsmalloc_8c_acd5db7e368bd209d45d60638912818a7}} 
+\index{zsmalloc.c@{zsmalloc.c}!init\_zspage@{init\_zspage}}
+\index{init\_zspage@{init\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{init\_zspage()}{init\_zspage()}}
+{\footnotesize\ttfamily static void init\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{zsmalloc_8c_af1b6cc7ccd6b8a6f69b9dae9fadcfc26}\label{zsmalloc_8c_af1b6cc7ccd6b8a6f69b9dae9fadcfc26}} 
+\index{zsmalloc.c@{zsmalloc.c}!insert\_zspage@{insert\_zspage}}
+\index{insert\_zspage@{insert\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{insert\_zspage()}{insert\_zspage()}}
+{\footnotesize\ttfamily static void insert\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}}}]{fullness }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{zsmalloc_8c_a8b292a108d9a1b64d919fe68941212ca}\label{zsmalloc_8c_a8b292a108d9a1b64d919fe68941212ca}} 
+\index{zsmalloc.c@{zsmalloc.c}!is\_first\_page@{is\_first\_page}}
+\index{is\_first\_page@{is\_first\_page}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{is\_first\_page()}{is\_first\_page()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}} \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} is\+\_\+first\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{zsmalloc_8c_ab32cf70d004c22cc1cee3206afd20abe}\label{zsmalloc_8c_ab32cf70d004c22cc1cee3206afd20abe}} 
+\index{zsmalloc.c@{zsmalloc.c}!is\_zspage\_isolated@{is\_zspage\_isolated}}
+\index{is\_zspage\_isolated@{is\_zspage\_isolated}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{is\_zspage\_isolated()}{is\_zspage\_isolated()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+zspage\+\_\+isolated (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{zsmalloc_8c_aeb2d514deec7d1d067a04a20e7aa110a}\label{zsmalloc_8c_aeb2d514deec7d1d067a04a20e7aa110a}} 
+\index{zsmalloc.c@{zsmalloc.c}!isolate\_zspage@{isolate\_zspage}}
+\index{isolate\_zspage@{isolate\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{isolate\_zspage()}{isolate\_zspage()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structzspage}{zspage}}$\ast$ isolate\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{source }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{zsmalloc_8c_a290cf9ca35054ac122d9cc92f89dc881}\label{zsmalloc_8c_a290cf9ca35054ac122d9cc92f89dc881}} 
+\index{zsmalloc.c@{zsmalloc.c}!kick\_deferred\_free@{kick\_deferred\_free}}
+\index{kick\_deferred\_free@{kick\_deferred\_free}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{kick\_deferred\_free()}{kick\_deferred\_free()}}
+{\footnotesize\ttfamily static void kick\+\_\+deferred\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 63
+\mbox{\Hypertarget{zsmalloc_8c_a0d217f1344d70cbdadc8a13083b03349}\label{zsmalloc_8c_a0d217f1344d70cbdadc8a13083b03349}} 
+\index{zsmalloc.c@{zsmalloc.c}!location\_to\_obj@{location\_to\_obj}}
+\index{location\_to\_obj@{location\_to\_obj}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{location\_to\_obj()}{location\_to\_obj()}}
+{\footnotesize\ttfamily static unsigned long location\+\_\+to\+\_\+obj (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{obj\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{zsmalloc_8c_a97718345456cf5d70b5b1a3f331ee0d7}\label{zsmalloc_8c_a97718345456cf5d70b5b1a3f331ee0d7}} 
+\index{zsmalloc.c@{zsmalloc.c}!migrate\_lock\_init@{migrate\_lock\_init}}
+\index{migrate\_lock\_init@{migrate\_lock\_init}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{migrate\_lock\_init()}{migrate\_lock\_init()}}
+{\footnotesize\ttfamily static void migrate\+\_\+lock\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 65
+\mbox{\Hypertarget{zsmalloc_8c_ad20c8ab112258976a055023803c7fed9}\label{zsmalloc_8c_ad20c8ab112258976a055023803c7fed9}} 
+\index{zsmalloc.c@{zsmalloc.c}!migrate\_read\_lock@{migrate\_read\_lock}}
+\index{migrate\_read\_lock@{migrate\_read\_lock}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{migrate\_read\_lock()}{migrate\_read\_lock()}}
+{\footnotesize\ttfamily static void migrate\+\_\+read\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{zsmalloc_8c_a33e190fbe4476e19d0b5e1bbe35cb9ed}\label{zsmalloc_8c_a33e190fbe4476e19d0b5e1bbe35cb9ed}} 
+\index{zsmalloc.c@{zsmalloc.c}!migrate\_read\_unlock@{migrate\_read\_unlock}}
+\index{migrate\_read\_unlock@{migrate\_read\_unlock}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{migrate\_read\_unlock()}{migrate\_read\_unlock()}}
+{\footnotesize\ttfamily static void migrate\+\_\+read\+\_\+unlock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{zsmalloc_8c_a25b97dc10fc0834b948e6bbaaca97137}\label{zsmalloc_8c_a25b97dc10fc0834b948e6bbaaca97137}} 
+\index{zsmalloc.c@{zsmalloc.c}!migrate\_zspage@{migrate\_zspage}}
+\index{migrate\_zspage@{migrate\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{migrate\_zspage()}{migrate\_zspage()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} migrate\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzs__compact__control}{zs\+\_\+compact\+\_\+control}} $\ast$}]{cc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{zsmalloc_8c_a748a14be3ae34afe73eb2c5e55fbff8f}\label{zsmalloc_8c_a748a14be3ae34afe73eb2c5e55fbff8f}} 
+\index{zsmalloc.c@{zsmalloc.c}!mod\_zspage\_inuse@{mod\_zspage\_inuse}}
+\index{mod\_zspage\_inuse@{mod\_zspage\_inuse}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{mod\_zspage\_inuse()}{mod\_zspage\_inuse()}}
+{\footnotesize\ttfamily static void mod\+\_\+zspage\+\_\+inuse (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 70
+\mbox{\Hypertarget{zsmalloc_8c_a2d28005c571731e72d69413c357cfdfe}\label{zsmalloc_8c_a2d28005c571731e72d69413c357cfdfe}} 
+\index{zsmalloc.c@{zsmalloc.c}!MODULE\_AUTHOR@{MODULE\_AUTHOR}}
+\index{MODULE\_AUTHOR@{MODULE\_AUTHOR}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_AUTHOR()}{MODULE\_AUTHOR()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR (\begin{DoxyParamCaption}\item[{\char`\"{}Nitin Gupta $<$ngupta@vflare.\+org$>$\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_ab37c50ae9bb41463316de19dc5862858}\label{zsmalloc_8c_ab37c50ae9bb41463316de19dc5862858}} 
+\index{zsmalloc.c@{zsmalloc.c}!module\_exit@{module\_exit}}
+\index{module\_exit@{module\_exit}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{module\_exit()}{module\_exit()}}
+{\footnotesize\ttfamily module\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_ac50ce1f665189c6ccfe985ebaf292198}{zs\+\_\+exit}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a5f9abe95763c10acbbb51f6c23cb1d2d}\label{zsmalloc_8c_a5f9abe95763c10acbbb51f6c23cb1d2d}} 
+\index{zsmalloc.c@{zsmalloc.c}!module\_init@{module\_init}}
+\index{module\_init@{module\_init}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{module\_init()}{module\_init()}}
+{\footnotesize\ttfamily module\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{zsmalloc_8c_a5056cd93540db381550770ede1967fb1}{zs\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a5c95e2cd11cba226f5f3513060a8928e}\label{zsmalloc_8c_a5c95e2cd11cba226f5f3513060a8928e}} 
+\index{zsmalloc.c@{zsmalloc.c}!MODULE\_LICENSE@{MODULE\_LICENSE}}
+\index{MODULE\_LICENSE@{MODULE\_LICENSE}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_LICENSE()}{MODULE\_LICENSE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE (\begin{DoxyParamCaption}\item[{\char`\"{}Dual B\+SD/G\+PL\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_aea08c38245c60e8c23550f9e2e792aa2}\label{zsmalloc_8c_aea08c38245c60e8c23550f9e2e792aa2}} 
+\index{zsmalloc.c@{zsmalloc.c}!obj\_free@{obj\_free}}
+\index{obj\_free@{obj\_free}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{obj\_free()}{obj\_free()}}
+{\footnotesize\ttfamily static void obj\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{unsigned long}]{obj }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 71
+Here is the caller graph for this function\+:
+% FIG 72
+\mbox{\Hypertarget{zsmalloc_8c_a96448a4cbf2cc4d5d11d337aeeab5887}\label{zsmalloc_8c_a96448a4cbf2cc4d5d11d337aeeab5887}} 
+\index{zsmalloc.c@{zsmalloc.c}!obj\_malloc@{obj\_malloc}}
+\index{obj\_malloc@{obj\_malloc}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{obj\_malloc()}{obj\_malloc()}}
+{\footnotesize\ttfamily static unsigned long obj\+\_\+malloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{unsigned long}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 73
+Here is the caller graph for this function\+:
+% FIG 74
+\mbox{\Hypertarget{zsmalloc_8c_a5599e6e683f7a4a15ac4c0c99eb1aeaa}\label{zsmalloc_8c_a5599e6e683f7a4a15ac4c0c99eb1aeaa}} 
+\index{zsmalloc.c@{zsmalloc.c}!obj\_to\_head@{obj\_to\_head}}
+\index{obj\_to\_head@{obj\_to\_head}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{obj\_to\_head()}{obj\_to\_head()}}
+{\footnotesize\ttfamily static unsigned long obj\+\_\+to\+\_\+head (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{void $\ast$}]{obj }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 75
+Here is the caller graph for this function\+:
+% FIG 76
+\mbox{\Hypertarget{zsmalloc_8c_a1f1a28613eab8ddb2b6f47d5a2b0c7b0}\label{zsmalloc_8c_a1f1a28613eab8ddb2b6f47d5a2b0c7b0}} 
+\index{zsmalloc.c@{zsmalloc.c}!obj\_to\_location@{obj\_to\_location}}
+\index{obj\_to\_location@{obj\_to\_location}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{obj\_to\_location()}{obj\_to\_location()}}
+{\footnotesize\ttfamily static void obj\+\_\+to\+\_\+location (\begin{DoxyParamCaption}\item[{unsigned long}]{obj,  }\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$$\ast$}]{page,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{obj\+\_\+idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{zsmalloc_8c_a02972b4865d871683e3ffa9180307fc3}\label{zsmalloc_8c_a02972b4865d871683e3ffa9180307fc3}} 
+\index{zsmalloc.c@{zsmalloc.c}!PageHugeObject@{PageHugeObject}}
+\index{PageHugeObject@{PageHugeObject}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{PageHugeObject()}{PageHugeObject()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} Page\+Huge\+Object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{zsmalloc_8c_aeef05e7996e89045ce361e48573aa95f}\label{zsmalloc_8c_aeef05e7996e89045ce361e48573aa95f}} 
+\index{zsmalloc.c@{zsmalloc.c}!pin\_tag@{pin\_tag}}
+\index{pin\_tag@{pin\_tag}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{pin\_tag()}{pin\_tag()}}
+{\footnotesize\ttfamily static void pin\+\_\+tag (\begin{DoxyParamCaption}\item[{unsigned long}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 79
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{zsmalloc_8c_aee08ba749f59d269d7267cb3d5318a97}\label{zsmalloc_8c_aee08ba749f59d269d7267cb3d5318a97}} 
+\index{zsmalloc.c@{zsmalloc.c}!putback\_zspage@{putback\_zspage}}
+\index{putback\_zspage@{putback\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{putback\_zspage()}{putback\_zspage()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}} putback\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 81
+Here is the caller graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{zsmalloc_8c_a87efe187c73a1aef85da1068ce07988d}\label{zsmalloc_8c_a87efe187c73a1aef85da1068ce07988d}} 
+\index{zsmalloc.c@{zsmalloc.c}!record\_obj@{record\_obj}}
+\index{record\_obj@{record\_obj}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{record\_obj()}{record\_obj()}}
+{\footnotesize\ttfamily static void record\+\_\+obj (\begin{DoxyParamCaption}\item[{unsigned long}]{handle,  }\item[{unsigned long}]{obj }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 83
+\mbox{\Hypertarget{zsmalloc_8c_a716e80983f6f31b89a598f2d2d51ad93}\label{zsmalloc_8c_a716e80983f6f31b89a598f2d2d51ad93}} 
+\index{zsmalloc.c@{zsmalloc.c}!remove\_zspage@{remove\_zspage}}
+\index{remove\_zspage@{remove\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{remove\_zspage()}{remove\_zspage()}}
+{\footnotesize\ttfamily static void remove\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}}}]{fullness }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 84
+Here is the caller graph for this function\+:
+% FIG 85
+\mbox{\Hypertarget{zsmalloc_8c_ac798e747ad55c22cb3f376713e4ac27b}\label{zsmalloc_8c_ac798e747ad55c22cb3f376713e4ac27b}} 
+\index{zsmalloc.c@{zsmalloc.c}!reset\_page@{reset\_page}}
+\index{reset\_page@{reset\_page}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{reset\_page()}{reset\_page()}}
+{\footnotesize\ttfamily static void reset\+\_\+page (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 86
+Here is the caller graph for this function\+:
+% FIG 87
+\mbox{\Hypertarget{zsmalloc_8c_a85cbb0e083cdb4f1ddceb737ca208637}\label{zsmalloc_8c_a85cbb0e083cdb4f1ddceb737ca208637}} 
+\index{zsmalloc.c@{zsmalloc.c}!set\_first\_obj\_offset@{set\_first\_obj\_offset}}
+\index{set\_first\_obj\_offset@{set\_first\_obj\_offset}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{set\_first\_obj\_offset()}{set\_first\_obj\_offset()}}
+{\footnotesize\ttfamily static void set\+\_\+first\+\_\+obj\+\_\+offset (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{offset }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{zsmalloc_8c_a8be5d19525075e74e0c5531826870879}\label{zsmalloc_8c_a8be5d19525075e74e0c5531826870879}} 
+\index{zsmalloc.c@{zsmalloc.c}!set\_freeobj@{set\_freeobj}}
+\index{set\_freeobj@{set\_freeobj}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{set\_freeobj()}{set\_freeobj()}}
+{\footnotesize\ttfamily static void set\+\_\+freeobj (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{obj }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 89
+\mbox{\Hypertarget{zsmalloc_8c_a3e7937edb2b9de7605413f1f128c1ac7}\label{zsmalloc_8c_a3e7937edb2b9de7605413f1f128c1ac7}} 
+\index{zsmalloc.c@{zsmalloc.c}!set\_zspage\_mapping@{set\_zspage\_mapping}}
+\index{set\_zspage\_mapping@{set\_zspage\_mapping}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{set\_zspage\_mapping()}{set\_zspage\_mapping()}}
+{\footnotesize\ttfamily static void set\+\_\+zspage\+\_\+mapping (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{class\+\_\+idx,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8c_ad49ab2576a238ebefe966398e04fc07c}{fullness\+\_\+group}}}]{fullness }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{zsmalloc_8c_aef71655e8ac6d92978f2c1db110ade77}\label{zsmalloc_8c_aef71655e8ac6d92978f2c1db110ade77}} 
+\index{zsmalloc.c@{zsmalloc.c}!SetPageHugeObject@{SetPageHugeObject}}
+\index{SetPageHugeObject@{SetPageHugeObject}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{SetPageHugeObject()}{SetPageHugeObject()}}
+{\footnotesize\ttfamily static void Set\+Page\+Huge\+Object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpage}{page}} $\ast$}]{page }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 91
+\mbox{\Hypertarget{zsmalloc_8c_a94f06e0f1e251d9e5bd0d13e277b4cdd}\label{zsmalloc_8c_a94f06e0f1e251d9e5bd0d13e277b4cdd}} 
+\index{zsmalloc.c@{zsmalloc.c}!SetZsPageMovable@{SetZsPageMovable}}
+\index{SetZsPageMovable@{SetZsPageMovable}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{SetZsPageMovable()}{SetZsPageMovable()}}
+{\footnotesize\ttfamily static void Set\+Zs\+Page\+Movable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{zsmalloc_8c_ae3c40b55c7d475c473a1135a8a3b6b18}\label{zsmalloc_8c_ae3c40b55c7d475c473a1135a8a3b6b18}} 
+\index{zsmalloc.c@{zsmalloc.c}!testpin\_tag@{testpin\_tag}}
+\index{testpin\_tag@{testpin\_tag}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{testpin\_tag()}{testpin\_tag()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} testpin\+\_\+tag (\begin{DoxyParamCaption}\item[{unsigned long}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 93
+\mbox{\Hypertarget{zsmalloc_8c_ad689c76b9671d230094b39725b60d966}\label{zsmalloc_8c_ad689c76b9671d230094b39725b60d966}} 
+\index{zsmalloc.c@{zsmalloc.c}!trylock\_zspage@{trylock\_zspage}}
+\index{trylock\_zspage@{trylock\_zspage}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{trylock\_zspage()}{trylock\_zspage()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trylock\+\_\+zspage (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 94
+Here is the caller graph for this function\+:
+% FIG 95
+\mbox{\Hypertarget{zsmalloc_8c_a5a658c26dda4cf08c3b76a6e07556998}\label{zsmalloc_8c_a5a658c26dda4cf08c3b76a6e07556998}} 
+\index{zsmalloc.c@{zsmalloc.c}!trypin\_tag@{trypin\_tag}}
+\index{trypin\_tag@{trypin\_tag}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{trypin\_tag()}{trypin\_tag()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} trypin\+\_\+tag (\begin{DoxyParamCaption}\item[{unsigned long}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 96
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{zsmalloc_8c_a5b7d1c6cdb3383a7cbf207e9200e4fd8}\label{zsmalloc_8c_a5b7d1c6cdb3383a7cbf207e9200e4fd8}} 
+\index{zsmalloc.c@{zsmalloc.c}!unpin\_tag@{unpin\_tag}}
+\index{unpin\_tag@{unpin\_tag}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{unpin\_tag()}{unpin\_tag()}}
+{\footnotesize\ttfamily static void unpin\+\_\+tag (\begin{DoxyParamCaption}\item[{unsigned long}]{handle }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 98
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{zsmalloc_8c_ae2a9c98069b92eb32bf061c96f74ec28}\label{zsmalloc_8c_ae2a9c98069b92eb32bf061c96f74ec28}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_can\_compact@{zs\_can\_compact}}
+\index{zs\_can\_compact@{zs\_can\_compact}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_can\_compact()}{zs\_can\_compact()}}
+{\footnotesize\ttfamily static unsigned long zs\+\_\+can\+\_\+compact (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 100
+Here is the caller graph for this function\+:
+% FIG 101
+\mbox{\Hypertarget{zsmalloc_8c_a179a42df0e56320cc600f8c2f310d5d3}\label{zsmalloc_8c_a179a42df0e56320cc600f8c2f310d5d3}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_compact@{zs\_compact}}
+\index{zs\_compact@{zs\_compact}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_compact()}{zs\_compact()}}
+{\footnotesize\ttfamily unsigned long zs\+\_\+compact (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 102
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{zsmalloc_8c_aed95e63acf735cd68455eea1250464fe}\label{zsmalloc_8c_aed95e63acf735cd68455eea1250464fe}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_cpu\_dead@{zs\_cpu\_dead}}
+\index{zs\_cpu\_dead@{zs\_cpu\_dead}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_cpu\_dead()}{zs\_cpu\_dead()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} zs\+\_\+cpu\+\_\+dead (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 104
+Here is the caller graph for this function\+:
+% FIG 105
+\mbox{\Hypertarget{zsmalloc_8c_a2a18e588cb6673c10fdd4c31dd2c10cf}\label{zsmalloc_8c_a2a18e588cb6673c10fdd4c31dd2c10cf}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_cpu\_prepare@{zs\_cpu\_prepare}}
+\index{zs\_cpu\_prepare@{zs\_cpu\_prepare}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_cpu\_prepare()}{zs\_cpu\_prepare()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} zs\+\_\+cpu\+\_\+prepare (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 106
+Here is the caller graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{zsmalloc_8c_a17972af265b44f55f7bfd888b01057a1}\label{zsmalloc_8c_a17972af265b44f55f7bfd888b01057a1}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_create\_pool@{zs\_create\_pool}}
+\index{zs\_create\_pool@{zs\_create\_pool}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_create\_pool()}{zs\_create\_pool()}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}}$\ast$ zs\+\_\+create\+\_\+pool (\begin{DoxyParamCaption}\item[{const char $\ast$}]{name }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 108
+\mbox{\Hypertarget{zsmalloc_8c_ab9d3268726e0e93c2ced98aa79c2f015}\label{zsmalloc_8c_ab9d3268726e0e93c2ced98aa79c2f015}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_destroy\_pool@{zs\_destroy\_pool}}
+\index{zs\_destroy\_pool@{zs\_destroy\_pool}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_destroy\_pool()}{zs\_destroy\_pool()}}
+{\footnotesize\ttfamily void zs\+\_\+destroy\+\_\+pool (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 109
+Here is the caller graph for this function\+:
+% FIG 110
+\mbox{\Hypertarget{zsmalloc_8c_ac50ce1f665189c6ccfe985ebaf292198}\label{zsmalloc_8c_ac50ce1f665189c6ccfe985ebaf292198}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_exit@{zs\_exit}}
+\index{zs\_exit@{zs\_exit}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_exit()}{zs\_exit()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} zs\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 111
+\mbox{\Hypertarget{zsmalloc_8c_a9270062d044a6dcdc538e6488745d767}\label{zsmalloc_8c_a9270062d044a6dcdc538e6488745d767}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_free@{zs\_free}}
+\index{zs\_free@{zs\_free}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_free()}{zs\_free()}}
+{\footnotesize\ttfamily void zs\+\_\+free (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{unsigned long}]{handle }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 112
+\mbox{\Hypertarget{zsmalloc_8c_aaa9a967ad4413854987410eaf5f477b8}\label{zsmalloc_8c_aaa9a967ad4413854987410eaf5f477b8}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_get\_total\_pages@{zs\_get\_total\_pages}}
+\index{zs\_get\_total\_pages@{zs\_get\_total\_pages}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_get\_total\_pages()}{zs\_get\_total\_pages()}}
+{\footnotesize\ttfamily unsigned long zs\+\_\+get\+\_\+total\+\_\+pages (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 113
+\mbox{\Hypertarget{zsmalloc_8c_a4952e5e499cea723cfaba6595841737f}\label{zsmalloc_8c_a4952e5e499cea723cfaba6595841737f}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_huge\_class\_size@{zs\_huge\_class\_size}}
+\index{zs\_huge\_class\_size@{zs\_huge\_class\_size}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_huge\_class\_size()}{zs\_huge\_class\_size()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} zs\+\_\+huge\+\_\+class\+\_\+size (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{zsmalloc_8c_a4952e5e499cea723cfaba6595841737f}{zs\+\_\+huge\+\_\+class\+\_\+size()}} -\/ Returns the size (in bytes) of the first huge zsmalloc \&\mbox{\hyperlink{structsize__class}{size\+\_\+class}}. @pool\+: zsmalloc pool to use
+
+\mbox{\hyperlink{classThe}{The}} function returns the size of the first huge class -\/ any object of equal or bigger size will be stored in zspage consisting of a single physical page.
+
+Context\+: Any context.
+
+Return\+: the size (in bytes) of the first huge zsmalloc \&\mbox{\hyperlink{structsize__class}{size\+\_\+class}}. \mbox{\Hypertarget{zsmalloc_8c_a5056cd93540db381550770ede1967fb1}\label{zsmalloc_8c_a5056cd93540db381550770ede1967fb1}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_init@{zs\_init}}
+\index{zs\_init@{zs\_init}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_init()}{zs\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} zs\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 114
+\mbox{\Hypertarget{zsmalloc_8c_a62d66dd3ef99c0d74025295c067c8e9c}\label{zsmalloc_8c_a62d66dd3ef99c0d74025295c067c8e9c}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_malloc@{zs\_malloc}}
+\index{zs\_malloc@{zs\_malloc}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_malloc()}{zs\_malloc()}}
+{\footnotesize\ttfamily unsigned long zs\+\_\+malloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}}}]{size,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_ac7af3d394e1fddbf83385f928a7e41ab}{gfp\+\_\+t}}}]{gfp }\end{DoxyParamCaption})}
+
+zs\+\_\+malloc -\/ Allocate block of given size from pool. @pool\+: pool to allocate from @size\+: size of block to allocate @gfp\+: gfp flags when allocating object
+
+On success, handle to the allocated object is returned, otherwise 0. Allocation requests with size $>$ Z\+S\+\_\+\+M\+A\+X\+\_\+\+A\+L\+L\+O\+C\+\_\+\+S\+I\+ZE will fail. Here is the call graph for this function\+:
+% FIG 115
+\mbox{\Hypertarget{zsmalloc_8c_a24e0a90dfea164b785d3077c79fce9d1}\label{zsmalloc_8c_a24e0a90dfea164b785d3077c79fce9d1}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_map\_object@{zs\_map\_object}}
+\index{zs\_map\_object@{zs\_map\_object}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_map\_object()}{zs\_map\_object()}}
+{\footnotesize\ttfamily void$\ast$ zs\+\_\+map\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{unsigned long}]{handle,  }\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{zsmalloc_8h_acbba142fffcbfc865631d647519e730d}{zs\+\_\+mapmode}}}]{mm }\end{DoxyParamCaption})}
+
+zs\+\_\+map\+\_\+object -\/ get address of allocated object from handle. @pool\+: pool from which the object was allocated @handle\+: handle returned from zs\+\_\+malloc @mm\+: mapping mode to use
+
+Before using an object allocated from zs\+\_\+malloc, it must be mapped using this function. When done with the object, it must be unmapped using zs\+\_\+unmap\+\_\+object.
+
+Only one object can be mapped per cpu at a time. There is no protection against nested mappings.
+
+This function returns with preemption and page faults disabled. Here is the call graph for this function\+:
+% FIG 116
+\mbox{\Hypertarget{zsmalloc_8c_a82cd27b92296dca66bb7319e3d7c951a}\label{zsmalloc_8c_a82cd27b92296dca66bb7319e3d7c951a}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_object\_copy@{zs\_object\_copy}}
+\index{zs\_object\_copy@{zs\_object\_copy}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_object\_copy()}{zs\_object\_copy()}}
+{\footnotesize\ttfamily static void zs\+\_\+object\+\_\+copy (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{unsigned long}]{dst,  }\item[{unsigned long}]{src }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 117
+Here is the caller graph for this function\+:
+% FIG 118
+\mbox{\Hypertarget{zsmalloc_8c_a169bd41a2e790656f3572ac0d3f98e6f}\label{zsmalloc_8c_a169bd41a2e790656f3572ac0d3f98e6f}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_pool\_stat\_create@{zs\_pool\_stat\_create}}
+\index{zs\_pool\_stat\_create@{zs\_pool\_stat\_create}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_pool\_stat\_create()}{zs\_pool\_stat\_create()}}
+{\footnotesize\ttfamily static void zs\+\_\+pool\+\_\+stat\+\_\+create (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{const char $\ast$}]{name }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 119
+\mbox{\Hypertarget{zsmalloc_8c_a9311875e6296f9a27a2f33b1d2fbe2ed}\label{zsmalloc_8c_a9311875e6296f9a27a2f33b1d2fbe2ed}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_pool\_stat\_destroy@{zs\_pool\_stat\_destroy}}
+\index{zs\_pool\_stat\_destroy@{zs\_pool\_stat\_destroy}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_pool\_stat\_destroy()}{zs\_pool\_stat\_destroy()}}
+{\footnotesize\ttfamily static void zs\+\_\+pool\+\_\+stat\+\_\+destroy (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 120
+\mbox{\Hypertarget{zsmalloc_8c_a3607ff89120c42dcb0736c6d8790bd40}\label{zsmalloc_8c_a3607ff89120c42dcb0736c6d8790bd40}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_pool\_stats@{zs\_pool\_stats}}
+\index{zs\_pool\_stats@{zs\_pool\_stats}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_pool\_stats()}{zs\_pool\_stats()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{structzs__pool__stats}{zs\+\_\+pool\+\_\+stats}} (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{struct \mbox{\hyperlink{structzs__pool__stats}{zs\+\_\+pool\+\_\+stats}} $\ast$}]{stats }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{zsmalloc_8c_a33d5b4920af8fcd6a23ba9fa96a727ee}\label{zsmalloc_8c_a33d5b4920af8fcd6a23ba9fa96a727ee}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_register\_migration@{zs\_register\_migration}}
+\index{zs\_register\_migration@{zs\_register\_migration}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_register\_migration()}{zs\_register\_migration()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} zs\+\_\+register\+\_\+migration (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 121
+\mbox{\Hypertarget{zsmalloc_8c_a93bff9dc0eac88f4d78efaeb3df92421}\label{zsmalloc_8c_a93bff9dc0eac88f4d78efaeb3df92421}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_register\_shrinker@{zs\_register\_shrinker}}
+\index{zs\_register\_shrinker@{zs\_register\_shrinker}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_register\_shrinker()}{zs\_register\_shrinker()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} zs\+\_\+register\+\_\+shrinker (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 122
+Here is the caller graph for this function\+:
+% FIG 123
+\mbox{\Hypertarget{zsmalloc_8c_ad2802820cc6ef1c80546391a2712aa50}\label{zsmalloc_8c_ad2802820cc6ef1c80546391a2712aa50}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_shrinker\_count@{zs\_shrinker\_count}}
+\index{zs\_shrinker\_count@{zs\_shrinker\_count}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_shrinker\_count()}{zs\_shrinker\_count()}}
+{\footnotesize\ttfamily static unsigned long zs\+\_\+shrinker\+\_\+count (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structshrinker}{shrinker}} $\ast$}]{shrinker,  }\item[{struct \mbox{\hyperlink{structshrink__control}{shrink\+\_\+control}} $\ast$}]{sc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 124
+Here is the caller graph for this function\+:
+% FIG 125
+\mbox{\Hypertarget{zsmalloc_8c_aa6cc919a5653fea6468ee5925abf5d34}\label{zsmalloc_8c_aa6cc919a5653fea6468ee5925abf5d34}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_shrinker\_scan@{zs\_shrinker\_scan}}
+\index{zs\_shrinker\_scan@{zs\_shrinker\_scan}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_shrinker\_scan()}{zs\_shrinker\_scan()}}
+{\footnotesize\ttfamily static unsigned long zs\+\_\+shrinker\+\_\+scan (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structshrinker}{shrinker}} $\ast$}]{shrinker,  }\item[{struct \mbox{\hyperlink{structshrink__control}{shrink\+\_\+control}} $\ast$}]{sc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 126
+Here is the caller graph for this function\+:
+% FIG 127
+\mbox{\Hypertarget{zsmalloc_8c_abebf53e2f70ef14bb0df4b0a147609d1}\label{zsmalloc_8c_abebf53e2f70ef14bb0df4b0a147609d1}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_stat\_dec@{zs\_stat\_dec}}
+\index{zs\_stat\_dec@{zs\_stat\_dec}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_stat\_dec()}{zs\_stat\_dec()}}
+{\footnotesize\ttfamily static void zs\+\_\+stat\+\_\+dec (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type,  }\item[{unsigned long}]{cnt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 128
+\mbox{\Hypertarget{zsmalloc_8c_a7487e971698d72fffbb3070fd01c7440}\label{zsmalloc_8c_a7487e971698d72fffbb3070fd01c7440}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_stat\_exit@{zs\_stat\_exit}}
+\index{zs\_stat\_exit@{zs\_stat\_exit}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_stat\_exit()}{zs\_stat\_exit()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_a98997f8af097472ccf19534c24cb4a24}{\+\_\+\+\_\+exit}} zs\+\_\+stat\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 129
+\mbox{\Hypertarget{zsmalloc_8c_ad751cf48cca2e73b4c24f061dac98cad}\label{zsmalloc_8c_ad751cf48cca2e73b4c24f061dac98cad}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_stat\_get@{zs\_stat\_get}}
+\index{zs\_stat\_get@{zs\_stat\_get}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_stat\_get()}{zs\_stat\_get()}}
+{\footnotesize\ttfamily static unsigned long zs\+\_\+stat\+\_\+get (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 130
+\mbox{\Hypertarget{zsmalloc_8c_a9cea5842691a2298c078ef2ad74fc9da}\label{zsmalloc_8c_a9cea5842691a2298c078ef2ad74fc9da}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_stat\_inc@{zs\_stat\_inc}}
+\index{zs\_stat\_inc@{zs\_stat\_inc}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_stat\_inc()}{zs\_stat\_inc()}}
+{\footnotesize\ttfamily static void zs\+\_\+stat\+\_\+inc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{type,  }\item[{unsigned long}]{cnt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 131
+\mbox{\Hypertarget{zsmalloc_8c_a4b9d47d9128451baec196cd9d013605d}\label{zsmalloc_8c_a4b9d47d9128451baec196cd9d013605d}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_stat\_init@{zs\_stat\_init}}
+\index{zs\_stat\_init@{zs\_stat\_init}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_stat\_init()}{zs\_stat\_init()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} zs\+\_\+stat\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 132
+\mbox{\Hypertarget{zsmalloc_8c_a81b23602ff260117675af22823b4bd5c}\label{zsmalloc_8c_a81b23602ff260117675af22823b4bd5c}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_unmap\_object@{zs\_unmap\_object}}
+\index{zs\_unmap\_object@{zs\_unmap\_object}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_unmap\_object()}{zs\_unmap\_object()}}
+{\footnotesize\ttfamily void zs\+\_\+unmap\+\_\+object (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool,  }\item[{unsigned long}]{handle }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 133
+\mbox{\Hypertarget{zsmalloc_8c_a0b3182949cb4f1b7ef75cf4ae337296d}\label{zsmalloc_8c_a0b3182949cb4f1b7ef75cf4ae337296d}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_unregister\_migration@{zs\_unregister\_migration}}
+\index{zs\_unregister\_migration@{zs\_unregister\_migration}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_unregister\_migration()}{zs\_unregister\_migration()}}
+{\footnotesize\ttfamily static void zs\+\_\+unregister\+\_\+migration (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 134
+\mbox{\Hypertarget{zsmalloc_8c_a807fa531541f27f8c50ab50874fad7e2}\label{zsmalloc_8c_a807fa531541f27f8c50ab50874fad7e2}} 
+\index{zsmalloc.c@{zsmalloc.c}!zs\_unregister\_shrinker@{zs\_unregister\_shrinker}}
+\index{zs\_unregister\_shrinker@{zs\_unregister\_shrinker}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zs\_unregister\_shrinker()}{zs\_unregister\_shrinker()}}
+{\footnotesize\ttfamily static void zs\+\_\+unregister\+\_\+shrinker (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structzs__pool}{zs\+\_\+pool}} $\ast$}]{pool }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 135
+Here is the caller graph for this function\+:
+% FIG 136
+\mbox{\Hypertarget{zsmalloc_8c_a13b3f3e52cc2ed327d449920d11b9b1a}\label{zsmalloc_8c_a13b3f3e52cc2ed327d449920d11b9b1a}} 
+\index{zsmalloc.c@{zsmalloc.c}!zsmalloc\_mount@{zsmalloc\_mount}}
+\index{zsmalloc\_mount@{zsmalloc\_mount}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zsmalloc\_mount()}{zsmalloc\_mount()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} zsmalloc\+\_\+mount (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 137
+\mbox{\Hypertarget{zsmalloc_8c_a0b27763965e17cb8c7a694cc4d37ebb6}\label{zsmalloc_8c_a0b27763965e17cb8c7a694cc4d37ebb6}} 
+\index{zsmalloc.c@{zsmalloc.c}!zsmalloc\_unmount@{zsmalloc\_unmount}}
+\index{zsmalloc\_unmount@{zsmalloc\_unmount}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zsmalloc\_unmount()}{zsmalloc\_unmount()}}
+{\footnotesize\ttfamily static void zsmalloc\+\_\+unmount (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 138
+\mbox{\Hypertarget{zsmalloc_8c_a183ed21c91f5950774d934fe100079ef}\label{zsmalloc_8c_a183ed21c91f5950774d934fe100079ef}} 
+\index{zsmalloc.c@{zsmalloc.c}!zspage\_full@{zspage\_full}}
+\index{zspage\_full@{zspage\_full}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{zspage\_full()}{zspage\_full()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} zspage\+\_\+full (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsize__class}{size\+\_\+class}} $\ast$}]{class,  }\item[{struct \mbox{\hyperlink{structzspage}{zspage}} $\ast$}]{zspage }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 139
+Here is the caller graph for this function\+:
+% FIG 140
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{zsmalloc_8c_a9b9f1f70498b640504a0b1795ec2d147}\label{zsmalloc_8c_a9b9f1f70498b640504a0b1795ec2d147}} 
+\index{zsmalloc.c@{zsmalloc.c}!fullness\_threshold\_frac@{fullness\_threshold\_frac}}
+\index{fullness\_threshold\_frac@{fullness\_threshold\_frac}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{fullness\_threshold\_frac}{fullness\_threshold\_frac}}
+{\footnotesize\ttfamily const \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} fullness\+\_\+threshold\+\_\+frac = 4\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{zsmalloc_8c_a9b97249d5202bc77c9cc9a53b4bfce57}\label{zsmalloc_8c_a9b97249d5202bc77c9cc9a53b4bfce57}} 
+\index{zsmalloc.c@{zsmalloc.c}!huge\_class\_size@{huge\_class\_size}}
+\index{huge\_class\_size@{huge\_class\_size}!zsmalloc.c@{zsmalloc.c}}
+\doxysubsubsection{\texorpdfstring{huge\_class\_size}{huge\_class\_size}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_aad0f8411dfc957b4069125f330192f4f}{size\+\_\+t}} huge\+\_\+class\+\_\+size\hspace{0.3cm}{\ttfamily [static]}}
+

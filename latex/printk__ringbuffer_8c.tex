@@ -1,0 +1,819 @@
+\hypertarget{printk__ringbuffer_8c}{}\doxysection{kernel/printk/printk\+\_\+ringbuffer.c File Reference}
+\label{printk__ringbuffer_8c}\index{kernel/printk/printk\_ringbuffer.c@{kernel/printk/printk\_ringbuffer.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irqflags.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/errno.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bug.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}printk\+\_\+ringbuffer.\+h\char`\"{}}\newline
+Include dependency graph for printk\+\_\+ringbuffer.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structprb__data__block}{prb\+\_\+data\+\_\+block}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_a84c3f1d132bec8dc23e55774599fab0a}{D\+A\+T\+A\+\_\+\+S\+I\+ZE}}(data\+\_\+ring)~\mbox{\hyperlink{printk__ringbuffer_8h_a6650caedce8c8e839024fc224dffbb63}{\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+ZE}}((data\+\_\+ring)-\/$>$size\+\_\+bits)
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_a885bd8f7941a28f204427c2e22db434b}{D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+A\+SK}}(data\+\_\+ring)~(\mbox{\hyperlink{printk__ringbuffer_8c_a84c3f1d132bec8dc23e55774599fab0a}{D\+A\+T\+A\+\_\+\+S\+I\+ZE}}(data\+\_\+ring) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_a1d1d3584e10c769afa2bd4c542da696d}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT}}(desc\+\_\+ring)~\mbox{\hyperlink{printk__ringbuffer_8h_a1da6515a9ba571e5d7837dd4184ba6b9}{\+\_\+\+D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT}}((desc\+\_\+ring)-\/$>$count\+\_\+bits)
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_acf1d8e77d3802c2c6eb3dd5a2a8dbd31}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+N\+T\+\_\+\+M\+A\+SK}}(desc\+\_\+ring)~(\mbox{\hyperlink{printk__ringbuffer_8c_a1d1d3584e10c769afa2bd4c542da696d}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT}}(desc\+\_\+ring) -\/ 1)
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_a87adbab02b11151aad8c33ddf1b54a73}{D\+A\+T\+A\+\_\+\+I\+N\+D\+EX}}(data\+\_\+ring,  lpos)~((lpos) \& \mbox{\hyperlink{printk__ringbuffer_8c_a885bd8f7941a28f204427c2e22db434b}{D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+A\+SK}}(data\+\_\+ring))
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_ab390bfbde105b9f93319fb8846652e91}{D\+E\+S\+C\+\_\+\+I\+N\+D\+EX}}(desc\+\_\+ring,  n)~((n) \& \mbox{\hyperlink{printk__ringbuffer_8c_acf1d8e77d3802c2c6eb3dd5a2a8dbd31}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+N\+T\+\_\+\+M\+A\+SK}}(desc\+\_\+ring))
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_a568194bf32e459175d656bc2da4ef9d4}{D\+A\+T\+A\+\_\+\+W\+R\+A\+PS}}(data\+\_\+ring,  lpos)~((lpos) $>$$>$ (data\+\_\+ring)-\/$>$size\+\_\+bits)
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_abe772a194682fe11d84f0332309a25d3}{L\+P\+O\+S\+\_\+\+D\+A\+T\+A\+L\+E\+SS}}(lpos)~((lpos) \& 1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}})
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_af02ab66a3a424d71de6f133a3fca1e1d}{B\+L\+K\+\_\+\+D\+A\+T\+A\+L\+E\+SS}}(blk)
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_a8ecfdde4f86a2242fa7a22ec721025c9}{D\+A\+T\+A\+\_\+\+T\+H\+I\+S\+\_\+\+W\+R\+A\+P\+\_\+\+S\+T\+A\+R\+T\+\_\+\+L\+P\+OS}}(data\+\_\+ring,  lpos)~((lpos) \& $\sim$\mbox{\hyperlink{printk__ringbuffer_8c_a885bd8f7941a28f204427c2e22db434b}{D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+A\+SK}}(data\+\_\+ring))
+\item 
+\#define \mbox{\hyperlink{printk__ringbuffer_8c_a74def23f99dc53cc8909e110ecf33b30}{D\+E\+S\+C\+\_\+\+I\+D\+\_\+\+P\+R\+E\+V\+\_\+\+W\+R\+AP}}(desc\+\_\+ring,  \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})~\mbox{\hyperlink{printk__ringbuffer_8h_ad9fa26a886cc2f7b0ce7ff39cd7a59bd}{D\+E\+S\+C\+\_\+\+ID}}((\mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}) -\/ \mbox{\hyperlink{printk__ringbuffer_8c_a1d1d3584e10c769afa2bd4c542da696d}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT}}(desc\+\_\+ring))
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$ \mbox{\hyperlink{printk__ringbuffer_8c_a9095fb69b9daae0499ae38e173160fde}{to\+\_\+desc}} (struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$desc\+\_\+ring, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} n)
+\item 
+static struct \mbox{\hyperlink{structprintk__info}{printk\+\_\+info}} $\ast$ \mbox{\hyperlink{printk__ringbuffer_8c_a337246b6063f4bccf2a0cfb9b6e163f9}{to\+\_\+info}} (struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$desc\+\_\+ring, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} n)
+\item 
+static struct \mbox{\hyperlink{structprb__data__block}{prb\+\_\+data\+\_\+block}} $\ast$ \mbox{\hyperlink{printk__ringbuffer_8c_acff5c58f5800659a2298d25079cac7b9}{to\+\_\+block}} (struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$data\+\_\+ring, unsigned long begin\+\_\+lpos)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{printk__ringbuffer_8c_aa148e3f546a6173c1f722ff2be5779cb}{to\+\_\+blk\+\_\+size}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a91b667612a72d2d7796bf8f137e3dacf}{data\+\_\+check\+\_\+size}} (struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$data\+\_\+ring, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{printk__ringbuffer_8h_a2da036e7de79d773f1f5ed09a72844a2}{desc\+\_\+state}} \mbox{\hyperlink{printk__ringbuffer_8c_acd89929c99ca8117569068faeeef2348}{get\+\_\+desc\+\_\+state}} (unsigned long \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}, unsigned long state\+\_\+val)
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{printk__ringbuffer_8h_a2da036e7de79d773f1f5ed09a72844a2}{desc\+\_\+state}} \mbox{\hyperlink{printk__ringbuffer_8c_a84f7f4ea700a9ed6cd0f9a4d4fa062bc}{desc\+\_\+read}} (struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$desc\+\_\+ring, unsigned long \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}, struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$desc\+\_\+out, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$seq\+\_\+out, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$caller\+\_\+id\+\_\+out)
+\item 
+static void \mbox{\hyperlink{printk__ringbuffer_8c_aaaf7d2f5fb28c8fbccc91489cd0140c3}{desc\+\_\+make\+\_\+reusable}} (struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$desc\+\_\+ring, unsigned long \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_acf14cb4fcbc2d78805e3800a49b2e62c}{data\+\_\+make\+\_\+reusable}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, unsigned long lpos\+\_\+begin, unsigned long lpos\+\_\+end, unsigned long $\ast$lpos\+\_\+out)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a70c2602fa7bd968e01969b79f4abf52b}{data\+\_\+push\+\_\+tail}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, unsigned long lpos)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a3494f100f65be1d1644d435e18980825}{desc\+\_\+push\+\_\+tail}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, unsigned long tail\+\_\+id)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a9988a4feb27e1ecc87ec6538d4b8a425}{desc\+\_\+reserve}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, unsigned long $\ast$id\+\_\+out)
+\item 
+static unsigned long \mbox{\hyperlink{printk__ringbuffer_8c_adc609f29329a976a9fc6aa435fe0688c}{get\+\_\+next\+\_\+lpos}} (struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$data\+\_\+ring, unsigned long lpos, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}})
+\item 
+static char $\ast$ \mbox{\hyperlink{printk__ringbuffer_8c_aeaed20657298dc9533dec988ef66b9fc}{data\+\_\+alloc}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$blk\+\_\+lpos, unsigned long \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+static char $\ast$ \mbox{\hyperlink{printk__ringbuffer_8c_a325a067656802279467c4cea6665a563}{data\+\_\+realloc}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a439227feff9d7f55384e8780cfc2eb82}{size}}, struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$blk\+\_\+lpos, unsigned long \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{printk__ringbuffer_8c_ad0e4c6185abbf9864c555b43b20e91d5}{space\+\_\+used}} (struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$data\+\_\+ring, struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$blk\+\_\+lpos)
+\item 
+static const char $\ast$ \mbox{\hyperlink{printk__ringbuffer_8c_a4ab3c25321173477e7d43e729b3c534b}{get\+\_\+data}} (struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$data\+\_\+ring, struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$blk\+\_\+lpos, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$\mbox{\hyperlink{md__p_8h_a6c1fb915b912ad7dda94d745f146a107}{data\+\_\+size}})
+\item 
+static struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$ \mbox{\hyperlink{printk__ringbuffer_8c_a7b1f8699f6630a757803c0428a7f1aac}{desc\+\_\+reopen\+\_\+last}} (struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$desc\+\_\+ring, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} caller\+\_\+id, unsigned long $\ast$id\+\_\+out)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a36e8f4926929d7ae859565fe1ea0385c}{prb\+\_\+reserve\+\_\+in\+\_\+last}} (struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$e, struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} caller\+\_\+id, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__rhashtable_8c_a98ca8117bc73d9d7520727c4ce8772e6}{max\+\_\+size}})
+\item 
+static void \mbox{\hyperlink{printk__ringbuffer_8c_a8cf928679eb96feb9933ba07d7499899}{desc\+\_\+make\+\_\+final}} (struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$desc\+\_\+ring, unsigned long \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}{prb\+\_\+reserve}} (struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$e, struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}})
+\item 
+static void \mbox{\hyperlink{printk__ringbuffer_8c_af7a31eea6ece9bc627fa5d454b4ad95d}{\+\_\+prb\+\_\+commit}} (struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$e, unsigned long state\+\_\+val)
+\item 
+void \mbox{\hyperlink{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}{prb\+\_\+commit}} (struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$e)
+\item 
+void \mbox{\hyperlink{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}{prb\+\_\+final\+\_\+commit}} (struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$e)
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{printk__ringbuffer_8c_aa85907c14f117b0babde6df1bf7ce462}{count\+\_\+lines}} (const char $\ast$text, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} text\+\_\+size)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a8b7980dc152b53c3d178626e39dc2372}{copy\+\_\+data}} (struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$data\+\_\+ring, struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$blk\+\_\+lpos, \mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}} \mbox{\hyperlink{uapi_2sound_2asequencer_8h_a77124bd5f7e31e6fffc19f335da0c23f}{len}}, char $\ast$\mbox{\hyperlink{uapi_2linux_2bpf_8h_a73f8e6a02709b440d472b61bcc0619f9}{buf}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{bts_8c_a6a0f24de8cecb933daf552620df15a98}{buf\+\_\+size}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$line\+\_\+count)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{printk__ringbuffer_8c_a9e6c907f5979dc9a77864c4f08b18049}{desc\+\_\+read\+\_\+finalized\+\_\+seq}} (struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$desc\+\_\+ring, unsigned long \mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$desc\+\_\+out)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{printk__ringbuffer_8c_a13e41925d9cbfb6ce6a0b0369acd5062}{prb\+\_\+read}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$line\+\_\+count)
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{printk__ringbuffer_8c_a38ab5c96e50995baa84ff04d192a1576}{prb\+\_\+first\+\_\+seq}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a4398fe9fcff9571c9fe503cf7b7dbb15}{\+\_\+prb\+\_\+read\+\_\+valid}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$\mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$line\+\_\+count)
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_a0d8cea4f6da02a40642a49af90cab535}{prb\+\_\+read\+\_\+valid}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$\mbox{\hyperlink{decode__rs_8c_a514f1b439f404f86f77090fa9edc96ce}{r}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{printk__ringbuffer_8c_af83924034309db0641c07fa579725efd}{prb\+\_\+read\+\_\+valid\+\_\+info}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{rds_8h_a5491778a23b754c6759b6076cf2632c0}{seq}}, struct \mbox{\hyperlink{structprintk__info}{printk\+\_\+info}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a69141c586c5c237bebfe0733db6d740e}{info}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$line\+\_\+count)
+\item 
+\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{printk__ringbuffer_8c_a76ccc162e424091423a0942f53ffb89e}{prb\+\_\+first\+\_\+valid\+\_\+seq}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb)
+\item 
+\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{printk__ringbuffer_8c_a8863a05e8b8ed57a98011dc0afab2991}{prb\+\_\+next\+\_\+seq}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb)
+\item 
+void \mbox{\hyperlink{printk__ringbuffer_8c_a79d6e167cfdf4dbbe55e8877d00b5bfa}{prb\+\_\+init}} (struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$rb, char $\ast$text\+\_\+buf, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} textbits, struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$descs, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} descbits, struct \mbox{\hyperlink{structprintk__info}{printk\+\_\+info}} $\ast$infos)
+\item 
+unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{printk__ringbuffer_8c_a9161680e2c8242ad384250edf34031d2}{prb\+\_\+record\+\_\+text\+\_\+space}} (struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$e)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{printk__ringbuffer_8c_af02ab66a3a424d71de6f133a3fca1e1d}\label{printk__ringbuffer_8c_af02ab66a3a424d71de6f133a3fca1e1d}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!BLK\_DATALESS@{BLK\_DATALESS}}
+\index{BLK\_DATALESS@{BLK\_DATALESS}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{BLK\_DATALESS}{BLK\_DATALESS}}
+{\footnotesize\ttfamily \#define B\+L\+K\+\_\+\+D\+A\+T\+A\+L\+E\+SS(\begin{DoxyParamCaption}\item[{}]{blk }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{                     (\mbox{\hyperlink{printk__ringbuffer_8c_abe772a194682fe11d84f0332309a25d3}{LPOS\_DATALESS}}((blk)-\/>\mbox{\hyperlink{acpixf_8h_a3d4bff9ebfcf510f9686ec949367b515}{begin}}) \&\& \(\backslash\)}
+\DoxyCodeLine{                     LPOS\_DATALESS((blk)-\/>\mbox{\hyperlink{bootconfig_8h_ac2ad390ae89983feef69867a9a1d627e}{next}}))}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{printk__ringbuffer_8c_a87adbab02b11151aad8c33ddf1b54a73}\label{printk__ringbuffer_8c_a87adbab02b11151aad8c33ddf1b54a73}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DATA\_INDEX@{DATA\_INDEX}}
+\index{DATA\_INDEX@{DATA\_INDEX}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DATA\_INDEX}{DATA\_INDEX}}
+{\footnotesize\ttfamily \#define D\+A\+T\+A\+\_\+\+I\+N\+D\+EX(\begin{DoxyParamCaption}\item[{}]{data\+\_\+ring,  }\item[{}]{lpos }\end{DoxyParamCaption})~((lpos) \& \mbox{\hyperlink{printk__ringbuffer_8c_a885bd8f7941a28f204427c2e22db434b}{D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+A\+SK}}(data\+\_\+ring))}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_a84c3f1d132bec8dc23e55774599fab0a}\label{printk__ringbuffer_8c_a84c3f1d132bec8dc23e55774599fab0a}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DATA\_SIZE@{DATA\_SIZE}}
+\index{DATA\_SIZE@{DATA\_SIZE}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DATA\_SIZE}{DATA\_SIZE}}
+{\footnotesize\ttfamily \#define D\+A\+T\+A\+\_\+\+S\+I\+ZE(\begin{DoxyParamCaption}\item[{}]{data\+\_\+ring }\end{DoxyParamCaption})~\mbox{\hyperlink{printk__ringbuffer_8h_a6650caedce8c8e839024fc224dffbb63}{\+\_\+\+D\+A\+T\+A\+\_\+\+S\+I\+ZE}}((data\+\_\+ring)-\/$>$size\+\_\+bits)}
+
+D\+OC\+: \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} overview\hypertarget{printk__ringbuffer_8c_autotoc_md0}{}\doxysubsubsection{Data Structure}\label{printk__ringbuffer_8c_autotoc_md0}
+\mbox{\hyperlink{classThe}{The}} \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} is made up of 3 internal ringbuffers\+:
+
+desc\+\_\+ring A ring of descriptors and their meta data (such as sequence number, timestamp, loglevel, etc.) as well as internal state information about the record and logical positions specifying where in the other ringbuffer the text strings are located.
+
+text\+\_\+data\+\_\+ring A ring of data blocks. A data block consists of an unsigned long integer (ID) that maps to a desc\+\_\+ring index followed by the text string of the record.
+
+\mbox{\hyperlink{classThe}{The}} internal state information of a descriptor is the key element to allow readers and writers to locklessly synchronize access to the data.\hypertarget{printk__ringbuffer_8c_autotoc_md1}{}\doxysubsubsection{Implementation}\label{printk__ringbuffer_8c_autotoc_md1}
+Descriptor Ring $\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$ \mbox{\hyperlink{classThe}{The}} descriptor ring is an array of descriptors. A descriptor \mbox{\hyperlink{protocolcontains-p}{contains}} essential meta data to track the data of a printk record using blk\+\_\+lpos structs pointing to associated text data blocks (see \char`\"{}\+Data Rings\char`\"{} below). Each descriptor is assigned an ID that maps directly to index values of the descriptor array and has a state. \mbox{\hyperlink{classThe}{The}} ID and the state are bitwise combined into a single descriptor field named @state\+\_\+var, allowing ID and state to be synchronously and atomically updated.
+
+Descriptors have four states\+:
+
+reserved A writer is modifying the record.
+
+committed \mbox{\hyperlink{classThe}{The}} record and all its data are written. A writer can reopen the descriptor (transitioning it back to reserved), but in the committed state the data is consistent.
+
+finalized \mbox{\hyperlink{classThe}{The}} record and all its data are complete and available for reading. A writer cannot reopen the descriptor.
+
+reusable \mbox{\hyperlink{classThe}{The}} record exists, but its text and/or meta data may no longer be available.
+
+Querying the @state\+\_\+var of a record requires providing the ID of the descriptor to query. This can yield a possible fifth (pseudo) state\+:
+
+miss \mbox{\hyperlink{classThe}{The}} descriptor being queried has an unexpected ID.
+
+\mbox{\hyperlink{classThe}{The}} descriptor ring has a @tail\+\_\+id that \mbox{\hyperlink{protocolcontains-p}{contains}} the ID of the oldest descriptor and @head\+\_\+id that \mbox{\hyperlink{protocolcontains-p}{contains}} the ID of the newest descriptor.
+
+When a new descriptor should be created (and the ring is full), the tail descriptor is invalidated by first transitioning to the reusable state and then invalidating all tail data blocks up to and including the data blocks associated with the tail descriptor (for the text ring). Then @tail\+\_\+id is advanced, followed by advancing @head\+\_\+id. And finally the @state\+\_\+var of the new descriptor is initialized to the new ID and reserved state.
+
+\mbox{\hyperlink{classThe}{The}} @tail\+\_\+id can only be advanced if the new @tail\+\_\+id would be in the committed or reusable queried state. This makes it possible that a valid sequence number of the tail is always available.
+
+Descriptor Finalization $\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$ When a writer calls the commit function \mbox{\hyperlink{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}{prb\+\_\+commit()}}, record data is fully stored and is consistent within the ringbuffer. However, a writer can reopen that record, claiming exclusive access (as with \mbox{\hyperlink{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}{prb\+\_\+reserve()}}), and modify that record. When finished, the writer must again commit the record.
+
+In order for a record to be made available to readers (and also become recyclable for writers), it must be finalized. A finalized record cannot be reopened and can never become \char`\"{}unfinalized\char`\"{}. Record finalization can occur in three different scenarios\+:
+
+1) A writer can simultaneously commit and finalize its record by calling \mbox{\hyperlink{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}{prb\+\_\+final\+\_\+commit()}} instead of \mbox{\hyperlink{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}{prb\+\_\+commit()}}.
+
+2) When a new record is reserved and the previous record has been committed via \mbox{\hyperlink{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}{prb\+\_\+commit()}}, that previous record is automatically finalized.
+
+3) When a record is committed via \mbox{\hyperlink{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}{prb\+\_\+commit()}} and a newer record already exists, the record being committed is automatically finalized.
+
+Data Ring $\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$ \mbox{\hyperlink{classThe}{The}} text data ring is a byte array composed of data blocks. Data blocks are referenced by blk\+\_\+lpos structs that point to the logical position of the beginning of a data block and the beginning of the next adjacent data block. Logical positions are mapped directly to index values of the byte array ringbuffer.
+
+Each data block consists of an ID followed by the writer data. \mbox{\hyperlink{classThe}{The}} ID is the identifier of a descriptor that is associated with the data block. A given data block is considered valid if all of the following conditions are met\+:
+
+1) \mbox{\hyperlink{classThe}{The}} descriptor associated with the data block is in the committed or finalized queried state.
+
+2) \mbox{\hyperlink{classThe}{The}} blk\+\_\+lpos struct within the descriptor associated with the data block references back to the same data block.
+
+3) \mbox{\hyperlink{classThe}{The}} data block is within the head/tail logical position range.
+
+If the writer data of a data block would extend beyond the end of the byte array, only the ID of the data block is stored at the logical position and the full data block (ID and writer data) is stored at the beginning of the byte array. \mbox{\hyperlink{classThe}{The}} referencing blk\+\_\+lpos will point to the ID before the wrap and the next data block will be at the logical position adjacent the full data block after the wrap.
+
+Data rings have a @tail\+\_\+lpos that points to the beginning of the oldest data block and a @head\+\_\+lpos that points to the logical position of the next (not yet existing) data block.
+
+When a new data block should be created (and the ring is full), tail data blocks will first be invalidated by putting their associated descriptors into the reusable state and then pushing the @tail\+\_\+lpos forward beyond them. Then the @head\+\_\+lpos is pushed forward and is associated with a new descriptor. If a data block is not valid, the @tail\+\_\+lpos cannot be advanced beyond it.
+
+Info Array 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\mbox{\hyperlink{classThe}{The}} general \mbox{\hyperlink{task__iter_8c_a0a46b98a8e62b63c4c873fd452518426}{meta}} \mbox{\hyperlink{drm__edid_8h_a0f11fc08c1ec2c8146ddd0d5b8fe8355}{data}} of \mbox{\hyperlink{linux_2printk_8h_ac002b290a55c356b2b46a7be61a791d4}{printk}} \mbox{\hyperlink{pldmfw__private_8h_a9bffdc196a25b6f7d627f66da2bd9306}{records}} are stored \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}} \mbox{\hyperlink{structprintk__info}{printk\_info}} structs,}
+\DoxyCodeLine{stored \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}} an \mbox{\hyperlink{uapi_2sound_2asoc_8h_a001b5162139f380c6bf1a66cc014465a}{array}} with the same \mbox{\hyperlink{net_2gtp_8h_a855f8e7a34a5ab2adc8bda3cb69c0780}{number}} of elements as the \mbox{\hyperlink{compress__offload_8h_a69e1b1d77484877c2d56c03d17787e65}{descriptor}} ring.}
+\DoxyCodeLine{Each \mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}} corresponds to the \mbox{\hyperlink{compress__offload_8h_a69e1b1d77484877c2d56c03d17787e65}{descriptor}} of the same \mbox{\hyperlink{kvm_2svm_2pmu_8c_a6053293001e6dbdc266facbd3024c21d}{index}} \mbox{\hyperlink{net_2netfilter_2nf__log_8h_a33505587a5d1d1e343a2c6c363f15457}{in}} the}
+\DoxyCodeLine{\mbox{\hyperlink{compress__offload_8h_a69e1b1d77484877c2d56c03d17787e65}{descriptor}} ring. Info validity is confirmed \mbox{\hyperlink{ceph__fs_8h_a42f160124dc7c8ffe0855479c2ba329d}{by}} evaluating the corresponding}
+\DoxyCodeLine{\mbox{\hyperlink{compress__offload_8h_a69e1b1d77484877c2d56c03d17787e65}{descriptor}} \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} and \mbox{\hyperlink{net_2tcp_8h_a97085ea281274f663bb1d74f438b47e0}{after}} loading the \mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}.}
+\DoxyCodeLine{}
+\DoxyCodeLine{Usage}
+\DoxyCodeLine{-\/-\/-\/-\/-\/}
+\DoxyCodeLine{Here are some simple examples demonstrating writers and readers. For the}
+\DoxyCodeLine{examples a global ringbuffer (test\_rb) is available (which is not the}
+\DoxyCodeLine{actual ringbuffer \mbox{\hyperlink{kernel_2kcsan_2debugfs_8c_a5810b6407672b8e7aeba609b4bb649de}{used}} \mbox{\hyperlink{ceph__fs_8h_a42f160124dc7c8ffe0855479c2ba329d}{by}} \mbox{\hyperlink{linux_2printk_8h_ac002b290a55c356b2b46a7be61a791d4}{printk}})::}
+\DoxyCodeLine{}
+\DoxyCodeLine{ \mbox{\hyperlink{printk__ringbuffer_8h_aa4f3d9309bdb8c878a929aef621a75e7}{DEFINE\_PRINTKRB}}(test\_rb, 15, 5);}
+\DoxyCodeLine{}
+\DoxyCodeLine{This ringbuffer allows \mbox{\hyperlink{semaphore_8c_aaeab4c21b47a72fab1cbfc932a839370}{up}} to 32768 \mbox{\hyperlink{pldmfw__private_8h_a9bffdc196a25b6f7d627f66da2bd9306}{records}} (2 \string^ 15) and has a \mbox{\hyperlink{desc__defs_8h_a9eb13703e1b3d14d62f2666b1c09b41f}{size}} of}
+\DoxyCodeLine{1 MiB (2 \string^ (15 + 5)) \mbox{\hyperlink{decode__rs_8c_a6a9a83308832cacd2f4db86aa37bec27}{for}} text \mbox{\hyperlink{drm__edid_8h_a0f11fc08c1ec2c8146ddd0d5b8fe8355}{data}}.}
+\DoxyCodeLine{}
+\DoxyCodeLine{Sample \mbox{\hyperlink{structwriter}{writer}} \mbox{\hyperlink{structcode}{code}}::}
+\DoxyCodeLine{}
+\DoxyCodeLine{ const \textcolor{keywordtype}{char} *textstr = "\mbox{\hyperlink{initramfs_8c_a3953fbb8d2789b22277e9a551efe441f}{message}} text";}
+\DoxyCodeLine{ struct \mbox{\hyperlink{structprb__reserved__entry}{prb\_reserved\_entry}} e;}
+\DoxyCodeLine{ struct \mbox{\hyperlink{structprintk__record}{printk\_record}} \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}};}
+\DoxyCodeLine{}
+\DoxyCodeLine{ \textcolor{comment}{// specify how much to allocate}}
+\DoxyCodeLine{ \mbox{\hyperlink{printk__ringbuffer_8h_a8082f7a0e985dadf4c33d62919c2cfab}{prb\_rec\_init\_wr}}(\&\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}, \mbox{\hyperlink{boot_2boot_8h_aa383452fe445bfae989358c9d7d96f4f}{strlen}}(textstr) + 1);}
+\DoxyCodeLine{}
+\DoxyCodeLine{ \mbox{\hyperlink{task__iter_8c_aa517e0b6a194c059f7d3d87a65679b6d}{if}} (\mbox{\hyperlink{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}{prb\_reserve}}(\&e, \&test\_rb, \&\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}})) \{}
+\DoxyCodeLine{    \mbox{\hyperlink{vsprintf_8c_aed3a44ce00b8d92f93e8a34e7b9dbf54}{snprintf}}(\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.text\_buf, \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.text\_buf\_size, \textcolor{stringliteral}{"\%s"}, textstr);}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>text\_len = \mbox{\hyperlink{boot_2boot_8h_aa383452fe445bfae989358c9d7d96f4f}{strlen}}(textstr);}
+\DoxyCodeLine{    \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>ts\_nsec = \mbox{\hyperlink{clock_8h_adc4a4f16381e122da46e7f28b3d8ac15}{local\_clock}}();}
+\DoxyCodeLine{    \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>caller\_id = printk\_caller\_id();}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \textcolor{comment}{// commit and finalize the record}}
+\DoxyCodeLine{    \mbox{\hyperlink{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}{prb\_final\_commit}}(\&e);}
+\DoxyCodeLine{ \}}
+\DoxyCodeLine{}
+\DoxyCodeLine{Note that additional \mbox{\hyperlink{structwriter}{writer}} functions are available to extend a record}
+\DoxyCodeLine{\mbox{\hyperlink{net_2tcp_8h_a97085ea281274f663bb1d74f438b47e0}{after}} it has been committed but not yet finalized. This can be \mbox{\hyperlink{nvme-fc-driver_8h_a5dce516024e448778bb4acfa78e085dd}{done}} as}
+\DoxyCodeLine{\textcolor{keywordtype}{long} as no \textcolor{keyword}{new} \mbox{\hyperlink{pldmfw__private_8h_a9bffdc196a25b6f7d627f66da2bd9306}{records}} have been \mbox{\hyperlink{memory-failure_8c_a6119e2b7a1d60ee775526a7386af84f2}{reserved}} and the caller is the same.}
+\DoxyCodeLine{}
+\DoxyCodeLine{Sample \mbox{\hyperlink{structwriter}{writer}} \mbox{\hyperlink{drm__edid_8h_aaeff099dc2be2401eb419d8a546e8334}{code}} (record extending)::}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \textcolor{comment}{// alternate rest of previous example}}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.\mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}-\/>text\_len = \mbox{\hyperlink{boot_2boot_8h_aa383452fe445bfae989358c9d7d96f4f}{strlen}}(textstr);}
+\DoxyCodeLine{    \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>ts\_nsec = \mbox{\hyperlink{clock_8h_adc4a4f16381e122da46e7f28b3d8ac15}{local\_clock}}();}
+\DoxyCodeLine{    \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>caller\_id = printk\_caller\_id();}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \textcolor{comment}{// commit the record (but do not finalize yet)}}
+\DoxyCodeLine{    \mbox{\hyperlink{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}{prb\_commit}}(\&e);}
+\DoxyCodeLine{ \}}
+\DoxyCodeLine{}
+\DoxyCodeLine{ ...}
+\DoxyCodeLine{}
+\DoxyCodeLine{ \textcolor{comment}{// specify additional 5 bytes text space to extend}}
+\DoxyCodeLine{ \mbox{\hyperlink{printk__ringbuffer_8h_a8082f7a0e985dadf4c33d62919c2cfab}{prb\_rec\_init\_wr}}(\&\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}, 5);}
+\DoxyCodeLine{}
+\DoxyCodeLine{ \textcolor{comment}{// try to extend, but only if it does not exceed 32 bytes}}
+\DoxyCodeLine{ \textcolor{keywordflow}{if} (\mbox{\hyperlink{printk__ringbuffer_8c_a36e8f4926929d7ae859565fe1ea0385c}{prb\_reserve\_in\_last}}(\&e, \&test\_rb, \&\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}, printk\_caller\_id()), 32) \{}
+\DoxyCodeLine{    \mbox{\hyperlink{vsprintf_8c_aed3a44ce00b8d92f93e8a34e7b9dbf54}{snprintf}}(\&\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.text\_buf[\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>text\_len],}
+\DoxyCodeLine{         \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.text\_buf\_size -\/ \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>text\_len, \textcolor{stringliteral}{"hello"});}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.info-\/>text\_len += 5;}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \textcolor{comment}{// commit and finalize the record}}
+\DoxyCodeLine{    \mbox{\hyperlink{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}{prb\_final\_commit}}(\&e);}
+\DoxyCodeLine{ \}}
+\DoxyCodeLine{}
+\DoxyCodeLine{Sample reader code::}
+\DoxyCodeLine{}
+\DoxyCodeLine{ struct \mbox{\hyperlink{structprintk__info}{printk\_info}} \mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}};}
+\DoxyCodeLine{ \textcolor{keyword}{struct }\mbox{\hyperlink{structprintk__record}{printk\_record}} \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}};}
+\DoxyCodeLine{ \textcolor{keywordtype}{char} \mbox{\hyperlink{structprintk__record_a782d87b0ffd2850023e5d4671c5e78e8}{text\_buf}}[32];}
+\DoxyCodeLine{ \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{task__iter_8c_a5491778a23b754c6759b6076cf2632c0}{seq}};}
+\DoxyCodeLine{}
+\DoxyCodeLine{ \mbox{\hyperlink{printk__ringbuffer_8h_ac66fffa08be0c8da4f805cc532926ef4}{prb\_rec\_init\_rd}}(\&\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}, \&\mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}, \&\mbox{\hyperlink{structprintk__record_a782d87b0ffd2850023e5d4671c5e78e8}{text\_buf}}[0], \textcolor{keyword}{sizeof}(\mbox{\hyperlink{structprintk__record_a782d87b0ffd2850023e5d4671c5e78e8}{text\_buf}}));}
+\DoxyCodeLine{}
+\DoxyCodeLine{ \mbox{\hyperlink{printk__ringbuffer_8h_a2b331f0b401519a2789f98da8ca5b887}{prb\_for\_each\_record}}(0, \&test\_rb, \&\mbox{\hyperlink{task__iter_8c_a5491778a23b754c6759b6076cf2632c0}{seq}}, \&\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}) \{}
+\DoxyCodeLine{    \textcolor{keywordflow}{if} (\mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}.seq != \mbox{\hyperlink{task__iter_8c_a5491778a23b754c6759b6076cf2632c0}{seq}})}
+\DoxyCodeLine{        \mbox{\hyperlink{linux_2printk_8h_a38e2406dd2d2aa570c3d228c1e326f20}{pr\_warn}}(\textcolor{stringliteral}{"lost \%llu records\(\backslash\)n"}, \mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}.seq -\/ \mbox{\hyperlink{task__iter_8c_a5491778a23b754c6759b6076cf2632c0}{seq}});}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \textcolor{keywordflow}{if} (\mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}.text\_len > \mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.text\_buf\_size) \{}
+\DoxyCodeLine{        \mbox{\hyperlink{linux_2printk_8h_a38e2406dd2d2aa570c3d228c1e326f20}{pr\_warn}}(\textcolor{stringliteral}{"record \%llu text truncated\(\backslash\)n"}, \mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}.seq);}
+\DoxyCodeLine{        \mbox{\hyperlink{structprintk__record_a782d87b0ffd2850023e5d4671c5e78e8}{text\_buf}}[\mbox{\hyperlink{iscsi__if_8h_a8c552fe0d7ccd7612d9344ab91877e76}{r}}.text\_buf\_size -\/ 1] = 0;}
+\DoxyCodeLine{    \}}
+\DoxyCodeLine{}
+\DoxyCodeLine{    \mbox{\hyperlink{genl__magic__func_8h_a76ebf98e05f78e90288d56fb4caf1280}{pr\_info}}(\textcolor{stringliteral}{"\%llu: \%llu: \%s\(\backslash\)n"}, \mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}.seq, \mbox{\hyperlink{lsm__hook__defs_8h_ae47005d53662f369a044c170b50802a2}{info}}.ts\_nsec,}
+\DoxyCodeLine{        \&\mbox{\hyperlink{structprintk__record_a782d87b0ffd2850023e5d4671c5e78e8}{text\_buf}}[0]);}
+\DoxyCodeLine{ \}}
+\DoxyCodeLine{}
+\DoxyCodeLine{Note that additional less convenient reader functions are available to}
+\DoxyCodeLine{allow complex record \mbox{\hyperlink{uapi_2sound_2asoc_8h_acf2364cb4688929a0346dbf1823ef2de}{access}}.}
+\DoxyCodeLine{}
+\DoxyCodeLine{ABA Issues}
+\end{DoxyCode}
+
+
+To help avoid A\+BA issues, descriptors are referenced by I\+Ds (array index values combined with tagged bits counting array wraps) and data blocks are referenced by logical positions (array index values combined with tagged bits counting array wraps). However, on 32-\/bit systems the number of tagged bits is relatively small such that an A\+BA incident is (at least theoretically) possible. For example, if 4 million maximally sized (1KiB) printk messages were to occur in N\+MI context on a 32-\/bit system, the interrupted context would not be able to recognize that the 32-\/bit integer completely wrapped and thus represents a different data block than the one the interrupted context expects.
+
+To help combat this possibility, additional state checking is performed (such as using \mbox{\hyperlink{atomic-instrumented_8h_aefeee2b751896b544fc0a2f032b0d3c4}{cmpxchg()}} even though \mbox{\hyperlink{nl80211_8h_aa32dc92d0a8e963b0834f4f6a0f97b18}{set()}} would suffice). These extra checks are commented as such and will hopefully catch any A\+BA issue that a 32-\/bit system might experience.
+
+Memory Barriers $\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$$\sim$ Multiple memory barriers are used. To simplify proving correctness and generating litmus tests, lines of code related to memory barriers (loads, stores, and the associated memory barriers) are labeled\+:\+:
+
+L\+M\+M(function\+:letter)
+
+Comments reference the labels using only the \char`\"{}function\+:letter\char`\"{} part.
+
+\mbox{\hyperlink{classThe}{The}} memory barrier pairs and their ordering are\+:
+
+desc\+\_\+reserve\+:D / desc\+\_\+reserve\+:B push descriptor tail (id), then push descriptor head (id)
+
+desc\+\_\+reserve\+:D / data\+\_\+push\+\_\+tail\+:B push data tail (lpos), then set new descriptor reserved (state)
+
+desc\+\_\+reserve\+:D / desc\+\_\+push\+\_\+tail\+:C push descriptor tail (id), then set new descriptor reserved (state)
+
+desc\+\_\+reserve\+:D / prb\+\_\+first\+\_\+seq\+:C push descriptor tail (id), then set new descriptor reserved (state)
+
+desc\+\_\+reserve\+:F / desc\+\_\+read\+:D set new descriptor id and reserved (state), then allow writer changes
+
+data\+\_\+alloc\+:A (or data\+\_\+realloc\+:A) / desc\+\_\+read\+:D set old descriptor reusable (state), then modify new data block area
+
+data\+\_\+alloc\+:A (or data\+\_\+realloc\+:A) / data\+\_\+push\+\_\+tail\+:B push data tail (lpos), then modify new data block area
+
+\+\_\+prb\+\_\+commit\+:B / desc\+\_\+read\+:B store writer changes, then set new descriptor committed (state)
+
+desc\+\_\+reopen\+\_\+last\+:A / \+\_\+prb\+\_\+commit\+:B set descriptor reserved (state), then read descriptor data
+
+\+\_\+prb\+\_\+commit\+:B / desc\+\_\+reserve\+:D set new descriptor committed (state), then check descriptor head (id)
+
+data\+\_\+push\+\_\+tail\+:D / data\+\_\+push\+\_\+tail\+:A set descriptor reusable (state), then push data tail (lpos)
+
+desc\+\_\+push\+\_\+tail\+:B / desc\+\_\+reserve\+:D set descriptor reusable (state), then push descriptor tail (id) \mbox{\Hypertarget{printk__ringbuffer_8c_a885bd8f7941a28f204427c2e22db434b}\label{printk__ringbuffer_8c_a885bd8f7941a28f204427c2e22db434b}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DATA\_SIZE\_MASK@{DATA\_SIZE\_MASK}}
+\index{DATA\_SIZE\_MASK@{DATA\_SIZE\_MASK}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DATA\_SIZE\_MASK}{DATA\_SIZE\_MASK}}
+{\footnotesize\ttfamily \#define D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+A\+SK(\begin{DoxyParamCaption}\item[{}]{data\+\_\+ring }\end{DoxyParamCaption})~(\mbox{\hyperlink{printk__ringbuffer_8c_a84c3f1d132bec8dc23e55774599fab0a}{D\+A\+T\+A\+\_\+\+S\+I\+ZE}}(data\+\_\+ring) -\/ 1)}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_a8ecfdde4f86a2242fa7a22ec721025c9}\label{printk__ringbuffer_8c_a8ecfdde4f86a2242fa7a22ec721025c9}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DATA\_THIS\_WRAP\_START\_LPOS@{DATA\_THIS\_WRAP\_START\_LPOS}}
+\index{DATA\_THIS\_WRAP\_START\_LPOS@{DATA\_THIS\_WRAP\_START\_LPOS}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DATA\_THIS\_WRAP\_START\_LPOS}{DATA\_THIS\_WRAP\_START\_LPOS}}
+{\footnotesize\ttfamily \#define D\+A\+T\+A\+\_\+\+T\+H\+I\+S\+\_\+\+W\+R\+A\+P\+\_\+\+S\+T\+A\+R\+T\+\_\+\+L\+P\+OS(\begin{DoxyParamCaption}\item[{}]{data\+\_\+ring,  }\item[{}]{lpos }\end{DoxyParamCaption})~((lpos) \& $\sim$\mbox{\hyperlink{printk__ringbuffer_8c_a885bd8f7941a28f204427c2e22db434b}{D\+A\+T\+A\+\_\+\+S\+I\+Z\+E\+\_\+\+M\+A\+SK}}(data\+\_\+ring))}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_a568194bf32e459175d656bc2da4ef9d4}\label{printk__ringbuffer_8c_a568194bf32e459175d656bc2da4ef9d4}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DATA\_WRAPS@{DATA\_WRAPS}}
+\index{DATA\_WRAPS@{DATA\_WRAPS}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DATA\_WRAPS}{DATA\_WRAPS}}
+{\footnotesize\ttfamily \#define D\+A\+T\+A\+\_\+\+W\+R\+A\+PS(\begin{DoxyParamCaption}\item[{}]{data\+\_\+ring,  }\item[{}]{lpos }\end{DoxyParamCaption})~((lpos) $>$$>$ (data\+\_\+ring)-\/$>$size\+\_\+bits)}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_a74def23f99dc53cc8909e110ecf33b30}\label{printk__ringbuffer_8c_a74def23f99dc53cc8909e110ecf33b30}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DESC\_ID\_PREV\_WRAP@{DESC\_ID\_PREV\_WRAP}}
+\index{DESC\_ID\_PREV\_WRAP@{DESC\_ID\_PREV\_WRAP}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DESC\_ID\_PREV\_WRAP}{DESC\_ID\_PREV\_WRAP}}
+{\footnotesize\ttfamily \#define D\+E\+S\+C\+\_\+\+I\+D\+\_\+\+P\+R\+E\+V\+\_\+\+W\+R\+AP(\begin{DoxyParamCaption}\item[{}]{desc\+\_\+ring,  }\item[{}]{\mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}} }\end{DoxyParamCaption})~\mbox{\hyperlink{printk__ringbuffer_8h_ad9fa26a886cc2f7b0ce7ff39cd7a59bd}{D\+E\+S\+C\+\_\+\+ID}}((\mbox{\hyperlink{pldmfw__private_8h_a9e6a359911a8b071c971fc8c53eaacb6}{id}}) -\/ \mbox{\hyperlink{printk__ringbuffer_8c_a1d1d3584e10c769afa2bd4c542da696d}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT}}(desc\+\_\+ring))}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_ab390bfbde105b9f93319fb8846652e91}\label{printk__ringbuffer_8c_ab390bfbde105b9f93319fb8846652e91}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DESC\_INDEX@{DESC\_INDEX}}
+\index{DESC\_INDEX@{DESC\_INDEX}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DESC\_INDEX}{DESC\_INDEX}}
+{\footnotesize\ttfamily \#define D\+E\+S\+C\+\_\+\+I\+N\+D\+EX(\begin{DoxyParamCaption}\item[{}]{desc\+\_\+ring,  }\item[{}]{n }\end{DoxyParamCaption})~((n) \& \mbox{\hyperlink{printk__ringbuffer_8c_acf1d8e77d3802c2c6eb3dd5a2a8dbd31}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+N\+T\+\_\+\+M\+A\+SK}}(desc\+\_\+ring))}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_a1d1d3584e10c769afa2bd4c542da696d}\label{printk__ringbuffer_8c_a1d1d3584e10c769afa2bd4c542da696d}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DESCS\_COUNT@{DESCS\_COUNT}}
+\index{DESCS\_COUNT@{DESCS\_COUNT}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DESCS\_COUNT}{DESCS\_COUNT}}
+{\footnotesize\ttfamily \#define D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT(\begin{DoxyParamCaption}\item[{}]{desc\+\_\+ring }\end{DoxyParamCaption})~\mbox{\hyperlink{printk__ringbuffer_8h_a1da6515a9ba571e5d7837dd4184ba6b9}{\+\_\+\+D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT}}((desc\+\_\+ring)-\/$>$count\+\_\+bits)}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_acf1d8e77d3802c2c6eb3dd5a2a8dbd31}\label{printk__ringbuffer_8c_acf1d8e77d3802c2c6eb3dd5a2a8dbd31}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!DESCS\_COUNT\_MASK@{DESCS\_COUNT\_MASK}}
+\index{DESCS\_COUNT\_MASK@{DESCS\_COUNT\_MASK}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{DESCS\_COUNT\_MASK}{DESCS\_COUNT\_MASK}}
+{\footnotesize\ttfamily \#define D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+N\+T\+\_\+\+M\+A\+SK(\begin{DoxyParamCaption}\item[{}]{desc\+\_\+ring }\end{DoxyParamCaption})~(\mbox{\hyperlink{printk__ringbuffer_8c_a1d1d3584e10c769afa2bd4c542da696d}{D\+E\+S\+C\+S\+\_\+\+C\+O\+U\+NT}}(desc\+\_\+ring) -\/ 1)}
+
+\mbox{\Hypertarget{printk__ringbuffer_8c_abe772a194682fe11d84f0332309a25d3}\label{printk__ringbuffer_8c_abe772a194682fe11d84f0332309a25d3}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!LPOS\_DATALESS@{LPOS\_DATALESS}}
+\index{LPOS\_DATALESS@{LPOS\_DATALESS}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{LPOS\_DATALESS}{LPOS\_DATALESS}}
+{\footnotesize\ttfamily \#define L\+P\+O\+S\+\_\+\+D\+A\+T\+A\+L\+E\+SS(\begin{DoxyParamCaption}\item[{}]{lpos }\end{DoxyParamCaption})~((lpos) \& 1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}})}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{printk__ringbuffer_8c_af7a31eea6ece9bc627fa5d454b4ad95d}\label{printk__ringbuffer_8c_af7a31eea6ece9bc627fa5d454b4ad95d}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!\_prb\_commit@{\_prb\_commit}}
+\index{\_prb\_commit@{\_prb\_commit}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{\_prb\_commit()}{\_prb\_commit()}}
+{\footnotesize\ttfamily static void \+\_\+prb\+\_\+commit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$}]{e,  }\item[{unsigned long}]{state\+\_\+val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{printk__ringbuffer_8c_a4398fe9fcff9571c9fe503cf7b7dbb15}\label{printk__ringbuffer_8c_a4398fe9fcff9571c9fe503cf7b7dbb15}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!\_prb\_read\_valid@{\_prb\_read\_valid}}
+\index{\_prb\_read\_valid@{\_prb\_read\_valid}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{\_prb\_read\_valid()}{\_prb\_read\_valid()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \+\_\+prb\+\_\+read\+\_\+valid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{seq,  }\item[{struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$}]{r,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{line\+\_\+count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{printk__ringbuffer_8c_a8b7980dc152b53c3d178626e39dc2372}\label{printk__ringbuffer_8c_a8b7980dc152b53c3d178626e39dc2372}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!copy\_data@{copy\_data}}
+\index{copy\_data@{copy\_data}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{copy\_data()}{copy\_data()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} copy\+\_\+data (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$}]{data\+\_\+ring,  }\item[{struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$}]{blk\+\_\+lpos,  }\item[{\mbox{\hyperlink{build_8c_a9e6c91d77e24643b888dbd1a1a590054}{u16}}}]{len,  }\item[{char $\ast$}]{buf,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{buf\+\_\+size,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{line\+\_\+count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{printk__ringbuffer_8c_aa85907c14f117b0babde6df1bf7ce462}\label{printk__ringbuffer_8c_aa85907c14f117b0babde6df1bf7ce462}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!count\_lines@{count\_lines}}
+\index{count\_lines@{count\_lines}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{count\_lines()}{count\_lines()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} count\+\_\+lines (\begin{DoxyParamCaption}\item[{const char $\ast$}]{text,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{text\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{printk__ringbuffer_8c_aeaed20657298dc9533dec988ef66b9fc}\label{printk__ringbuffer_8c_aeaed20657298dc9533dec988ef66b9fc}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!data\_alloc@{data\_alloc}}
+\index{data\_alloc@{data\_alloc}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{data\_alloc()}{data\_alloc()}}
+{\footnotesize\ttfamily static char$\ast$ data\+\_\+alloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$}]{blk\+\_\+lpos,  }\item[{unsigned long}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{printk__ringbuffer_8c_a91b667612a72d2d7796bf8f137e3dacf}\label{printk__ringbuffer_8c_a91b667612a72d2d7796bf8f137e3dacf}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!data\_check\_size@{data\_check\_size}}
+\index{data\_check\_size@{data\_check\_size}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{data\_check\_size()}{data\_check\_size()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} data\+\_\+check\+\_\+size (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$}]{data\+\_\+ring,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{printk__ringbuffer_8c_acf14cb4fcbc2d78805e3800a49b2e62c}\label{printk__ringbuffer_8c_acf14cb4fcbc2d78805e3800a49b2e62c}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!data\_make\_reusable@{data\_make\_reusable}}
+\index{data\_make\_reusable@{data\_make\_reusable}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{data\_make\_reusable()}{data\_make\_reusable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} data\+\_\+make\+\_\+reusable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{unsigned long}]{lpos\+\_\+begin,  }\item[{unsigned long}]{lpos\+\_\+end,  }\item[{unsigned long $\ast$}]{lpos\+\_\+out }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{printk__ringbuffer_8c_a70c2602fa7bd968e01969b79f4abf52b}\label{printk__ringbuffer_8c_a70c2602fa7bd968e01969b79f4abf52b}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!data\_push\_tail@{data\_push\_tail}}
+\index{data\_push\_tail@{data\_push\_tail}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{data\_push\_tail()}{data\_push\_tail()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} data\+\_\+push\+\_\+tail (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{unsigned long}]{lpos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{printk__ringbuffer_8c_a325a067656802279467c4cea6665a563}\label{printk__ringbuffer_8c_a325a067656802279467c4cea6665a563}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!data\_realloc@{data\_realloc}}
+\index{data\_realloc@{data\_realloc}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{data\_realloc()}{data\_realloc()}}
+{\footnotesize\ttfamily static char$\ast$ data\+\_\+realloc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size,  }\item[{struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$}]{blk\+\_\+lpos,  }\item[{unsigned long}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{printk__ringbuffer_8c_a8cf928679eb96feb9933ba07d7499899}\label{printk__ringbuffer_8c_a8cf928679eb96feb9933ba07d7499899}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!desc\_make\_final@{desc\_make\_final}}
+\index{desc\_make\_final@{desc\_make\_final}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{desc\_make\_final()}{desc\_make\_final()}}
+{\footnotesize\ttfamily static void desc\+\_\+make\+\_\+final (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$}]{desc\+\_\+ring,  }\item[{unsigned long}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{printk__ringbuffer_8c_aaaf7d2f5fb28c8fbccc91489cd0140c3}\label{printk__ringbuffer_8c_aaaf7d2f5fb28c8fbccc91489cd0140c3}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!desc\_make\_reusable@{desc\_make\_reusable}}
+\index{desc\_make\_reusable@{desc\_make\_reusable}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{desc\_make\_reusable()}{desc\_make\_reusable()}}
+{\footnotesize\ttfamily static void desc\+\_\+make\+\_\+reusable (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$}]{desc\+\_\+ring,  }\item[{unsigned long}]{id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+Here is the caller graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{printk__ringbuffer_8c_a3494f100f65be1d1644d435e18980825}\label{printk__ringbuffer_8c_a3494f100f65be1d1644d435e18980825}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!desc\_push\_tail@{desc\_push\_tail}}
+\index{desc\_push\_tail@{desc\_push\_tail}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{desc\_push\_tail()}{desc\_push\_tail()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} desc\+\_\+push\+\_\+tail (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{unsigned long}]{tail\+\_\+id }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{printk__ringbuffer_8c_a84f7f4ea700a9ed6cd0f9a4d4fa062bc}\label{printk__ringbuffer_8c_a84f7f4ea700a9ed6cd0f9a4d4fa062bc}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!desc\_read@{desc\_read}}
+\index{desc\_read@{desc\_read}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{desc\_read()}{desc\_read()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{printk__ringbuffer_8h_a2da036e7de79d773f1f5ed09a72844a2}{desc\+\_\+state}} desc\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$}]{desc\+\_\+ring,  }\item[{unsigned long}]{id,  }\item[{struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$}]{desc\+\_\+out,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} $\ast$}]{seq\+\_\+out,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} $\ast$}]{caller\+\_\+id\+\_\+out }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{printk__ringbuffer_8c_a9e6c907f5979dc9a77864c4f08b18049}\label{printk__ringbuffer_8c_a9e6c907f5979dc9a77864c4f08b18049}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!desc\_read\_finalized\_seq@{desc\_read\_finalized\_seq}}
+\index{desc\_read\_finalized\_seq@{desc\_read\_finalized\_seq}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{desc\_read\_finalized\_seq()}{desc\_read\_finalized\_seq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} desc\+\_\+read\+\_\+finalized\+\_\+seq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$}]{desc\+\_\+ring,  }\item[{unsigned long}]{id,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{seq,  }\item[{struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$}]{desc\+\_\+out }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{printk__ringbuffer_8c_a7b1f8699f6630a757803c0428a7f1aac}\label{printk__ringbuffer_8c_a7b1f8699f6630a757803c0428a7f1aac}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!desc\_reopen\_last@{desc\_reopen\_last}}
+\index{desc\_reopen\_last@{desc\_reopen\_last}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{desc\_reopen\_last()}{desc\_reopen\_last()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}}$\ast$ desc\+\_\+reopen\+\_\+last (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$}]{desc\+\_\+ring,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{caller\+\_\+id,  }\item[{unsigned long $\ast$}]{id\+\_\+out }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{printk__ringbuffer_8c_a9988a4feb27e1ecc87ec6538d4b8a425}\label{printk__ringbuffer_8c_a9988a4feb27e1ecc87ec6538d4b8a425}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!desc\_reserve@{desc\_reserve}}
+\index{desc\_reserve@{desc\_reserve}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{desc\_reserve()}{desc\_reserve()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} desc\+\_\+reserve (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{unsigned long $\ast$}]{id\+\_\+out }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{printk__ringbuffer_8c_a4ab3c25321173477e7d43e729b3c534b}\label{printk__ringbuffer_8c_a4ab3c25321173477e7d43e729b3c534b}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!get\_data@{get\_data}}
+\index{get\_data@{get\_data}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{get\_data()}{get\_data()}}
+{\footnotesize\ttfamily static const char$\ast$ get\+\_\+data (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$}]{data\+\_\+ring,  }\item[{struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$}]{blk\+\_\+lpos,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{data\+\_\+size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{printk__ringbuffer_8c_acd89929c99ca8117569068faeeef2348}\label{printk__ringbuffer_8c_acd89929c99ca8117569068faeeef2348}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!get\_desc\_state@{get\_desc\_state}}
+\index{get\_desc\_state@{get\_desc\_state}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{get\_desc\_state()}{get\_desc\_state()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{printk__ringbuffer_8h_a2da036e7de79d773f1f5ed09a72844a2}{desc\+\_\+state}} get\+\_\+desc\+\_\+state (\begin{DoxyParamCaption}\item[{unsigned long}]{id,  }\item[{unsigned long}]{state\+\_\+val }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{printk__ringbuffer_8c_adc609f29329a976a9fc6aa435fe0688c}\label{printk__ringbuffer_8c_adc609f29329a976a9fc6aa435fe0688c}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!get\_next\_lpos@{get\_next\_lpos}}
+\index{get\_next\_lpos@{get\_next\_lpos}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{get\_next\_lpos()}{get\_next\_lpos()}}
+{\footnotesize\ttfamily static unsigned long get\+\_\+next\+\_\+lpos (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$}]{data\+\_\+ring,  }\item[{unsigned long}]{lpos,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}\label{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_commit@{prb\_commit}}
+\index{prb\_commit@{prb\_commit}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_commit()}{prb\_commit()}}
+{\footnotesize\ttfamily void prb\+\_\+commit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$}]{e }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_a24a71fe053b2ac4cb56cbe91225c2a73}{prb\+\_\+commit()}} -\/ Commit (previously reserved) data to the ringbuffer.
+
+{\itshape }\+: \mbox{\hyperlink{classThe}{The}} entry containing the reserved data information.
+
+This is the public function available to writers to commit data.
+
+Note that the data is not yet available to readers until it is finalized. Finalizing happens automatically when space for the next record is reserved.
+
+See \mbox{\hyperlink{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}{prb\+\_\+final\+\_\+commit()}} for a version of this function that finalizes immediately.
+
+Context\+: Any context. Enables local interrupts. Here is the call graph for this function\+:
+% FIG 37
+Here is the caller graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}\label{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_final\_commit@{prb\_final\_commit}}
+\index{prb\_final\_commit@{prb\_final\_commit}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_final\_commit()}{prb\_final\_commit()}}
+{\footnotesize\ttfamily void prb\+\_\+final\+\_\+commit (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$}]{e }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_ac7cab836b378240fafc4aee3a61f8871}{prb\+\_\+final\+\_\+commit()}} -\/ Commit and finalize (previously reserved) data to the ringbuffer.
+
+{\itshape }\+: \mbox{\hyperlink{classThe}{The}} entry containing the reserved data information.
+
+This is the public function available to writers to commit+finalize data.
+
+By finalizing, the data is made immediately available to readers.
+
+This function should only be used if there are no intentions of extending this data using \mbox{\hyperlink{printk__ringbuffer_8c_a36e8f4926929d7ae859565fe1ea0385c}{prb\+\_\+reserve\+\_\+in\+\_\+last()}}.
+
+Context\+: Any context. Enables local interrupts. Here is the call graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{printk__ringbuffer_8c_a38ab5c96e50995baa84ff04d192a1576}\label{printk__ringbuffer_8c_a38ab5c96e50995baa84ff04d192a1576}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_first\_seq@{prb\_first\_seq}}
+\index{prb\_first\_seq@{prb\_first\_seq}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_first\_seq()}{prb\_first\_seq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} prb\+\_\+first\+\_\+seq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{printk__ringbuffer_8c_a76ccc162e424091423a0942f53ffb89e}\label{printk__ringbuffer_8c_a76ccc162e424091423a0942f53ffb89e}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_first\_valid\_seq@{prb\_first\_valid\_seq}}
+\index{prb\_first\_valid\_seq@{prb\_first\_valid\_seq}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_first\_valid\_seq()}{prb\_first\_valid\_seq()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} prb\+\_\+first\+\_\+valid\+\_\+seq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_a76ccc162e424091423a0942f53ffb89e}{prb\+\_\+first\+\_\+valid\+\_\+seq()}} -\/ Get the sequence number of the oldest available record.
+
+@rb\+: \mbox{\hyperlink{classThe}{The}} ringbuffer to get the sequence number from.
+
+This is the public function available to readers to see what the first/oldest valid sequence number is.
+
+This provides readers a starting point to begin iterating the ringbuffer.
+
+Context\+: Any context. Return\+: \mbox{\hyperlink{classThe}{The}} sequence number of the first/oldest record or, if the ringbuffer is empty, 0 is returned. Here is the call graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{printk__ringbuffer_8c_a79d6e167cfdf4dbbe55e8877d00b5bfa}\label{printk__ringbuffer_8c_a79d6e167cfdf4dbbe55e8877d00b5bfa}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_init@{prb\_init}}
+\index{prb\_init@{prb\_init}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_init()}{prb\_init()}}
+{\footnotesize\ttfamily void prb\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{char $\ast$}]{text\+\_\+buf,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{textbits,  }\item[{struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}} $\ast$}]{descs,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{descbits,  }\item[{struct \mbox{\hyperlink{structprintk__info}{printk\+\_\+info}} $\ast$}]{infos }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_a79d6e167cfdf4dbbe55e8877d00b5bfa}{prb\+\_\+init()}} -\/ Initialize a ringbuffer to use provided external buffers.
+
+@rb\+: \mbox{\hyperlink{classThe}{The}} ringbuffer to initialize. @text\+\_\+buf\+: \mbox{\hyperlink{classThe}{The}} data buffer for text data. @textbits\+: \mbox{\hyperlink{classThe}{The}} size of @text\+\_\+buf as a power-\/of-\/2 value. @descs\+: \mbox{\hyperlink{classThe}{The}} descriptor buffer for ringbuffer records. @descbits\+: \mbox{\hyperlink{classThe}{The}} count of @descs items as a power-\/of-\/2 value. @infos\+: \mbox{\hyperlink{classThe}{The}} \mbox{\hyperlink{structprintk__info}{printk\+\_\+info}} buffer for ringbuffer records.
+
+This is the public function available to writers to setup a ringbuffer during runtime using provided buffers.
+
+This must match the initialization of \mbox{\hyperlink{printk__ringbuffer_8h_aa4f3d9309bdb8c878a929aef621a75e7}{D\+E\+F\+I\+N\+E\+\_\+\+P\+R\+I\+N\+T\+K\+R\+B()}}.
+
+Context\+: Any context. Here is the call graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{printk__ringbuffer_8c_a8863a05e8b8ed57a98011dc0afab2991}\label{printk__ringbuffer_8c_a8863a05e8b8ed57a98011dc0afab2991}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_next\_seq@{prb\_next\_seq}}
+\index{prb\_next\_seq@{prb\_next\_seq}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_next\_seq()}{prb\_next\_seq()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} prb\+\_\+next\+\_\+seq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_a8863a05e8b8ed57a98011dc0afab2991}{prb\+\_\+next\+\_\+seq()}} -\/ Get the sequence number after the last available record.
+
+@rb\+: \mbox{\hyperlink{classThe}{The}} ringbuffer to get the sequence number from.
+
+This is the public function available to readers to see what the next newest sequence number available to readers will be.
+
+This provides readers a sequence number to jump to if all currently available records should be skipped.
+
+Context\+: Any context. Return\+: \mbox{\hyperlink{classThe}{The}} sequence number of the next newest (not yet available) record for readers. Here is the call graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{printk__ringbuffer_8c_a13e41925d9cbfb6ce6a0b0369acd5062}\label{printk__ringbuffer_8c_a13e41925d9cbfb6ce6a0b0369acd5062}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_read@{prb\_read}}
+\index{prb\_read@{prb\_read}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_read()}{prb\_read()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prb\+\_\+read (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{seq,  }\item[{struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$}]{r,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{line\+\_\+count }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 45
+Here is the caller graph for this function\+:
+% FIG 46
+\mbox{\Hypertarget{printk__ringbuffer_8c_a0d8cea4f6da02a40642a49af90cab535}\label{printk__ringbuffer_8c_a0d8cea4f6da02a40642a49af90cab535}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_read\_valid@{prb\_read\_valid}}
+\index{prb\_read\_valid@{prb\_read\_valid}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_read\_valid()}{prb\_read\_valid()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} prb\+\_\+read\+\_\+valid (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{seq,  }\item[{struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$}]{r }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_a0d8cea4f6da02a40642a49af90cab535}{prb\+\_\+read\+\_\+valid()}} -\/ Non-\/blocking read of a requested record or (if gone) the next available record.
+
+@rb\+: \mbox{\hyperlink{classThe}{The}} ringbuffer to read from. @seq\+: \mbox{\hyperlink{classThe}{The}} sequence number of the record to read. @r\+: A record data buffer to store the read record to.
+
+This is the public function available to readers to read a record.
+
+\mbox{\hyperlink{classThe}{The}} reader provides the @info and @text\+\_\+buf buffers of @r to be filled in. Any of the buffer pointers can be set to N\+U\+LL if the reader is not interested in that data. To ensure proper initialization of @r, \mbox{\hyperlink{printk__ringbuffer_8h_ac66fffa08be0c8da4f805cc532926ef4}{prb\+\_\+rec\+\_\+init\+\_\+rd()}} should be used.
+
+Context\+: Any context. Return\+: true if a record was read, otherwise false.
+
+On success, the reader must check r-\/$>$info.\+seq to see which record was actually read. This allows the reader to detect dropped records.
+
+Failure means @seq refers to a not yet written record. Here is the call graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{printk__ringbuffer_8c_af83924034309db0641c07fa579725efd}\label{printk__ringbuffer_8c_af83924034309db0641c07fa579725efd}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_read\_valid\_info@{prb\_read\_valid\_info}}
+\index{prb\_read\_valid\_info@{prb\_read\_valid\_info}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_read\_valid\_info()}{prb\_read\_valid\_info()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} prb\+\_\+read\+\_\+valid\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{seq,  }\item[{struct \mbox{\hyperlink{structprintk__info}{printk\+\_\+info}} $\ast$}]{info,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} $\ast$}]{line\+\_\+count }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_af83924034309db0641c07fa579725efd}{prb\+\_\+read\+\_\+valid\+\_\+info()}} -\/ Non-\/blocking read of meta data for a requested record or (if gone) the next available record.
+
+@rb\+: \mbox{\hyperlink{classThe}{The}} ringbuffer to read from. @seq\+: \mbox{\hyperlink{classThe}{The}} sequence number of the record to read. @info\+: A buffer to store the read record meta data to. @line\+\_\+count\+: A buffer to store the number of lines in the record text.
+
+This is the public function available to readers to read only the meta data of a record.
+
+\mbox{\hyperlink{classThe}{The}} reader provides the @info, @line\+\_\+count buffers to be filled in. Either of the buffer pointers can be set to N\+U\+LL if the reader is not interested in that data.
+
+Context\+: Any context. Return\+: true if a record\textquotesingle{}s meta data was read, otherwise false.
+
+On success, the reader must check info-\/$>$seq to see which record meta data was actually read. This allows the reader to detect dropped records.
+
+Failure means @seq refers to a not yet written record. Here is the call graph for this function\+:
+% FIG 48
+\mbox{\Hypertarget{printk__ringbuffer_8c_a9161680e2c8242ad384250edf34031d2}\label{printk__ringbuffer_8c_a9161680e2c8242ad384250edf34031d2}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_record\_text\_space@{prb\_record\_text\_space}}
+\index{prb\_record\_text\_space@{prb\_record\_text\_space}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_record\_text\_space()}{prb\_record\_text\_space()}}
+{\footnotesize\ttfamily unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} prb\+\_\+record\+\_\+text\+\_\+space (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$}]{e }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_a9161680e2c8242ad384250edf34031d2}{prb\+\_\+record\+\_\+text\+\_\+space()}} -\/ Query the full actual used ringbuffer space for the text data of a reserved entry.
+
+{\itshape }\+: \mbox{\hyperlink{classThe}{The}} successfully reserved entry to query.
+
+This is the public function available to writers to see how much actual space is used in the ringbuffer to store the text data of the specified entry.
+
+This function is only valid if {\itshape has} been successfully reserved using \mbox{\hyperlink{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}{prb\+\_\+reserve()}}.
+
+Context\+: Any context. Return\+: \mbox{\hyperlink{classThe}{The}} size in bytes used by the text data of the associated record. \mbox{\Hypertarget{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}\label{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_reserve@{prb\_reserve}}
+\index{prb\_reserve@{prb\_reserve}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_reserve()}{prb\_reserve()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} prb\+\_\+reserve (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$}]{e,  }\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$}]{r }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}{prb\+\_\+reserve()}} -\/ Reserve space in the ringbuffer.
+
+{\itshape }\+: \mbox{\hyperlink{classThe}{The}} entry structure to setup. @rb\+: \mbox{\hyperlink{classThe}{The}} ringbuffer to reserve data in. @r\+: \mbox{\hyperlink{classThe}{The}} record structure to allocate buffers for.
+
+This is the public function available to writers to reserve data.
+
+\mbox{\hyperlink{classThe}{The}} writer specifies the text size to reserve by setting the @text\+\_\+buf\+\_\+size field of @r. To ensure proper initialization of @r, \mbox{\hyperlink{printk__ringbuffer_8h_a8082f7a0e985dadf4c33d62919c2cfab}{prb\+\_\+rec\+\_\+init\+\_\+wr()}} should be used.
+
+Context\+: Any context. Disables local interrupts on success. Return\+: true if at least text data could be allocated, otherwise false.
+
+On success, the fields @info and @text\+\_\+buf of @r will be set by this function and should be filled in by the writer before committing. Also on success, \mbox{\hyperlink{printk__ringbuffer_8c_a9161680e2c8242ad384250edf34031d2}{prb\+\_\+record\+\_\+text\+\_\+space()}} can be used on {\itshape to} query the actual space used for the text data block.
+
+Important\+: @info-\/$>$text\+\_\+len needs to be set correctly by the writer in order for data to be readable and/or extended. Its value is initialized to 0. Here is the call graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{printk__ringbuffer_8c_a36e8f4926929d7ae859565fe1ea0385c}\label{printk__ringbuffer_8c_a36e8f4926929d7ae859565fe1ea0385c}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!prb\_reserve\_in\_last@{prb\_reserve\_in\_last}}
+\index{prb\_reserve\_in\_last@{prb\_reserve\_in\_last}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{prb\_reserve\_in\_last()}{prb\_reserve\_in\_last()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} prb\+\_\+reserve\+\_\+in\+\_\+last (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__reserved__entry}{prb\+\_\+reserved\+\_\+entry}} $\ast$}]{e,  }\item[{struct \mbox{\hyperlink{structprintk__ringbuffer}{printk\+\_\+ringbuffer}} $\ast$}]{rb,  }\item[{struct \mbox{\hyperlink{structprintk__record}{printk\+\_\+record}} $\ast$}]{r,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{caller\+\_\+id,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{max\+\_\+size }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{printk__ringbuffer_8c_a36e8f4926929d7ae859565fe1ea0385c}{prb\+\_\+reserve\+\_\+in\+\_\+last()}} -\/ Re-\/reserve and extend the space in the ringbuffer used by the newest record.
+
+{\itshape }\+: \mbox{\hyperlink{classThe}{The}} entry structure to setup. @rb\+: \mbox{\hyperlink{classThe}{The}} ringbuffer to re-\/reserve and extend data in. @r\+: \mbox{\hyperlink{classThe}{The}} record structure to allocate buffers for. @caller\+\_\+id\+: \mbox{\hyperlink{classThe}{The}} caller ID of the caller (reserving writer). @max\+\_\+size\+: Fail if the extended size would be greater than this.
+
+This is the public function available to writers to re-\/reserve and extend data.
+
+\mbox{\hyperlink{classThe}{The}} writer specifies the text size to extend (not the new total size) by setting the @text\+\_\+buf\+\_\+size field of @r. To ensure proper initialization of @r, \mbox{\hyperlink{printk__ringbuffer_8h_a8082f7a0e985dadf4c33d62919c2cfab}{prb\+\_\+rec\+\_\+init\+\_\+wr()}} should be used.
+
+This function will fail if @caller\+\_\+id does not match the caller ID of the newest record. In that case the caller must reserve new data using \mbox{\hyperlink{printk__ringbuffer_8c_adbd57bc26743bd04afbeb50d8162b423}{prb\+\_\+reserve()}}.
+
+Context\+: Any context. Disables local interrupts on success. Return\+: true if text data could be extended, otherwise false.
+
+On success\+:
+
+
+\begin{DoxyItemize}
+\item @r-\/$>$text\+\_\+buf points to the beginning of the entire text buffer.
+\item @r-\/$>$text\+\_\+buf\+\_\+size is set to the new total size of the buffer.
+\item @r-\/$>$info is not touched so that @r-\/$>$info-\/$>$text\+\_\+len could be used to append the text.
+\item \mbox{\hyperlink{printk__ringbuffer_8c_a9161680e2c8242ad384250edf34031d2}{prb\+\_\+record\+\_\+text\+\_\+space()}} can be used on {\itshape to} query the new actually used space.
+\end{DoxyItemize}
+
+Important\+: All @r-\/$>$info fields will already be set with the current values for the record. I.\+e. @r-\/$>$info-\/$>$text\+\_\+len will be less than @text\+\_\+buf\+\_\+size. Writers can use @r-\/$>$info-\/$>$text\+\_\+len to know where concatenation begins and writers should update @r-\/$>$info-\/$>$text\+\_\+len after concatenating. Here is the call graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{printk__ringbuffer_8c_ad0e4c6185abbf9864c555b43b20e91d5}\label{printk__ringbuffer_8c_ad0e4c6185abbf9864c555b43b20e91d5}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!space\_used@{space\_used}}
+\index{space\_used@{space\_used}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{space\_used()}{space\_used()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} space\+\_\+used (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$}]{data\+\_\+ring,  }\item[{struct \mbox{\hyperlink{structprb__data__blk__lpos}{prb\+\_\+data\+\_\+blk\+\_\+lpos}} $\ast$}]{blk\+\_\+lpos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{printk__ringbuffer_8c_aa148e3f546a6173c1f722ff2be5779cb}\label{printk__ringbuffer_8c_aa148e3f546a6173c1f722ff2be5779cb}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!to\_blk\_size@{to\_blk\_size}}
+\index{to\_blk\_size@{to\_blk\_size}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{to\_blk\_size()}{to\_blk\_size()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} to\+\_\+blk\+\_\+size (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{size }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 52
+\mbox{\Hypertarget{printk__ringbuffer_8c_acff5c58f5800659a2298d25079cac7b9}\label{printk__ringbuffer_8c_acff5c58f5800659a2298d25079cac7b9}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!to\_block@{to\_block}}
+\index{to\_block@{to\_block}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{to\_block()}{to\_block()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structprb__data__block}{prb\+\_\+data\+\_\+block}}$\ast$ to\+\_\+block (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__data__ring}{prb\+\_\+data\+\_\+ring}} $\ast$}]{data\+\_\+ring,  }\item[{unsigned long}]{begin\+\_\+lpos }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{printk__ringbuffer_8c_a9095fb69b9daae0499ae38e173160fde}\label{printk__ringbuffer_8c_a9095fb69b9daae0499ae38e173160fde}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!to\_desc@{to\_desc}}
+\index{to\_desc@{to\_desc}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{to\_desc()}{to\_desc()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structprb__desc}{prb\+\_\+desc}}$\ast$ to\+\_\+desc (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$}]{desc\+\_\+ring,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{printk__ringbuffer_8c_a337246b6063f4bccf2a0cfb9b6e163f9}\label{printk__ringbuffer_8c_a337246b6063f4bccf2a0cfb9b6e163f9}} 
+\index{printk\_ringbuffer.c@{printk\_ringbuffer.c}!to\_info@{to\_info}}
+\index{to\_info@{to\_info}!printk\_ringbuffer.c@{printk\_ringbuffer.c}}
+\doxysubsubsection{\texorpdfstring{to\_info()}{to\_info()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structprintk__info}{printk\+\_\+info}}$\ast$ to\+\_\+info (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structprb__desc__ring}{prb\+\_\+desc\+\_\+ring}} $\ast$}]{desc\+\_\+ring,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{n }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 55

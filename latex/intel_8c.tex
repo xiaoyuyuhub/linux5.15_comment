@@ -1,0 +1,796 @@
+\hypertarget{intel_8c}{}\doxysection{arch/x86/kernel/cpu/intel.c File Reference}
+\label{intel_8c}\index{arch/x86/kernel/cpu/intel.c@{arch/x86/kernel/cpu/intel.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pgtable.\+h$>$}\newline
+{\ttfamily \#include $<$linux/string.\+h$>$}\newline
+{\ttfamily \#include $<$linux/bitops.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/clock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/thread\+\_\+info.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpufeature.\+h$>$}\newline
+{\ttfamily \#include $<$asm/msr.\+h$>$}\newline
+{\ttfamily \#include $<$asm/bugs.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$asm/intel-\/family.\+h$>$}\newline
+{\ttfamily \#include $<$asm/microcode\+\_\+intel.\+h$>$}\newline
+{\ttfamily \#include $<$asm/hwcap2.\+h$>$}\newline
+{\ttfamily \#include $<$asm/elf.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cpu\+\_\+device\+\_\+id.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cmdline.\+h$>$}\newline
+{\ttfamily \#include $<$asm/traps.\+h$>$}\newline
+{\ttfamily \#include $<$asm/resctrl.\+h$>$}\newline
+{\ttfamily \#include $<$asm/numa.\+h$>$}\newline
+{\ttfamily \#include $<$asm/thermal.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}cpu.\+h\char`\"{}}\newline
+Include dependency graph for intel.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structsku__microcode}{sku\+\_\+microcode}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{intel_8c_abd2e5b4cddccc7322d028d94682459ec}{M\+S\+R\+\_\+\+I\+A32\+\_\+\+T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+TE}}~0x982
+\item 
+\#define \mbox{\hyperlink{intel_8c_a059cc10d022e6a50271ac82809d0921e}{T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+L\+O\+C\+K\+ED}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} \& 0x1)
+\item 
+\#define \mbox{\hyperlink{intel_8c_a3f91fbda1bef93f3a9e6aa8956048fcb}{T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+E\+N\+A\+B\+L\+ED}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} \& 0x2)
+\item 
+\#define \mbox{\hyperlink{intel_8c_a5f31ab831cda607067f321799b7e5274}{T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+P\+O\+L\+I\+CY}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ 4) \& 0xf)	/$\ast$ Bits 7\+:4 $\ast$/
+\item 
+\#define \mbox{\hyperlink{intel_8c_a077c0e5858244f9ce2b7839d671d057d}{T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+P\+O\+L\+I\+C\+Y\+\_\+\+A\+E\+S\+\_\+\+X\+T\+S\+\_\+128}}~0
+\item 
+\#define \mbox{\hyperlink{intel_8c_aa69b9d778e01ff2991da1cb57ca4dd5f}{T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+K\+E\+Y\+I\+D\+\_\+\+B\+I\+TS}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ 32) \& 0xf)	/$\ast$ Bits 35\+:32 $\ast$/
+\item 
+\#define \mbox{\hyperlink{intel_8c_ad12f5db35d909e4fbf4987e3ba50981d}{T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+C\+R\+Y\+P\+T\+O\+\_\+\+A\+L\+GS}}(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ 48) \& 0xffff)	/$\ast$ Bits 63\+:48 $\ast$/
+\item 
+\#define \mbox{\hyperlink{intel_8c_aee0f37102b769fe3d0536aab64a03842}{T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+C\+R\+Y\+P\+T\+O\+\_\+\+A\+E\+S\+\_\+\+X\+T\+S\+\_\+128}}~1
+\item 
+\#define \mbox{\hyperlink{intel_8c_a78b1227bdf89fe9613649741c82016d0}{M\+K\+T\+M\+E\+\_\+\+E\+N\+A\+B\+L\+ED}}~0
+\item 
+\#define \mbox{\hyperlink{intel_8c_a171107377a0d855de952e15cf8b1c2cb}{M\+K\+T\+M\+E\+\_\+\+D\+I\+S\+A\+B\+L\+ED}}~1
+\item 
+\#define \mbox{\hyperlink{intel_8c_a1c4060b5aa84889240c4c558535e8c23}{M\+K\+T\+M\+E\+\_\+\+U\+N\+I\+N\+I\+T\+I\+A\+L\+I\+Z\+ED}}~2
+\item 
+\#define \mbox{\hyperlink{intel_8c_aade0be3c3c2fcde6cf02727a110cba54}{T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+4K}}~0x01
+\item 
+\#define \mbox{\hyperlink{intel_8c_a081b9dc3d73b960376663c29efd8fc5c}{T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+4M}}~0x02
+\item 
+\#define \mbox{\hyperlink{intel_8c_a62a95a28878b3b9d6d9327a68afa2aa6}{T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+2\+M\+\_\+4M}}~0x03
+\item 
+\#define \mbox{\hyperlink{intel_8c_a80b3e64042a911ad07ff45702d046746}{T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+\+A\+LL}}~0x05
+\item 
+\#define \mbox{\hyperlink{intel_8c_a163f9f5128cf3e1e13d3fd2e12af97ab}{T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+1G}}~0x06
+\item 
+\#define \mbox{\hyperlink{intel_8c_a35272d36743424e28a00064aabbe618c}{T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+4K}}~0x11
+\item 
+\#define \mbox{\hyperlink{intel_8c_a42a1139e89e83b3f8312b427c05e49c9}{T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+4M}}~0x12
+\item 
+\#define \mbox{\hyperlink{intel_8c_ad0af6a9995e970053f5f59b711935f40}{T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+2\+M\+\_\+4M}}~0x13
+\item 
+\#define \mbox{\hyperlink{intel_8c_a8cf6ac6621f4b4d29cb2072b5f34ab4f}{T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+4\+K\+\_\+4M}}~0x14
+\item 
+\#define \mbox{\hyperlink{intel_8c_a06a44007b5dde508e6613c9d3d3833ef}{T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+1G}}~0x16
+\item 
+\#define \mbox{\hyperlink{intel_8c_a99b84ea8b93f3f346f18d5fa0b9c9a0c}{T\+L\+B\+\_\+\+D\+A\+T\+A0\+\_\+4K}}~0x21
+\item 
+\#define \mbox{\hyperlink{intel_8c_a15eb9d100792cca9b61b5517685f5328}{T\+L\+B\+\_\+\+D\+A\+T\+A0\+\_\+4M}}~0x22
+\item 
+\#define \mbox{\hyperlink{intel_8c_a79c6f90a0576d6abfa22537cc3f3d414}{T\+L\+B\+\_\+\+D\+A\+T\+A0\+\_\+2\+M\+\_\+4M}}~0x23
+\item 
+\#define \mbox{\hyperlink{intel_8c_a0dbb8de263ea725d9e9b1f84fa56c485}{S\+T\+L\+B\+\_\+4K}}~0x41
+\item 
+\#define \mbox{\hyperlink{intel_8c_a2487f322fe3edd33454b2e890e69249d}{S\+T\+L\+B\+\_\+4\+K\+\_\+2M}}~0x42
+\item 
+\#define \mbox{\hyperlink{intel_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}x86/\mbox{\hyperlink{ceph__fs_8h_a41ca9b5c6d58d71f808263f88898f3fb}{split}} \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}} detection\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{intel_8c_a3f8fc61cfc8f931513d498c1db97affb}{X86\+\_\+\+H\+Y\+B\+R\+I\+D\+\_\+\+C\+P\+U\+\_\+\+T\+Y\+P\+E\+\_\+\+I\+D\+\_\+\+S\+H\+I\+FT}}~24
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66}{split\+\_\+lock\+\_\+detect\+\_\+state}} \{ \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a80b267438a7a8c5c3f11f384bcf37378}{sld\+\_\+off}} = 0, 
+\mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66ac2d1f849cdb8bd27fbc86ad8f6193840}{sld\+\_\+warn}}, 
+\mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a31e9f27aa2596cd0f2b147d00b36ea0c}{sld\+\_\+fatal}}, 
+\mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a94aa58b23a67612a303b1803de8a81ab}{sld\+\_\+ratelimit}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void \mbox{\hyperlink{intel_8c_a358a778bb9c38334cd7a80d64f46df19}{check\+\_\+memory\+\_\+type\+\_\+self\+\_\+snoop\+\_\+errata}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{intel_8c_aa50871c05e00cefae5cef229f33a14ac}{ring3mwait\+\_\+disable}} (char $\ast$\+\_\+\+\_\+unused)
+\item 
+\mbox{\hyperlink{intel_8c_a1a36ee9971453fbd743ba28c58671102}{\+\_\+\+\_\+setup}} (\char`\"{}ring3mwait=disable\char`\"{}, ring3mwait\+\_\+disable)
+\item 
+static void \mbox{\hyperlink{intel_8c_a9d143d6ef983dee7468ac79f513f758c}{probe\+\_\+xeon\+\_\+phi\+\_\+r3mwait}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{intel_8c_afa807a26aa030dc52523c3bd713e8b3b}{bad\+\_\+spectre\+\_\+microcode}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_abfd939aca62299f73da0cb31f06c42ad}{early\+\_\+init\+\_\+intel}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a070d36de75c045c1b7210aa41a0869e4}{bsp\+\_\+init\+\_\+intel}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a73dfc9106ec2306439bbd0c0ad2533d3}{intel\+\_\+workarounds}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_af4b0dff65dad935fa3815376d43d0ce7}{srat\+\_\+detect\+\_\+node}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_ac5dc72d62fcc1653ff649fc9806a6915}{detect\+\_\+tme}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_ae5f93eb67e5960490de9a88f96d2c63d}{init\+\_\+cpuid\+\_\+fault}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a478c1b1be789e5341a3aa8a963337673}{init\+\_\+intel\+\_\+misc\+\_\+features}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a19eb075f159bef9947c47de89da19426}{split\+\_\+lock\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{intel_8c_a33b2dfa74a25015cb252174c8824dc91}{bus\+\_\+lock\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{intel_8c_a5f5175f434821ed4f16d7b6cd5f53613}{init\+\_\+intel}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a0c8e38f6ebdfb5803a8854d17db02afd}{intel\+\_\+tlb\+\_\+lookup}} (const unsigned char \mbox{\hyperlink{linux_2hid_8h_a6a2438be08bca98db53ee7abe96afc62}{desc}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a700a0230cd090b2e175fb42e2829da6f}{intel\+\_\+detect\+\_\+tlb}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+\mbox{\hyperlink{intel_8c_aa3a5c671fc3d0730c23eb1d1377897b8}{cpu\+\_\+dev\+\_\+register}} (\mbox{\hyperlink{intel_8c_a681d9573a2509cfc1334924ccf15cc08}{intel\+\_\+cpu\+\_\+dev}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{intel_8c_ac45ca75bc06d3d451d6188671cedebff}{match\+\_\+option}} (const char $\ast$arg, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arglen, const char $\ast$opt)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{intel_8c_a394e434ad59f9adfbc4a163b3f3a2a9d}{split\+\_\+lock\+\_\+verify\+\_\+msr}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{posted__intr_8h_a70223e0c96cd6b1e9103afac2df72bc6}{on}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{intel_8c_a0b1e56a383d0390570a0b2535f94cfdb}{sld\+\_\+state\+\_\+setup}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{intel_8c_a4795fec482ea3c2df4bd05a9e76466e2}{\+\_\+\+\_\+split\+\_\+lock\+\_\+setup}} (void)
+\item 
+static void \mbox{\hyperlink{intel_8c_ae624ffe9847606fb0828d0184f2627d7}{sld\+\_\+update\+\_\+msr}} (\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{posted__intr_8h_a70223e0c96cd6b1e9103afac2df72bc6}{on}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a53f947df4b949dc6c6324e337c0afc90}{split\+\_\+lock\+\_\+warn}} (unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{intel_8c_adf67ae14938784c9ace5cf4a3abda7bc}{handle\+\_\+guest\+\_\+split\+\_\+lock}} (unsigned long \mbox{\hyperlink{test__printf_8c_afc0e785abfacfd2ad5eff014d47f9db4}{ip}})
+\item 
+\mbox{\hyperlink{intel_8c_a8775ab24b51f38ee106a04990fcaf34d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{intel_8c_adf67ae14938784c9ace5cf4a3abda7bc}{handle\+\_\+guest\+\_\+split\+\_\+lock}})
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{intel_8c_ae829cb6177d1458361220af4f3da54a0}{handle\+\_\+user\+\_\+split\+\_\+lock}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}}, long \mbox{\hyperlink{idxd_8h_a45998c0b4dd5717ced32282d45d4ef9b}{error\+\_\+code}})
+\item 
+void \mbox{\hyperlink{intel_8c_a3de446fa98af441d590ac3a424c3ffe7}{handle\+\_\+bus\+\_\+lock}} (struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$\mbox{\hyperlink{suspend__64_8h_a235f139e3a10fe557c11037d8341053c}{regs}})
+\item 
+void \mbox{\hyperlink{intel_8c_a0ceedefe507b7199bac8c81dff8d5718}{switch\+\_\+to\+\_\+sld}} (unsigned long tifn)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{intel_8c_a7d8afba0de6ae638a5b3081cb187fd87}{split\+\_\+lock\+\_\+setup}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static void \mbox{\hyperlink{intel_8c_a62fa818879545a4f93e39aa897a76bbf}{sld\+\_\+state\+\_\+show}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{intel_8c_a2f7e7b7b23610bbd76ddd652014a1492}{sld\+\_\+setup}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+\mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} \mbox{\hyperlink{intel_8c_a82e706ecf5c7bc142ef9857d2b03c5c3}{get\+\_\+this\+\_\+hybrid\+\_\+cpu\+\_\+type}} (void)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66}{split\+\_\+lock\+\_\+detect\+\_\+state}} sld\+\_\+state \mbox{\hyperlink{intel_8c_afff8274ebae0699440c99fe813100373}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} = \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a80b267438a7a8c5c3f11f384bcf37378}{sld\+\_\+off}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} ring3mwait\+\_\+disabled \mbox{\hyperlink{intel_8c_acd08b7fec03e2c95adf7e9659a7264f7}{\+\_\+\+\_\+read\+\_\+mostly}}
+\item 
+static const struct \mbox{\hyperlink{structsku__microcode}{sku\+\_\+microcode}} \mbox{\hyperlink{intel_8c_a14a46f6169df5eddb94910f9ee588489}{spectre\+\_\+bad\+\_\+microcodes}} \mbox{[}$\,$\mbox{]}
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{intel_8c_a8a9385e953d0f024bdcf3689e7301898}{mktme\+\_\+status}} = \mbox{\hyperlink{intel_8c_a1c4060b5aa84889240c4c558535e8c23}{M\+K\+T\+M\+E\+\_\+\+U\+N\+I\+N\+I\+T\+I\+A\+L\+I\+Z\+ED}}
+\item 
+static const struct \mbox{\hyperlink{struct__tlb__table}{\+\_\+tlb\+\_\+table}} \mbox{\hyperlink{intel_8c_a4d87377deeb9e6613380ef0044fe1642}{intel\+\_\+tlb\+\_\+table}} \mbox{[}$\,$\mbox{]}
+\item 
+static const struct \mbox{\hyperlink{structcpu__dev}{cpu\+\_\+dev}} \mbox{\hyperlink{intel_8c_a681d9573a2509cfc1334924ccf15cc08}{intel\+\_\+cpu\+\_\+dev}}
+\item 
+\begin{tabbing}
+xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=\kill
+struct \{\\
+\>const char $\ast$ \mbox{\hyperlink{intel_8c_a31b45a0ff8b2861859ecfbad2ce4fe02}{option}}\\
+\>\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66}{split\_lock\_detect\_state}} \mbox{\hyperlink{intel_8c_ad24014601d920dbfc3ebe9eadf4a4b8f}{state}}\\
+\} \mbox{\hyperlink{intel_8c_a63faa6a379b9f8e40cf0aa044e61a5c7}{\_\_initconst}} \mbox{[}$\,$\mbox{]}\\
+
+\end{tabbing}\item 
+static struct \mbox{\hyperlink{structratelimit__state}{ratelimit\+\_\+state}} \mbox{\hyperlink{intel_8c_a91020481fd890a44d853ff8a7ba235d1}{bld\+\_\+ratelimit}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{intel_8c_a171107377a0d855de952e15cf8b1c2cb}\label{intel_8c_a171107377a0d855de952e15cf8b1c2cb}} 
+\index{intel.c@{intel.c}!MKTME\_DISABLED@{MKTME\_DISABLED}}
+\index{MKTME\_DISABLED@{MKTME\_DISABLED}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{MKTME\_DISABLED}{MKTME\_DISABLED}}
+{\footnotesize\ttfamily \#define M\+K\+T\+M\+E\+\_\+\+D\+I\+S\+A\+B\+L\+ED~1}
+
+\mbox{\Hypertarget{intel_8c_a78b1227bdf89fe9613649741c82016d0}\label{intel_8c_a78b1227bdf89fe9613649741c82016d0}} 
+\index{intel.c@{intel.c}!MKTME\_ENABLED@{MKTME\_ENABLED}}
+\index{MKTME\_ENABLED@{MKTME\_ENABLED}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{MKTME\_ENABLED}{MKTME\_ENABLED}}
+{\footnotesize\ttfamily \#define M\+K\+T\+M\+E\+\_\+\+E\+N\+A\+B\+L\+ED~0}
+
+\mbox{\Hypertarget{intel_8c_a1c4060b5aa84889240c4c558535e8c23}\label{intel_8c_a1c4060b5aa84889240c4c558535e8c23}} 
+\index{intel.c@{intel.c}!MKTME\_UNINITIALIZED@{MKTME\_UNINITIALIZED}}
+\index{MKTME\_UNINITIALIZED@{MKTME\_UNINITIALIZED}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{MKTME\_UNINITIALIZED}{MKTME\_UNINITIALIZED}}
+{\footnotesize\ttfamily \#define M\+K\+T\+M\+E\+\_\+\+U\+N\+I\+N\+I\+T\+I\+A\+L\+I\+Z\+ED~2}
+
+\mbox{\Hypertarget{intel_8c_abd2e5b4cddccc7322d028d94682459ec}\label{intel_8c_abd2e5b4cddccc7322d028d94682459ec}} 
+\index{intel.c@{intel.c}!MSR\_IA32\_TME\_ACTIVATE@{MSR\_IA32\_TME\_ACTIVATE}}
+\index{MSR\_IA32\_TME\_ACTIVATE@{MSR\_IA32\_TME\_ACTIVATE}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{MSR\_IA32\_TME\_ACTIVATE}{MSR\_IA32\_TME\_ACTIVATE}}
+{\footnotesize\ttfamily \#define M\+S\+R\+\_\+\+I\+A32\+\_\+\+T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+TE~0x982}
+
+\mbox{\Hypertarget{intel_8c_a1f8c165bf4196327bc3abff648276d92}\label{intel_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{intel.c@{intel.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}x86/\mbox{\hyperlink{ceph__fs_8h_a41ca9b5c6d58d71f808263f88898f3fb}{split}} \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}} detection\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{intel_8c_a0dbb8de263ea725d9e9b1f84fa56c485}\label{intel_8c_a0dbb8de263ea725d9e9b1f84fa56c485}} 
+\index{intel.c@{intel.c}!STLB\_4K@{STLB\_4K}}
+\index{STLB\_4K@{STLB\_4K}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{STLB\_4K}{STLB\_4K}}
+{\footnotesize\ttfamily \#define S\+T\+L\+B\+\_\+4K~0x41}
+
+\mbox{\Hypertarget{intel_8c_a2487f322fe3edd33454b2e890e69249d}\label{intel_8c_a2487f322fe3edd33454b2e890e69249d}} 
+\index{intel.c@{intel.c}!STLB\_4K\_2M@{STLB\_4K\_2M}}
+\index{STLB\_4K\_2M@{STLB\_4K\_2M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{STLB\_4K\_2M}{STLB\_4K\_2M}}
+{\footnotesize\ttfamily \#define S\+T\+L\+B\+\_\+4\+K\+\_\+2M~0x42}
+
+\mbox{\Hypertarget{intel_8c_a79c6f90a0576d6abfa22537cc3f3d414}\label{intel_8c_a79c6f90a0576d6abfa22537cc3f3d414}} 
+\index{intel.c@{intel.c}!TLB\_DATA0\_2M\_4M@{TLB\_DATA0\_2M\_4M}}
+\index{TLB\_DATA0\_2M\_4M@{TLB\_DATA0\_2M\_4M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA0\_2M\_4M}{TLB\_DATA0\_2M\_4M}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A0\+\_\+2\+M\+\_\+4M~0x23}
+
+\mbox{\Hypertarget{intel_8c_a99b84ea8b93f3f346f18d5fa0b9c9a0c}\label{intel_8c_a99b84ea8b93f3f346f18d5fa0b9c9a0c}} 
+\index{intel.c@{intel.c}!TLB\_DATA0\_4K@{TLB\_DATA0\_4K}}
+\index{TLB\_DATA0\_4K@{TLB\_DATA0\_4K}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA0\_4K}{TLB\_DATA0\_4K}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A0\+\_\+4K~0x21}
+
+\mbox{\Hypertarget{intel_8c_a15eb9d100792cca9b61b5517685f5328}\label{intel_8c_a15eb9d100792cca9b61b5517685f5328}} 
+\index{intel.c@{intel.c}!TLB\_DATA0\_4M@{TLB\_DATA0\_4M}}
+\index{TLB\_DATA0\_4M@{TLB\_DATA0\_4M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA0\_4M}{TLB\_DATA0\_4M}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A0\+\_\+4M~0x22}
+
+\mbox{\Hypertarget{intel_8c_a06a44007b5dde508e6613c9d3d3833ef}\label{intel_8c_a06a44007b5dde508e6613c9d3d3833ef}} 
+\index{intel.c@{intel.c}!TLB\_DATA\_1G@{TLB\_DATA\_1G}}
+\index{TLB\_DATA\_1G@{TLB\_DATA\_1G}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA\_1G}{TLB\_DATA\_1G}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+1G~0x16}
+
+\mbox{\Hypertarget{intel_8c_ad0af6a9995e970053f5f59b711935f40}\label{intel_8c_ad0af6a9995e970053f5f59b711935f40}} 
+\index{intel.c@{intel.c}!TLB\_DATA\_2M\_4M@{TLB\_DATA\_2M\_4M}}
+\index{TLB\_DATA\_2M\_4M@{TLB\_DATA\_2M\_4M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA\_2M\_4M}{TLB\_DATA\_2M\_4M}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+2\+M\+\_\+4M~0x13}
+
+\mbox{\Hypertarget{intel_8c_a35272d36743424e28a00064aabbe618c}\label{intel_8c_a35272d36743424e28a00064aabbe618c}} 
+\index{intel.c@{intel.c}!TLB\_DATA\_4K@{TLB\_DATA\_4K}}
+\index{TLB\_DATA\_4K@{TLB\_DATA\_4K}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA\_4K}{TLB\_DATA\_4K}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+4K~0x11}
+
+\mbox{\Hypertarget{intel_8c_a8cf6ac6621f4b4d29cb2072b5f34ab4f}\label{intel_8c_a8cf6ac6621f4b4d29cb2072b5f34ab4f}} 
+\index{intel.c@{intel.c}!TLB\_DATA\_4K\_4M@{TLB\_DATA\_4K\_4M}}
+\index{TLB\_DATA\_4K\_4M@{TLB\_DATA\_4K\_4M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA\_4K\_4M}{TLB\_DATA\_4K\_4M}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+4\+K\+\_\+4M~0x14}
+
+\mbox{\Hypertarget{intel_8c_a42a1139e89e83b3f8312b427c05e49c9}\label{intel_8c_a42a1139e89e83b3f8312b427c05e49c9}} 
+\index{intel.c@{intel.c}!TLB\_DATA\_4M@{TLB\_DATA\_4M}}
+\index{TLB\_DATA\_4M@{TLB\_DATA\_4M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_DATA\_4M}{TLB\_DATA\_4M}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+D\+A\+T\+A\+\_\+4M~0x12}
+
+\mbox{\Hypertarget{intel_8c_a163f9f5128cf3e1e13d3fd2e12af97ab}\label{intel_8c_a163f9f5128cf3e1e13d3fd2e12af97ab}} 
+\index{intel.c@{intel.c}!TLB\_INST\_1G@{TLB\_INST\_1G}}
+\index{TLB\_INST\_1G@{TLB\_INST\_1G}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_INST\_1G}{TLB\_INST\_1G}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+1G~0x06}
+
+\mbox{\Hypertarget{intel_8c_a62a95a28878b3b9d6d9327a68afa2aa6}\label{intel_8c_a62a95a28878b3b9d6d9327a68afa2aa6}} 
+\index{intel.c@{intel.c}!TLB\_INST\_2M\_4M@{TLB\_INST\_2M\_4M}}
+\index{TLB\_INST\_2M\_4M@{TLB\_INST\_2M\_4M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_INST\_2M\_4M}{TLB\_INST\_2M\_4M}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+2\+M\+\_\+4M~0x03}
+
+\mbox{\Hypertarget{intel_8c_aade0be3c3c2fcde6cf02727a110cba54}\label{intel_8c_aade0be3c3c2fcde6cf02727a110cba54}} 
+\index{intel.c@{intel.c}!TLB\_INST\_4K@{TLB\_INST\_4K}}
+\index{TLB\_INST\_4K@{TLB\_INST\_4K}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_INST\_4K}{TLB\_INST\_4K}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+4K~0x01}
+
+\mbox{\Hypertarget{intel_8c_a081b9dc3d73b960376663c29efd8fc5c}\label{intel_8c_a081b9dc3d73b960376663c29efd8fc5c}} 
+\index{intel.c@{intel.c}!TLB\_INST\_4M@{TLB\_INST\_4M}}
+\index{TLB\_INST\_4M@{TLB\_INST\_4M}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_INST\_4M}{TLB\_INST\_4M}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+4M~0x02}
+
+\mbox{\Hypertarget{intel_8c_a80b3e64042a911ad07ff45702d046746}\label{intel_8c_a80b3e64042a911ad07ff45702d046746}} 
+\index{intel.c@{intel.c}!TLB\_INST\_ALL@{TLB\_INST\_ALL}}
+\index{TLB\_INST\_ALL@{TLB\_INST\_ALL}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TLB\_INST\_ALL}{TLB\_INST\_ALL}}
+{\footnotesize\ttfamily \#define T\+L\+B\+\_\+\+I\+N\+S\+T\+\_\+\+A\+LL~0x05}
+
+\mbox{\Hypertarget{intel_8c_aee0f37102b769fe3d0536aab64a03842}\label{intel_8c_aee0f37102b769fe3d0536aab64a03842}} 
+\index{intel.c@{intel.c}!TME\_ACTIVATE\_CRYPTO\_AES\_XTS\_128@{TME\_ACTIVATE\_CRYPTO\_AES\_XTS\_128}}
+\index{TME\_ACTIVATE\_CRYPTO\_AES\_XTS\_128@{TME\_ACTIVATE\_CRYPTO\_AES\_XTS\_128}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TME\_ACTIVATE\_CRYPTO\_AES\_XTS\_128}{TME\_ACTIVATE\_CRYPTO\_AES\_XTS\_128}}
+{\footnotesize\ttfamily \#define T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+C\+R\+Y\+P\+T\+O\+\_\+\+A\+E\+S\+\_\+\+X\+T\+S\+\_\+128~1}
+
+\mbox{\Hypertarget{intel_8c_ad12f5db35d909e4fbf4987e3ba50981d}\label{intel_8c_ad12f5db35d909e4fbf4987e3ba50981d}} 
+\index{intel.c@{intel.c}!TME\_ACTIVATE\_CRYPTO\_ALGS@{TME\_ACTIVATE\_CRYPTO\_ALGS}}
+\index{TME\_ACTIVATE\_CRYPTO\_ALGS@{TME\_ACTIVATE\_CRYPTO\_ALGS}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TME\_ACTIVATE\_CRYPTO\_ALGS}{TME\_ACTIVATE\_CRYPTO\_ALGS}}
+{\footnotesize\ttfamily \#define T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+C\+R\+Y\+P\+T\+O\+\_\+\+A\+L\+GS(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ 48) \& 0xffff)	/$\ast$ Bits 63\+:48 $\ast$/}
+
+\mbox{\Hypertarget{intel_8c_a3f91fbda1bef93f3a9e6aa8956048fcb}\label{intel_8c_a3f91fbda1bef93f3a9e6aa8956048fcb}} 
+\index{intel.c@{intel.c}!TME\_ACTIVATE\_ENABLED@{TME\_ACTIVATE\_ENABLED}}
+\index{TME\_ACTIVATE\_ENABLED@{TME\_ACTIVATE\_ENABLED}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TME\_ACTIVATE\_ENABLED}{TME\_ACTIVATE\_ENABLED}}
+{\footnotesize\ttfamily \#define T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+E\+N\+A\+B\+L\+ED(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} \& 0x2)}
+
+\mbox{\Hypertarget{intel_8c_aa69b9d778e01ff2991da1cb57ca4dd5f}\label{intel_8c_aa69b9d778e01ff2991da1cb57ca4dd5f}} 
+\index{intel.c@{intel.c}!TME\_ACTIVATE\_KEYID\_BITS@{TME\_ACTIVATE\_KEYID\_BITS}}
+\index{TME\_ACTIVATE\_KEYID\_BITS@{TME\_ACTIVATE\_KEYID\_BITS}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TME\_ACTIVATE\_KEYID\_BITS}{TME\_ACTIVATE\_KEYID\_BITS}}
+{\footnotesize\ttfamily \#define T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+K\+E\+Y\+I\+D\+\_\+\+B\+I\+TS(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ 32) \& 0xf)	/$\ast$ Bits 35\+:32 $\ast$/}
+
+\mbox{\Hypertarget{intel_8c_a059cc10d022e6a50271ac82809d0921e}\label{intel_8c_a059cc10d022e6a50271ac82809d0921e}} 
+\index{intel.c@{intel.c}!TME\_ACTIVATE\_LOCKED@{TME\_ACTIVATE\_LOCKED}}
+\index{TME\_ACTIVATE\_LOCKED@{TME\_ACTIVATE\_LOCKED}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TME\_ACTIVATE\_LOCKED}{TME\_ACTIVATE\_LOCKED}}
+{\footnotesize\ttfamily \#define T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+L\+O\+C\+K\+ED(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~(\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} \& 0x1)}
+
+\mbox{\Hypertarget{intel_8c_a5f31ab831cda607067f321799b7e5274}\label{intel_8c_a5f31ab831cda607067f321799b7e5274}} 
+\index{intel.c@{intel.c}!TME\_ACTIVATE\_POLICY@{TME\_ACTIVATE\_POLICY}}
+\index{TME\_ACTIVATE\_POLICY@{TME\_ACTIVATE\_POLICY}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TME\_ACTIVATE\_POLICY}{TME\_ACTIVATE\_POLICY}}
+{\footnotesize\ttfamily \#define T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+P\+O\+L\+I\+CY(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} }\end{DoxyParamCaption})~((\mbox{\hyperlink{fpu_2bugs_8c_aeea798d53466edac4a94b86a982248c8}{x}} $>$$>$ 4) \& 0xf)	/$\ast$ Bits 7\+:4 $\ast$/}
+
+\mbox{\Hypertarget{intel_8c_a077c0e5858244f9ce2b7839d671d057d}\label{intel_8c_a077c0e5858244f9ce2b7839d671d057d}} 
+\index{intel.c@{intel.c}!TME\_ACTIVATE\_POLICY\_AES\_XTS\_128@{TME\_ACTIVATE\_POLICY\_AES\_XTS\_128}}
+\index{TME\_ACTIVATE\_POLICY\_AES\_XTS\_128@{TME\_ACTIVATE\_POLICY\_AES\_XTS\_128}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{TME\_ACTIVATE\_POLICY\_AES\_XTS\_128}{TME\_ACTIVATE\_POLICY\_AES\_XTS\_128}}
+{\footnotesize\ttfamily \#define T\+M\+E\+\_\+\+A\+C\+T\+I\+V\+A\+T\+E\+\_\+\+P\+O\+L\+I\+C\+Y\+\_\+\+A\+E\+S\+\_\+\+X\+T\+S\+\_\+128~0}
+
+\mbox{\Hypertarget{intel_8c_a3f8fc61cfc8f931513d498c1db97affb}\label{intel_8c_a3f8fc61cfc8f931513d498c1db97affb}} 
+\index{intel.c@{intel.c}!X86\_HYBRID\_CPU\_TYPE\_ID\_SHIFT@{X86\_HYBRID\_CPU\_TYPE\_ID\_SHIFT}}
+\index{X86\_HYBRID\_CPU\_TYPE\_ID\_SHIFT@{X86\_HYBRID\_CPU\_TYPE\_ID\_SHIFT}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{X86\_HYBRID\_CPU\_TYPE\_ID\_SHIFT}{X86\_HYBRID\_CPU\_TYPE\_ID\_SHIFT}}
+{\footnotesize\ttfamily \#define X86\+\_\+\+H\+Y\+B\+R\+I\+D\+\_\+\+C\+P\+U\+\_\+\+T\+Y\+P\+E\+\_\+\+I\+D\+\_\+\+S\+H\+I\+FT~24}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{intel_8c_afeee4237fb15abd26ec09dd6e3198a66}\label{intel_8c_afeee4237fb15abd26ec09dd6e3198a66}} 
+\index{intel.c@{intel.c}!split\_lock\_detect\_state@{split\_lock\_detect\_state}}
+\index{split\_lock\_detect\_state@{split\_lock\_detect\_state}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{split\_lock\_detect\_state}{split\_lock\_detect\_state}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66}{split\+\_\+lock\+\_\+detect\+\_\+state}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{sld\_off@{sld\_off}!intel.c@{intel.c}}\index{intel.c@{intel.c}!sld\_off@{sld\_off}}}\mbox{\Hypertarget{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a80b267438a7a8c5c3f11f384bcf37378}\label{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a80b267438a7a8c5c3f11f384bcf37378}} 
+sld\+\_\+off&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{sld\_warn@{sld\_warn}!intel.c@{intel.c}}\index{intel.c@{intel.c}!sld\_warn@{sld\_warn}}}\mbox{\Hypertarget{intel_8c_afeee4237fb15abd26ec09dd6e3198a66ac2d1f849cdb8bd27fbc86ad8f6193840}\label{intel_8c_afeee4237fb15abd26ec09dd6e3198a66ac2d1f849cdb8bd27fbc86ad8f6193840}} 
+sld\+\_\+warn&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{sld\_fatal@{sld\_fatal}!intel.c@{intel.c}}\index{intel.c@{intel.c}!sld\_fatal@{sld\_fatal}}}\mbox{\Hypertarget{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a31e9f27aa2596cd0f2b147d00b36ea0c}\label{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a31e9f27aa2596cd0f2b147d00b36ea0c}} 
+sld\+\_\+fatal&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{sld\_ratelimit@{sld\_ratelimit}!intel.c@{intel.c}}\index{intel.c@{intel.c}!sld\_ratelimit@{sld\_ratelimit}}}\mbox{\Hypertarget{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a94aa58b23a67612a303b1803de8a81ab}\label{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a94aa58b23a67612a303b1803de8a81ab}} 
+sld\+\_\+ratelimit&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{intel_8c_a1a36ee9971453fbd743ba28c58671102}\label{intel_8c_a1a36ee9971453fbd743ba28c58671102}} 
+\index{intel.c@{intel.c}!\_\_setup@{\_\_setup}}
+\index{\_\_setup@{\_\_setup}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{\_\_setup()}{\_\_setup()}}
+{\footnotesize\ttfamily \+\_\+\+\_\+setup (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{intel_8c_a4795fec482ea3c2df4bd05a9e76466e2}\label{intel_8c_a4795fec482ea3c2df4bd05a9e76466e2}} 
+\index{intel.c@{intel.c}!\_\_split\_lock\_setup@{\_\_split\_lock\_setup}}
+\index{\_\_split\_lock\_setup@{\_\_split\_lock\_setup}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{\_\_split\_lock\_setup()}{\_\_split\_lock\_setup()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \+\_\+\+\_\+split\+\_\+lock\+\_\+setup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{intel_8c_afa807a26aa030dc52523c3bd713e8b3b}\label{intel_8c_afa807a26aa030dc52523c3bd713e8b3b}} 
+\index{intel.c@{intel.c}!bad\_spectre\_microcode@{bad\_spectre\_microcode}}
+\index{bad\_spectre\_microcode@{bad\_spectre\_microcode}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{bad\_spectre\_microcode()}{bad\_spectre\_microcode()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} bad\+\_\+spectre\+\_\+microcode (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 3
+\mbox{\Hypertarget{intel_8c_a070d36de75c045c1b7210aa41a0869e4}\label{intel_8c_a070d36de75c045c1b7210aa41a0869e4}} 
+\index{intel.c@{intel.c}!bsp\_init\_intel@{bsp\_init\_intel}}
+\index{bsp\_init\_intel@{bsp\_init\_intel}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{bsp\_init\_intel()}{bsp\_init\_intel()}}
+{\footnotesize\ttfamily static void bsp\+\_\+init\+\_\+intel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{intel_8c_a33b2dfa74a25015cb252174c8824dc91}\label{intel_8c_a33b2dfa74a25015cb252174c8824dc91}} 
+\index{intel.c@{intel.c}!bus\_lock\_init@{bus\_lock\_init}}
+\index{bus\_lock\_init@{bus\_lock\_init}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{bus\_lock\_init()}{bus\_lock\_init()}}
+{\footnotesize\ttfamily static void bus\+\_\+lock\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{intel_8c_a358a778bb9c38334cd7a80d64f46df19}\label{intel_8c_a358a778bb9c38334cd7a80d64f46df19}} 
+\index{intel.c@{intel.c}!check\_memory\_type\_self\_snoop\_errata@{check\_memory\_type\_self\_snoop\_errata}}
+\index{check\_memory\_type\_self\_snoop\_errata@{check\_memory\_type\_self\_snoop\_errata}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{check\_memory\_type\_self\_snoop\_errata()}{check\_memory\_type\_self\_snoop\_errata()}}
+{\footnotesize\ttfamily static void check\+\_\+memory\+\_\+type\+\_\+self\+\_\+snoop\+\_\+errata (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{intel_8c_aa3a5c671fc3d0730c23eb1d1377897b8}\label{intel_8c_aa3a5c671fc3d0730c23eb1d1377897b8}} 
+\index{intel.c@{intel.c}!cpu\_dev\_register@{cpu\_dev\_register}}
+\index{cpu\_dev\_register@{cpu\_dev\_register}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{cpu\_dev\_register()}{cpu\_dev\_register()}}
+{\footnotesize\ttfamily cpu\+\_\+dev\+\_\+register (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{intel_8c_a681d9573a2509cfc1334924ccf15cc08}{intel\+\_\+cpu\+\_\+dev}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{intel_8c_ac5dc72d62fcc1653ff649fc9806a6915}\label{intel_8c_ac5dc72d62fcc1653ff649fc9806a6915}} 
+\index{intel.c@{intel.c}!detect\_tme@{detect\_tme}}
+\index{detect\_tme@{detect\_tme}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{detect\_tme()}{detect\_tme()}}
+{\footnotesize\ttfamily static void detect\+\_\+tme (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 9
+\mbox{\Hypertarget{intel_8c_abfd939aca62299f73da0cb31f06c42ad}\label{intel_8c_abfd939aca62299f73da0cb31f06c42ad}} 
+\index{intel.c@{intel.c}!early\_init\_intel@{early\_init\_intel}}
+\index{early\_init\_intel@{early\_init\_intel}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{early\_init\_intel()}{early\_init\_intel()}}
+{\footnotesize\ttfamily static void early\+\_\+init\+\_\+intel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 10
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{intel_8c_a8775ab24b51f38ee106a04990fcaf34d}\label{intel_8c_a8775ab24b51f38ee106a04990fcaf34d}} 
+\index{intel.c@{intel.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{intel_8c_adf67ae14938784c9ace5cf4a3abda7bc}{handle\+\_\+guest\+\_\+split\+\_\+lock}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{intel_8c_a82e706ecf5c7bc142ef9857d2b03c5c3}\label{intel_8c_a82e706ecf5c7bc142ef9857d2b03c5c3}} 
+\index{intel.c@{intel.c}!get\_this\_hybrid\_cpu\_type@{get\_this\_hybrid\_cpu\_type}}
+\index{get\_this\_hybrid\_cpu\_type@{get\_this\_hybrid\_cpu\_type}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{get\_this\_hybrid\_cpu\_type()}{get\_this\_hybrid\_cpu\_type()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{build_8c_aed742c436da53c1080638ce6ef7d13de}{u8}} get\+\_\+this\+\_\+hybrid\+\_\+cpu\+\_\+type (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\hyperlink{intel_8c_a82e706ecf5c7bc142ef9857d2b03c5c3}{get\+\_\+this\+\_\+hybrid\+\_\+cpu\+\_\+type()}} -\/ Get the type of this hybrid C\+PU
+
+Returns the C\+PU type \href{i.e., Atom or Core}{\texttt{ 31\+:24}} of a C\+PU in a hybrid processor. If the processor is not hybrid, returns 0. Here is the call graph for this function\+:
+% FIG 12
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{intel_8c_a3de446fa98af441d590ac3a424c3ffe7}\label{intel_8c_a3de446fa98af441d590ac3a424c3ffe7}} 
+\index{intel.c@{intel.c}!handle\_bus\_lock@{handle\_bus\_lock}}
+\index{handle\_bus\_lock@{handle\_bus\_lock}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{handle\_bus\_lock()}{handle\_bus\_lock()}}
+{\footnotesize\ttfamily void handle\+\_\+bus\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 14
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{intel_8c_adf67ae14938784c9ace5cf4a3abda7bc}\label{intel_8c_adf67ae14938784c9ace5cf4a3abda7bc}} 
+\index{intel.c@{intel.c}!handle\_guest\_split\_lock@{handle\_guest\_split\_lock}}
+\index{handle\_guest\_split\_lock@{handle\_guest\_split\_lock}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{handle\_guest\_split\_lock()}{handle\_guest\_split\_lock()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} handle\+\_\+guest\+\_\+split\+\_\+lock (\begin{DoxyParamCaption}\item[{unsigned long}]{ip }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 16
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{intel_8c_ae829cb6177d1458361220af4f3da54a0}\label{intel_8c_ae829cb6177d1458361220af4f3da54a0}} 
+\index{intel.c@{intel.c}!handle\_user\_split\_lock@{handle\_user\_split\_lock}}
+\index{handle\_user\_split\_lock@{handle\_user\_split\_lock}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{handle\_user\_split\_lock()}{handle\_user\_split\_lock()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} handle\+\_\+user\+\_\+split\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structpt__regs}{pt\+\_\+regs}} $\ast$}]{regs,  }\item[{long}]{error\+\_\+code }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{intel_8c_ae5f93eb67e5960490de9a88f96d2c63d}\label{intel_8c_ae5f93eb67e5960490de9a88f96d2c63d}} 
+\index{intel.c@{intel.c}!init\_cpuid\_fault@{init\_cpuid\_fault}}
+\index{init\_cpuid\_fault@{init\_cpuid\_fault}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{init\_cpuid\_fault()}{init\_cpuid\_fault()}}
+{\footnotesize\ttfamily static void init\+\_\+cpuid\+\_\+fault (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{intel_8c_a5f5175f434821ed4f16d7b6cd5f53613}\label{intel_8c_a5f5175f434821ed4f16d7b6cd5f53613}} 
+\index{intel.c@{intel.c}!init\_intel@{init\_intel}}
+\index{init\_intel@{init\_intel}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{init\_intel()}{init\_intel()}}
+{\footnotesize\ttfamily static void init\+\_\+intel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{intel_8c_a478c1b1be789e5341a3aa8a963337673}\label{intel_8c_a478c1b1be789e5341a3aa8a963337673}} 
+\index{intel.c@{intel.c}!init\_intel\_misc\_features@{init\_intel\_misc\_features}}
+\index{init\_intel\_misc\_features@{init\_intel\_misc\_features}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{init\_intel\_misc\_features()}{init\_intel\_misc\_features()}}
+{\footnotesize\ttfamily static void init\+\_\+intel\+\_\+misc\+\_\+features (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+Here is the caller graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{intel_8c_a700a0230cd090b2e175fb42e2829da6f}\label{intel_8c_a700a0230cd090b2e175fb42e2829da6f}} 
+\index{intel.c@{intel.c}!intel\_detect\_tlb@{intel\_detect\_tlb}}
+\index{intel\_detect\_tlb@{intel\_detect\_tlb}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{intel\_detect\_tlb()}{intel\_detect\_tlb()}}
+{\footnotesize\ttfamily static void intel\+\_\+detect\+\_\+tlb (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{intel_8c_a0c8e38f6ebdfb5803a8854d17db02afd}\label{intel_8c_a0c8e38f6ebdfb5803a8854d17db02afd}} 
+\index{intel.c@{intel.c}!intel\_tlb\_lookup@{intel\_tlb\_lookup}}
+\index{intel\_tlb\_lookup@{intel\_tlb\_lookup}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{intel\_tlb\_lookup()}{intel\_tlb\_lookup()}}
+{\footnotesize\ttfamily static void intel\+\_\+tlb\+\_\+lookup (\begin{DoxyParamCaption}\item[{const unsigned char}]{desc }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{intel_8c_a73dfc9106ec2306439bbd0c0ad2533d3}\label{intel_8c_a73dfc9106ec2306439bbd0c0ad2533d3}} 
+\index{intel.c@{intel.c}!intel\_workarounds@{intel\_workarounds}}
+\index{intel\_workarounds@{intel\_workarounds}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{intel\_workarounds()}{intel\_workarounds()}}
+{\footnotesize\ttfamily static void intel\+\_\+workarounds (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{intel_8c_ac45ca75bc06d3d451d6188671cedebff}\label{intel_8c_ac45ca75bc06d3d451d6188671cedebff}} 
+\index{intel.c@{intel.c}!match\_option@{match\_option}}
+\index{match\_option@{match\_option}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{match\_option()}{match\_option()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} match\+\_\+option (\begin{DoxyParamCaption}\item[{const char $\ast$}]{arg,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{arglen,  }\item[{const char $\ast$}]{opt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{intel_8c_a9d143d6ef983dee7468ac79f513f758c}\label{intel_8c_a9d143d6ef983dee7468ac79f513f758c}} 
+\index{intel.c@{intel.c}!probe\_xeon\_phi\_r3mwait@{probe\_xeon\_phi\_r3mwait}}
+\index{probe\_xeon\_phi\_r3mwait@{probe\_xeon\_phi\_r3mwait}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{probe\_xeon\_phi\_r3mwait()}{probe\_xeon\_phi\_r3mwait()}}
+{\footnotesize\ttfamily static void probe\+\_\+xeon\+\_\+phi\+\_\+r3mwait (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{intel_8c_aa50871c05e00cefae5cef229f33a14ac}\label{intel_8c_aa50871c05e00cefae5cef229f33a14ac}} 
+\index{intel.c@{intel.c}!ring3mwait\_disable@{ring3mwait\_disable}}
+\index{ring3mwait\_disable@{ring3mwait\_disable}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{ring3mwait\_disable()}{ring3mwait\_disable()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ring3mwait\+\_\+disable (\begin{DoxyParamCaption}\item[{char $\ast$}]{\+\_\+\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{intel_8c_a2f7e7b7b23610bbd76ddd652014a1492}\label{intel_8c_a2f7e7b7b23610bbd76ddd652014a1492}} 
+\index{intel.c@{intel.c}!sld\_setup@{sld\_setup}}
+\index{sld\_setup@{sld\_setup}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{sld\_setup()}{sld\_setup()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} sld\+\_\+setup (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 31
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{intel_8c_a0b1e56a383d0390570a0b2535f94cfdb}\label{intel_8c_a0b1e56a383d0390570a0b2535f94cfdb}} 
+\index{intel.c@{intel.c}!sld\_state\_setup@{sld\_state\_setup}}
+\index{sld\_state\_setup@{sld\_state\_setup}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{sld\_state\_setup()}{sld\_state\_setup()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} sld\+\_\+state\+\_\+setup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+Here is the caller graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{intel_8c_a62fa818879545a4f93e39aa897a76bbf}\label{intel_8c_a62fa818879545a4f93e39aa897a76bbf}} 
+\index{intel.c@{intel.c}!sld\_state\_show@{sld\_state\_show}}
+\index{sld\_state\_show@{sld\_state\_show}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{sld\_state\_show()}{sld\_state\_show()}}
+{\footnotesize\ttfamily static void sld\+\_\+state\+\_\+show (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{intel_8c_ae624ffe9847606fb0828d0184f2627d7}\label{intel_8c_ae624ffe9847606fb0828d0184f2627d7}} 
+\index{intel.c@{intel.c}!sld\_update\_msr@{sld\_update\_msr}}
+\index{sld\_update\_msr@{sld\_update\_msr}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{sld\_update\_msr()}{sld\_update\_msr()}}
+{\footnotesize\ttfamily static void sld\+\_\+update\+\_\+msr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{on }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{intel_8c_a19eb075f159bef9947c47de89da19426}\label{intel_8c_a19eb075f159bef9947c47de89da19426}} 
+\index{intel.c@{intel.c}!split\_lock\_init@{split\_lock\_init}}
+\index{split\_lock\_init@{split\_lock\_init}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{split\_lock\_init()}{split\_lock\_init()}}
+{\footnotesize\ttfamily static void split\+\_\+lock\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{intel_8c_a7d8afba0de6ae638a5b3081cb187fd87}\label{intel_8c_a7d8afba0de6ae638a5b3081cb187fd87}} 
+\index{intel.c@{intel.c}!split\_lock\_setup@{split\_lock\_setup}}
+\index{split\_lock\_setup@{split\_lock\_setup}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{split\_lock\_setup()}{split\_lock\_setup()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} split\+\_\+lock\+\_\+setup (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+Here is the caller graph for this function\+:
+% FIG 41
+\mbox{\Hypertarget{intel_8c_a394e434ad59f9adfbc4a163b3f3a2a9d}\label{intel_8c_a394e434ad59f9adfbc4a163b3f3a2a9d}} 
+\index{intel.c@{intel.c}!split\_lock\_verify\_msr@{split\_lock\_verify\_msr}}
+\index{split\_lock\_verify\_msr@{split\_lock\_verify\_msr}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{split\_lock\_verify\_msr()}{split\_lock\_verify\_msr()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} split\+\_\+lock\+\_\+verify\+\_\+msr (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{on }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 42
+Here is the caller graph for this function\+:
+% FIG 43
+\mbox{\Hypertarget{intel_8c_a53f947df4b949dc6c6324e337c0afc90}\label{intel_8c_a53f947df4b949dc6c6324e337c0afc90}} 
+\index{intel.c@{intel.c}!split\_lock\_warn@{split\_lock\_warn}}
+\index{split\_lock\_warn@{split\_lock\_warn}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{split\_lock\_warn()}{split\_lock\_warn()}}
+{\footnotesize\ttfamily static void split\+\_\+lock\+\_\+warn (\begin{DoxyParamCaption}\item[{unsigned long}]{ip }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 44
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{intel_8c_af4b0dff65dad935fa3815376d43d0ce7}\label{intel_8c_af4b0dff65dad935fa3815376d43d0ce7}} 
+\index{intel.c@{intel.c}!srat\_detect\_node@{srat\_detect\_node}}
+\index{srat\_detect\_node@{srat\_detect\_node}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{srat\_detect\_node()}{srat\_detect\_node()}}
+{\footnotesize\ttfamily static void srat\+\_\+detect\+\_\+node (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{intel_8c_a0ceedefe507b7199bac8c81dff8d5718}\label{intel_8c_a0ceedefe507b7199bac8c81dff8d5718}} 
+\index{intel.c@{intel.c}!switch\_to\_sld@{switch\_to\_sld}}
+\index{switch\_to\_sld@{switch\_to\_sld}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{switch\_to\_sld()}{switch\_to\_sld()}}
+{\footnotesize\ttfamily void switch\+\_\+to\+\_\+sld (\begin{DoxyParamCaption}\item[{unsigned long}]{tifn }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{intel_8c_a63faa6a379b9f8e40cf0aa044e61a5c7}\label{intel_8c_a63faa6a379b9f8e40cf0aa044e61a5c7}} 
+\index{intel.c@{intel.c}!\_\_initconst@{\_\_initconst}}
+\index{\_\_initconst@{\_\_initconst}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initconst}{\_\_initconst}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structx86__cpu__id}{x86\+\_\+cpu\+\_\+id}} split\+\_\+lock\+\_\+cpu\+\_\+ids \mbox{[}$\,$\mbox{]} \+\_\+\+\_\+initconst\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"off"},    \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a80b267438a7a8c5c3f11f384bcf37378}{sld\_off}}   \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"warn"},   \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66ac2d1f849cdb8bd27fbc86ad8f6193840}{sld\_warn}}  \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"fatal"},  \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a31e9f27aa2596cd0f2b147d00b36ea0c}{sld\_fatal}} \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"ratelimit:"}, \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a94aa58b23a67612a303b1803de8a81ab}{sld\_ratelimit}} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{intel_8c_acd08b7fec03e2c95adf7e9659a7264f7}\label{intel_8c_acd08b7fec03e2c95adf7e9659a7264f7}} 
+\index{intel.c@{intel.c}!\_\_read\_mostly@{\_\_read\_mostly}}
+\index{\_\_read\_mostly@{\_\_read\_mostly}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{\_\_read\_mostly}{\_\_read\_mostly}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} ring3mwait\+\_\+disabled \+\_\+\+\_\+read\+\_\+mostly\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{intel_8c_afff8274ebae0699440c99fe813100373}\label{intel_8c_afff8274ebae0699440c99fe813100373}} 
+\index{intel.c@{intel.c}!\_\_ro\_after\_init@{\_\_ro\_after\_init}}
+\index{\_\_ro\_after\_init@{\_\_ro\_after\_init}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ro\_after\_init}{\_\_ro\_after\_init}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} cpu\+\_\+model\+\_\+supports\+\_\+sld \+\_\+\+\_\+ro\+\_\+after\+\_\+init = \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66a80b267438a7a8c5c3f11f384bcf37378}{sld\+\_\+off}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{intel_8c_a91020481fd890a44d853ff8a7ba235d1}\label{intel_8c_a91020481fd890a44d853ff8a7ba235d1}} 
+\index{intel.c@{intel.c}!bld\_ratelimit@{bld\_ratelimit}}
+\index{bld\_ratelimit@{bld\_ratelimit}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{bld\_ratelimit}{bld\_ratelimit}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structratelimit__state}{ratelimit\+\_\+state}} bld\+\_\+ratelimit\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{intel_8c_a681d9573a2509cfc1334924ccf15cc08}\label{intel_8c_a681d9573a2509cfc1334924ccf15cc08}} 
+\index{intel.c@{intel.c}!intel\_cpu\_dev@{intel\_cpu\_dev}}
+\index{intel\_cpu\_dev@{intel\_cpu\_dev}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{intel\_cpu\_dev}{intel\_cpu\_dev}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structcpu__dev}{cpu\+\_\+dev}} intel\+\_\+cpu\+\_\+dev\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{intel_8c_a4d87377deeb9e6613380ef0044fe1642}\label{intel_8c_a4d87377deeb9e6613380ef0044fe1642}} 
+\index{intel.c@{intel.c}!intel\_tlb\_table@{intel\_tlb\_table}}
+\index{intel\_tlb\_table@{intel\_tlb\_table}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{intel\_tlb\_table}{intel\_tlb\_table}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{struct__tlb__table}{\+\_\+tlb\+\_\+table}} intel\+\_\+tlb\+\_\+table\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{intel_8c_a8a9385e953d0f024bdcf3689e7301898}\label{intel_8c_a8a9385e953d0f024bdcf3689e7301898}} 
+\index{intel.c@{intel.c}!mktme\_status@{mktme\_status}}
+\index{mktme\_status@{mktme\_status}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{mktme\_status}{mktme\_status}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mktme\+\_\+status = \mbox{\hyperlink{intel_8c_a1c4060b5aa84889240c4c558535e8c23}{M\+K\+T\+M\+E\+\_\+\+U\+N\+I\+N\+I\+T\+I\+A\+L\+I\+Z\+ED}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{intel_8c_a31b45a0ff8b2861859ecfbad2ce4fe02}\label{intel_8c_a31b45a0ff8b2861859ecfbad2ce4fe02}} 
+\index{intel.c@{intel.c}!option@{option}}
+\index{option@{option}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{option}{option}}
+{\footnotesize\ttfamily const char$\ast$ option}
+
+\mbox{\Hypertarget{intel_8c_a14a46f6169df5eddb94910f9ee588489}\label{intel_8c_a14a46f6169df5eddb94910f9ee588489}} 
+\index{intel.c@{intel.c}!spectre\_bad\_microcodes@{spectre\_bad\_microcodes}}
+\index{spectre\_bad\_microcodes@{spectre\_bad\_microcodes}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_bad\_microcodes}{spectre\_bad\_microcodes}}
+{\footnotesize\ttfamily const struct \mbox{\hyperlink{structsku__microcode}{sku\+\_\+microcode}} spectre\+\_\+bad\+\_\+microcodes\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_acc96bc7bc6ca292683861cc6ed64cbd5}{INTEL\_FAM6\_KABYLAKE}},       0x0B,   0x80 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_acc96bc7bc6ca292683861cc6ed64cbd5}{INTEL\_FAM6\_KABYLAKE}},       0x0A,   0x80 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_acc96bc7bc6ca292683861cc6ed64cbd5}{INTEL\_FAM6\_KABYLAKE}},       0x09,   0x80 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a6dd9031e18a8c9cac4f62c3f9e3f3dfd}{INTEL\_FAM6\_KABYLAKE\_L}},   0x0A,   0x80 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a6dd9031e18a8c9cac4f62c3f9e3f3dfd}{INTEL\_FAM6\_KABYLAKE\_L}},   0x09,   0x80 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a401fc5a19e90a5432cbe1b50dcf0ab5d}{INTEL\_FAM6\_SKYLAKE\_X}},     0x03,   0x0100013e \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a401fc5a19e90a5432cbe1b50dcf0ab5d}{INTEL\_FAM6\_SKYLAKE\_X}},     0x04,   0x0200003c \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_af90a647bbaa1125ca62c46709cd1817d}{INTEL\_FAM6\_BROADWELL}},     0x04,   0x28 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a612f2c438af53a66291578f861f2262d}{INTEL\_FAM6\_BROADWELL\_G}}, 0x01,   0x1b \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a6bfbce05ff9ee2f4669637cf08f0564f}{INTEL\_FAM6\_BROADWELL\_D}}, 0x02,   0x14 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a6bfbce05ff9ee2f4669637cf08f0564f}{INTEL\_FAM6\_BROADWELL\_D}}, 0x03,   0x07000011 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_af6bf427bf2e0657cac2f3bd1f6ee5c9b}{INTEL\_FAM6\_BROADWELL\_X}}, 0x01,   0x0b000025 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a761891a2cc51739395db3eac3fbb682b}{INTEL\_FAM6\_HASWELL\_L}},     0x01,   0x21 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a690afb57f73353213b845c30bf0244e6}{INTEL\_FAM6\_HASWELL\_G}},     0x01,   0x18 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_ac3cc7262dcd38ab937dc62ddfb7e0fea}{INTEL\_FAM6\_HASWELL}},     0x03,   0x23 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_af63f3e388a3aa6165fa0b2025b63e0a9}{INTEL\_FAM6\_HASWELL\_X}},     0x02,   0x3b \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_af63f3e388a3aa6165fa0b2025b63e0a9}{INTEL\_FAM6\_HASWELL\_X}},     0x04,   0x10 \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_aad425e694ee5db399874b3b9f5c0d60f}{INTEL\_FAM6\_IVYBRIDGE\_X}}, 0x04,   0x42a \},}
+\DoxyCodeLine{    }
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a60c618488d93f252c6d3dd03dd982761}{INTEL\_FAM6\_SANDYBRIDGE\_X}}, 0x06,   0x61b \},}
+\DoxyCodeLine{    \{ \mbox{\hyperlink{intel-family_8h_a60c618488d93f252c6d3dd03dd982761}{INTEL\_FAM6\_SANDYBRIDGE\_X}}, 0x07,   0x712 \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{intel_8c_ad24014601d920dbfc3ebe9eadf4a4b8f}\label{intel_8c_ad24014601d920dbfc3ebe9eadf4a4b8f}} 
+\index{intel.c@{intel.c}!state@{state}}
+\index{state@{state}!intel.c@{intel.c}}
+\doxysubsubsection{\texorpdfstring{state}{state}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{intel_8c_afeee4237fb15abd26ec09dd6e3198a66}{split\+\_\+lock\+\_\+detect\+\_\+state}} \mbox{\hyperlink{initramfs_8c_adc6e5733fc3c22f0a7b2914188c49c90}{state}}}
+

@@ -1,0 +1,964 @@
+\hypertarget{locktorture_8c}{}\doxysection{kernel/locking/locktorture.c File Reference}
+\label{locktorture_8c}\index{kernel/locking/locktorture.c@{kernel/locking/locktorture.c}}
+{\ttfamily \#include $<$linux/kernel.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kthread.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/rt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/spinlock.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rwsem.\+h$>$}\newline
+{\ttfamily \#include $<$linux/smp.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched.\+h$>$}\newline
+{\ttfamily \#include $<$uapi/linux/sched/types.\+h$>$}\newline
+{\ttfamily \#include $<$linux/rtmutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/atomic.\+h$>$}\newline
+{\ttfamily \#include $<$linux/moduleparam.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/torture.\+h$>$}\newline
+{\ttfamily \#include $<$linux/reboot.\+h$>$}\newline
+{\ttfamily \#include $<$linux/ww\+\_\+mutex.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu-\/rwsem.\+h$>$}\newline
+Include dependency graph for locktorture.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structlock__stress__stats}{lock\+\_\+stress\+\_\+stats}}
+\item 
+struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}}
+\item 
+struct \mbox{\hyperlink{structlock__torture__cxt}{lock\+\_\+torture\+\_\+cxt}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{locktorture_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{locktorture_8c_ad94b36675e7eb067ea3ce6ff9e244a44}{M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE}} (\char`\"{}G\+PL\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a5c0ac3a78c305f4b2f81c20414b953cf}{M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR}} (\char`\"{}Paul E. Mc\+Kenney $<$paulmck@linux.\+ibm.\+com$>$\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a7c8436ba096be6dfa3f2d1433dcc129b}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, nwriters\+\_\+stress, -\/1, \char`\"{}Number of write-\/locking \mbox{\hyperlink{structstress}{stress}}-\/\mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a52213e311cc86a3587e407b0b2cc7d7a}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, nreaders\+\_\+stress, -\/1, \char`\"{}Number of \mbox{\hyperlink{ring__buffer__benchmark_8c_a414a71904272e5b5fce01917028fb426}{read}}-\/locking \mbox{\hyperlink{structstress}{stress}}-\/\mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_aca9a9300beae8715ac34e90ed0b05be0}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, onoff\+\_\+holdoff, 0, \char`\"{}Time \mbox{\hyperlink{net_2tcp_8h_a97085ea281274f663bb1d74f438b47e0}{after}} boot \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} C\+PU hotplugs (\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a630cb1470bcb9e39caeff804391601b3}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, onoff\+\_\+interval, 0, \char`\"{}Time \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}} C\+PU hotplugs (\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}), 0=disable\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a183b1ef1386e6929b25af705c61f00bb}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{torture_8c_a1509ce227c16d1d8007d54b25d2ec83d}{shuffle\+\_\+interval}}, 3, \char`\"{}Number of \mbox{\hyperlink{linux_2jiffies_8h_a018196cb17e4e6b969d97f51d01e3164}{jiffies}} \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}} shuffles, 0=disable\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a686b330b4b3b1b23dfb217a5d1635fb9}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, shutdown\+\_\+secs, 0, \char`\"{}Shutdown \mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}} (\mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}}), $<$= \mbox{\hyperlink{desc__defs_8h_a12833cd5405ef3659520ccf452458f92}{zero}} to disable.\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_af04af5c1e5b7cf6c68f179ac08d18cf9}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, stat\+\_\+interval, 60, \char`\"{}Number of \mbox{\hyperlink{scsi__netlink__fc_8h_af1c6681ed3b417b3480d3aa84122df75}{seconds}} \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}} stats \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a2fff768bd488f4c331748bb2b5eeb1fc}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{torture_8c_ada31df17bef628943cf43d50fa1550d9}{stutter}}, 5, \char`\"{}Number of \mbox{\hyperlink{linux_2jiffies_8h_a018196cb17e4e6b969d97f51d01e3164}{jiffies}} to run/\mbox{\hyperlink{arch_2x86_2include_2asm_2irqflags_8h_a1afef8bf46d22236682f02e96cb7dc0e}{halt}} \mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}}, 0=disable\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a34cb1cf20673af4a41b1580d1c2a9565}{torture\+\_\+param}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}, \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}, 1, \char`\"{}Enable \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{})
+\item 
+\mbox{\hyperlink{locktorture_8c_a80fa9595ca36d29c57fb957d8b54446a}{module\+\_\+param}} (\mbox{\hyperlink{torture_8c_af8b9b755ca0a8cd9a28c7d7f7709180e}{torture\+\_\+type}}, charp, 0444)
+\item 
+\mbox{\hyperlink{locktorture_8c_aba31b4c1a999c4f019d3ee164ba7046a}{M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+M\+\_\+\+D\+E\+SC}} (\mbox{\hyperlink{torture_8c_af8b9b755ca0a8cd9a28c7d7f7709180e}{torture\+\_\+type}}, \char`\"{}Type of \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}} to torture (\mbox{\hyperlink{spinlock__rt_8h_a7b0928a22edd8e44652e5529d54bcaad}{spin\+\_\+lock}}, \mbox{\hyperlink{spinlock__rt_8h_ac7a80e492faf601c65090d964438d380}{spin\+\_\+lock\+\_\+irq}}, \mbox{\hyperlink{include_2linux_2mutex_8h_abaaded744882d08c2f67af395eb2abc2}{mutex\+\_\+lock}}, ...)\char`\"{})
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a95208aa73b762c187ac8376910775b6c}{lock\+\_\+torture\+\_\+cleanup}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_a2047ebfd97ac8850e6d0fde7ffc278b0}{torture\+\_\+lock\+\_\+busted\+\_\+write\+\_\+lock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}})
+\item 
+static void \mbox{\hyperlink{locktorture_8c_ad898f764d58d735e4160263a074f5c47}{torture\+\_\+lock\+\_\+busted\+\_\+write\+\_\+delay}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a4457c7390f62d0c14553d4cb7aa36bbc}{torture\+\_\+lock\+\_\+busted\+\_\+write\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}})
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\+\_\+boost\+\_\+dummy}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static \mbox{\hyperlink{locktorture_8c_afec1cfdc7aadafc36624112de9aa2a85}{D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK}} (torture\+\_\+spinlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_ac552e41dfebce72882a81b408c7f1d13}{torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+lock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+spinlock)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a3e145d1837aba7681900dcda0f617a6c}{torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+delay}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_aba3436a2f5c3ed3c37931dc70b330300}{torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+spinlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_af88b3f4fba70907a90cdc95b38d3ad34}{torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+lock\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+spinlock)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a3cfd4fc830e2ec911d88681ea410f08b}{torture\+\_\+lock\+\_\+spin\+\_\+write\+\_\+unlock\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+spinlock)
+\item 
+static \mbox{\hyperlink{locktorture_8c_abdda9c659567a337dda2fe6a95ecbd43}{D\+E\+F\+I\+N\+E\+\_\+\+R\+W\+L\+O\+CK}} (torture\+\_\+rwlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_ad8e4d1cf6657fee21a3f0c8932753d7f}{torture\+\_\+rwlock\+\_\+write\+\_\+lock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+rwlock)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a80b8dde854a65ced9c7978c9914dd544}{torture\+\_\+rwlock\+\_\+write\+\_\+delay}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_ab2bc118ad9242c7c91840e9c92037ffd}{torture\+\_\+rwlock\+\_\+write\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+rwlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_aa3c2b17b4d5faa6168ca28594722d4b7}{torture\+\_\+rwlock\+\_\+read\+\_\+lock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+rwlock)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_ad7682f8b940bd6ffbf4caa469c603fb6}{torture\+\_\+rwlock\+\_\+read\+\_\+delay}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_adb9d6a1c6ff7a2757caf897438e1a695}{torture\+\_\+rwlock\+\_\+read\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+rwlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_a0013964b38f445bbe3e967ac34de6219}{torture\+\_\+rwlock\+\_\+write\+\_\+lock\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+rwlock)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a9b480cf06d81696e4eed491b8564235c}{torture\+\_\+rwlock\+\_\+write\+\_\+unlock\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+rwlock)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_a3646e819f5543ce28fa38c7fca56cb59}{torture\+\_\+rwlock\+\_\+read\+\_\+lock\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+rwlock)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a0180b31d26fb1334620a3af0eb288c2e}{torture\+\_\+rwlock\+\_\+read\+\_\+unlock\+\_\+irq}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+rwlock)
+\item 
+static \mbox{\hyperlink{locktorture_8c_a9b98303911dd580242f206d3e7443cd1}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (torture\+\_\+mutex)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_abe044b72c554e6d2edbe417a026e0be2}{torture\+\_\+mutex\+\_\+lock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+mutex)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_ae73d9a2a6c0f1d164dbc1c2953319652}{torture\+\_\+mutex\+\_\+delay}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a436771d80412b67a57945d4d896bd454}{torture\+\_\+mutex\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+mutex)
+\item 
+static \mbox{\hyperlink{locktorture_8c_ace49a7e18f309d1f0bd4c6720ea223a9}{D\+E\+F\+I\+N\+E\+\_\+\+W\+D\+\_\+\+C\+L\+A\+SS}} (torture\+\_\+ww\+\_\+class)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a0f4be3c1b6821a4014a5d84a120e82d4}{torture\+\_\+ww\+\_\+mutex\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a5f9a5cba0915a85c33804ee393acc500}{torture\+\_\+ww\+\_\+mutex\+\_\+exit}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_abf257081a0bf36e48e121c150b01155c}{torture\+\_\+ww\+\_\+mutex\+\_\+lock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+ww\+\_\+mutex\+\_\+0) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+ww\+\_\+mutex\+\_\+1) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(\mbox{\hyperlink{locktorture_8c_a1d3f412a3d2c881469f7ef1e4490474d}{torture\+\_\+ww\+\_\+mutex\+\_\+2}})
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a250ea3720708717a4f46c53666dbc60e}{torture\+\_\+ww\+\_\+mutex\+\_\+unlock}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+ww\+\_\+mutex\+\_\+0) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+ww\+\_\+mutex\+\_\+1) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(\mbox{\hyperlink{locktorture_8c_a1d3f412a3d2c881469f7ef1e4490474d}{torture\+\_\+ww\+\_\+mutex\+\_\+2}})
+\item 
+static \mbox{\hyperlink{locktorture_8c_a9969cc83d6fa42f7aec1a144b45d9ead}{D\+E\+C\+L\+A\+R\+E\+\_\+\+R\+W\+S\+EM}} (torture\+\_\+rwsem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_ae2b968800ef77ee9f1408587781772f7}{torture\+\_\+rwsem\+\_\+down\+\_\+write}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+rwsem)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a3ee783dc60f60e87794a646a60c3bb66}{torture\+\_\+rwsem\+\_\+write\+\_\+delay}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a1ca003adffd7d3917866f70b185c1c98}{torture\+\_\+rwsem\+\_\+up\+\_\+write}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+rwsem)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_a806488f64ddcf37b527e3a2dbb1214fc}{torture\+\_\+rwsem\+\_\+down\+\_\+read}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(torture\+\_\+rwsem)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a0c1a79ac2e01c82b9238f1e14908ce20}{torture\+\_\+rwsem\+\_\+read\+\_\+delay}} (struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$trsp)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_ab3f9f04c7b775f29e6b552e81a6dd4db}{torture\+\_\+rwsem\+\_\+up\+\_\+read}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(torture\+\_\+rwsem)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a32c1508d17a16696fe70df3f3c97ea7f}{torture\+\_\+percpu\+\_\+rwsem\+\_\+init}} (void)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a02f145899ad515bab7a61899019a07ad}{torture\+\_\+percpu\+\_\+rwsem\+\_\+exit}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_a2d7963212ee6f019623c69a1ad171fba}{torture\+\_\+percpu\+\_\+rwsem\+\_\+down\+\_\+write}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(\mbox{\hyperlink{locktorture_8c_afdb2bea602cb4b4d3c3eac14c22db880}{pcpu\+\_\+rwsem}})
+\item 
+static void \mbox{\hyperlink{locktorture_8c_ac47fbe11da970a059baf71974e812464}{torture\+\_\+percpu\+\_\+rwsem\+\_\+up\+\_\+write}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(\mbox{\hyperlink{locktorture_8c_afdb2bea602cb4b4d3c3eac14c22db880}{pcpu\+\_\+rwsem}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_ab17b21cb322bc5198d8413a3f21d2fa9}{torture\+\_\+percpu\+\_\+rwsem\+\_\+down\+\_\+read}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(\mbox{\hyperlink{locktorture_8c_afdb2bea602cb4b4d3c3eac14c22db880}{pcpu\+\_\+rwsem}})
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a4b8b2873ab1b13a4a7c3f34f49e046c1}{torture\+\_\+percpu\+\_\+rwsem\+\_\+up\+\_\+read}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}} \mbox{\hyperlink{soc_2tegra_2fuse_8h_aeb8311b4cc14faf253b6d5aa4ce675bd}{\+\_\+\+\_\+maybe\+\_\+unused}}) \mbox{\hyperlink{compiler__types_8h_a8a48e2e572ccda0f5dcf0af7c4bf9d6c}{\+\_\+\+\_\+releases}}(\mbox{\hyperlink{locktorture_8c_afdb2bea602cb4b4d3c3eac14c22db880}{pcpu\+\_\+rwsem}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_a766d11e2ed83aaaaf7a431c3052aad58}{lock\+\_\+torture\+\_\+writer}} (void $\ast$arg)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_a4d177b615211707402f605115919aa20}{lock\+\_\+torture\+\_\+reader}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a420913b36265c3eccb8ce3d30b3cfe9b}{\+\_\+\+\_\+torture\+\_\+print\+\_\+stats}} (char $\ast$\mbox{\hyperlink{structpage}{page}}, struct \mbox{\hyperlink{structlock__stress__stats}{lock\+\_\+stress\+\_\+stats}} $\ast$statp, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} write)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_aa70e4ea5df472fc6a3acb55db155f640}{lock\+\_\+torture\+\_\+stats\+\_\+print}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{locktorture_8c_aa40ad63544b13731bf5403e22101d1a8}{lock\+\_\+torture\+\_\+stats}} (void $\ast$arg)
+\item 
+static void \mbox{\hyperlink{locktorture_8c_a8924d9c73c6e24737ea4b53e1bd582c8}{lock\+\_\+torture\+\_\+print\+\_\+module\+\_\+parms}} (struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} $\ast$\mbox{\hyperlink{refscale_8c_ac4b73a96ea718c917683e3b816d5b158}{cur\+\_\+ops}}, const char $\ast$\mbox{\hyperlink{virtio__scsi_8h_a5ad1555df5690c26801949601db361e0}{tag}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{locktorture_8c_ac32d3efe01d9b4321e0b50aadaa3a322}{lock\+\_\+torture\+\_\+init}} (void)
+\item 
+\mbox{\hyperlink{locktorture_8c_acf5dcadacf68bdf9c9d3aab747b28771}{module\+\_\+init}} (\mbox{\hyperlink{locktorture_8c_ac32d3efe01d9b4321e0b50aadaa3a322}{lock\+\_\+torture\+\_\+init}})
+\item 
+\mbox{\hyperlink{locktorture_8c_a7e3e7486c58ebe759441cb748234f7f6}{module\+\_\+exit}} (\mbox{\hyperlink{locktorture_8c_a95208aa73b762c187ac8376910775b6c}{lock\+\_\+torture\+\_\+cleanup}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+static char $\ast$ \mbox{\hyperlink{locktorture_8c_af8b9b755ca0a8cd9a28c7d7f7709180e}{torture\+\_\+type}} = \char`\"{}spin\+\_\+lock\char`\"{}
+\item 
+static struct task\+\_\+struct $\ast$ \mbox{\hyperlink{locktorture_8c_a9b6aea3a89e1c3cd006af3e304617c42}{stats\+\_\+task}}
+\item 
+static struct task\+\_\+struct $\ast$$\ast$ \mbox{\hyperlink{locktorture_8c_a370989a737503343923251d7b7555aa1}{writer\+\_\+tasks}}
+\item 
+static struct task\+\_\+struct $\ast$$\ast$ \mbox{\hyperlink{locktorture_8c_a28523223991ce928e5568233d4cc3fb4}{reader\+\_\+tasks}}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{locktorture_8c_a04da873b959ceb82a7f7ad91141d6472}{lock\+\_\+is\+\_\+write\+\_\+held}}
+\item 
+static \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} \mbox{\hyperlink{locktorture_8c_af0d0d966c0f98b585fa6f4962e2cca2e}{lock\+\_\+is\+\_\+read\+\_\+held}}
+\item 
+static unsigned long \mbox{\hyperlink{locktorture_8c_a6f2e8482427be4720d34e9d9f57deacb}{last\+\_\+lock\+\_\+release}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__cxt}{lock\+\_\+torture\+\_\+cxt}} \mbox{\hyperlink{locktorture_8c_ab2de742b3ff4b99b45c219c64976c097}{cxt}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_a08d40aaf6281d1733138c1be44ec4cc6}{lock\+\_\+busted\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_a4f825ff027c10b8f183dd21e62cc1532}{spin\+\_\+lock\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_a85e8ea7fbb98ad5ea988697066cc0440}{spin\+\_\+lock\+\_\+irq\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_afd9c217e32a0e5408f552670a876cd4a}{rw\+\_\+lock\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_a956fb8c001d378334cfb953db5f8e522}{rw\+\_\+lock\+\_\+irq\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_a7b5398fbb8f34a624f15c3d97564d717}{mutex\+\_\+lock\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structww__mutex}{ww\+\_\+mutex}} torture\+\_\+ww\+\_\+mutex\+\_\+0 torture\+\_\+ww\+\_\+mutex\+\_\+1 \mbox{\hyperlink{locktorture_8c_a1d3f412a3d2c881469f7ef1e4490474d}{torture\+\_\+ww\+\_\+mutex\+\_\+2}}
+\item 
+static struct \mbox{\hyperlink{structww__acquire__ctx}{ww\+\_\+acquire\+\_\+ctx}} $\ast$ \mbox{\hyperlink{locktorture_8c_a872d598f3bdc6eb6531821eeedbac73c}{ww\+\_\+acquire\+\_\+ctxs}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_a8342de937e8a6e7407dd38df74c60545}{ww\+\_\+mutex\+\_\+lock\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_a30ef7b6934136ebb3e25edade1f9437c}{rwsem\+\_\+lock\+\_\+ops}}
+\item 
+static struct \mbox{\hyperlink{structpercpu__rw__semaphore}{percpu\+\_\+rw\+\_\+semaphore}} \mbox{\hyperlink{locktorture_8c_afdb2bea602cb4b4d3c3eac14c22db880}{pcpu\+\_\+rwsem}}
+\item 
+static struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} \mbox{\hyperlink{locktorture_8c_ace811b3008d92a407651dc1675587c6e}{percpu\+\_\+rwsem\+\_\+lock\+\_\+ops}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{locktorture_8c_a1f8c165bf4196327bc3abff648276d92}\label{locktorture_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{locktorture.c@{locktorture.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{locktorture_8c_a420913b36265c3eccb8ce3d30b3cfe9b}\label{locktorture_8c_a420913b36265c3eccb8ce3d30b3cfe9b}} 
+\index{locktorture.c@{locktorture.c}!\_\_torture\_print\_stats@{\_\_torture\_print\_stats}}
+\index{\_\_torture\_print\_stats@{\_\_torture\_print\_stats}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{\_\_torture\_print\_stats()}{\_\_torture\_print\_stats()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+torture\+\_\+print\+\_\+stats (\begin{DoxyParamCaption}\item[{char $\ast$}]{page,  }\item[{struct \mbox{\hyperlink{structlock__stress__stats}{lock\+\_\+stress\+\_\+stats}} $\ast$}]{statp,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{write }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{locktorture_8c_a9969cc83d6fa42f7aec1a144b45d9ead}\label{locktorture_8c_a9969cc83d6fa42f7aec1a144b45d9ead}} 
+\index{locktorture.c@{locktorture.c}!DECLARE\_RWSEM@{DECLARE\_RWSEM}}
+\index{DECLARE\_RWSEM@{DECLARE\_RWSEM}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{DECLARE\_RWSEM()}{DECLARE\_RWSEM()}}
+{\footnotesize\ttfamily static D\+E\+C\+L\+A\+R\+E\+\_\+\+R\+W\+S\+EM (\begin{DoxyParamCaption}\item[{torture\+\_\+rwsem}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a9b98303911dd580242f206d3e7443cd1}\label{locktorture_8c_a9b98303911dd580242f206d3e7443cd1}} 
+\index{locktorture.c@{locktorture.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{torture\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_abdda9c659567a337dda2fe6a95ecbd43}\label{locktorture_8c_abdda9c659567a337dda2fe6a95ecbd43}} 
+\index{locktorture.c@{locktorture.c}!DEFINE\_RWLOCK@{DEFINE\_RWLOCK}}
+\index{DEFINE\_RWLOCK@{DEFINE\_RWLOCK}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_RWLOCK()}{DEFINE\_RWLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+R\+W\+L\+O\+CK (\begin{DoxyParamCaption}\item[{torture\+\_\+rwlock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_afec1cfdc7aadafc36624112de9aa2a85}\label{locktorture_8c_afec1cfdc7aadafc36624112de9aa2a85}} 
+\index{locktorture.c@{locktorture.c}!DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}}
+\index{DEFINE\_SPINLOCK@{DEFINE\_SPINLOCK}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_SPINLOCK()}{DEFINE\_SPINLOCK()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+S\+P\+I\+N\+L\+O\+CK (\begin{DoxyParamCaption}\item[{torture\+\_\+spinlock}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_ace49a7e18f309d1f0bd4c6720ea223a9}\label{locktorture_8c_ace49a7e18f309d1f0bd4c6720ea223a9}} 
+\index{locktorture.c@{locktorture.c}!DEFINE\_WD\_CLASS@{DEFINE\_WD\_CLASS}}
+\index{DEFINE\_WD\_CLASS@{DEFINE\_WD\_CLASS}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_WD\_CLASS()}{DEFINE\_WD\_CLASS()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+W\+D\+\_\+\+C\+L\+A\+SS (\begin{DoxyParamCaption}\item[{torture\+\_\+ww\+\_\+class}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a95208aa73b762c187ac8376910775b6c}\label{locktorture_8c_a95208aa73b762c187ac8376910775b6c}} 
+\index{locktorture.c@{locktorture.c}!lock\_torture\_cleanup@{lock\_torture\_cleanup}}
+\index{lock\_torture\_cleanup@{lock\_torture\_cleanup}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_torture\_cleanup()}{lock\_torture\_cleanup()}}
+{\footnotesize\ttfamily static void lock\+\_\+torture\+\_\+cleanup (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{locktorture_8c_ac32d3efe01d9b4321e0b50aadaa3a322}\label{locktorture_8c_ac32d3efe01d9b4321e0b50aadaa3a322}} 
+\index{locktorture.c@{locktorture.c}!lock\_torture\_init@{lock\_torture\_init}}
+\index{lock\_torture\_init@{lock\_torture\_init}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_torture\_init()}{lock\_torture\_init()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} lock\+\_\+torture\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{locktorture_8c_a8924d9c73c6e24737ea4b53e1bd582c8}\label{locktorture_8c_a8924d9c73c6e24737ea4b53e1bd582c8}} 
+\index{locktorture.c@{locktorture.c}!lock\_torture\_print\_module\_parms@{lock\_torture\_print\_module\_parms}}
+\index{lock\_torture\_print\_module\_parms@{lock\_torture\_print\_module\_parms}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_torture\_print\_module\_parms()}{lock\_torture\_print\_module\_parms()}}
+{\footnotesize\ttfamily static void lock\+\_\+torture\+\_\+print\+\_\+module\+\_\+parms (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} $\ast$}]{cur\+\_\+ops,  }\item[{const char $\ast$}]{tag }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{locktorture_8c_a4d177b615211707402f605115919aa20}\label{locktorture_8c_a4d177b615211707402f605115919aa20}} 
+\index{locktorture.c@{locktorture.c}!lock\_torture\_reader@{lock\_torture\_reader}}
+\index{lock\_torture\_reader@{lock\_torture\_reader}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_torture\_reader()}{lock\_torture\_reader()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lock\+\_\+torture\+\_\+reader (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{locktorture_8c_aa40ad63544b13731bf5403e22101d1a8}\label{locktorture_8c_aa40ad63544b13731bf5403e22101d1a8}} 
+\index{locktorture.c@{locktorture.c}!lock\_torture\_stats@{lock\_torture\_stats}}
+\index{lock\_torture\_stats@{lock\_torture\_stats}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_torture\_stats()}{lock\_torture\_stats()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lock\+\_\+torture\+\_\+stats (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{locktorture_8c_aa70e4ea5df472fc6a3acb55db155f640}\label{locktorture_8c_aa70e4ea5df472fc6a3acb55db155f640}} 
+\index{locktorture.c@{locktorture.c}!lock\_torture\_stats\_print@{lock\_torture\_stats\_print}}
+\index{lock\_torture\_stats\_print@{lock\_torture\_stats\_print}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_torture\_stats\_print()}{lock\_torture\_stats\_print()}}
+{\footnotesize\ttfamily static void lock\+\_\+torture\+\_\+stats\+\_\+print (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{locktorture_8c_a766d11e2ed83aaaaf7a431c3052aad58}\label{locktorture_8c_a766d11e2ed83aaaaf7a431c3052aad58}} 
+\index{locktorture.c@{locktorture.c}!lock\_torture\_writer@{lock\_torture\_writer}}
+\index{lock\_torture\_writer@{lock\_torture\_writer}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_torture\_writer()}{lock\_torture\_writer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} lock\+\_\+torture\+\_\+writer (\begin{DoxyParamCaption}\item[{void $\ast$}]{arg }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{locktorture_8c_a5c0ac3a78c305f4b2f81c20414b953cf}\label{locktorture_8c_a5c0ac3a78c305f4b2f81c20414b953cf}} 
+\index{locktorture.c@{locktorture.c}!MODULE\_AUTHOR@{MODULE\_AUTHOR}}
+\index{MODULE\_AUTHOR@{MODULE\_AUTHOR}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_AUTHOR()}{MODULE\_AUTHOR()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+A\+U\+T\+H\+OR (\begin{DoxyParamCaption}\item[{\char`\"{}Paul E. Mc\+Kenney $<$paulmck@linux.\+ibm.\+com$>$\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a7e3e7486c58ebe759441cb748234f7f6}\label{locktorture_8c_a7e3e7486c58ebe759441cb748234f7f6}} 
+\index{locktorture.c@{locktorture.c}!module\_exit@{module\_exit}}
+\index{module\_exit@{module\_exit}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{module\_exit()}{module\_exit()}}
+{\footnotesize\ttfamily module\+\_\+exit (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{locktorture_8c_a95208aa73b762c187ac8376910775b6c}{lock\+\_\+torture\+\_\+cleanup}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_acf5dcadacf68bdf9c9d3aab747b28771}\label{locktorture_8c_acf5dcadacf68bdf9c9d3aab747b28771}} 
+\index{locktorture.c@{locktorture.c}!module\_init@{module\_init}}
+\index{module\_init@{module\_init}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{module\_init()}{module\_init()}}
+{\footnotesize\ttfamily module\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{locktorture_8c_ac32d3efe01d9b4321e0b50aadaa3a322}{lock\+\_\+torture\+\_\+init}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_ad94b36675e7eb067ea3ce6ff9e244a44}\label{locktorture_8c_ad94b36675e7eb067ea3ce6ff9e244a44}} 
+\index{locktorture.c@{locktorture.c}!MODULE\_LICENSE@{MODULE\_LICENSE}}
+\index{MODULE\_LICENSE@{MODULE\_LICENSE}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_LICENSE()}{MODULE\_LICENSE()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+L\+I\+C\+E\+N\+SE (\begin{DoxyParamCaption}\item[{\char`\"{}G\+PL\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a80fa9595ca36d29c57fb957d8b54446a}\label{locktorture_8c_a80fa9595ca36d29c57fb957d8b54446a}} 
+\index{locktorture.c@{locktorture.c}!module\_param@{module\_param}}
+\index{module\_param@{module\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{module\_param()}{module\_param()}}
+{\footnotesize\ttfamily module\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{torture_8c_af8b9b755ca0a8cd9a28c7d7f7709180e}{torture\+\_\+type}}}]{,  }\item[{charp}]{,  }\item[{0444}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_aba31b4c1a999c4f019d3ee164ba7046a}\label{locktorture_8c_aba31b4c1a999c4f019d3ee164ba7046a}} 
+\index{locktorture.c@{locktorture.c}!MODULE\_PARM\_DESC@{MODULE\_PARM\_DESC}}
+\index{MODULE\_PARM\_DESC@{MODULE\_PARM\_DESC}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{MODULE\_PARM\_DESC()}{MODULE\_PARM\_DESC()}}
+{\footnotesize\ttfamily M\+O\+D\+U\+L\+E\+\_\+\+P\+A\+R\+M\+\_\+\+D\+E\+SC (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{torture_8c_af8b9b755ca0a8cd9a28c7d7f7709180e}{torture\+\_\+type}}}]{,  }\item[{\char`\"{}Type of \mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}} to torture (\mbox{\hyperlink{spinlock__rt_8h_a7b0928a22edd8e44652e5529d54bcaad}{spin\+\_\+lock}}, \mbox{\hyperlink{spinlock__rt_8h_ac7a80e492faf601c65090d964438d380}{spin\+\_\+lock\+\_\+irq}}, \mbox{\hyperlink{include_2linux_2mutex_8h_abaaded744882d08c2f67af395eb2abc2}{mutex\+\_\+lock}}, ...)\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}\label{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}} 
+\index{locktorture.c@{locktorture.c}!torture\_boost\_dummy@{torture\_boost\_dummy}}
+\index{torture\_boost\_dummy@{torture\_boost\_dummy}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_boost\_dummy()}{torture\_boost\_dummy()}}
+{\footnotesize\ttfamily static void torture\+\_\+boost\+\_\+dummy (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_ad898f764d58d735e4160263a074f5c47}\label{locktorture_8c_ad898f764d58d735e4160263a074f5c47}} 
+\index{locktorture.c@{locktorture.c}!torture\_lock\_busted\_write\_delay@{torture\_lock\_busted\_write\_delay}}
+\index{torture\_lock\_busted\_write\_delay@{torture\_lock\_busted\_write\_delay}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_lock\_busted\_write\_delay()}{torture\_lock\_busted\_write\_delay()}}
+{\footnotesize\ttfamily static void torture\+\_\+lock\+\_\+busted\+\_\+write\+\_\+delay (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{locktorture_8c_a2047ebfd97ac8850e6d0fde7ffc278b0}\label{locktorture_8c_a2047ebfd97ac8850e6d0fde7ffc278b0}} 
+\index{locktorture.c@{locktorture.c}!torture\_lock\_busted\_write\_lock@{torture\_lock\_busted\_write\_lock}}
+\index{torture\_lock\_busted\_write\_lock@{torture\_lock\_busted\_write\_lock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_lock\_busted\_write\_lock()}{torture\_lock\_busted\_write\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+lock\+\_\+busted\+\_\+write\+\_\+lock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a4457c7390f62d0c14553d4cb7aa36bbc}\label{locktorture_8c_a4457c7390f62d0c14553d4cb7aa36bbc}} 
+\index{locktorture.c@{locktorture.c}!torture\_lock\_busted\_write\_unlock@{torture\_lock\_busted\_write\_unlock}}
+\index{torture\_lock\_busted\_write\_unlock@{torture\_lock\_busted\_write\_unlock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_lock\_busted\_write\_unlock()}{torture\_lock\_busted\_write\_unlock()}}
+{\footnotesize\ttfamily static void torture\+\_\+lock\+\_\+busted\+\_\+write\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a3cfd4fc830e2ec911d88681ea410f08b}\label{locktorture_8c_a3cfd4fc830e2ec911d88681ea410f08b}} 
+\index{locktorture.c@{locktorture.c}!torture\_lock\_spin\_write\_unlock\_irq@{torture\_lock\_spin\_write\_unlock\_irq}}
+\index{torture\_lock\_spin\_write\_unlock\_irq@{torture\_lock\_spin\_write\_unlock\_irq}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_lock\_spin\_write\_unlock\_irq()}{torture\_lock\_spin\_write\_unlock\_irq()}}
+{\footnotesize\ttfamily static void torture\+\_\+lock\+\_\+spin\+\_\+write\+\_\+unlock\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{locktorture_8c_ae73d9a2a6c0f1d164dbc1c2953319652}\label{locktorture_8c_ae73d9a2a6c0f1d164dbc1c2953319652}} 
+\index{locktorture.c@{locktorture.c}!torture\_mutex\_delay@{torture\_mutex\_delay}}
+\index{torture\_mutex\_delay@{torture\_mutex\_delay}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_mutex\_delay()}{torture\_mutex\_delay()}}
+{\footnotesize\ttfamily static void torture\+\_\+mutex\+\_\+delay (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{locktorture_8c_abe044b72c554e6d2edbe417a026e0be2}\label{locktorture_8c_abe044b72c554e6d2edbe417a026e0be2}} 
+\index{locktorture.c@{locktorture.c}!torture\_mutex\_lock@{torture\_mutex\_lock}}
+\index{torture\_mutex\_lock@{torture\_mutex\_lock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_mutex\_lock()}{torture\_mutex\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+mutex\+\_\+lock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{locktorture_8c_a436771d80412b67a57945d4d896bd454}\label{locktorture_8c_a436771d80412b67a57945d4d896bd454}} 
+\index{locktorture.c@{locktorture.c}!torture\_mutex\_unlock@{torture\_mutex\_unlock}}
+\index{torture\_mutex\_unlock@{torture\_mutex\_unlock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_mutex\_unlock()}{torture\_mutex\_unlock()}}
+{\footnotesize\ttfamily static void torture\+\_\+mutex\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{locktorture_8c_a52213e311cc86a3587e407b0b2cc7d7a}\label{locktorture_8c_a52213e311cc86a3587e407b0b2cc7d7a}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [1/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{nreaders\+\_\+stress}]{,  }\item[{-\/}]{1,  }\item[{\char`\"{}Number of \mbox{\hyperlink{ring__buffer__benchmark_8c_a414a71904272e5b5fce01917028fb426}{read}}-\/locking \mbox{\hyperlink{structstress}{stress}}-\/\mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a7c8436ba096be6dfa3f2d1433dcc129b}\label{locktorture_8c_a7c8436ba096be6dfa3f2d1433dcc129b}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [2/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{nwriters\+\_\+stress}]{,  }\item[{-\/}]{1,  }\item[{\char`\"{}Number of write-\/locking \mbox{\hyperlink{structstress}{stress}}-\/\mbox{\hyperlink{globtest_8c_a938891c80a62258436f9aaf4bfd38c76}{test}} \mbox{\hyperlink{kcsan__test_8c_ae6ef1388af8804dfd278a92b8f6d0a24}{threads}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_aca9a9300beae8715ac34e90ed0b05be0}\label{locktorture_8c_aca9a9300beae8715ac34e90ed0b05be0}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [3/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{onoff\+\_\+holdoff}]{,  }\item[{0}]{,  }\item[{\char`\"{}Time \mbox{\hyperlink{net_2tcp_8h_a97085ea281274f663bb1d74f438b47e0}{after}} boot \mbox{\hyperlink{net_2tcp_8h_a6f12b482f8f1c315824910e8cca598c2}{before}} C\+PU hotplugs (\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}})\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a630cb1470bcb9e39caeff804391601b3}\label{locktorture_8c_a630cb1470bcb9e39caeff804391601b3}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [4/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{onoff\+\_\+interval}]{,  }\item[{0}]{,  }\item[{\char`\"{}Time \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}} C\+PU hotplugs }]{s }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a183b1ef1386e6929b25af705c61f00bb}\label{locktorture_8c_a183b1ef1386e6929b25af705c61f00bb}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [5/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{torture_8c_a1509ce227c16d1d8007d54b25d2ec83d}{shuffle\+\_\+interval}}}]{,  }\item[{3}]{,  }\item[{\char`\"{}Number of \mbox{\hyperlink{linux_2jiffies_8h_a018196cb17e4e6b969d97f51d01e3164}{jiffies}} \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}}}]{shuffles }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a686b330b4b3b1b23dfb217a5d1635fb9}\label{locktorture_8c_a686b330b4b3b1b23dfb217a5d1635fb9}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [6/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{shutdown\+\_\+secs}]{,  }\item[{0}]{,  }\item[{\char`\"{}Shutdown \mbox{\hyperlink{um__vdso_8c_aafaf4ccd34a9ec99d97633888932cba6}{time}} }]{j,  }\item[{$<$=\mbox{\hyperlink{desc__defs_8h_a12833cd5405ef3659520ccf452458f92}{zero}} to disable.\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_af04af5c1e5b7cf6c68f179ac08d18cf9}\label{locktorture_8c_af04af5c1e5b7cf6c68f179ac08d18cf9}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [7/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{stat\+\_\+interval}]{,  }\item[{60}]{,  }\item[{\char`\"{}Number of \mbox{\hyperlink{scsi__netlink__fc_8h_af1c6681ed3b417b3480d3aa84122df75}{seconds}} \mbox{\hyperlink{net_2tcp_8h_ab0fc9e96fce8fe197d2545ff2a145b13}{between}} stats \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a2fff768bd488f4c331748bb2b5eeb1fc}\label{locktorture_8c_a2fff768bd488f4c331748bb2b5eeb1fc}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [8/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{torture_8c_ada31df17bef628943cf43d50fa1550d9}{stutter}}}]{,  }\item[{5}]{,  }\item[{\char`\"{}Number of \mbox{\hyperlink{linux_2jiffies_8h_a018196cb17e4e6b969d97f51d01e3164}{jiffies}} to run/\mbox{\hyperlink{arch_2x86_2include_2asm_2irqflags_8h_a1afef8bf46d22236682f02e96cb7dc0e}{halt}}}]{test }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_a34cb1cf20673af4a41b1580d1c2a9565}\label{locktorture_8c_a34cb1cf20673af4a41b1580d1c2a9565}} 
+\index{locktorture.c@{locktorture.c}!torture\_param@{torture\_param}}
+\index{torture\_param@{torture\_param}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_param()}{torture\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [9/9]}}
+{\footnotesize\ttfamily torture\+\_\+param (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{,  }\item[{\mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}}}]{,  }\item[{1}]{,  }\item[{\char`\"{}Enable \mbox{\hyperlink{lockdep_8c_a4a78d2684f483521d873c0d960ca961f}{verbose}} debugging \mbox{\hyperlink{pq_8h_a92c0fd9bbafd520c7435afb41b1f1e65}{printk}}()\mbox{\hyperlink{decode__rs_8c_a3691308f2a4c2f6983f2880d32e29c84}{s}}\char`\"{}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{locktorture_8c_ab17b21cb322bc5198d8413a3f21d2fa9}\label{locktorture_8c_ab17b21cb322bc5198d8413a3f21d2fa9}} 
+\index{locktorture.c@{locktorture.c}!torture\_percpu\_rwsem\_down\_read@{torture\_percpu\_rwsem\_down\_read}}
+\index{torture\_percpu\_rwsem\_down\_read@{torture\_percpu\_rwsem\_down\_read}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_percpu\_rwsem\_down\_read()}{torture\_percpu\_rwsem\_down\_read()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+percpu\+\_\+rwsem\+\_\+down\+\_\+read (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{locktorture_8c_a2d7963212ee6f019623c69a1ad171fba}\label{locktorture_8c_a2d7963212ee6f019623c69a1ad171fba}} 
+\index{locktorture.c@{locktorture.c}!torture\_percpu\_rwsem\_down\_write@{torture\_percpu\_rwsem\_down\_write}}
+\index{torture\_percpu\_rwsem\_down\_write@{torture\_percpu\_rwsem\_down\_write}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_percpu\_rwsem\_down\_write()}{torture\_percpu\_rwsem\_down\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+percpu\+\_\+rwsem\+\_\+down\+\_\+write (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{locktorture_8c_a02f145899ad515bab7a61899019a07ad}\label{locktorture_8c_a02f145899ad515bab7a61899019a07ad}} 
+\index{locktorture.c@{locktorture.c}!torture\_percpu\_rwsem\_exit@{torture\_percpu\_rwsem\_exit}}
+\index{torture\_percpu\_rwsem\_exit@{torture\_percpu\_rwsem\_exit}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_percpu\_rwsem\_exit()}{torture\_percpu\_rwsem\_exit()}}
+{\footnotesize\ttfamily static void torture\+\_\+percpu\+\_\+rwsem\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+\mbox{\Hypertarget{locktorture_8c_a32c1508d17a16696fe70df3f3c97ea7f}\label{locktorture_8c_a32c1508d17a16696fe70df3f3c97ea7f}} 
+\index{locktorture.c@{locktorture.c}!torture\_percpu\_rwsem\_init@{torture\_percpu\_rwsem\_init}}
+\index{torture\_percpu\_rwsem\_init@{torture\_percpu\_rwsem\_init}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_percpu\_rwsem\_init()}{torture\_percpu\_rwsem\_init()}}
+{\footnotesize\ttfamily static void torture\+\_\+percpu\+\_\+rwsem\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{locktorture_8c_a4b8b2873ab1b13a4a7c3f34f49e046c1}\label{locktorture_8c_a4b8b2873ab1b13a4a7c3f34f49e046c1}} 
+\index{locktorture.c@{locktorture.c}!torture\_percpu\_rwsem\_up\_read@{torture\_percpu\_rwsem\_up\_read}}
+\index{torture\_percpu\_rwsem\_up\_read@{torture\_percpu\_rwsem\_up\_read}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_percpu\_rwsem\_up\_read()}{torture\_percpu\_rwsem\_up\_read()}}
+{\footnotesize\ttfamily static void torture\+\_\+percpu\+\_\+rwsem\+\_\+up\+\_\+read (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+\mbox{\Hypertarget{locktorture_8c_ac47fbe11da970a059baf71974e812464}\label{locktorture_8c_ac47fbe11da970a059baf71974e812464}} 
+\index{locktorture.c@{locktorture.c}!torture\_percpu\_rwsem\_up\_write@{torture\_percpu\_rwsem\_up\_write}}
+\index{torture\_percpu\_rwsem\_up\_write@{torture\_percpu\_rwsem\_up\_write}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_percpu\_rwsem\_up\_write()}{torture\_percpu\_rwsem\_up\_write()}}
+{\footnotesize\ttfamily static void torture\+\_\+percpu\+\_\+rwsem\+\_\+up\+\_\+write (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{locktorture_8c_ad7682f8b940bd6ffbf4caa469c603fb6}\label{locktorture_8c_ad7682f8b940bd6ffbf4caa469c603fb6}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_read\_delay@{torture\_rwlock\_read\_delay}}
+\index{torture\_rwlock\_read\_delay@{torture\_rwlock\_read\_delay}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_read\_delay()}{torture\_rwlock\_read\_delay()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwlock\+\_\+read\+\_\+delay (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{locktorture_8c_aa3c2b17b4d5faa6168ca28594722d4b7}\label{locktorture_8c_aa3c2b17b4d5faa6168ca28594722d4b7}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_read\_lock@{torture\_rwlock\_read\_lock}}
+\index{torture\_rwlock\_read\_lock@{torture\_rwlock\_read\_lock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_read\_lock()}{torture\_rwlock\_read\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+rwlock\+\_\+read\+\_\+lock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a3646e819f5543ce28fa38c7fca56cb59}\label{locktorture_8c_a3646e819f5543ce28fa38c7fca56cb59}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_read\_lock\_irq@{torture\_rwlock\_read\_lock\_irq}}
+\index{torture\_rwlock\_read\_lock\_irq@{torture\_rwlock\_read\_lock\_irq}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_read\_lock\_irq()}{torture\_rwlock\_read\_lock\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+rwlock\+\_\+read\+\_\+lock\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_adb9d6a1c6ff7a2757caf897438e1a695}\label{locktorture_8c_adb9d6a1c6ff7a2757caf897438e1a695}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_read\_unlock@{torture\_rwlock\_read\_unlock}}
+\index{torture\_rwlock\_read\_unlock@{torture\_rwlock\_read\_unlock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_read\_unlock()}{torture\_rwlock\_read\_unlock()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwlock\+\_\+read\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a0180b31d26fb1334620a3af0eb288c2e}\label{locktorture_8c_a0180b31d26fb1334620a3af0eb288c2e}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_read\_unlock\_irq@{torture\_rwlock\_read\_unlock\_irq}}
+\index{torture\_rwlock\_read\_unlock\_irq@{torture\_rwlock\_read\_unlock\_irq}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_read\_unlock\_irq()}{torture\_rwlock\_read\_unlock\_irq()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwlock\+\_\+read\+\_\+unlock\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a80b8dde854a65ced9c7978c9914dd544}\label{locktorture_8c_a80b8dde854a65ced9c7978c9914dd544}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_write\_delay@{torture\_rwlock\_write\_delay}}
+\index{torture\_rwlock\_write\_delay@{torture\_rwlock\_write\_delay}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_write\_delay()}{torture\_rwlock\_write\_delay()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwlock\+\_\+write\+\_\+delay (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{locktorture_8c_ad8e4d1cf6657fee21a3f0c8932753d7f}\label{locktorture_8c_ad8e4d1cf6657fee21a3f0c8932753d7f}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_write\_lock@{torture\_rwlock\_write\_lock}}
+\index{torture\_rwlock\_write\_lock@{torture\_rwlock\_write\_lock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_write\_lock()}{torture\_rwlock\_write\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+rwlock\+\_\+write\+\_\+lock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a0013964b38f445bbe3e967ac34de6219}\label{locktorture_8c_a0013964b38f445bbe3e967ac34de6219}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_write\_lock\_irq@{torture\_rwlock\_write\_lock\_irq}}
+\index{torture\_rwlock\_write\_lock\_irq@{torture\_rwlock\_write\_lock\_irq}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_write\_lock\_irq()}{torture\_rwlock\_write\_lock\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+rwlock\+\_\+write\+\_\+lock\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_ab2bc118ad9242c7c91840e9c92037ffd}\label{locktorture_8c_ab2bc118ad9242c7c91840e9c92037ffd}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_write\_unlock@{torture\_rwlock\_write\_unlock}}
+\index{torture\_rwlock\_write\_unlock@{torture\_rwlock\_write\_unlock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_write\_unlock()}{torture\_rwlock\_write\_unlock()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwlock\+\_\+write\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a9b480cf06d81696e4eed491b8564235c}\label{locktorture_8c_a9b480cf06d81696e4eed491b8564235c}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwlock\_write\_unlock\_irq@{torture\_rwlock\_write\_unlock\_irq}}
+\index{torture\_rwlock\_write\_unlock\_irq@{torture\_rwlock\_write\_unlock\_irq}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwlock\_write\_unlock\_irq()}{torture\_rwlock\_write\_unlock\_irq()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwlock\+\_\+write\+\_\+unlock\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a806488f64ddcf37b527e3a2dbb1214fc}\label{locktorture_8c_a806488f64ddcf37b527e3a2dbb1214fc}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwsem\_down\_read@{torture\_rwsem\_down\_read}}
+\index{torture\_rwsem\_down\_read@{torture\_rwsem\_down\_read}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwsem\_down\_read()}{torture\_rwsem\_down\_read()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+rwsem\+\_\+down\+\_\+read (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{locktorture_8c_ae2b968800ef77ee9f1408587781772f7}\label{locktorture_8c_ae2b968800ef77ee9f1408587781772f7}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwsem\_down\_write@{torture\_rwsem\_down\_write}}
+\index{torture\_rwsem\_down\_write@{torture\_rwsem\_down\_write}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwsem\_down\_write()}{torture\_rwsem\_down\_write()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+rwsem\+\_\+down\+\_\+write (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{locktorture_8c_a0c1a79ac2e01c82b9238f1e14908ce20}\label{locktorture_8c_a0c1a79ac2e01c82b9238f1e14908ce20}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwsem\_read\_delay@{torture\_rwsem\_read\_delay}}
+\index{torture\_rwsem\_read\_delay@{torture\_rwsem\_read\_delay}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwsem\_read\_delay()}{torture\_rwsem\_read\_delay()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwsem\+\_\+read\+\_\+delay (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{locktorture_8c_ab3f9f04c7b775f29e6b552e81a6dd4db}\label{locktorture_8c_ab3f9f04c7b775f29e6b552e81a6dd4db}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwsem\_up\_read@{torture\_rwsem\_up\_read}}
+\index{torture\_rwsem\_up\_read@{torture\_rwsem\_up\_read}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwsem\_up\_read()}{torture\_rwsem\_up\_read()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwsem\+\_\+up\+\_\+read (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{locktorture_8c_a1ca003adffd7d3917866f70b185c1c98}\label{locktorture_8c_a1ca003adffd7d3917866f70b185c1c98}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwsem\_up\_write@{torture\_rwsem\_up\_write}}
+\index{torture\_rwsem\_up\_write@{torture\_rwsem\_up\_write}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwsem\_up\_write()}{torture\_rwsem\_up\_write()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwsem\+\_\+up\+\_\+write (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{locktorture_8c_a3ee783dc60f60e87794a646a60c3bb66}\label{locktorture_8c_a3ee783dc60f60e87794a646a60c3bb66}} 
+\index{locktorture.c@{locktorture.c}!torture\_rwsem\_write\_delay@{torture\_rwsem\_write\_delay}}
+\index{torture\_rwsem\_write\_delay@{torture\_rwsem\_write\_delay}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_rwsem\_write\_delay()}{torture\_rwsem\_write\_delay()}}
+{\footnotesize\ttfamily static void torture\+\_\+rwsem\+\_\+write\+\_\+delay (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{locktorture_8c_a3e145d1837aba7681900dcda0f617a6c}\label{locktorture_8c_a3e145d1837aba7681900dcda0f617a6c}} 
+\index{locktorture.c@{locktorture.c}!torture\_spin\_lock\_write\_delay@{torture\_spin\_lock\_write\_delay}}
+\index{torture\_spin\_lock\_write\_delay@{torture\_spin\_lock\_write\_delay}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_spin\_lock\_write\_delay()}{torture\_spin\_lock\_write\_delay()}}
+{\footnotesize\ttfamily static void torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+delay (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtorture__random__state}{torture\+\_\+random\+\_\+state}} $\ast$}]{trsp }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+\mbox{\Hypertarget{locktorture_8c_ac552e41dfebce72882a81b408c7f1d13}\label{locktorture_8c_ac552e41dfebce72882a81b408c7f1d13}} 
+\index{locktorture.c@{locktorture.c}!torture\_spin\_lock\_write\_lock@{torture\_spin\_lock\_write\_lock}}
+\index{torture\_spin\_lock\_write\_lock@{torture\_spin\_lock\_write\_lock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_spin\_lock\_write\_lock()}{torture\_spin\_lock\_write\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+lock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{locktorture_8c_af88b3f4fba70907a90cdc95b38d3ad34}\label{locktorture_8c_af88b3f4fba70907a90cdc95b38d3ad34}} 
+\index{locktorture.c@{locktorture.c}!torture\_spin\_lock\_write\_lock\_irq@{torture\_spin\_lock\_write\_lock\_irq}}
+\index{torture\_spin\_lock\_write\_lock\_irq@{torture\_spin\_lock\_write\_lock\_irq}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_spin\_lock\_write\_lock\_irq()}{torture\_spin\_lock\_write\_lock\_irq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+lock\+\_\+irq (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_aba3436a2f5c3ed3c37931dc70b330300}\label{locktorture_8c_aba3436a2f5c3ed3c37931dc70b330300}} 
+\index{locktorture.c@{locktorture.c}!torture\_spin\_lock\_write\_unlock@{torture\_spin\_lock\_write\_unlock}}
+\index{torture\_spin\_lock\_write\_unlock@{torture\_spin\_lock\_write\_unlock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_spin\_lock\_write\_unlock()}{torture\_spin\_lock\_write\_unlock()}}
+{\footnotesize\ttfamily static void torture\+\_\+spin\+\_\+lock\+\_\+write\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{net_2gtp_8h_a8b4f730016ae140524f05e7d8a326ac5}{tid}}}]{\+\_\+\+\_\+maybe\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+\mbox{\Hypertarget{locktorture_8c_a5f9a5cba0915a85c33804ee393acc500}\label{locktorture_8c_a5f9a5cba0915a85c33804ee393acc500}} 
+\index{locktorture.c@{locktorture.c}!torture\_ww\_mutex\_exit@{torture\_ww\_mutex\_exit}}
+\index{torture\_ww\_mutex\_exit@{torture\_ww\_mutex\_exit}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_ww\_mutex\_exit()}{torture\_ww\_mutex\_exit()}}
+{\footnotesize\ttfamily static void torture\+\_\+ww\+\_\+mutex\+\_\+exit (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{locktorture_8c_a0f4be3c1b6821a4014a5d84a120e82d4}\label{locktorture_8c_a0f4be3c1b6821a4014a5d84a120e82d4}} 
+\index{locktorture.c@{locktorture.c}!torture\_ww\_mutex\_init@{torture\_ww\_mutex\_init}}
+\index{torture\_ww\_mutex\_init@{torture\_ww\_mutex\_init}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_ww\_mutex\_init()}{torture\_ww\_mutex\_init()}}
+{\footnotesize\ttfamily static void torture\+\_\+ww\+\_\+mutex\+\_\+init (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+\mbox{\Hypertarget{locktorture_8c_abf257081a0bf36e48e121c150b01155c}\label{locktorture_8c_abf257081a0bf36e48e121c150b01155c}} 
+\index{locktorture.c@{locktorture.c}!torture\_ww\_mutex\_lock@{torture\_ww\_mutex\_lock}}
+\index{torture\_ww\_mutex\_lock@{torture\_ww\_mutex\_lock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_ww\_mutex\_lock()}{torture\_ww\_mutex\_lock()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} torture\+\_\+ww\+\_\+mutex\+\_\+lock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{tid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{locktorture_8c_a250ea3720708717a4f46c53666dbc60e}\label{locktorture_8c_a250ea3720708717a4f46c53666dbc60e}} 
+\index{locktorture.c@{locktorture.c}!torture\_ww\_mutex\_unlock@{torture\_ww\_mutex\_unlock}}
+\index{torture\_ww\_mutex\_unlock@{torture\_ww\_mutex\_unlock}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_ww\_mutex\_unlock()}{torture\_ww\_mutex\_unlock()}}
+{\footnotesize\ttfamily static void torture\+\_\+ww\+\_\+mutex\+\_\+unlock (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{tid }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{locktorture_8c_ab2de742b3ff4b99b45c219c64976c097}\label{locktorture_8c_ab2de742b3ff4b99b45c219c64976c097}} 
+\index{locktorture.c@{locktorture.c}!cxt@{cxt}}
+\index{cxt@{cxt}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{cxt}{cxt}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__cxt}{lock\+\_\+torture\+\_\+cxt}} cxt\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{ 0, 0, \textcolor{keyword}{false}, \textcolor{keyword}{false},}
+\DoxyCodeLine{                       \mbox{\hyperlink{include_2linux_2types_8h_aadfbba86627ee7eeb07e04f712550f73}{ATOMIC\_INIT}}(0),}
+\DoxyCodeLine{                       \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}}, \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}}\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_a6f2e8482427be4720d34e9d9f57deacb}\label{locktorture_8c_a6f2e8482427be4720d34e9d9f57deacb}} 
+\index{locktorture.c@{locktorture.c}!last\_lock\_release@{last\_lock\_release}}
+\index{last\_lock\_release@{last\_lock\_release}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{last\_lock\_release}{last\_lock\_release}}
+{\footnotesize\ttfamily unsigned long last\+\_\+lock\+\_\+release\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a08d40aaf6281d1733138c1be44ec4cc6}\label{locktorture_8c_a08d40aaf6281d1733138c1be44ec4cc6}} 
+\index{locktorture.c@{locktorture.c}!lock\_busted\_ops@{lock\_busted\_ops}}
+\index{lock\_busted\_ops@{lock\_busted\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_busted\_ops}{lock\_busted\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} lock\+\_\+busted\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_a2047ebfd97ac8850e6d0fde7ffc278b0}{torture\_lock\_busted\_write\_lock}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_ad898f764d58d735e4160263a074f5c47}{torture\_lock\_busted\_write\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_a4457c7390f62d0c14553d4cb7aa36bbc}{torture\_lock\_busted\_write\_unlock}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"lock\_busted"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_af0d0d966c0f98b585fa6f4962e2cca2e}\label{locktorture_8c_af0d0d966c0f98b585fa6f4962e2cca2e}} 
+\index{locktorture.c@{locktorture.c}!lock\_is\_read\_held@{lock\_is\_read\_held}}
+\index{lock\_is\_read\_held@{lock\_is\_read\_held}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_is\_read\_held}{lock\_is\_read\_held}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structatomic__t}{atomic\+\_\+t}} lock\+\_\+is\+\_\+read\+\_\+held\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a04da873b959ceb82a7f7ad91141d6472}\label{locktorture_8c_a04da873b959ceb82a7f7ad91141d6472}} 
+\index{locktorture.c@{locktorture.c}!lock\_is\_write\_held@{lock\_is\_write\_held}}
+\index{lock\_is\_write\_held@{lock\_is\_write\_held}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{lock\_is\_write\_held}{lock\_is\_write\_held}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} lock\+\_\+is\+\_\+write\+\_\+held\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a7b5398fbb8f34a624f15c3d97564d717}\label{locktorture_8c_a7b5398fbb8f34a624f15c3d97564d717}} 
+\index{locktorture.c@{locktorture.c}!mutex\_lock\_ops@{mutex\_lock\_ops}}
+\index{mutex\_lock\_ops@{mutex\_lock\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_lock\_ops}{mutex\_lock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} mutex\+\_\+lock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_abe044b72c554e6d2edbe417a026e0be2}{torture\_mutex\_lock}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_ae73d9a2a6c0f1d164dbc1c2953319652}{torture\_mutex\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_a436771d80412b67a57945d4d896bd454}{torture\_mutex\_unlock}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"mutex\_lock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_afdb2bea602cb4b4d3c3eac14c22db880}\label{locktorture_8c_afdb2bea602cb4b4d3c3eac14c22db880}} 
+\index{locktorture.c@{locktorture.c}!pcpu\_rwsem@{pcpu\_rwsem}}
+\index{pcpu\_rwsem@{pcpu\_rwsem}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{pcpu\_rwsem}{pcpu\_rwsem}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structpercpu__rw__semaphore}{percpu\+\_\+rw\+\_\+semaphore}} pcpu\+\_\+rwsem\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_ace811b3008d92a407651dc1675587c6e}\label{locktorture_8c_ace811b3008d92a407651dc1675587c6e}} 
+\index{locktorture.c@{locktorture.c}!percpu\_rwsem\_lock\_ops@{percpu\_rwsem\_lock\_ops}}
+\index{percpu\_rwsem\_lock\_ops@{percpu\_rwsem\_lock\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{percpu\_rwsem\_lock\_ops}{percpu\_rwsem\_lock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} percpu\+\_\+rwsem\+\_\+lock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{locktorture_8c_a32c1508d17a16696fe70df3f3c97ea7f}{torture\_percpu\_rwsem\_init}},}
+\DoxyCodeLine{    .exit       = \mbox{\hyperlink{locktorture_8c_a02f145899ad515bab7a61899019a07ad}{torture\_percpu\_rwsem\_exit}},}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_a2d7963212ee6f019623c69a1ad171fba}{torture\_percpu\_rwsem\_down\_write}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_a3ee783dc60f60e87794a646a60c3bb66}{torture\_rwsem\_write\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_ac47fbe11da970a059baf71974e812464}{torture\_percpu\_rwsem\_up\_write}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{locktorture_8c_ab17b21cb322bc5198d8413a3f21d2fa9}{torture\_percpu\_rwsem\_down\_read}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{locktorture_8c_a0c1a79ac2e01c82b9238f1e14908ce20}{torture\_rwsem\_read\_delay}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{locktorture_8c_a4b8b2873ab1b13a4a7c3f34f49e046c1}{torture\_percpu\_rwsem\_up\_read}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"percpu\_rwsem\_lock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_a28523223991ce928e5568233d4cc3fb4}\label{locktorture_8c_a28523223991ce928e5568233d4cc3fb4}} 
+\index{locktorture.c@{locktorture.c}!reader\_tasks@{reader\_tasks}}
+\index{reader\_tasks@{reader\_tasks}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{reader\_tasks}{reader\_tasks}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$$\ast$ reader\+\_\+tasks\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a956fb8c001d378334cfb953db5f8e522}\label{locktorture_8c_a956fb8c001d378334cfb953db5f8e522}} 
+\index{locktorture.c@{locktorture.c}!rw\_lock\_irq\_ops@{rw\_lock\_irq\_ops}}
+\index{rw\_lock\_irq\_ops@{rw\_lock\_irq\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{rw\_lock\_irq\_ops}{rw\_lock\_irq\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} rw\+\_\+lock\+\_\+irq\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_a0013964b38f445bbe3e967ac34de6219}{torture\_rwlock\_write\_lock\_irq}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_a80b8dde854a65ced9c7978c9914dd544}{torture\_rwlock\_write\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_a9b480cf06d81696e4eed491b8564235c}{torture\_rwlock\_write\_unlock\_irq}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{locktorture_8c_a3646e819f5543ce28fa38c7fca56cb59}{torture\_rwlock\_read\_lock\_irq}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{locktorture_8c_ad7682f8b940bd6ffbf4caa469c603fb6}{torture\_rwlock\_read\_delay}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{locktorture_8c_a0180b31d26fb1334620a3af0eb288c2e}{torture\_rwlock\_read\_unlock\_irq}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rw\_lock\_irq"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_afd9c217e32a0e5408f552670a876cd4a}\label{locktorture_8c_afd9c217e32a0e5408f552670a876cd4a}} 
+\index{locktorture.c@{locktorture.c}!rw\_lock\_ops@{rw\_lock\_ops}}
+\index{rw\_lock\_ops@{rw\_lock\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{rw\_lock\_ops}{rw\_lock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} rw\+\_\+lock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_ad8e4d1cf6657fee21a3f0c8932753d7f}{torture\_rwlock\_write\_lock}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_a80b8dde854a65ced9c7978c9914dd544}{torture\_rwlock\_write\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_ab2bc118ad9242c7c91840e9c92037ffd}{torture\_rwlock\_write\_unlock}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{locktorture_8c_aa3c2b17b4d5faa6168ca28594722d4b7}{torture\_rwlock\_read\_lock}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{locktorture_8c_ad7682f8b940bd6ffbf4caa469c603fb6}{torture\_rwlock\_read\_delay}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{locktorture_8c_adb9d6a1c6ff7a2757caf897438e1a695}{torture\_rwlock\_read\_unlock}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rw\_lock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_a30ef7b6934136ebb3e25edade1f9437c}\label{locktorture_8c_a30ef7b6934136ebb3e25edade1f9437c}} 
+\index{locktorture.c@{locktorture.c}!rwsem\_lock\_ops@{rwsem\_lock\_ops}}
+\index{rwsem\_lock\_ops@{rwsem\_lock\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{rwsem\_lock\_ops}{rwsem\_lock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} rwsem\+\_\+lock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_ae2b968800ef77ee9f1408587781772f7}{torture\_rwsem\_down\_write}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_a3ee783dc60f60e87794a646a60c3bb66}{torture\_rwsem\_write\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_a1ca003adffd7d3917866f70b185c1c98}{torture\_rwsem\_up\_write}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{locktorture_8c_a806488f64ddcf37b527e3a2dbb1214fc}{torture\_rwsem\_down\_read}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{locktorture_8c_a0c1a79ac2e01c82b9238f1e14908ce20}{torture\_rwsem\_read\_delay}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{locktorture_8c_ab3f9f04c7b775f29e6b552e81a6dd4db}{torture\_rwsem\_up\_read}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"rwsem\_lock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_a85e8ea7fbb98ad5ea988697066cc0440}\label{locktorture_8c_a85e8ea7fbb98ad5ea988697066cc0440}} 
+\index{locktorture.c@{locktorture.c}!spin\_lock\_irq\_ops@{spin\_lock\_irq\_ops}}
+\index{spin\_lock\_irq\_ops@{spin\_lock\_irq\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{spin\_lock\_irq\_ops}{spin\_lock\_irq\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} spin\+\_\+lock\+\_\+irq\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_af88b3f4fba70907a90cdc95b38d3ad34}{torture\_spin\_lock\_write\_lock\_irq}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_a3e145d1837aba7681900dcda0f617a6c}{torture\_spin\_lock\_write\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_a3cfd4fc830e2ec911d88681ea410f08b}{torture\_lock\_spin\_write\_unlock\_irq}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"spin\_lock\_irq"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_a4f825ff027c10b8f183dd21e62cc1532}\label{locktorture_8c_a4f825ff027c10b8f183dd21e62cc1532}} 
+\index{locktorture.c@{locktorture.c}!spin\_lock\_ops@{spin\_lock\_ops}}
+\index{spin\_lock\_ops@{spin\_lock\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{spin\_lock\_ops}{spin\_lock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} spin\+\_\+lock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_ac552e41dfebce72882a81b408c7f1d13}{torture\_spin\_lock\_write\_lock}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_a3e145d1837aba7681900dcda0f617a6c}{torture\_spin\_lock\_write\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_aba3436a2f5c3ed3c37931dc70b330300}{torture\_spin\_lock\_write\_unlock}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"spin\_lock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{locktorture_8c_a9b6aea3a89e1c3cd006af3e304617c42}\label{locktorture_8c_a9b6aea3a89e1c3cd006af3e304617c42}} 
+\index{locktorture.c@{locktorture.c}!stats\_task@{stats\_task}}
+\index{stats\_task@{stats\_task}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{stats\_task}{stats\_task}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$ stats\+\_\+task\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_af8b9b755ca0a8cd9a28c7d7f7709180e}\label{locktorture_8c_af8b9b755ca0a8cd9a28c7d7f7709180e}} 
+\index{locktorture.c@{locktorture.c}!torture\_type@{torture\_type}}
+\index{torture\_type@{torture\_type}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_type}{torture\_type}}
+{\footnotesize\ttfamily char$\ast$ torture\+\_\+type = \char`\"{}spin\+\_\+lock\char`\"{}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a1d3f412a3d2c881469f7ef1e4490474d}\label{locktorture_8c_a1d3f412a3d2c881469f7ef1e4490474d}} 
+\index{locktorture.c@{locktorture.c}!torture\_ww\_mutex\_2@{torture\_ww\_mutex\_2}}
+\index{torture\_ww\_mutex\_2@{torture\_ww\_mutex\_2}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{torture\_ww\_mutex\_2}{torture\_ww\_mutex\_2}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structww__mutex}{ww\+\_\+mutex}} torture\+\_\+ww\+\_\+mutex\+\_\+0 torture\+\_\+ww\+\_\+mutex\+\_\+1 torture\+\_\+ww\+\_\+mutex\+\_\+2\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a370989a737503343923251d7b7555aa1}\label{locktorture_8c_a370989a737503343923251d7b7555aa1}} 
+\index{locktorture.c@{locktorture.c}!writer\_tasks@{writer\_tasks}}
+\index{writer\_tasks@{writer\_tasks}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{writer\_tasks}{writer\_tasks}}
+{\footnotesize\ttfamily struct task\+\_\+struct$\ast$$\ast$ writer\+\_\+tasks\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a872d598f3bdc6eb6531821eeedbac73c}\label{locktorture_8c_a872d598f3bdc6eb6531821eeedbac73c}} 
+\index{locktorture.c@{locktorture.c}!ww\_acquire\_ctxs@{ww\_acquire\_ctxs}}
+\index{ww\_acquire\_ctxs@{ww\_acquire\_ctxs}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{ww\_acquire\_ctxs}{ww\_acquire\_ctxs}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structww__acquire__ctx}{ww\+\_\+acquire\+\_\+ctx}}$\ast$ ww\+\_\+acquire\+\_\+ctxs\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{locktorture_8c_a8342de937e8a6e7407dd38df74c60545}\label{locktorture_8c_a8342de937e8a6e7407dd38df74c60545}} 
+\index{locktorture.c@{locktorture.c}!ww\_mutex\_lock\_ops@{ww\_mutex\_lock\_ops}}
+\index{ww\_mutex\_lock\_ops@{ww\_mutex\_lock\_ops}!locktorture.c@{locktorture.c}}
+\doxysubsubsection{\texorpdfstring{ww\_mutex\_lock\_ops}{ww\_mutex\_lock\_ops}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structlock__torture__ops}{lock\+\_\+torture\+\_\+ops}} ww\+\_\+mutex\+\_\+lock\+\_\+ops\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    .init       = \mbox{\hyperlink{locktorture_8c_a0f4be3c1b6821a4014a5d84a120e82d4}{torture\_ww\_mutex\_init}},}
+\DoxyCodeLine{    .exit       = \mbox{\hyperlink{locktorture_8c_a5f9a5cba0915a85c33804ee393acc500}{torture\_ww\_mutex\_exit}},}
+\DoxyCodeLine{    .writelock  = \mbox{\hyperlink{locktorture_8c_abf257081a0bf36e48e121c150b01155c}{torture\_ww\_mutex\_lock}},}
+\DoxyCodeLine{    .write\_delay    = \mbox{\hyperlink{locktorture_8c_ae73d9a2a6c0f1d164dbc1c2953319652}{torture\_mutex\_delay}},}
+\DoxyCodeLine{    .task\_boost     = \mbox{\hyperlink{locktorture_8c_a6d2314885e2d9d0c872397f36993c61e}{torture\_boost\_dummy}},}
+\DoxyCodeLine{    .writeunlock    = \mbox{\hyperlink{locktorture_8c_a250ea3720708717a4f46c53666dbc60e}{torture\_ww\_mutex\_unlock}},}
+\DoxyCodeLine{    .readlock       = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .read\_delay     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .readunlock     = \mbox{\hyperlink{actypes_8h_a070d2ce7b6bb7e5c05602aa8c308d0c4}{NULL}},}
+\DoxyCodeLine{    .name       = \textcolor{stringliteral}{"ww\_mutex\_lock"}}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}

@@ -1,0 +1,1292 @@
+\hypertarget{cpu_2bugs_8c}{}\doxysection{arch/x86/kernel/cpu/bugs.c File Reference}
+\label{cpu_2bugs_8c}\index{arch/x86/kernel/cpu/bugs.c@{arch/x86/kernel/cpu/bugs.c}}
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/utsname.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/module.\+h$>$}\newline
+{\ttfamily \#include $<$linux/nospec.\+h$>$}\newline
+{\ttfamily \#include $<$linux/prctl.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/smt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pgtable.\+h$>$}\newline
+{\ttfamily \#include $<$asm/spec-\/ctrl.\+h$>$}\newline
+{\ttfamily \#include $<$asm/cmdline.\+h$>$}\newline
+{\ttfamily \#include $<$asm/bugs.\+h$>$}\newline
+{\ttfamily \#include $<$asm/processor.\+h$>$}\newline
+{\ttfamily \#include $<$asm/processor-\/flags.\+h$>$}\newline
+{\ttfamily \#include $<$asm/fpu/internal.\+h$>$}\newline
+{\ttfamily \#include $<$asm/msr.\+h$>$}\newline
+{\ttfamily \#include $<$asm/vmx.\+h$>$}\newline
+{\ttfamily \#include $<$asm/paravirt.\+h$>$}\newline
+{\ttfamily \#include $<$asm/alternative.\+h$>$}\newline
+{\ttfamily \#include $<$asm/set\+\_\+memory.\+h$>$}\newline
+{\ttfamily \#include $<$asm/intel-\/family.\+h$>$}\newline
+{\ttfamily \#include $<$asm/e820/api.\+h$>$}\newline
+{\ttfamily \#include $<$asm/hypervisor.\+h$>$}\newline
+{\ttfamily \#include $<$asm/tlbflush.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}cpu.\+h\char`\"{}}\newline
+Include dependency graph for bugs.\+c\+:
+% FIG 0
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}M\+D\+S\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}T\+A\+A\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}S\+R\+B\+D\+S\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}L1D Flush \+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}Spectre \mbox{\hyperlink{ezx-pcap_8h_ae21a9518b4dd62d2baeab430c89a657a}{V1}} \+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}Spectre \mbox{\hyperlink{ezx-pcap_8h_a9173468f90b474471bfff59f8487cbc1}{V2}} \+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a84a91c2be3676f2c19f566a7c016025d}{M\+D\+S\+\_\+\+M\+S\+G\+\_\+\+S\+MT}}~\char`\"{}M\+DS C\+PU bug present and S\+MT \mbox{\hyperlink{posted__intr_8h_a70223e0c96cd6b1e9103afac2df72bc6}{on}}, \mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}} leak possible. See https\+://www.\+kernel.\+org/doc/html/latest/admin-\/guide/hw-\/vuln/mds.\+html \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} more details.\textbackslash{}n\char`\"{}
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_ac8f6fa409a6b7c8c439b661586a72dc6}{T\+A\+A\+\_\+\+M\+S\+G\+\_\+\+S\+MT}}~\char`\"{}T\+AA C\+PU bug present and S\+MT \mbox{\hyperlink{posted__intr_8h_a70223e0c96cd6b1e9103afac2df72bc6}{on}}, \mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}} leak possible. See https\+://www.\+kernel.\+org/doc/html/latest/admin-\/guide/hw-\/vuln/tsx\+\_\+async\+\_\+abort.\+html \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} more details.\textbackslash{}n\char`\"{}
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}Speculative Store Bypass\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}Speculation prctl\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\char`\"{}L1\+T\+F\+: \char`\"{} fmt
+\item 
+\#define \mbox{\hyperlink{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}{pr\+\_\+fmt}}(\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351}{taa\+\_\+mitigations}} \{ \mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351aacf1d2e39cb6e70819ef5d68c0df1b92}{T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+O\+FF}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351ae6971ffb09d20851c934a343071df845}{T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+U\+C\+O\+D\+E\+\_\+\+N\+E\+E\+D\+ED}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351acc18cf4404747b1b1504dc80d9c6c9af}{T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+V\+E\+RW}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351a853f483941750dfbae3255dc204bf1b1}{T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+T\+S\+X\+\_\+\+D\+I\+S\+A\+B\+L\+ED}}
+ \}
+\item 
+enum \mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0f}{srbds\+\_\+mitigations}} \{ \newline
+\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa1498dd0bc10577ce99b5d32a3c8e07f6}{S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+O\+FF}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fab85d4f423f2be62178488040bec4970d}{S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+U\+C\+O\+D\+E\+\_\+\+N\+E\+E\+D\+ED}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa5eb02f18838edc3000e372690cfa669c}{S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+F\+U\+LL}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa32ea2579789d7583fa362c20bd45bef7}{S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+T\+S\+X\+\_\+\+O\+FF}}, 
+\newline
+\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0faf890a9c792bd4f00d0f149a99c26348a}{S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+H\+Y\+P\+E\+R\+V\+I\+S\+OR}}
+ \}
+\item 
+enum \mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0b}{l1d\+\_\+flush\+\_\+mitigations}} \{ \mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0ba366cf812697d74751499387eff59af7d}{L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+O\+FF}} = 0, 
+\mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0bad20d4d569e4dc255c4667f1a8f2a11b2}{L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+ON}}
+ \}
+\item 
+enum \mbox{\hyperlink{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960}{spectre\+\_\+v1\+\_\+mitigation}} \{ \mbox{\hyperlink{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960aa1f2b049895cf6ca78cb0af94a54e783}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V1\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+N\+O\+NE}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960a421f5eea965df4ca81df07908e8de272}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V1\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+A\+U\+TO}}
+ \}
+\item 
+enum \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}} \{ \newline
+\mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa18630f004ee5e9d078b6a0f17540ed9e}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+N\+O\+NE}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa0207008da6b8b22c9b8ac9b3dd57de1a}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+A\+U\+TO}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa6ca3b2c47bce6b98f53e5b8d16d7aa5f}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+F\+O\+R\+CE}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa33b95bee84d5ac96cd282bffe0529d24}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+R\+E\+T\+P\+O\+L\+I\+NE}}, 
+\newline
+\mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa3e1223f0f34a7cc9696f1b41a05d2add}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+R\+E\+T\+P\+O\+L\+I\+N\+E\+\_\+\+G\+E\+N\+E\+R\+IC}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa2adbf64034f97a0aa6adc01b2782f459}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+R\+E\+T\+P\+O\+L\+I\+N\+E\+\_\+\+A\+MD}}
+ \}
+\item 
+enum \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762}{spectre\+\_\+v2\+\_\+user\+\_\+cmd}} \{ \newline
+\mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a2fcbb15cd8956d8bbb711fdb1e34f9ec}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+N\+O\+NE}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a74dc4fe8b34cad0423657c269b69d9ac}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+A\+U\+TO}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a38c65b2586171115ccec94637e881c92}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+F\+O\+R\+CE}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762ac1d5083ea51d65c78d4b7d9c8fcbc9fd}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+P\+R\+C\+TL}}, 
+\newline
+\mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a51f7b7abca8d53fb23b389b1cfbc2cbc}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+P\+R\+C\+T\+L\+\_\+\+I\+B\+PB}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a24bad67969a827080c9934bea6c0dfdc}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+S\+E\+C\+C\+O\+MP}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a9faa484bc041d7a72b677dd3113480be}{S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+S\+E\+C\+C\+O\+M\+P\+\_\+\+I\+B\+PB}}
+ \}
+\item 
+enum \mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85d}{ssb\+\_\+mitigation\+\_\+cmd}} \{ \newline
+\mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85daf0c8ece922015fbad010a12bc76da260}{S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+N\+O\+NE}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85dab60a70b62c0d84c50273a50b4f87fac0}{S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+A\+U\+TO}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da308ecb1b218d36eb264c22fba041e90e}{S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+ON}}, 
+\mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da670309438a14613e92869053ec77e5b5}{S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+P\+R\+C\+TL}}, 
+\newline
+\mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da6cb7ddad5e77ca21c7b7e65d76a90f72}{S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+S\+E\+C\+C\+O\+MP}}
+ \}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a934e951881c689e6ba53e2afefed1066}{spectre\+\_\+v1\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a78ca6af760a602a23ce9d885cda05e2e}{spectre\+\_\+v2\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_ac6b85ee0d82b6e0b413f2b8da1b0f799}{ssb\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a81c2ff32f5f776a2f713e24e7c8eff00}{l1tf\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a59f58ee0a41ca98d5d3df62ee067dd4d}{mds\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_aa709ce9ee574f70b0d8043ac9e2fc2e3}{mds\+\_\+print\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_af4e851c3b70a37f94e7ecfdd6c514d73}{taa\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a5892ceb18abdb8d75e31a2456d20bda9}{srbds\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_aa0930a028c62675bf9a140bdd104025b}{l1d\+\_\+flush\+\_\+select\+\_\+mitigation}} (void)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a31da1d9cffa84a5150aebf99b6e175bb}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{cpu_2bugs_8c_a94cc69b79065adb45f006454f4dca49e}{x86\+\_\+spec\+\_\+ctrl\+\_\+base}})
+\item 
+static \mbox{\hyperlink{cpu_2bugs_8c_a130ce75848ccc01703706c44282a15d3}{D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX}} (spec\+\_\+ctrl\+\_\+mutex)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a9e7cef9ae44d7c4dd2bdbdc6938c7e99}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (switch\+\_\+to\+\_\+cond\+\_\+stibp)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_aff7397602ecb35f5fda24450969c5ddd}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (switch\+\_\+mm\+\_\+cond\+\_\+ibpb)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_ac29931fc78f42e6c2b387a6e8cfdbf12}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (switch\+\_\+mm\+\_\+always\+\_\+ibpb)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a503ae409bf63227ff897709568eacac8}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (mds\+\_\+user\+\_\+clear)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a9808e2831ab9232f6d23af67652c8b68}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (mds\+\_\+user\+\_\+clear)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a9cbe6ea765281c2679fddee368b26e65}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (mds\+\_\+idle\+\_\+clear)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a4302b47f95209c7c75eb5570b4b65f00}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (mds\+\_\+idle\+\_\+clear)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a4e757a3cb95086d464bbb5348a3441db}{D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE}} (switch\+\_\+mm\+\_\+cond\+\_\+l1d\+\_\+flush)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a8c356d951efdcd64e0caece72162a05d}{check\+\_\+bugs}} (void)
+\item 
+void \mbox{\hyperlink{cpu_2bugs_8c_a44253396d39cc8bcae6c1b2fdb8e94b9}{x86\+\_\+virt\+\_\+spec\+\_\+ctrl}} (\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} guest\+\_\+spec\+\_\+ctrl, \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} guest\+\_\+virt\+\_\+spec\+\_\+ctrl, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} setguest)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a2d10299bd65810cab9fb0f541e356fa0}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{cpu_2bugs_8c_a44253396d39cc8bcae6c1b2fdb8e94b9}{x86\+\_\+virt\+\_\+spec\+\_\+ctrl}})
+\item 
+static void \mbox{\hyperlink{cpu_2bugs_8c_afa7944fb0c542983a6f4ce7bbe762734}{x86\+\_\+amd\+\_\+ssb\+\_\+disable}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a997b04b835046ac444d10ac69655ced6}{mds\+\_\+cmdline}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_ae1543d538d49a646327bcfb7415c081c}{early\+\_\+param}} (\char`\"{}mds\char`\"{}, mds\+\_\+cmdline)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a94fc17158a855aa67ae3c1db981dabf2}{tsx\+\_\+async\+\_\+abort\+\_\+parse\+\_\+cmdline}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a8099fcbc2bef04c735c08063f4af308c}{early\+\_\+param}} (\char`\"{}tsx\+\_\+async\+\_\+abort\char`\"{}, tsx\+\_\+async\+\_\+abort\+\_\+parse\+\_\+cmdline)
+\item 
+void \mbox{\hyperlink{cpu_2bugs_8c_ab410d1d60413786cfba6480373dbd901}{update\+\_\+srbds\+\_\+msr}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a61c6b72b372e6e5ea530cfa7faa8a9c6}{srbds\+\_\+parse\+\_\+cmdline}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_ae02329e5c6bee43f0f788f861582c192}{early\+\_\+param}} (\char`\"{}srbds\char`\"{}, srbds\+\_\+parse\+\_\+cmdline)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_aecb342967ede743c0b7f3d5850ec95ce}{l1d\+\_\+flush\+\_\+parse\+\_\+cmdline}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_adcfc84e461a04852ff4409c5543d361d}{early\+\_\+param}} (\char`\"{}l1d\+\_\+flush\char`\"{}, l1d\+\_\+flush\+\_\+parse\+\_\+cmdline)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_ac784fe186cfadaf0fb5c2df8979a04c8}{smap\+\_\+works\+\_\+speculatively}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_af455ea14c11ce03bf8710a330a79baa3}{nospectre\+\_\+v1\+\_\+cmdline}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a3bbf511332fe95b4235b76c437f593e9}{early\+\_\+param}} (\char`\"{}nospectre\+\_\+v1\char`\"{}, nospectre\+\_\+v1\+\_\+cmdline)
+\item 
+static const char $\ast$ \mbox{\hyperlink{cpu_2bugs_8c_a743d414fa908bc71a556ff8fbd4cb6c8}{spectre\+\_\+v2\+\_\+module\+\_\+string}} (void)
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_ac45ca75bc06d3d451d6188671cedebff}{match\+\_\+option}} (const char $\ast$arg, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arglen, const char $\ast$opt)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_abed8cd90823dafb2dd50c41fdf809ba2}{spec\+\_\+v2\+\_\+user\+\_\+print\+\_\+cond}} (const char $\ast$\mbox{\hyperlink{virtio__scsi_8h_a030a0b6ecb5ef07224008ffff976c268}{reason}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_ae5b9c4f4dc3296ef6e0ba61c71d09fc1}{secure}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762}{spectre\+\_\+v2\+\_\+user\+\_\+cmd}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a434868cdff9cd86961b1b1489ff04c21}{spectre\+\_\+v2\+\_\+parse\+\_\+user\+\_\+cmdline}} (\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}} v2\+\_\+cmd)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_ae89026fa33c7d86da1dbd8a9b6603e14}{spectre\+\_\+v2\+\_\+user\+\_\+select\+\_\+mitigation}} (\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}} v2\+\_\+cmd)
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a569d4dabe4e5ae3f5c53daa1acaaf0d6}{spec\+\_\+v2\+\_\+print\+\_\+cond}} (const char $\ast$\mbox{\hyperlink{virtio__scsi_8h_a030a0b6ecb5ef07224008ffff976c268}{reason}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_ae5b9c4f4dc3296ef6e0ba61c71d09fc1}{secure}})
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a6435e2e9e12af068f09767ff4156018c}{spectre\+\_\+v2\+\_\+parse\+\_\+cmdline}} (void)
+\item 
+static void \mbox{\hyperlink{cpu_2bugs_8c_aa0861f82123a82967a9b1d604c413ffb}{update\+\_\+stibp\+\_\+msr}} (void $\ast$\+\_\+\+\_\+unused)
+\item 
+static void \mbox{\hyperlink{cpu_2bugs_8c_a3fd4ddb045f46965f46eb8c86a60a6fa}{update\+\_\+stibp\+\_\+strict}} (void)
+\item 
+static void \mbox{\hyperlink{cpu_2bugs_8c_a7821c3755225937c0da03d9c001680e8}{update\+\_\+indir\+\_\+branch\+\_\+cond}} (void)
+\item 
+static void \mbox{\hyperlink{cpu_2bugs_8c_adfab9c2e08f13bd7c8258cc2eb028ac9}{update\+\_\+mds\+\_\+branch\+\_\+idle}} (void)
+\item 
+void \mbox{\hyperlink{cpu_2bugs_8c_a37e58be8b9c227e8fa5b16dc7de32b25}{cpu\+\_\+bugs\+\_\+smt\+\_\+update}} (void)
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85d}{ssb\+\_\+mitigation\+\_\+cmd}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_aec828a00b1f7ad261dfe38d8687f3319}{ssb\+\_\+parse\+\_\+cmdline}} (void)
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{nospec-branch_8h_afdfeca0ecf1dff6cf494b76bd937f0ae}{ssb\+\_\+mitigation}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_ab6703b8a85f14d5169765bcfd25e7380}{\+\_\+\+\_\+ssb\+\_\+select\+\_\+mitigation}} (void)
+\item 
+static void \mbox{\hyperlink{cpu_2bugs_8c_a13f3faf1ff2b2b5ef6faf92b9e5f6bfe}{task\+\_\+update\+\_\+spec\+\_\+tif}} (struct task\+\_\+struct $\ast$tsk)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_ac31470170a44abe76f4df5d1e189ebc0}{l1d\+\_\+flush\+\_\+prctl\+\_\+set}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, unsigned long \mbox{\hyperlink{hfi1__user_8h_ab601b5f289bf82689eea33c2120c2906}{ctrl}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_a2935db201af128256f229330e03071ec}{ssb\+\_\+prctl\+\_\+set}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, unsigned long \mbox{\hyperlink{hfi1__user_8h_ab601b5f289bf82689eea33c2120c2906}{ctrl}})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_a840718155450a2fcad5ff50b602c9aae}{is\+\_\+spec\+\_\+ib\+\_\+user\+\_\+controlled}} (void)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_a845d85912e3a0861cd70b2dad1fd3c0e}{ib\+\_\+prctl\+\_\+set}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, unsigned long \mbox{\hyperlink{hfi1__user_8h_ab601b5f289bf82689eea33c2120c2906}{ctrl}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_af4ddb68ec90cd2e4c5180b5c7d1098a4}{arch\+\_\+prctl\+\_\+spec\+\_\+ctrl\+\_\+set}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, unsigned long which, unsigned long \mbox{\hyperlink{hfi1__user_8h_ab601b5f289bf82689eea33c2120c2906}{ctrl}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_a5cb72f741b4615fe8cfafaf374634a0f}{l1d\+\_\+flush\+\_\+prctl\+\_\+get}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_a3068539e58de5eb884bfbafa5e63f367}{ssb\+\_\+prctl\+\_\+get}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_add1e98cd456485c145376feb949be13f}{ib\+\_\+prctl\+\_\+get}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{cpu_2bugs_8c_ad5a6b5d0d1b972a5798f1197974066a4}{arch\+\_\+prctl\+\_\+spec\+\_\+ctrl\+\_\+get}} (struct task\+\_\+struct $\ast$\mbox{\hyperlink{lsm__hook__defs_8h_aa95b605697c90c8acc45563645a523e8}{task}}, unsigned long which)
+\item 
+void \mbox{\hyperlink{cpu_2bugs_8c_a7479605cb88e6da9cd14be7be58e0163}{x86\+\_\+spec\+\_\+ctrl\+\_\+setup\+\_\+ap}} (void)
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a2e5f11b6588e4b252a358798d505a9d5}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{kvm_2mmu_2mmu_8c_a88f1b7c7932a47e0e0305793e1e59077}{itlb\+\_\+multihit\+\_\+kvm\+\_\+mitigation}})
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a29edcb8197097bed85edc1d505276e84}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{cpu_2bugs_8c_aa0fe20981647111f7a5939076d2479f0}{l1tf\+\_\+vmx\+\_\+mitigation}})
+\item 
+static void \mbox{\hyperlink{cpu_2bugs_8c_ad7de988bfc9bded9ef74a7462dbd66f8}{override\+\_\+cache\+\_\+bits}} (struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$\mbox{\hyperlink{drm__edid_8h_a4576e02e0e790576ed6a80c11ef2e4c0}{c}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a8f2841a79b641a197767632740b9bf20}{l1tf\+\_\+cmdline}} (char $\ast$\mbox{\hyperlink{ceph__fs_8h_a53dbc2382caf520f4a511f07d1e77a71}{str}})
+\item 
+\mbox{\hyperlink{cpu_2bugs_8c_a45bddf11eccc755882ce76556fa65325}{early\+\_\+param}} (\char`\"{}l1tf\char`\"{}, l1tf\+\_\+cmdline)
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{cpu_2bugs_8c_a94cc69b79065adb45f006454f4dca49e}{x86\+\_\+spec\+\_\+ctrl\+\_\+base}}
+\item 
+static \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{vsprintf_8c_aae5b1021270b24af242910a7e322faa7}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_af68a24618f997cdd63f400290cade475}{x86\+\_\+spec\+\_\+ctrl\+\_\+mask}} = \mbox{\hyperlink{msr-index_8h_ac4bafb8027e712a402fd84a439e594d9}{S\+P\+E\+C\+\_\+\+C\+T\+R\+L\+\_\+\+I\+B\+RS}}
+\item 
+\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{vsprintf_8c_aae5b1021270b24af242910a7e322faa7}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_ad135e4d58c494e6a0d6b09fedfbd72c4}{x86\+\_\+amd\+\_\+ls\+\_\+cfg\+\_\+base}}
+\item 
+\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{vsprintf_8c_aae5b1021270b24af242910a7e322faa7}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} \mbox{\hyperlink{cpu_2bugs_8c_a54ee7cfb7c26813c9bbd8861a0a5aa9b}{x86\+\_\+amd\+\_\+ls\+\_\+cfg\+\_\+ssbd\+\_\+mask}}
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a8ca93e4226c1273881a83997562e2750}{mds\+\_\+mitigations}} mds\+\_\+mitigation \mbox{\hyperlink{cpu_2bugs_8c_abd288de4c7f9687f0e2db55d997efa3b}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} = \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a8ca93e4226c1273881a83997562e2750aeb068f79c6309839dd4b10ebef6504b5}{M\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+F\+U\+LL}}
+\item 
+static const char $\ast$const \mbox{\hyperlink{cpu_2bugs_8c_ad0c527f2e274e081bf2e664b96663809}{mds\+\_\+strings}} \mbox{[}$\,$\mbox{]}
+\item 
+static const char $\ast$const \mbox{\hyperlink{cpu_2bugs_8c_a9605a06e519e7ad956eb0cea7dbe6ced}{taa\+\_\+strings}} \mbox{[}$\,$\mbox{]}
+\item 
+static const char $\ast$const \mbox{\hyperlink{cpu_2bugs_8c_a7b49364bd370086917988b17291c9d21}{srbds\+\_\+strings}} \mbox{[}$\,$\mbox{]}
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_a4d30c6fb76fbb896b78095537aaec47e}{srbds\+\_\+off}}
+\item 
+static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0b}{l1d\+\_\+flush\+\_\+mitigations}} l1d\+\_\+flush\+\_\+mitigation \mbox{\hyperlink{cpu_2bugs_8c_a328f6cb2b0efdea5b04c1a879925ee42}{\+\_\+\+\_\+initdata}} = \mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0ba366cf812697d74751499387eff59af7d}{L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+O\+FF}}
+\item 
+static const char $\ast$const \mbox{\hyperlink{cpu_2bugs_8c_a65ad5b132b795a49ce3cff8411e30fb7}{spectre\+\_\+v1\+\_\+strings}} \mbox{[}$\,$\mbox{]}
+\item 
+static const char $\ast$const \mbox{\hyperlink{cpu_2bugs_8c_a3b4afdd8f64f94a865d3613cc5039df2}{spectre\+\_\+v2\+\_\+user\+\_\+strings}} \mbox{[}$\,$\mbox{]}
+\item 
+\begin{tabbing}
+xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=\kill
+struct \{\\
+\>const char $\ast$ \mbox{\hyperlink{cpu_2bugs_8c_a31b45a0ff8b2861859ecfbad2ce4fe02}{option}}\\
+\>\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762}{spectre\_v2\_user\_cmd}} \mbox{\hyperlink{cpu_2bugs_8c_a66a7de020c38796d71bdd4493768cf17}{cmd}}\\
+\>\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_ae5b9c4f4dc3296ef6e0ba61c71d09fc1}{secure}}\\
+\} \mbox{\hyperlink{cpu_2bugs_8c_a18038ebccc814970d9683f7b451e5611}{\_\_initconst}} \mbox{[}$\,$\mbox{]}\\
+
+\end{tabbing}\item 
+static const char $\ast$const \mbox{\hyperlink{cpu_2bugs_8c_a5cb0fb13e386ac6f338a529dd51067aa}{spectre\+\_\+v2\+\_\+strings}} \mbox{[}$\,$\mbox{]}
+\item 
+static const char $\ast$const \mbox{\hyperlink{cpu_2bugs_8c_a061b6d83b77583e9959ad475693bd6be}{ssb\+\_\+strings}} \mbox{[}$\,$\mbox{]}
+\item 
+\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{cpu_2bugs_8c_a88f1b7c7932a47e0e0305793e1e59077}{itlb\+\_\+multihit\+\_\+kvm\+\_\+mitigation}}
+\item 
+\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{include_2asm_2vmx_8h_a3b5918e79fdd8f957abe5b0d242cbe66}{vmx\+\_\+l1d\+\_\+flush\+\_\+state}} \mbox{\hyperlink{cpu_2bugs_8c_aa0fe20981647111f7a5939076d2479f0}{l1tf\+\_\+vmx\+\_\+mitigation}} = \mbox{\hyperlink{include_2asm_2vmx_8h_a3b5918e79fdd8f957abe5b0d242cbe66aa4bd621609e756b005d74619ab840ca0}{V\+M\+E\+N\+T\+E\+R\+\_\+\+L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+A\+U\+TO}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{cpu_2bugs_8c_a84a91c2be3676f2c19f566a7c016025d}\label{cpu_2bugs_8c_a84a91c2be3676f2c19f566a7c016025d}} 
+\index{bugs.c@{bugs.c}!MDS\_MSG\_SMT@{MDS\_MSG\_SMT}}
+\index{MDS\_MSG\_SMT@{MDS\_MSG\_SMT}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{MDS\_MSG\_SMT}{MDS\_MSG\_SMT}}
+{\footnotesize\ttfamily \#define M\+D\+S\+\_\+\+M\+S\+G\+\_\+\+S\+MT~\char`\"{}M\+DS C\+PU bug present and S\+MT \mbox{\hyperlink{posted__intr_8h_a70223e0c96cd6b1e9103afac2df72bc6}{on}}, \mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}} leak possible. See https\+://www.\+kernel.\+org/doc/html/latest/admin-\/guide/hw-\/vuln/mds.\+html \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} more details.\textbackslash{}n\char`\"{}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [1/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}M\+D\+S\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [2/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}T\+A\+A\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [3/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}S\+R\+B\+D\+S\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [4/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}L1D Flush \+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [5/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}Spectre \mbox{\hyperlink{ezx-pcap_8h_ae21a9518b4dd62d2baeab430c89a657a}{V1}} \+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [6/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}Spectre \mbox{\hyperlink{ezx-pcap_8h_a9173468f90b474471bfff59f8487cbc1}{V2}} \+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [7/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [8/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}Speculative Store Bypass\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [9/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}Speculation prctl\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [10/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\char`\"{}L1\+T\+F\+: \char`\"{} fmt}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}\label{cpu_2bugs_8c_a1f8c165bf4196327bc3abff648276d92}} 
+\index{bugs.c@{bugs.c}!pr\_fmt@{pr\_fmt}}
+\index{pr\_fmt@{pr\_fmt}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{pr\_fmt}{pr\_fmt}\hspace{0.1cm}{\footnotesize\ttfamily [11/11]}}
+{\footnotesize\ttfamily \#define pr\+\_\+fmt(\begin{DoxyParamCaption}\item[{}]{\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}} }\end{DoxyParamCaption})~\mbox{\hyperlink{string-stream_8h_a495de343baa23f1c9d3f02f7f7f6418a}{fmt}}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_ac8f6fa409a6b7c8c439b661586a72dc6}\label{cpu_2bugs_8c_ac8f6fa409a6b7c8c439b661586a72dc6}} 
+\index{bugs.c@{bugs.c}!TAA\_MSG\_SMT@{TAA\_MSG\_SMT}}
+\index{TAA\_MSG\_SMT@{TAA\_MSG\_SMT}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{TAA\_MSG\_SMT}{TAA\_MSG\_SMT}}
+{\footnotesize\ttfamily \#define T\+A\+A\+\_\+\+M\+S\+G\+\_\+\+S\+MT~\char`\"{}T\+AA C\+PU bug present and S\+MT \mbox{\hyperlink{posted__intr_8h_a70223e0c96cd6b1e9103afac2df72bc6}{on}}, \mbox{\hyperlink{pldmfw__private_8h_a6dc95797421616e7833cb107fee9d17f}{data}} leak possible. See https\+://www.\+kernel.\+org/doc/html/latest/admin-\/guide/hw-\/vuln/tsx\+\_\+async\+\_\+abort.\+html \mbox{\hyperlink{decode__rs_8c_a25740c8578285139efff388fab62c041}{for}} more details.\textbackslash{}n\char`\"{}}
+
+
+
+\doxysubsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0b}\label{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0b}} 
+\index{bugs.c@{bugs.c}!l1d\_flush\_mitigations@{l1d\_flush\_mitigations}}
+\index{l1d\_flush\_mitigations@{l1d\_flush\_mitigations}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1d\_flush\_mitigations}{l1d\_flush\_mitigations}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0b}{l1d\+\_\+flush\+\_\+mitigations}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{L1D\_FLUSH\_OFF@{L1D\_FLUSH\_OFF}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!L1D\_FLUSH\_OFF@{L1D\_FLUSH\_OFF}}}\mbox{\Hypertarget{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0ba366cf812697d74751499387eff59af7d}\label{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0ba366cf812697d74751499387eff59af7d}} 
+L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+O\+FF&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{L1D\_FLUSH\_ON@{L1D\_FLUSH\_ON}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!L1D\_FLUSH\_ON@{L1D\_FLUSH\_ON}}}\mbox{\Hypertarget{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0bad20d4d569e4dc255c4667f1a8f2a11b2}\label{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0bad20d4d569e4dc255c4667f1a8f2a11b2}} 
+L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+ON&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960}\label{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960}} 
+\index{bugs.c@{bugs.c}!spectre\_v1\_mitigation@{spectre\_v1\_mitigation}}
+\index{spectre\_v1\_mitigation@{spectre\_v1\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v1\_mitigation}{spectre\_v1\_mitigation}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960}{spectre\+\_\+v1\+\_\+mitigation}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V1\_MITIGATION\_NONE@{SPECTRE\_V1\_MITIGATION\_NONE}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V1\_MITIGATION\_NONE@{SPECTRE\_V1\_MITIGATION\_NONE}}}\mbox{\Hypertarget{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960aa1f2b049895cf6ca78cb0af94a54e783}\label{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960aa1f2b049895cf6ca78cb0af94a54e783}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V1\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+N\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V1\_MITIGATION\_AUTO@{SPECTRE\_V1\_MITIGATION\_AUTO}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V1\_MITIGATION\_AUTO@{SPECTRE\_V1\_MITIGATION\_AUTO}}}\mbox{\Hypertarget{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960a421f5eea965df4ca81df07908e8de272}\label{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960a421f5eea965df4ca81df07908e8de272}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V1\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+A\+U\+TO&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}\label{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_mitigation\_cmd@{spectre\_v2\_mitigation\_cmd}}
+\index{spectre\_v2\_mitigation\_cmd@{spectre\_v2\_mitigation\_cmd}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_mitigation\_cmd}{spectre\_v2\_mitigation\_cmd}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_CMD\_NONE@{SPECTRE\_V2\_CMD\_NONE}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_CMD\_NONE@{SPECTRE\_V2\_CMD\_NONE}}}\mbox{\Hypertarget{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa18630f004ee5e9d078b6a0f17540ed9e}\label{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa18630f004ee5e9d078b6a0f17540ed9e}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+N\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_CMD\_AUTO@{SPECTRE\_V2\_CMD\_AUTO}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_CMD\_AUTO@{SPECTRE\_V2\_CMD\_AUTO}}}\mbox{\Hypertarget{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa0207008da6b8b22c9b8ac9b3dd57de1a}\label{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa0207008da6b8b22c9b8ac9b3dd57de1a}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+A\+U\+TO&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_CMD\_FORCE@{SPECTRE\_V2\_CMD\_FORCE}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_CMD\_FORCE@{SPECTRE\_V2\_CMD\_FORCE}}}\mbox{\Hypertarget{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa6ca3b2c47bce6b98f53e5b8d16d7aa5f}\label{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa6ca3b2c47bce6b98f53e5b8d16d7aa5f}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+F\+O\+R\+CE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_CMD\_RETPOLINE@{SPECTRE\_V2\_CMD\_RETPOLINE}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_CMD\_RETPOLINE@{SPECTRE\_V2\_CMD\_RETPOLINE}}}\mbox{\Hypertarget{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa33b95bee84d5ac96cd282bffe0529d24}\label{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa33b95bee84d5ac96cd282bffe0529d24}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+R\+E\+T\+P\+O\+L\+I\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_CMD\_RETPOLINE\_GENERIC@{SPECTRE\_V2\_CMD\_RETPOLINE\_GENERIC}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_CMD\_RETPOLINE\_GENERIC@{SPECTRE\_V2\_CMD\_RETPOLINE\_GENERIC}}}\mbox{\Hypertarget{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa3e1223f0f34a7cc9696f1b41a05d2add}\label{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa3e1223f0f34a7cc9696f1b41a05d2add}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+R\+E\+T\+P\+O\+L\+I\+N\+E\+\_\+\+G\+E\+N\+E\+R\+IC&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_CMD\_RETPOLINE\_AMD@{SPECTRE\_V2\_CMD\_RETPOLINE\_AMD}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_CMD\_RETPOLINE\_AMD@{SPECTRE\_V2\_CMD\_RETPOLINE\_AMD}}}\mbox{\Hypertarget{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa2adbf64034f97a0aa6adc01b2782f459}\label{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5aa2adbf64034f97a0aa6adc01b2782f459}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+C\+M\+D\+\_\+\+R\+E\+T\+P\+O\+L\+I\+N\+E\+\_\+\+A\+MD&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_user\_cmd@{spectre\_v2\_user\_cmd}}
+\index{spectre\_v2\_user\_cmd@{spectre\_v2\_user\_cmd}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_user\_cmd}{spectre\_v2\_user\_cmd}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762}{spectre\+\_\+v2\+\_\+user\+\_\+cmd}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_USER\_CMD\_NONE@{SPECTRE\_V2\_USER\_CMD\_NONE}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_USER\_CMD\_NONE@{SPECTRE\_V2\_USER\_CMD\_NONE}}}\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a2fcbb15cd8956d8bbb711fdb1e34f9ec}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a2fcbb15cd8956d8bbb711fdb1e34f9ec}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+N\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_USER\_CMD\_AUTO@{SPECTRE\_V2\_USER\_CMD\_AUTO}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_USER\_CMD\_AUTO@{SPECTRE\_V2\_USER\_CMD\_AUTO}}}\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a74dc4fe8b34cad0423657c269b69d9ac}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a74dc4fe8b34cad0423657c269b69d9ac}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+A\+U\+TO&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_USER\_CMD\_FORCE@{SPECTRE\_V2\_USER\_CMD\_FORCE}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_USER\_CMD\_FORCE@{SPECTRE\_V2\_USER\_CMD\_FORCE}}}\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a38c65b2586171115ccec94637e881c92}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a38c65b2586171115ccec94637e881c92}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+F\+O\+R\+CE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_USER\_CMD\_PRCTL@{SPECTRE\_V2\_USER\_CMD\_PRCTL}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_USER\_CMD\_PRCTL@{SPECTRE\_V2\_USER\_CMD\_PRCTL}}}\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762ac1d5083ea51d65c78d4b7d9c8fcbc9fd}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762ac1d5083ea51d65c78d4b7d9c8fcbc9fd}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+P\+R\+C\+TL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_USER\_CMD\_PRCTL\_IBPB@{SPECTRE\_V2\_USER\_CMD\_PRCTL\_IBPB}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_USER\_CMD\_PRCTL\_IBPB@{SPECTRE\_V2\_USER\_CMD\_PRCTL\_IBPB}}}\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a51f7b7abca8d53fb23b389b1cfbc2cbc}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a51f7b7abca8d53fb23b389b1cfbc2cbc}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+P\+R\+C\+T\+L\+\_\+\+I\+B\+PB&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_USER\_CMD\_SECCOMP@{SPECTRE\_V2\_USER\_CMD\_SECCOMP}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_USER\_CMD\_SECCOMP@{SPECTRE\_V2\_USER\_CMD\_SECCOMP}}}\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a24bad67969a827080c9934bea6c0dfdc}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a24bad67969a827080c9934bea6c0dfdc}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+S\+E\+C\+C\+O\+MP&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPECTRE\_V2\_USER\_CMD\_SECCOMP\_IBPB@{SPECTRE\_V2\_USER\_CMD\_SECCOMP\_IBPB}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPECTRE\_V2\_USER\_CMD\_SECCOMP\_IBPB@{SPECTRE\_V2\_USER\_CMD\_SECCOMP\_IBPB}}}\mbox{\Hypertarget{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a9faa484bc041d7a72b677dd3113480be}\label{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a9faa484bc041d7a72b677dd3113480be}} 
+S\+P\+E\+C\+T\+R\+E\+\_\+\+V2\+\_\+\+U\+S\+E\+R\+\_\+\+C\+M\+D\+\_\+\+S\+E\+C\+C\+O\+M\+P\+\_\+\+I\+B\+PB&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0f}\label{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0f}} 
+\index{bugs.c@{bugs.c}!srbds\_mitigations@{srbds\_mitigations}}
+\index{srbds\_mitigations@{srbds\_mitigations}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{srbds\_mitigations}{srbds\_mitigations}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0f}{srbds\+\_\+mitigations}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SRBDS\_MITIGATION\_OFF@{SRBDS\_MITIGATION\_OFF}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SRBDS\_MITIGATION\_OFF@{SRBDS\_MITIGATION\_OFF}}}\mbox{\Hypertarget{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa1498dd0bc10577ce99b5d32a3c8e07f6}\label{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa1498dd0bc10577ce99b5d32a3c8e07f6}} 
+S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+O\+FF&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SRBDS\_MITIGATION\_UCODE\_NEEDED@{SRBDS\_MITIGATION\_UCODE\_NEEDED}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SRBDS\_MITIGATION\_UCODE\_NEEDED@{SRBDS\_MITIGATION\_UCODE\_NEEDED}}}\mbox{\Hypertarget{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fab85d4f423f2be62178488040bec4970d}\label{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fab85d4f423f2be62178488040bec4970d}} 
+S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+U\+C\+O\+D\+E\+\_\+\+N\+E\+E\+D\+ED&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SRBDS\_MITIGATION\_FULL@{SRBDS\_MITIGATION\_FULL}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SRBDS\_MITIGATION\_FULL@{SRBDS\_MITIGATION\_FULL}}}\mbox{\Hypertarget{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa5eb02f18838edc3000e372690cfa669c}\label{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa5eb02f18838edc3000e372690cfa669c}} 
+S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+F\+U\+LL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SRBDS\_MITIGATION\_TSX\_OFF@{SRBDS\_MITIGATION\_TSX\_OFF}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SRBDS\_MITIGATION\_TSX\_OFF@{SRBDS\_MITIGATION\_TSX\_OFF}}}\mbox{\Hypertarget{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa32ea2579789d7583fa362c20bd45bef7}\label{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa32ea2579789d7583fa362c20bd45bef7}} 
+S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+T\+S\+X\+\_\+\+O\+FF&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SRBDS\_MITIGATION\_HYPERVISOR@{SRBDS\_MITIGATION\_HYPERVISOR}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SRBDS\_MITIGATION\_HYPERVISOR@{SRBDS\_MITIGATION\_HYPERVISOR}}}\mbox{\Hypertarget{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0faf890a9c792bd4f00d0f149a99c26348a}\label{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0faf890a9c792bd4f00d0f149a99c26348a}} 
+S\+R\+B\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+H\+Y\+P\+E\+R\+V\+I\+S\+OR&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85d}\label{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85d}} 
+\index{bugs.c@{bugs.c}!ssb\_mitigation\_cmd@{ssb\_mitigation\_cmd}}
+\index{ssb\_mitigation\_cmd@{ssb\_mitigation\_cmd}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ssb\_mitigation\_cmd}{ssb\_mitigation\_cmd}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85d}{ssb\+\_\+mitigation\+\_\+cmd}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPEC\_STORE\_BYPASS\_CMD\_NONE@{SPEC\_STORE\_BYPASS\_CMD\_NONE}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPEC\_STORE\_BYPASS\_CMD\_NONE@{SPEC\_STORE\_BYPASS\_CMD\_NONE}}}\mbox{\Hypertarget{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85daf0c8ece922015fbad010a12bc76da260}\label{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85daf0c8ece922015fbad010a12bc76da260}} 
+S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+N\+O\+NE&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPEC\_STORE\_BYPASS\_CMD\_AUTO@{SPEC\_STORE\_BYPASS\_CMD\_AUTO}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPEC\_STORE\_BYPASS\_CMD\_AUTO@{SPEC\_STORE\_BYPASS\_CMD\_AUTO}}}\mbox{\Hypertarget{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85dab60a70b62c0d84c50273a50b4f87fac0}\label{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85dab60a70b62c0d84c50273a50b4f87fac0}} 
+S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+A\+U\+TO&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPEC\_STORE\_BYPASS\_CMD\_ON@{SPEC\_STORE\_BYPASS\_CMD\_ON}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPEC\_STORE\_BYPASS\_CMD\_ON@{SPEC\_STORE\_BYPASS\_CMD\_ON}}}\mbox{\Hypertarget{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da308ecb1b218d36eb264c22fba041e90e}\label{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da308ecb1b218d36eb264c22fba041e90e}} 
+S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+ON&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPEC\_STORE\_BYPASS\_CMD\_PRCTL@{SPEC\_STORE\_BYPASS\_CMD\_PRCTL}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPEC\_STORE\_BYPASS\_CMD\_PRCTL@{SPEC\_STORE\_BYPASS\_CMD\_PRCTL}}}\mbox{\Hypertarget{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da670309438a14613e92869053ec77e5b5}\label{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da670309438a14613e92869053ec77e5b5}} 
+S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+P\+R\+C\+TL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{SPEC\_STORE\_BYPASS\_CMD\_SECCOMP@{SPEC\_STORE\_BYPASS\_CMD\_SECCOMP}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!SPEC\_STORE\_BYPASS\_CMD\_SECCOMP@{SPEC\_STORE\_BYPASS\_CMD\_SECCOMP}}}\mbox{\Hypertarget{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da6cb7ddad5e77ca21c7b7e65d76a90f72}\label{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85da6cb7ddad5e77ca21c7b7e65d76a90f72}} 
+S\+P\+E\+C\+\_\+\+S\+T\+O\+R\+E\+\_\+\+B\+Y\+P\+A\+S\+S\+\_\+\+C\+M\+D\+\_\+\+S\+E\+C\+C\+O\+MP&\\
+\hline
+
+\end{DoxyEnumFields}
+\mbox{\Hypertarget{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351}\label{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351}} 
+\index{bugs.c@{bugs.c}!taa\_mitigations@{taa\_mitigations}}
+\index{taa\_mitigations@{taa\_mitigations}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{taa\_mitigations}{taa\_mitigations}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351}{taa\+\_\+mitigations}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{TAA\_MITIGATION\_OFF@{TAA\_MITIGATION\_OFF}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!TAA\_MITIGATION\_OFF@{TAA\_MITIGATION\_OFF}}}\mbox{\Hypertarget{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351aacf1d2e39cb6e70819ef5d68c0df1b92}\label{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351aacf1d2e39cb6e70819ef5d68c0df1b92}} 
+T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+O\+FF&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{TAA\_MITIGATION\_UCODE\_NEEDED@{TAA\_MITIGATION\_UCODE\_NEEDED}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!TAA\_MITIGATION\_UCODE\_NEEDED@{TAA\_MITIGATION\_UCODE\_NEEDED}}}\mbox{\Hypertarget{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351ae6971ffb09d20851c934a343071df845}\label{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351ae6971ffb09d20851c934a343071df845}} 
+T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+U\+C\+O\+D\+E\+\_\+\+N\+E\+E\+D\+ED&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{TAA\_MITIGATION\_VERW@{TAA\_MITIGATION\_VERW}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!TAA\_MITIGATION\_VERW@{TAA\_MITIGATION\_VERW}}}\mbox{\Hypertarget{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351acc18cf4404747b1b1504dc80d9c6c9af}\label{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351acc18cf4404747b1b1504dc80d9c6c9af}} 
+T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+V\+E\+RW&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{TAA\_MITIGATION\_TSX\_DISABLED@{TAA\_MITIGATION\_TSX\_DISABLED}!bugs.c@{bugs.c}}\index{bugs.c@{bugs.c}!TAA\_MITIGATION\_TSX\_DISABLED@{TAA\_MITIGATION\_TSX\_DISABLED}}}\mbox{\Hypertarget{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351a853f483941750dfbae3255dc204bf1b1}\label{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351a853f483941750dfbae3255dc204bf1b1}} 
+T\+A\+A\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+T\+S\+X\+\_\+\+D\+I\+S\+A\+B\+L\+ED&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{cpu_2bugs_8c_ab6703b8a85f14d5169765bcfd25e7380}\label{cpu_2bugs_8c_ab6703b8a85f14d5169765bcfd25e7380}} 
+\index{bugs.c@{bugs.c}!\_\_ssb\_select\_mitigation@{\_\_ssb\_select\_mitigation}}
+\index{\_\_ssb\_select\_mitigation@{\_\_ssb\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ssb\_select\_mitigation()}{\_\_ssb\_select\_mitigation()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{nospec-branch_8h_afdfeca0ecf1dff6cf494b76bd937f0ae}{ssb\+\_\+mitigation}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \+\_\+\+\_\+ssb\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{cpu_2bugs_8c_ad5a6b5d0d1b972a5798f1197974066a4}\label{cpu_2bugs_8c_ad5a6b5d0d1b972a5798f1197974066a4}} 
+\index{bugs.c@{bugs.c}!arch\_prctl\_spec\_ctrl\_get@{arch\_prctl\_spec\_ctrl\_get}}
+\index{arch\_prctl\_spec\_ctrl\_get@{arch\_prctl\_spec\_ctrl\_get}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{arch\_prctl\_spec\_ctrl\_get()}{arch\_prctl\_spec\_ctrl\_get()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arch\+\_\+prctl\+\_\+spec\+\_\+ctrl\+\_\+get (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{unsigned long}]{which }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_af4ddb68ec90cd2e4c5180b5c7d1098a4}\label{cpu_2bugs_8c_af4ddb68ec90cd2e4c5180b5c7d1098a4}} 
+\index{bugs.c@{bugs.c}!arch\_prctl\_spec\_ctrl\_set@{arch\_prctl\_spec\_ctrl\_set}}
+\index{arch\_prctl\_spec\_ctrl\_set@{arch\_prctl\_spec\_ctrl\_set}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{arch\_prctl\_spec\_ctrl\_set()}{arch\_prctl\_spec\_ctrl\_set()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} arch\+\_\+prctl\+\_\+spec\+\_\+ctrl\+\_\+set (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{unsigned long}]{which,  }\item[{unsigned long}]{ctrl }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a8c356d951efdcd64e0caece72162a05d}\label{cpu_2bugs_8c_a8c356d951efdcd64e0caece72162a05d}} 
+\index{bugs.c@{bugs.c}!check\_bugs@{check\_bugs}}
+\index{check\_bugs@{check\_bugs}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{check\_bugs()}{check\_bugs()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} check\+\_\+bugs (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{cpu_2bugs_8c_a37e58be8b9c227e8fa5b16dc7de32b25}\label{cpu_2bugs_8c_a37e58be8b9c227e8fa5b16dc7de32b25}} 
+\index{bugs.c@{bugs.c}!cpu\_bugs\_smt\_update@{cpu\_bugs\_smt\_update}}
+\index{cpu\_bugs\_smt\_update@{cpu\_bugs\_smt\_update}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{cpu\_bugs\_smt\_update()}{cpu\_bugs\_smt\_update()}}
+{\footnotesize\ttfamily void cpu\+\_\+bugs\+\_\+smt\+\_\+update (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 5
+Here is the caller graph for this function\+:
+% FIG 6
+\mbox{\Hypertarget{cpu_2bugs_8c_a130ce75848ccc01703706c44282a15d3}\label{cpu_2bugs_8c_a130ce75848ccc01703706c44282a15d3}} 
+\index{bugs.c@{bugs.c}!DEFINE\_MUTEX@{DEFINE\_MUTEX}}
+\index{DEFINE\_MUTEX@{DEFINE\_MUTEX}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_MUTEX()}{DEFINE\_MUTEX()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+M\+U\+T\+EX (\begin{DoxyParamCaption}\item[{spec\+\_\+ctrl\+\_\+mutex}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a9cbe6ea765281c2679fddee368b26e65}\label{cpu_2bugs_8c_a9cbe6ea765281c2679fddee368b26e65}} 
+\index{bugs.c@{bugs.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}\hspace{0.1cm}{\footnotesize\ttfamily [1/6]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{mds\+\_\+idle\+\_\+clear}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a503ae409bf63227ff897709568eacac8}\label{cpu_2bugs_8c_a503ae409bf63227ff897709568eacac8}} 
+\index{bugs.c@{bugs.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}\hspace{0.1cm}{\footnotesize\ttfamily [2/6]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{mds\+\_\+user\+\_\+clear}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_ac29931fc78f42e6c2b387a6e8cfdbf12}\label{cpu_2bugs_8c_ac29931fc78f42e6c2b387a6e8cfdbf12}} 
+\index{bugs.c@{bugs.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}\hspace{0.1cm}{\footnotesize\ttfamily [3/6]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{switch\+\_\+mm\+\_\+always\+\_\+ibpb}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_aff7397602ecb35f5fda24450969c5ddd}\label{cpu_2bugs_8c_aff7397602ecb35f5fda24450969c5ddd}} 
+\index{bugs.c@{bugs.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}\hspace{0.1cm}{\footnotesize\ttfamily [4/6]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{switch\+\_\+mm\+\_\+cond\+\_\+ibpb}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a4e757a3cb95086d464bbb5348a3441db}\label{cpu_2bugs_8c_a4e757a3cb95086d464bbb5348a3441db}} 
+\index{bugs.c@{bugs.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}\hspace{0.1cm}{\footnotesize\ttfamily [5/6]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{switch\+\_\+mm\+\_\+cond\+\_\+l1d\+\_\+flush}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a9e7cef9ae44d7c4dd2bdbdc6938c7e99}\label{cpu_2bugs_8c_a9e7cef9ae44d7c4dd2bdbdc6938c7e99}} 
+\index{bugs.c@{bugs.c}!DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}}
+\index{DEFINE\_STATIC\_KEY\_FALSE@{DEFINE\_STATIC\_KEY\_FALSE}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_STATIC\_KEY\_FALSE()}{DEFINE\_STATIC\_KEY\_FALSE()}\hspace{0.1cm}{\footnotesize\ttfamily [6/6]}}
+{\footnotesize\ttfamily D\+E\+F\+I\+N\+E\+\_\+\+S\+T\+A\+T\+I\+C\+\_\+\+K\+E\+Y\+\_\+\+F\+A\+L\+SE (\begin{DoxyParamCaption}\item[{switch\+\_\+to\+\_\+cond\+\_\+stibp}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_adcfc84e461a04852ff4409c5543d361d}\label{cpu_2bugs_8c_adcfc84e461a04852ff4409c5543d361d}} 
+\index{bugs.c@{bugs.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [1/6]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}l1d\+\_\+flush\char`\"{}}]{,  }\item[{\mbox{\hyperlink{cpu_2bugs_8c_aecb342967ede743c0b7f3d5850ec95ce}{l1d\+\_\+flush\+\_\+parse\+\_\+cmdline}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a45bddf11eccc755882ce76556fa65325}\label{cpu_2bugs_8c_a45bddf11eccc755882ce76556fa65325}} 
+\index{bugs.c@{bugs.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [2/6]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}l1tf\char`\"{}}]{,  }\item[{\mbox{\hyperlink{cpu_2bugs_8c_a8f2841a79b641a197767632740b9bf20}{l1tf\+\_\+cmdline}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_ae1543d538d49a646327bcfb7415c081c}\label{cpu_2bugs_8c_ae1543d538d49a646327bcfb7415c081c}} 
+\index{bugs.c@{bugs.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [3/6]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}mds\char`\"{}}]{,  }\item[{\mbox{\hyperlink{cpu_2bugs_8c_a997b04b835046ac444d10ac69655ced6}{mds\+\_\+cmdline}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a3bbf511332fe95b4235b76c437f593e9}\label{cpu_2bugs_8c_a3bbf511332fe95b4235b76c437f593e9}} 
+\index{bugs.c@{bugs.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [4/6]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}nospectre\+\_\+v1\char`\"{}}]{,  }\item[{\mbox{\hyperlink{cpu_2bugs_8c_af455ea14c11ce03bf8710a330a79baa3}{nospectre\+\_\+v1\+\_\+cmdline}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_ae02329e5c6bee43f0f788f861582c192}\label{cpu_2bugs_8c_ae02329e5c6bee43f0f788f861582c192}} 
+\index{bugs.c@{bugs.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [5/6]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}srbds\char`\"{}}]{,  }\item[{\mbox{\hyperlink{cpu_2bugs_8c_a61c6b72b372e6e5ea530cfa7faa8a9c6}{srbds\+\_\+parse\+\_\+cmdline}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a8099fcbc2bef04c735c08063f4af308c}\label{cpu_2bugs_8c_a8099fcbc2bef04c735c08063f4af308c}} 
+\index{bugs.c@{bugs.c}!early\_param@{early\_param}}
+\index{early\_param@{early\_param}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{early\_param()}{early\_param()}\hspace{0.1cm}{\footnotesize\ttfamily [6/6]}}
+{\footnotesize\ttfamily early\+\_\+param (\begin{DoxyParamCaption}\item[{\char`\"{}tsx\+\_\+async\+\_\+abort\char`\"{}}]{,  }\item[{\mbox{\hyperlink{cpu_2bugs_8c_a94fc17158a855aa67ae3c1db981dabf2}{tsx\+\_\+async\+\_\+abort\+\_\+parse\+\_\+cmdline}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a2e5f11b6588e4b252a358798d505a9d5}\label{cpu_2bugs_8c_a2e5f11b6588e4b252a358798d505a9d5}} 
+\index{bugs.c@{bugs.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{kvm_2mmu_2mmu_8c_a88f1b7c7932a47e0e0305793e1e59077}{itlb\+\_\+multihit\+\_\+kvm\+\_\+mitigation}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a29edcb8197097bed85edc1d505276e84}\label{cpu_2bugs_8c_a29edcb8197097bed85edc1d505276e84}} 
+\index{bugs.c@{bugs.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{cpu_2bugs_8c_aa0fe20981647111f7a5939076d2479f0}{l1tf\+\_\+vmx\+\_\+mitigation}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a4302b47f95209c7c75eb5570b4b65f00}\label{cpu_2bugs_8c_a4302b47f95209c7c75eb5570b4b65f00}} 
+\index{bugs.c@{bugs.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{mds\+\_\+idle\+\_\+clear}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a9808e2831ab9232f6d23af67652c8b68}\label{cpu_2bugs_8c_a9808e2831ab9232f6d23af67652c8b68}} 
+\index{bugs.c@{bugs.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{mds\+\_\+user\+\_\+clear}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a31da1d9cffa84a5150aebf99b6e175bb}\label{cpu_2bugs_8c_a31da1d9cffa84a5150aebf99b6e175bb}} 
+\index{bugs.c@{bugs.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{cpu_2bugs_8c_a94cc69b79065adb45f006454f4dca49e}{x86\+\_\+spec\+\_\+ctrl\+\_\+base}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a2d10299bd65810cab9fb0f541e356fa0}\label{cpu_2bugs_8c_a2d10299bd65810cab9fb0f541e356fa0}} 
+\index{bugs.c@{bugs.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/6]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{cpu_2bugs_8c_a44253396d39cc8bcae6c1b2fdb8e94b9}{x86\+\_\+virt\+\_\+spec\+\_\+ctrl}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_add1e98cd456485c145376feb949be13f}\label{cpu_2bugs_8c_add1e98cd456485c145376feb949be13f}} 
+\index{bugs.c@{bugs.c}!ib\_prctl\_get@{ib\_prctl\_get}}
+\index{ib\_prctl\_get@{ib\_prctl\_get}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ib\_prctl\_get()}{ib\_prctl\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ib\+\_\+prctl\+\_\+get (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 7
+Here is the caller graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{cpu_2bugs_8c_a845d85912e3a0861cd70b2dad1fd3c0e}\label{cpu_2bugs_8c_a845d85912e3a0861cd70b2dad1fd3c0e}} 
+\index{bugs.c@{bugs.c}!ib\_prctl\_set@{ib\_prctl\_set}}
+\index{ib\_prctl\_set@{ib\_prctl\_set}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ib\_prctl\_set()}{ib\_prctl\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ib\+\_\+prctl\+\_\+set (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{unsigned long}]{ctrl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{cpu_2bugs_8c_a840718155450a2fcad5ff50b602c9aae}\label{cpu_2bugs_8c_a840718155450a2fcad5ff50b602c9aae}} 
+\index{bugs.c@{bugs.c}!is\_spec\_ib\_user\_controlled@{is\_spec\_ib\_user\_controlled}}
+\index{is\_spec\_ib\_user\_controlled@{is\_spec\_ib\_user\_controlled}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{is\_spec\_ib\_user\_controlled()}{is\_spec\_ib\_user\_controlled()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+spec\+\_\+ib\+\_\+user\+\_\+controlled (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 11
+\mbox{\Hypertarget{cpu_2bugs_8c_aecb342967ede743c0b7f3d5850ec95ce}\label{cpu_2bugs_8c_aecb342967ede743c0b7f3d5850ec95ce}} 
+\index{bugs.c@{bugs.c}!l1d\_flush\_parse\_cmdline@{l1d\_flush\_parse\_cmdline}}
+\index{l1d\_flush\_parse\_cmdline@{l1d\_flush\_parse\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1d\_flush\_parse\_cmdline()}{l1d\_flush\_parse\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} l1d\+\_\+flush\+\_\+parse\+\_\+cmdline (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{cpu_2bugs_8c_a5cb72f741b4615fe8cfafaf374634a0f}\label{cpu_2bugs_8c_a5cb72f741b4615fe8cfafaf374634a0f}} 
+\index{bugs.c@{bugs.c}!l1d\_flush\_prctl\_get@{l1d\_flush\_prctl\_get}}
+\index{l1d\_flush\_prctl\_get@{l1d\_flush\_prctl\_get}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1d\_flush\_prctl\_get()}{l1d\_flush\_prctl\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} l1d\+\_\+flush\+\_\+prctl\+\_\+get (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 13
+\mbox{\Hypertarget{cpu_2bugs_8c_ac31470170a44abe76f4df5d1e189ebc0}\label{cpu_2bugs_8c_ac31470170a44abe76f4df5d1e189ebc0}} 
+\index{bugs.c@{bugs.c}!l1d\_flush\_prctl\_set@{l1d\_flush\_prctl\_set}}
+\index{l1d\_flush\_prctl\_set@{l1d\_flush\_prctl\_set}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1d\_flush\_prctl\_set()}{l1d\_flush\_prctl\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} l1d\+\_\+flush\+\_\+prctl\+\_\+set (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{unsigned long}]{ctrl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{cpu_2bugs_8c_aa0930a028c62675bf9a140bdd104025b}\label{cpu_2bugs_8c_aa0930a028c62675bf9a140bdd104025b}} 
+\index{bugs.c@{bugs.c}!l1d\_flush\_select\_mitigation@{l1d\_flush\_select\_mitigation}}
+\index{l1d\_flush\_select\_mitigation@{l1d\_flush\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1d\_flush\_select\_mitigation()}{l1d\_flush\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} l1d\+\_\+flush\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 15
+\mbox{\Hypertarget{cpu_2bugs_8c_a8f2841a79b641a197767632740b9bf20}\label{cpu_2bugs_8c_a8f2841a79b641a197767632740b9bf20}} 
+\index{bugs.c@{bugs.c}!l1tf\_cmdline@{l1tf\_cmdline}}
+\index{l1tf\_cmdline@{l1tf\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1tf\_cmdline()}{l1tf\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} l1tf\+\_\+cmdline (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{cpu_2bugs_8c_a81c2ff32f5f776a2f713e24e7c8eff00}\label{cpu_2bugs_8c_a81c2ff32f5f776a2f713e24e7c8eff00}} 
+\index{bugs.c@{bugs.c}!l1tf\_select\_mitigation@{l1tf\_select\_mitigation}}
+\index{l1tf\_select\_mitigation@{l1tf\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1tf\_select\_mitigation()}{l1tf\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} l1tf\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 17
+Here is the caller graph for this function\+:
+% FIG 18
+\mbox{\Hypertarget{cpu_2bugs_8c_ac45ca75bc06d3d451d6188671cedebff}\label{cpu_2bugs_8c_ac45ca75bc06d3d451d6188671cedebff}} 
+\index{bugs.c@{bugs.c}!match\_option@{match\_option}}
+\index{match\_option@{match\_option}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{match\_option()}{match\_option()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} match\+\_\+option (\begin{DoxyParamCaption}\item[{const char $\ast$}]{arg,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{arglen,  }\item[{const char $\ast$}]{opt }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 19
+Here is the caller graph for this function\+:
+% FIG 20
+\mbox{\Hypertarget{cpu_2bugs_8c_a997b04b835046ac444d10ac69655ced6}\label{cpu_2bugs_8c_a997b04b835046ac444d10ac69655ced6}} 
+\index{bugs.c@{bugs.c}!mds\_cmdline@{mds\_cmdline}}
+\index{mds\_cmdline@{mds\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{mds\_cmdline()}{mds\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mds\+\_\+cmdline (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{cpu_2bugs_8c_aa709ce9ee574f70b0d8043ac9e2fc2e3}\label{cpu_2bugs_8c_aa709ce9ee574f70b0d8043ac9e2fc2e3}} 
+\index{bugs.c@{bugs.c}!mds\_print\_mitigation@{mds\_print\_mitigation}}
+\index{mds\_print\_mitigation@{mds\_print\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{mds\_print\_mitigation()}{mds\_print\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mds\+\_\+print\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{cpu_2bugs_8c_a59f58ee0a41ca98d5d3df62ee067dd4d}\label{cpu_2bugs_8c_a59f58ee0a41ca98d5d3df62ee067dd4d}} 
+\index{bugs.c@{bugs.c}!mds\_select\_mitigation@{mds\_select\_mitigation}}
+\index{mds\_select\_mitigation@{mds\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{mds\_select\_mitigation()}{mds\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} mds\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{cpu_2bugs_8c_af455ea14c11ce03bf8710a330a79baa3}\label{cpu_2bugs_8c_af455ea14c11ce03bf8710a330a79baa3}} 
+\index{bugs.c@{bugs.c}!nospectre\_v1\_cmdline@{nospectre\_v1\_cmdline}}
+\index{nospectre\_v1\_cmdline@{nospectre\_v1\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{nospectre\_v1\_cmdline()}{nospectre\_v1\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} nospectre\+\_\+v1\+\_\+cmdline (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_ad7de988bfc9bded9ef74a7462dbd66f8}\label{cpu_2bugs_8c_ad7de988bfc9bded9ef74a7462dbd66f8}} 
+\index{bugs.c@{bugs.c}!override\_cache\_bits@{override\_cache\_bits}}
+\index{override\_cache\_bits@{override\_cache\_bits}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{override\_cache\_bits()}{override\_cache\_bits()}}
+{\footnotesize\ttfamily static void override\+\_\+cache\+\_\+bits (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structcpuinfo__x86}{cpuinfo\+\_\+x86}} $\ast$}]{c }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 26
+\mbox{\Hypertarget{cpu_2bugs_8c_ac784fe186cfadaf0fb5c2df8979a04c8}\label{cpu_2bugs_8c_ac784fe186cfadaf0fb5c2df8979a04c8}} 
+\index{bugs.c@{bugs.c}!smap\_works\_speculatively@{smap\_works\_speculatively}}
+\index{smap\_works\_speculatively@{smap\_works\_speculatively}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{smap\_works\_speculatively()}{smap\_works\_speculatively()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} smap\+\_\+works\+\_\+speculatively (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{cpu_2bugs_8c_a569d4dabe4e5ae3f5c53daa1acaaf0d6}\label{cpu_2bugs_8c_a569d4dabe4e5ae3f5c53daa1acaaf0d6}} 
+\index{bugs.c@{bugs.c}!spec\_v2\_print\_cond@{spec\_v2\_print\_cond}}
+\index{spec\_v2\_print\_cond@{spec\_v2\_print\_cond}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spec\_v2\_print\_cond()}{spec\_v2\_print\_cond()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} spec\+\_\+v2\+\_\+print\+\_\+cond (\begin{DoxyParamCaption}\item[{const char $\ast$}]{reason,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{secure }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 28
+\mbox{\Hypertarget{cpu_2bugs_8c_abed8cd90823dafb2dd50c41fdf809ba2}\label{cpu_2bugs_8c_abed8cd90823dafb2dd50c41fdf809ba2}} 
+\index{bugs.c@{bugs.c}!spec\_v2\_user\_print\_cond@{spec\_v2\_user\_print\_cond}}
+\index{spec\_v2\_user\_print\_cond@{spec\_v2\_user\_print\_cond}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spec\_v2\_user\_print\_cond()}{spec\_v2\_user\_print\_cond()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} spec\+\_\+v2\+\_\+user\+\_\+print\+\_\+cond (\begin{DoxyParamCaption}\item[{const char $\ast$}]{reason,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{secure }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{cpu_2bugs_8c_a934e951881c689e6ba53e2afefed1066}\label{cpu_2bugs_8c_a934e951881c689e6ba53e2afefed1066}} 
+\index{bugs.c@{bugs.c}!spectre\_v1\_select\_mitigation@{spectre\_v1\_select\_mitigation}}
+\index{spectre\_v1\_select\_mitigation@{spectre\_v1\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v1\_select\_mitigation()}{spectre\_v1\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} spectre\+\_\+v1\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 30
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{cpu_2bugs_8c_a743d414fa908bc71a556ff8fbd4cb6c8}\label{cpu_2bugs_8c_a743d414fa908bc71a556ff8fbd4cb6c8}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_module\_string@{spectre\_v2\_module\_string}}
+\index{spectre\_v2\_module\_string@{spectre\_v2\_module\_string}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_module\_string()}{spectre\_v2\_module\_string()}}
+{\footnotesize\ttfamily static const char$\ast$ spectre\+\_\+v2\+\_\+module\+\_\+string (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a6435e2e9e12af068f09767ff4156018c}\label{cpu_2bugs_8c_a6435e2e9e12af068f09767ff4156018c}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_parse\_cmdline@{spectre\_v2\_parse\_cmdline}}
+\index{spectre\_v2\_parse\_cmdline@{spectre\_v2\_parse\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_parse\_cmdline()}{spectre\_v2\_parse\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} spectre\+\_\+v2\+\_\+parse\+\_\+cmdline (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 32
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{cpu_2bugs_8c_a434868cdff9cd86961b1b1489ff04c21}\label{cpu_2bugs_8c_a434868cdff9cd86961b1b1489ff04c21}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_parse\_user\_cmdline@{spectre\_v2\_parse\_user\_cmdline}}
+\index{spectre\_v2\_parse\_user\_cmdline@{spectre\_v2\_parse\_user\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_parse\_user\_cmdline()}{spectre\_v2\_parse\_user\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762}{spectre\+\_\+v2\+\_\+user\+\_\+cmd}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} spectre\+\_\+v2\+\_\+parse\+\_\+user\+\_\+cmdline (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}}}]{v2\+\_\+cmd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{cpu_2bugs_8c_a78ca6af760a602a23ce9d885cda05e2e}\label{cpu_2bugs_8c_a78ca6af760a602a23ce9d885cda05e2e}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_select\_mitigation@{spectre\_v2\_select\_mitigation}}
+\index{spectre\_v2\_select\_mitigation@{spectre\_v2\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_select\_mitigation()}{spectre\_v2\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} spectre\+\_\+v2\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{cpu_2bugs_8c_ae89026fa33c7d86da1dbd8a9b6603e14}\label{cpu_2bugs_8c_ae89026fa33c7d86da1dbd8a9b6603e14}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_user\_select\_mitigation@{spectre\_v2\_user\_select\_mitigation}}
+\index{spectre\_v2\_user\_select\_mitigation@{spectre\_v2\_user\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_user\_select\_mitigation()}{spectre\_v2\_user\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} spectre\+\_\+v2\+\_\+user\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a5b1b783772eb530e89feb2183c997b5a}{spectre\+\_\+v2\+\_\+mitigation\+\_\+cmd}}}]{v2\+\_\+cmd }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{cpu_2bugs_8c_a61c6b72b372e6e5ea530cfa7faa8a9c6}\label{cpu_2bugs_8c_a61c6b72b372e6e5ea530cfa7faa8a9c6}} 
+\index{bugs.c@{bugs.c}!srbds\_parse\_cmdline@{srbds\_parse\_cmdline}}
+\index{srbds\_parse\_cmdline@{srbds\_parse\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{srbds\_parse\_cmdline()}{srbds\_parse\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} srbds\+\_\+parse\+\_\+cmdline (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{cpu_2bugs_8c_a5892ceb18abdb8d75e31a2456d20bda9}\label{cpu_2bugs_8c_a5892ceb18abdb8d75e31a2456d20bda9}} 
+\index{bugs.c@{bugs.c}!srbds\_select\_mitigation@{srbds\_select\_mitigation}}
+\index{srbds\_select\_mitigation@{srbds\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{srbds\_select\_mitigation()}{srbds\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} srbds\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{cpu_2bugs_8c_aec828a00b1f7ad261dfe38d8687f3319}\label{cpu_2bugs_8c_aec828a00b1f7ad261dfe38d8687f3319}} 
+\index{bugs.c@{bugs.c}!ssb\_parse\_cmdline@{ssb\_parse\_cmdline}}
+\index{ssb\_parse\_cmdline@{ssb\_parse\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ssb\_parse\_cmdline()}{ssb\_parse\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85d}{ssb\+\_\+mitigation\+\_\+cmd}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} ssb\+\_\+parse\+\_\+cmdline (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{cpu_2bugs_8c_a3068539e58de5eb884bfbafa5e63f367}\label{cpu_2bugs_8c_a3068539e58de5eb884bfbafa5e63f367}} 
+\index{bugs.c@{bugs.c}!ssb\_prctl\_get@{ssb\_prctl\_get}}
+\index{ssb\_prctl\_get@{ssb\_prctl\_get}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ssb\_prctl\_get()}{ssb\_prctl\_get()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ssb\+\_\+prctl\+\_\+get (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{cpu_2bugs_8c_a2935db201af128256f229330e03071ec}\label{cpu_2bugs_8c_a2935db201af128256f229330e03071ec}} 
+\index{bugs.c@{bugs.c}!ssb\_prctl\_set@{ssb\_prctl\_set}}
+\index{ssb\_prctl\_set@{ssb\_prctl\_set}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ssb\_prctl\_set()}{ssb\_prctl\_set()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} ssb\+\_\+prctl\+\_\+set (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{task,  }\item[{unsigned long}]{ctrl }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{cpu_2bugs_8c_ac6b85ee0d82b6e0b413f2b8da1b0f799}\label{cpu_2bugs_8c_ac6b85ee0d82b6e0b413f2b8da1b0f799}} 
+\index{bugs.c@{bugs.c}!ssb\_select\_mitigation@{ssb\_select\_mitigation}}
+\index{ssb\_select\_mitigation@{ssb\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ssb\_select\_mitigation()}{ssb\_select\_mitigation()}}
+{\footnotesize\ttfamily static void ssb\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{cpu_2bugs_8c_af4e851c3b70a37f94e7ecfdd6c514d73}\label{cpu_2bugs_8c_af4e851c3b70a37f94e7ecfdd6c514d73}} 
+\index{bugs.c@{bugs.c}!taa\_select\_mitigation@{taa\_select\_mitigation}}
+\index{taa\_select\_mitigation@{taa\_select\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{taa\_select\_mitigation()}{taa\_select\_mitigation()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} taa\+\_\+select\+\_\+mitigation (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 50
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{cpu_2bugs_8c_a13f3faf1ff2b2b5ef6faf92b9e5f6bfe}\label{cpu_2bugs_8c_a13f3faf1ff2b2b5ef6faf92b9e5f6bfe}} 
+\index{bugs.c@{bugs.c}!task\_update\_spec\_tif@{task\_update\_spec\_tif}}
+\index{task\_update\_spec\_tif@{task\_update\_spec\_tif}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{task\_update\_spec\_tif()}{task\_update\_spec\_tif()}}
+{\footnotesize\ttfamily static void task\+\_\+update\+\_\+spec\+\_\+tif (\begin{DoxyParamCaption}\item[{struct task\+\_\+struct $\ast$}]{tsk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{cpu_2bugs_8c_a94fc17158a855aa67ae3c1db981dabf2}\label{cpu_2bugs_8c_a94fc17158a855aa67ae3c1db981dabf2}} 
+\index{bugs.c@{bugs.c}!tsx\_async\_abort\_parse\_cmdline@{tsx\_async\_abort\_parse\_cmdline}}
+\index{tsx\_async\_abort\_parse\_cmdline@{tsx\_async\_abort\_parse\_cmdline}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{tsx\_async\_abort\_parse\_cmdline()}{tsx\_async\_abort\_parse\_cmdline()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} tsx\+\_\+async\+\_\+abort\+\_\+parse\+\_\+cmdline (\begin{DoxyParamCaption}\item[{char $\ast$}]{str }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+\mbox{\Hypertarget{cpu_2bugs_8c_a7821c3755225937c0da03d9c001680e8}\label{cpu_2bugs_8c_a7821c3755225937c0da03d9c001680e8}} 
+\index{bugs.c@{bugs.c}!update\_indir\_branch\_cond@{update\_indir\_branch\_cond}}
+\index{update\_indir\_branch\_cond@{update\_indir\_branch\_cond}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{update\_indir\_branch\_cond()}{update\_indir\_branch\_cond()}}
+{\footnotesize\ttfamily static void update\+\_\+indir\+\_\+branch\+\_\+cond (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 55
+Here is the caller graph for this function\+:
+% FIG 56
+\mbox{\Hypertarget{cpu_2bugs_8c_adfab9c2e08f13bd7c8258cc2eb028ac9}\label{cpu_2bugs_8c_adfab9c2e08f13bd7c8258cc2eb028ac9}} 
+\index{bugs.c@{bugs.c}!update\_mds\_branch\_idle@{update\_mds\_branch\_idle}}
+\index{update\_mds\_branch\_idle@{update\_mds\_branch\_idle}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{update\_mds\_branch\_idle()}{update\_mds\_branch\_idle()}}
+{\footnotesize\ttfamily static void update\+\_\+mds\+\_\+branch\+\_\+idle (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 57
+Here is the caller graph for this function\+:
+% FIG 58
+\mbox{\Hypertarget{cpu_2bugs_8c_ab410d1d60413786cfba6480373dbd901}\label{cpu_2bugs_8c_ab410d1d60413786cfba6480373dbd901}} 
+\index{bugs.c@{bugs.c}!update\_srbds\_msr@{update\_srbds\_msr}}
+\index{update\_srbds\_msr@{update\_srbds\_msr}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{update\_srbds\_msr()}{update\_srbds\_msr()}}
+{\footnotesize\ttfamily void update\+\_\+srbds\+\_\+msr (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 59
+Here is the caller graph for this function\+:
+% FIG 60
+\mbox{\Hypertarget{cpu_2bugs_8c_aa0861f82123a82967a9b1d604c413ffb}\label{cpu_2bugs_8c_aa0861f82123a82967a9b1d604c413ffb}} 
+\index{bugs.c@{bugs.c}!update\_stibp\_msr@{update\_stibp\_msr}}
+\index{update\_stibp\_msr@{update\_stibp\_msr}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{update\_stibp\_msr()}{update\_stibp\_msr()}}
+{\footnotesize\ttfamily static void update\+\_\+stibp\+\_\+msr (\begin{DoxyParamCaption}\item[{void $\ast$}]{\+\_\+\+\_\+unused }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 61
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{cpu_2bugs_8c_a3fd4ddb045f46965f46eb8c86a60a6fa}\label{cpu_2bugs_8c_a3fd4ddb045f46965f46eb8c86a60a6fa}} 
+\index{bugs.c@{bugs.c}!update\_stibp\_strict@{update\_stibp\_strict}}
+\index{update\_stibp\_strict@{update\_stibp\_strict}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{update\_stibp\_strict()}{update\_stibp\_strict()}}
+{\footnotesize\ttfamily static void update\+\_\+stibp\+\_\+strict (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{cpu_2bugs_8c_afa7944fb0c542983a6f4ce7bbe762734}\label{cpu_2bugs_8c_afa7944fb0c542983a6f4ce7bbe762734}} 
+\index{bugs.c@{bugs.c}!x86\_amd\_ssb\_disable@{x86\_amd\_ssb\_disable}}
+\index{x86\_amd\_ssb\_disable@{x86\_amd\_ssb\_disable}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{x86\_amd\_ssb\_disable()}{x86\_amd\_ssb\_disable()}}
+{\footnotesize\ttfamily static void x86\+\_\+amd\+\_\+ssb\+\_\+disable (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{cpu_2bugs_8c_a7479605cb88e6da9cd14be7be58e0163}\label{cpu_2bugs_8c_a7479605cb88e6da9cd14be7be58e0163}} 
+\index{bugs.c@{bugs.c}!x86\_spec\_ctrl\_setup\_ap@{x86\_spec\_ctrl\_setup\_ap}}
+\index{x86\_spec\_ctrl\_setup\_ap@{x86\_spec\_ctrl\_setup\_ap}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{x86\_spec\_ctrl\_setup\_ap()}{x86\_spec\_ctrl\_setup\_ap()}}
+{\footnotesize\ttfamily void x86\+\_\+spec\+\_\+ctrl\+\_\+setup\+\_\+ap (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 67
+Here is the caller graph for this function\+:
+% FIG 68
+\mbox{\Hypertarget{cpu_2bugs_8c_a44253396d39cc8bcae6c1b2fdb8e94b9}\label{cpu_2bugs_8c_a44253396d39cc8bcae6c1b2fdb8e94b9}} 
+\index{bugs.c@{bugs.c}!x86\_virt\_spec\_ctrl@{x86\_virt\_spec\_ctrl}}
+\index{x86\_virt\_spec\_ctrl@{x86\_virt\_spec\_ctrl}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{x86\_virt\_spec\_ctrl()}{x86\_virt\_spec\_ctrl()}}
+{\footnotesize\ttfamily void x86\+\_\+virt\+\_\+spec\+\_\+ctrl (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{guest\+\_\+spec\+\_\+ctrl,  }\item[{\mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}}}]{guest\+\_\+virt\+\_\+spec\+\_\+ctrl,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{setguest }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 69
+Here is the caller graph for this function\+:
+% FIG 70
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{cpu_2bugs_8c_a18038ebccc814970d9683f7b451e5611}\label{cpu_2bugs_8c_a18038ebccc814970d9683f7b451e5611}} 
+\index{bugs.c@{bugs.c}!\_\_initconst@{\_\_initconst}}
+\index{\_\_initconst@{\_\_initconst}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initconst}{\_\_initconst}}
+{\footnotesize\ttfamily const \{ ... \}  \+\_\+\+\_\+initconst\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"auto"},       \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a74dc4fe8b34cad0423657c269b69d9ac}{SPECTRE\_V2\_USER\_CMD\_AUTO}},       \textcolor{keyword}{false} \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"off"},        \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a2fcbb15cd8956d8bbb711fdb1e34f9ec}{SPECTRE\_V2\_USER\_CMD\_NONE}},       \textcolor{keyword}{false} \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"on"},         \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a38c65b2586171115ccec94637e881c92}{SPECTRE\_V2\_USER\_CMD\_FORCE}},     \textcolor{keyword}{true}  \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"prctl"},      \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762ac1d5083ea51d65c78d4b7d9c8fcbc9fd}{SPECTRE\_V2\_USER\_CMD\_PRCTL}},     \textcolor{keyword}{false} \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"prctl,ibpb"},     \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a51f7b7abca8d53fb23b389b1cfbc2cbc}{SPECTRE\_V2\_USER\_CMD\_PRCTL\_IBPB}},       \textcolor{keyword}{false} \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"seccomp"},        \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a24bad67969a827080c9934bea6c0dfdc}{SPECTRE\_V2\_USER\_CMD\_SECCOMP}},     \textcolor{keyword}{false} \},}
+\DoxyCodeLine{    \{ \textcolor{stringliteral}{"seccomp,ibpb"},   \mbox{\hyperlink{cpu_2bugs_8c_a0f8b028c4c1e25940a8e0bfb1d3fa762a9faa484bc041d7a72b677dd3113480be}{SPECTRE\_V2\_USER\_CMD\_SECCOMP\_IBPB}},   \textcolor{keyword}{false} \},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_a328f6cb2b0efdea5b04c1a879925ee42}\label{cpu_2bugs_8c_a328f6cb2b0efdea5b04c1a879925ee42}} 
+\index{bugs.c@{bugs.c}!\_\_initdata@{\_\_initdata}}
+\index{\_\_initdata@{\_\_initdata}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{\_\_initdata}{\_\_initdata}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0b}{l1d\+\_\+flush\+\_\+mitigations}} l1d\+\_\+flush\+\_\+mitigation \+\_\+\+\_\+initdata = \mbox{\hyperlink{cpu_2bugs_8c_a1c4892678b7861732e67477ea64d3e0ba366cf812697d74751499387eff59af7d}{L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+O\+FF}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_abd288de4c7f9687f0e2db55d997efa3b}\label{cpu_2bugs_8c_abd288de4c7f9687f0e2db55d997efa3b}} 
+\index{bugs.c@{bugs.c}!\_\_ro\_after\_init@{\_\_ro\_after\_init}}
+\index{\_\_ro\_after\_init@{\_\_ro\_after\_init}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{\_\_ro\_after\_init}{\_\_ro\_after\_init}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a4544ce4cafe12717979beb5fd8f075da}{l1tf\+\_\+mitigations}} \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a603b59ffcd0513eff332b78d2410bfc2}{l1tf\+\_\+mitigation}} \+\_\+\+\_\+ro\+\_\+after\+\_\+init = \mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a8ca93e4226c1273881a83997562e2750aeb068f79c6309839dd4b10ebef6504b5}{M\+D\+S\+\_\+\+M\+I\+T\+I\+G\+A\+T\+I\+O\+N\+\_\+\+F\+U\+LL}}\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a66a7de020c38796d71bdd4493768cf17}\label{cpu_2bugs_8c_a66a7de020c38796d71bdd4493768cf17}} 
+\index{bugs.c@{bugs.c}!cmd@{cmd}}
+\index{cmd@{cmd}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{cmd}{cmd}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{cpu_2bugs_8c_a93b17233d643856437edd20a21c9b85d}{ssb\+\_\+mitigation\+\_\+cmd}} cmd}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a88f1b7c7932a47e0e0305793e1e59077}\label{cpu_2bugs_8c_a88f1b7c7932a47e0e0305793e1e59077}} 
+\index{bugs.c@{bugs.c}!itlb\_multihit\_kvm\_mitigation@{itlb\_multihit\_kvm\_mitigation}}
+\index{itlb\_multihit\_kvm\_mitigation@{itlb\_multihit\_kvm\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{itlb\_multihit\_kvm\_mitigation}{itlb\_multihit\_kvm\_mitigation}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} itlb\+\_\+multihit\+\_\+kvm\+\_\+mitigation}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_aa0fe20981647111f7a5939076d2479f0}\label{cpu_2bugs_8c_aa0fe20981647111f7a5939076d2479f0}} 
+\index{bugs.c@{bugs.c}!l1tf\_vmx\_mitigation@{l1tf\_vmx\_mitigation}}
+\index{l1tf\_vmx\_mitigation@{l1tf\_vmx\_mitigation}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{l1tf\_vmx\_mitigation}{l1tf\_vmx\_mitigation}}
+{\footnotesize\ttfamily \mbox{\hyperlink{interfaceenum}{enum}} \mbox{\hyperlink{include_2asm_2vmx_8h_a3b5918e79fdd8f957abe5b0d242cbe66}{vmx\+\_\+l1d\+\_\+flush\+\_\+state}} l1tf\+\_\+vmx\+\_\+mitigation = \mbox{\hyperlink{include_2asm_2vmx_8h_a3b5918e79fdd8f957abe5b0d242cbe66aa4bd621609e756b005d74619ab840ca0}{V\+M\+E\+N\+T\+E\+R\+\_\+\+L1\+D\+\_\+\+F\+L\+U\+S\+H\+\_\+\+A\+U\+TO}}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_ad0c527f2e274e081bf2e664b96663809}\label{cpu_2bugs_8c_ad0c527f2e274e081bf2e664b96663809}} 
+\index{bugs.c@{bugs.c}!mds\_strings@{mds\_strings}}
+\index{mds\_strings@{mds\_strings}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{mds\_strings}{mds\_strings}}
+{\footnotesize\ttfamily const char$\ast$ const mds\+\_\+strings\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a8ca93e4226c1273881a83997562e2750ad68ced126108d063fb7b2a32f08764ac}{MDS\_MITIGATION\_OFF}}]  = \textcolor{stringliteral}{"Vulnerable"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a8ca93e4226c1273881a83997562e2750aeb068f79c6309839dd4b10ebef6504b5}{MDS\_MITIGATION\_FULL}}]    = \textcolor{stringliteral}{"Mitigation: Clear CPU buffers"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{arch_2x86_2include_2asm_2processor_8h_a8ca93e4226c1273881a83997562e2750aa2c6ff9c44343bfa977ab5fdb30441e1}{MDS\_MITIGATION\_VMWERV}}]    = \textcolor{stringliteral}{"Vulnerable: Clear CPU buffers attempted, no microcode"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_a31b45a0ff8b2861859ecfbad2ce4fe02}\label{cpu_2bugs_8c_a31b45a0ff8b2861859ecfbad2ce4fe02}} 
+\index{bugs.c@{bugs.c}!option@{option}}
+\index{option@{option}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{option}{option}}
+{\footnotesize\ttfamily const char$\ast$ option}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_ae5b9c4f4dc3296ef6e0ba61c71d09fc1}\label{cpu_2bugs_8c_ae5b9c4f4dc3296ef6e0ba61c71d09fc1}} 
+\index{bugs.c@{bugs.c}!secure@{secure}}
+\index{secure@{secure}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{secure}{secure}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} secure}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a65ad5b132b795a49ce3cff8411e30fb7}\label{cpu_2bugs_8c_a65ad5b132b795a49ce3cff8411e30fb7}} 
+\index{bugs.c@{bugs.c}!spectre\_v1\_strings@{spectre\_v1\_strings}}
+\index{spectre\_v1\_strings@{spectre\_v1\_strings}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v1\_strings}{spectre\_v1\_strings}}
+{\footnotesize\ttfamily const char$\ast$ const spectre\+\_\+v1\+\_\+strings\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960aa1f2b049895cf6ca78cb0af94a54e783}{SPECTRE\_V1\_MITIGATION\_NONE}}] = \textcolor{stringliteral}{"Vulnerable: \_\_user pointer sanitization and usercopy barriers only; no swapgs barriers"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a566acc712f327a98e379dcb3d21a9960a421f5eea965df4ca81df07908e8de272}{SPECTRE\_V1\_MITIGATION\_AUTO}}] = \textcolor{stringliteral}{"Mitigation: usercopy/swapgs barriers and \_\_user pointer sanitization"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_a5cb0fb13e386ac6f338a529dd51067aa}\label{cpu_2bugs_8c_a5cb0fb13e386ac6f338a529dd51067aa}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_strings@{spectre\_v2\_strings}}
+\index{spectre\_v2\_strings@{spectre\_v2\_strings}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_strings}{spectre\_v2\_strings}}
+{\footnotesize\ttfamily const char$\ast$ const spectre\+\_\+v2\+\_\+strings\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_ad9c12bab88eb985c961358630b9a274aa708701c814ce8889267a09ab2a2209c9}{SPECTRE\_V2\_NONE}}]            = \textcolor{stringliteral}{"Vulnerable"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_ad9c12bab88eb985c961358630b9a274aa54cd02276b03a7949ad149b7329b30f7}{SPECTRE\_V2\_RETPOLINE\_GENERIC}}]      = \textcolor{stringliteral}{"Mitigation: Full generic retpoline"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_ad9c12bab88eb985c961358630b9a274aa30fc481be8258f8235a0d6a6f5f5a327}{SPECTRE\_V2\_RETPOLINE\_AMD}}]      = \textcolor{stringliteral}{"Mitigation: Full AMD retpoline"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_ad9c12bab88eb985c961358630b9a274aade44d0f4d6e24ad1f24f153140261e21}{SPECTRE\_V2\_IBRS\_ENHANCED}}]      = \textcolor{stringliteral}{"Mitigation: Enhanced IBRS"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_a3b4afdd8f64f94a865d3613cc5039df2}\label{cpu_2bugs_8c_a3b4afdd8f64f94a865d3613cc5039df2}} 
+\index{bugs.c@{bugs.c}!spectre\_v2\_user\_strings@{spectre\_v2\_user\_strings}}
+\index{spectre\_v2\_user\_strings@{spectre\_v2\_user\_strings}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{spectre\_v2\_user\_strings}{spectre\_v2\_user\_strings}}
+{\footnotesize\ttfamily const char$\ast$ const spectre\+\_\+v2\+\_\+user\+\_\+strings\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_a4f81b2aabbeba3842dec9b2b28da53a0a975e6a9646539529ec41f1e61a61fa22}{SPECTRE\_V2\_USER\_NONE}}]          = \textcolor{stringliteral}{"User space: Vulnerable"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_a4f81b2aabbeba3842dec9b2b28da53a0abede653e215099c179bde61f8339d160}{SPECTRE\_V2\_USER\_STRICT}}]      = \textcolor{stringliteral}{"User space: Mitigation: STIBP protection"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_a4f81b2aabbeba3842dec9b2b28da53a0ab2c36ed525a768aa1f74fd2dd6d2eb3d}{SPECTRE\_V2\_USER\_STRICT\_PREFERRED}}]  = \textcolor{stringliteral}{"User space: Mitigation: STIBP always-\/on protection"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_a4f81b2aabbeba3842dec9b2b28da53a0a0be8fe0a59a74998d8f4c338a61341c0}{SPECTRE\_V2\_USER\_PRCTL}}]            = \textcolor{stringliteral}{"User space: Mitigation: STIBP via prctl"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_a4f81b2aabbeba3842dec9b2b28da53a0af775618aedf7613f53f4935c9aaba78a}{SPECTRE\_V2\_USER\_SECCOMP}}]        = \textcolor{stringliteral}{"User space: Mitigation: STIBP via seccomp and prctl"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_a4d30c6fb76fbb896b78095537aaec47e}\label{cpu_2bugs_8c_a4d30c6fb76fbb896b78095537aaec47e}} 
+\index{bugs.c@{bugs.c}!srbds\_off@{srbds\_off}}
+\index{srbds\_off@{srbds\_off}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{srbds\_off}{srbds\_off}}
+{\footnotesize\ttfamily \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} srbds\+\_\+off\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a7b49364bd370086917988b17291c9d21}\label{cpu_2bugs_8c_a7b49364bd370086917988b17291c9d21}} 
+\index{bugs.c@{bugs.c}!srbds\_strings@{srbds\_strings}}
+\index{srbds\_strings@{srbds\_strings}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{srbds\_strings}{srbds\_strings}}
+{\footnotesize\ttfamily const char$\ast$ const srbds\+\_\+strings\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa1498dd0bc10577ce99b5d32a3c8e07f6}{SRBDS\_MITIGATION\_OFF}}]      = \textcolor{stringliteral}{"Vulnerable"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fab85d4f423f2be62178488040bec4970d}{SRBDS\_MITIGATION\_UCODE\_NEEDED}}]    = \textcolor{stringliteral}{"Vulnerable: No microcode"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa5eb02f18838edc3000e372690cfa669c}{SRBDS\_MITIGATION\_FULL}}]        = \textcolor{stringliteral}{"Mitigation: Microcode"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0fa32ea2579789d7583fa362c20bd45bef7}{SRBDS\_MITIGATION\_TSX\_OFF}}]  = \textcolor{stringliteral}{"Mitigation: TSX disabled"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a226c0207bc1ab60340d92e19f9422d0faf890a9c792bd4f00d0f149a99c26348a}{SRBDS\_MITIGATION\_HYPERVISOR}}]    = \textcolor{stringliteral}{"Unknown: Dependent on hypervisor status"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_a061b6d83b77583e9959ad475693bd6be}\label{cpu_2bugs_8c_a061b6d83b77583e9959ad475693bd6be}} 
+\index{bugs.c@{bugs.c}!ssb\_strings@{ssb\_strings}}
+\index{ssb\_strings@{ssb\_strings}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{ssb\_strings}{ssb\_strings}}
+{\footnotesize\ttfamily const char$\ast$ const ssb\+\_\+strings\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_afdfeca0ecf1dff6cf494b76bd937f0aeae608eb9b4836363a9fc4200943aea2ef}{SPEC\_STORE\_BYPASS\_NONE}}]  = \textcolor{stringliteral}{"Vulnerable"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_afdfeca0ecf1dff6cf494b76bd937f0aea26ab647728d2f45d549237e910037dff}{SPEC\_STORE\_BYPASS\_DISABLE}}]    = \textcolor{stringliteral}{"Mitigation: Speculative Store Bypass disabled"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_afdfeca0ecf1dff6cf494b76bd937f0aea456023fe6cc42b6f213b8078a50fb7ce}{SPEC\_STORE\_BYPASS\_PRCTL}}]    = \textcolor{stringliteral}{"Mitigation: Speculative Store Bypass disabled via prctl"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{nospec-branch_8h_afdfeca0ecf1dff6cf494b76bd937f0aea7d3b16d66fe5f24fc315a111cd478d97}{SPEC\_STORE\_BYPASS\_SECCOMP}}]    = \textcolor{stringliteral}{"Mitigation: Speculative Store Bypass disabled via prctl and seccomp"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_a9605a06e519e7ad956eb0cea7dbe6ced}\label{cpu_2bugs_8c_a9605a06e519e7ad956eb0cea7dbe6ced}} 
+\index{bugs.c@{bugs.c}!taa\_strings@{taa\_strings}}
+\index{taa\_strings@{taa\_strings}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{taa\_strings}{taa\_strings}}
+{\footnotesize\ttfamily const char$\ast$ const taa\+\_\+strings\mbox{[}$\,$\mbox{]}\hspace{0.3cm}{\ttfamily [static]}}
+
+{\bfseries Initial value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{= \{}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351aacf1d2e39cb6e70819ef5d68c0df1b92}{TAA\_MITIGATION\_OFF}}]      = \textcolor{stringliteral}{"Vulnerable"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351ae6971ffb09d20851c934a343071df845}{TAA\_MITIGATION\_UCODE\_NEEDED}}]    = \textcolor{stringliteral}{"Vulnerable: Clear CPU buffers attempted, no microcode"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351acc18cf4404747b1b1504dc80d9c6c9af}{TAA\_MITIGATION\_VERW}}]        = \textcolor{stringliteral}{"Mitigation: Clear CPU buffers"},}
+\DoxyCodeLine{    [\mbox{\hyperlink{cpu_2bugs_8c_a28780266187028d0f31f1d05377f0351a853f483941750dfbae3255dc204bf1b1}{TAA\_MITIGATION\_TSX\_DISABLED}}]    = \textcolor{stringliteral}{"Mitigation: TSX disabled"},}
+\DoxyCodeLine{\}}
+
+\end{DoxyCode}
+\mbox{\Hypertarget{cpu_2bugs_8c_ad135e4d58c494e6a0d6b09fedfbd72c4}\label{cpu_2bugs_8c_ad135e4d58c494e6a0d6b09fedfbd72c4}} 
+\index{bugs.c@{bugs.c}!x86\_amd\_ls\_cfg\_base@{x86\_amd\_ls\_cfg\_base}}
+\index{x86\_amd\_ls\_cfg\_base@{x86\_amd\_ls\_cfg\_base}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{x86\_amd\_ls\_cfg\_base}{x86\_amd\_ls\_cfg\_base}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{vsprintf_8c_aae5b1021270b24af242910a7e322faa7}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} x86\+\_\+amd\+\_\+ls\+\_\+cfg\+\_\+base}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a54ee7cfb7c26813c9bbd8861a0a5aa9b}\label{cpu_2bugs_8c_a54ee7cfb7c26813c9bbd8861a0a5aa9b}} 
+\index{bugs.c@{bugs.c}!x86\_amd\_ls\_cfg\_ssbd\_mask@{x86\_amd\_ls\_cfg\_ssbd\_mask}}
+\index{x86\_amd\_ls\_cfg\_ssbd\_mask@{x86\_amd\_ls\_cfg\_ssbd\_mask}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{x86\_amd\_ls\_cfg\_ssbd\_mask}{x86\_amd\_ls\_cfg\_ssbd\_mask}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{vsprintf_8c_aae5b1021270b24af242910a7e322faa7}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} x86\+\_\+amd\+\_\+ls\+\_\+cfg\+\_\+ssbd\+\_\+mask}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_a94cc69b79065adb45f006454f4dca49e}\label{cpu_2bugs_8c_a94cc69b79065adb45f006454f4dca49e}} 
+\index{bugs.c@{bugs.c}!x86\_spec\_ctrl\_base@{x86\_spec\_ctrl\_base}}
+\index{x86\_spec\_ctrl\_base@{x86\_spec\_ctrl\_base}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{x86\_spec\_ctrl\_base}{x86\_spec\_ctrl\_base}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} x86\+\_\+spec\+\_\+ctrl\+\_\+base}
+
+\mbox{\Hypertarget{cpu_2bugs_8c_af68a24618f997cdd63f400290cade475}\label{cpu_2bugs_8c_af68a24618f997cdd63f400290cade475}} 
+\index{bugs.c@{bugs.c}!x86\_spec\_ctrl\_mask@{x86\_spec\_ctrl\_mask}}
+\index{x86\_spec\_ctrl\_mask@{x86\_spec\_ctrl\_mask}!bugs.c@{bugs.c}}
+\doxysubsubsection{\texorpdfstring{x86\_spec\_ctrl\_mask}{x86\_spec\_ctrl\_mask}}
+{\footnotesize\ttfamily \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{vsprintf_8c_aae5b1021270b24af242910a7e322faa7}{\+\_\+\+\_\+ro\+\_\+after\+\_\+init}} x86\+\_\+spec\+\_\+ctrl\+\_\+mask = \mbox{\hyperlink{msr-index_8h_ac4bafb8027e712a402fd84a439e594d9}{S\+P\+E\+C\+\_\+\+C\+T\+R\+L\+\_\+\+I\+B\+RS}}\hspace{0.3cm}{\ttfamily [static]}}
+

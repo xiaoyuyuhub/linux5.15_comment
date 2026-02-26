@@ -1,0 +1,1311 @@
+\hypertarget{timer_8c}{}\doxysection{kernel/time/timer.c File Reference}
+\label{timer_8c}\index{kernel/time/timer.c@{kernel/time/timer.c}}
+{\ttfamily \#include $<$linux/kernel\+\_\+stat.\+h$>$}\newline
+{\ttfamily \#include $<$linux/export.\+h$>$}\newline
+{\ttfamily \#include $<$linux/interrupt.\+h$>$}\newline
+{\ttfamily \#include $<$linux/percpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/init.\+h$>$}\newline
+{\ttfamily \#include $<$linux/mm.\+h$>$}\newline
+{\ttfamily \#include $<$linux/swap.\+h$>$}\newline
+{\ttfamily \#include $<$linux/pid\+\_\+namespace.\+h$>$}\newline
+{\ttfamily \#include $<$linux/notifier.\+h$>$}\newline
+{\ttfamily \#include $<$linux/thread\+\_\+info.\+h$>$}\newline
+{\ttfamily \#include $<$linux/time.\+h$>$}\newline
+{\ttfamily \#include $<$linux/jiffies.\+h$>$}\newline
+{\ttfamily \#include $<$linux/posix-\/timers.\+h$>$}\newline
+{\ttfamily \#include $<$linux/cpu.\+h$>$}\newline
+{\ttfamily \#include $<$linux/syscalls.\+h$>$}\newline
+{\ttfamily \#include $<$linux/delay.\+h$>$}\newline
+{\ttfamily \#include $<$linux/tick.\+h$>$}\newline
+{\ttfamily \#include $<$linux/kallsyms.\+h$>$}\newline
+{\ttfamily \#include $<$linux/irq\+\_\+work.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/signal.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/sysctl.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/nohz.\+h$>$}\newline
+{\ttfamily \#include $<$linux/sched/debug.\+h$>$}\newline
+{\ttfamily \#include $<$linux/slab.\+h$>$}\newline
+{\ttfamily \#include $<$linux/compat.\+h$>$}\newline
+{\ttfamily \#include $<$linux/random.\+h$>$}\newline
+{\ttfamily \#include $<$linux/uaccess.\+h$>$}\newline
+{\ttfamily \#include $<$asm/unistd.\+h$>$}\newline
+{\ttfamily \#include $<$asm/div64.\+h$>$}\newline
+{\ttfamily \#include $<$asm/timex.\+h$>$}\newline
+{\ttfamily \#include $<$asm/io.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}tick-\/internal.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$trace/events/timer.\+h$>$}\newline
+Include dependency graph for timer.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}
+\item 
+struct \mbox{\hyperlink{structprocess__timer}{process\+\_\+timer}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{timer_8c_a40473b47b4871fa538a0fa131f94e774}{C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}}
+\item 
+\#define \mbox{\hyperlink{timer_8c_a672a564c386758d99bb25a705cd0d356}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT}}~3
+\item 
+\#define \mbox{\hyperlink{timer_8c_a00d20c303b9ba2495ca633c59169b606}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+D\+IV}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{timer_8c_a672a564c386758d99bb25a705cd0d356}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT}})
+\item 
+\#define \mbox{\hyperlink{timer_8c_a0c8f60abf4f2c31514b347933223fcaa}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+M\+A\+SK}}~(\mbox{\hyperlink{timer_8c_a00d20c303b9ba2495ca633c59169b606}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+D\+IV}} -\/ 1)
+\item 
+\#define \mbox{\hyperlink{timer_8c_a21b1020c9c9d8bc899c59de4a17b9875}{L\+V\+L\+\_\+\+S\+H\+I\+FT}}(n)~((n) $\ast$ \mbox{\hyperlink{timer_8c_a672a564c386758d99bb25a705cd0d356}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT}})
+\item 
+\#define \mbox{\hyperlink{timer_8c_a1e4afecbf947a3e96846be062ad7eebc}{L\+V\+L\+\_\+\+G\+R\+AN}}(n)~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{timer_8c_a21b1020c9c9d8bc899c59de4a17b9875}{L\+V\+L\+\_\+\+S\+H\+I\+FT}}(n))
+\item 
+\#define \mbox{\hyperlink{timer_8c_aea0003275fd34e2cba0c0c36a9255068}{L\+V\+L\+\_\+\+S\+T\+A\+RT}}(n)~((\mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}} -\/ 1) $<$$<$ (((n) -\/ 1) $\ast$ \mbox{\hyperlink{timer_8c_a672a564c386758d99bb25a705cd0d356}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT}}))
+\item 
+\#define \mbox{\hyperlink{timer_8c_a8af2ee19288b43a24c792e4c7c0fe83f}{L\+V\+L\+\_\+\+B\+I\+TS}}~6
+\item 
+\#define \mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}}~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{timer_8c_a8af2ee19288b43a24c792e4c7c0fe83f}{L\+V\+L\+\_\+\+B\+I\+TS}})
+\item 
+\#define \mbox{\hyperlink{timer_8c_a852069ad9c9872d35b724acdacef4a70}{L\+V\+L\+\_\+\+M\+A\+SK}}~(\mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}} -\/ 1)
+\item 
+\#define \mbox{\hyperlink{timer_8c_a93d5b62a1540fb07e08ec1581efd6836}{L\+V\+L\+\_\+\+O\+F\+FS}}(n)~((n) $\ast$ \mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}})
+\item 
+\#define \mbox{\hyperlink{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}{L\+V\+L\+\_\+\+D\+E\+P\+TH}}~8
+\item 
+\#define \mbox{\hyperlink{timer_8c_ab33e17fbf9115d47e59ab0e1abffd5bc}{W\+H\+E\+E\+L\+\_\+\+T\+I\+M\+E\+O\+U\+T\+\_\+\+C\+U\+T\+O\+FF}}~(\mbox{\hyperlink{timer_8c_aea0003275fd34e2cba0c0c36a9255068}{L\+V\+L\+\_\+\+S\+T\+A\+RT}}(\mbox{\hyperlink{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}{L\+V\+L\+\_\+\+D\+E\+P\+TH}}))
+\item 
+\#define \mbox{\hyperlink{timer_8c_ac4124e8a024eab90d3d96fd12ab65843}{W\+H\+E\+E\+L\+\_\+\+T\+I\+M\+E\+O\+U\+T\+\_\+\+M\+AX}}~(\mbox{\hyperlink{timer_8c_ab33e17fbf9115d47e59ab0e1abffd5bc}{W\+H\+E\+E\+L\+\_\+\+T\+I\+M\+E\+O\+U\+T\+\_\+\+C\+U\+T\+O\+FF}} -\/ \mbox{\hyperlink{timer_8c_a1e4afecbf947a3e96846be062ad7eebc}{L\+V\+L\+\_\+\+G\+R\+AN}}(\mbox{\hyperlink{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}{L\+V\+L\+\_\+\+D\+E\+P\+TH}} -\/ 1))
+\item 
+\#define \mbox{\hyperlink{timer_8c_a2733ceaadab31da68b8568673d619b47}{W\+H\+E\+E\+L\+\_\+\+S\+I\+ZE}}~(\mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}} $\ast$ \mbox{\hyperlink{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}{L\+V\+L\+\_\+\+D\+E\+P\+TH}})
+\item 
+\#define \mbox{\hyperlink{timer_8c_a46fcc8bbda0a7f510c2e44d3e4b9c584}{N\+R\+\_\+\+B\+A\+S\+ES}}~1
+\item 
+\#define \mbox{\hyperlink{timer_8c_a8ffa53822dd746303c066e073304ba85}{B\+A\+S\+E\+\_\+\+S\+TD}}~0
+\item 
+\#define \mbox{\hyperlink{timer_8c_a3c994dd4f9c48be31254494214f9d1c7}{B\+A\+S\+E\+\_\+\+D\+EF}}~0
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{timer_8c_a5452c297c773eb0754aa029dc4877ab1}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{linux_2jiffies_8h_a78417aa0b6f81f5e9a1c0aac10040f25}{jiffies\+\_\+64}})
+\item 
+static \mbox{\hyperlink{timer_8c_a4b7c93172b387fae39e4ae863175c4ee}{D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}, timer\+\_\+bases\mbox{[}\mbox{\hyperlink{timer_8c_a46fcc8bbda0a7f510c2e44d3e4b9c584}{N\+R\+\_\+\+B\+A\+S\+ES}}\mbox{]})
+\item 
+static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{timer_8c_adbc14e814832902987aa9cf1e176db62}{is\+\_\+timers\+\_\+nohz\+\_\+active}} (void)
+\item 
+static unsigned long \mbox{\hyperlink{timer_8c_a342284f2b099aeb492179c0a09f48bb9}{round\+\_\+jiffies\+\_\+common}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} force\+\_\+up)
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_a4e1acfc7d4aeb2e17804c752b334f769}{\+\_\+\+\_\+round\+\_\+jiffies}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+\mbox{\hyperlink{timer_8c_a83f07d0e85e0c85aeebea763aa927e86}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a4e1acfc7d4aeb2e17804c752b334f769}{\+\_\+\+\_\+round\+\_\+jiffies}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_ac0d8e7c31bc88cbd53b3cf8d9afb39fa}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+relative}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+\mbox{\hyperlink{timer_8c_ac5b95078a716c6ed2675d3a31f81c921}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_ac0d8e7c31bc88cbd53b3cf8d9afb39fa}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+relative}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_a77c94ba5ba4b35ffb9504219e9b88477}{round\+\_\+jiffies}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}})
+\item 
+\mbox{\hyperlink{timer_8c_afb2542354e60b59bbf3694201f5265b9}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a77c94ba5ba4b35ffb9504219e9b88477}{round\+\_\+jiffies}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_ab6ba1f3fa2ef3e0e9abc66249b4b6866}{round\+\_\+jiffies\+\_\+relative}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}})
+\item 
+\mbox{\hyperlink{timer_8c_a4c60b62004a0dfe8fad93130a3a4bd12}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_ab6ba1f3fa2ef3e0e9abc66249b4b6866}{round\+\_\+jiffies\+\_\+relative}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_aabe1018c51943579ffd08cd6c528d58e}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+\mbox{\hyperlink{timer_8c_aea34f67d6cca20693b6f8d807e609ce6}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_aabe1018c51943579ffd08cd6c528d58e}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_afb76f13f5acda52545861239aec62539}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up\+\_\+relative}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+\mbox{\hyperlink{timer_8c_acbccd0ce23d064a9f5c37b36f202397b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_afb76f13f5acda52545861239aec62539}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up\+\_\+relative}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_a4008885cc703cead04c2c16a15bf1809}{round\+\_\+jiffies\+\_\+up}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}})
+\item 
+\mbox{\hyperlink{timer_8c_a19626b34dff475827e7662a015cbe739}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a4008885cc703cead04c2c16a15bf1809}{round\+\_\+jiffies\+\_\+up}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_aaa346fec6efb9ae52ebc544f542b8888}{round\+\_\+jiffies\+\_\+up\+\_\+relative}} (unsigned long \mbox{\hyperlink{encode__rs_8c_a37d972ae0b47b9099e30983131d31916}{j}})
+\item 
+\mbox{\hyperlink{timer_8c_a5015e343062086a0d1b7bbab2d9d682d}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_aaa346fec6efb9ae52ebc544f542b8888}{round\+\_\+jiffies\+\_\+up\+\_\+relative}})
+\item 
+static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_a3fe40e9a8b464a3126f72e706903b8f3}{timer\+\_\+get\+\_\+idx}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_af19f33524026c370a2b49c8f01492144}{timer\+\_\+set\+\_\+idx}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}})
+\item 
+static unsigned \mbox{\hyperlink{timer_8c_ac17e6d1897af870a5d8853379eba4d75}{calc\+\_\+index}} (unsigned long expires, unsigned lvl, unsigned long $\ast$bucket\+\_\+expiry)
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_a10f40a64f0151ed9ee2fd08234a24165}{calc\+\_\+wheel\+\_\+index}} (unsigned long expires, unsigned long \mbox{\hyperlink{structclk}{clk}}, unsigned long $\ast$bucket\+\_\+expiry)
+\item 
+static void \mbox{\hyperlink{timer_8c_a44328abefbb99604c4acc032ecb4efda}{trigger\+\_\+dyntick\+\_\+cpu}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_ad8965b4cf425dd3b29b2427fa2061fd4}{enqueue\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{uapi_2linux_2rfkill_8h_a35a5caec924fa74eec9572ffb7922b23}{idx}}, unsigned long bucket\+\_\+expiry)
+\item 
+static void \mbox{\hyperlink{timer_8c_a5a85d68e89d2504da20aa4435fc26e90}{internal\+\_\+add\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_a8a88ecd8db0b889bb5b0a26683ff5a93}{debug\+\_\+timer\+\_\+init}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_aed72d3379ff3ce4015788de9ead16a19}{debug\+\_\+timer\+\_\+activate}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_a71881fe28fcf1d6fffb233c5490e034e}{debug\+\_\+timer\+\_\+deactivate}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_a6eeec6688bf55c5866ea8d6e5ff94116}{debug\+\_\+timer\+\_\+assert\+\_\+init}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_adb35e41f13d2808abf6cf343d6fdebb1}{debug\+\_\+init}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_afc3ac2a3af3291fc5cf755ece203d659}{debug\+\_\+deactivate}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_aa3dcb0f2dac7d82c13e8171a5bc836da}{debug\+\_\+assert\+\_\+init}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_ad7561dce29207f4dc527aef41d80e8a7}{do\+\_\+init\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, void($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$), unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{linux_2jiffies_8h_a78417aa0b6f81f5e9a1c0aac10040f25}{jiffies\+\_\+64}} \mbox{\hyperlink{timer_8c_a8e6b5b9bc26149945217b8986cd4dc3d}{\+\_\+\+\_\+cacheline\+\_\+aligned\+\_\+in\+\_\+smp}} = \mbox{\hyperlink{linux_2jiffies_8h_a152536f8b1eb3c8081ec2b3c96198498}{I\+N\+I\+T\+I\+A\+L\+\_\+\+J\+I\+F\+F\+I\+ES}}
+\item 
+struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} \mbox{\hyperlink{timer_8c_a088154ed118b389773d888d423373b44}{\+\_\+\+\_\+\+\_\+\+\_\+cacheline\+\_\+aligned}}
+\end{DoxyCompactItemize}
+\doxysubsection*{\+: name of the timer}
+\label{_amgrp9c58c8177fb948bf7d32e99294ab5e09}%
+init\+\_\+timer\+\_\+key -\/ initialize a timer @timer\+: the timer to be initialized @func\+: timer callback function @flags\+: timer flags
+
+@key\+: lockdep class key of the fake lock used for tracking timer sync lock dependencies
+
+\mbox{\hyperlink{timer_8c_a43f065b71f5f6e54a3b3b28831faa996}{init\+\_\+timer\+\_\+key()}} must be done to a timer prior calling {\itshape any} of the other timer functions. \begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{timer_8c_ab71838b158b9bb7987e9326943e2b567}{M\+O\+D\+\_\+\+T\+I\+M\+E\+R\+\_\+\+P\+E\+N\+D\+I\+N\+G\+\_\+\+O\+N\+LY}}~0x01
+\item 
+\#define \mbox{\hyperlink{timer_8c_a938a9d474f972c87a9b9dcf1807ccc0d}{M\+O\+D\+\_\+\+T\+I\+M\+E\+R\+\_\+\+R\+E\+D\+U\+CE}}~0x02
+\item 
+\#define \mbox{\hyperlink{timer_8c_aaf9c45508d26fdab7527d47ab46e446e}{M\+O\+D\+\_\+\+T\+I\+M\+E\+R\+\_\+\+N\+O\+T\+P\+E\+N\+D\+I\+NG}}~0x04
+\item 
+void \mbox{\hyperlink{timer_8c_a43f065b71f5f6e54a3b3b28831faa996}{init\+\_\+timer\+\_\+key}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, void($\ast$\mbox{\hyperlink{verifier_8c_a8d91ae36fda0b119a50286ad84fdbf31}{func}})(struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$), unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}, const char $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a78bcb3acbead9fa4b43530e418cc0b05}{name}}, struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$\mbox{\hyperlink{compress__offload_8h_a22ce381e6b944e029f74fa6c8d1ce549}{key}})
+\item 
+\mbox{\hyperlink{timer_8c_ab465fe4f03649ea9c18c84ca22bdd597}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a43f065b71f5f6e54a3b3b28831faa996}{init\+\_\+timer\+\_\+key}})
+\item 
+static void \mbox{\hyperlink{timer_8c_ab9cbbbdbb5e7159b4b3b59a77cc5446c}{detach\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{qspinlock_8c_ab84f7c90949d153ee1389e592b0d5c97}{clear\+\_\+pending}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_aaeb8a20cc8d0debd33938d338d0a29f4}{detach\+\_\+if\+\_\+pending}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} \mbox{\hyperlink{qspinlock_8c_ab84f7c90949d153ee1389e592b0d5c97}{clear\+\_\+pending}})
+\item 
+static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$ \mbox{\hyperlink{timer_8c_ac2f3c25eb2b862ab863895e935d6a0f1}{get\+\_\+timer\+\_\+cpu\+\_\+base}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} tflags, \mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$ \mbox{\hyperlink{timer_8c_aa6b0b4cf93b4c903902fb2ae40dc4bda}{get\+\_\+timer\+\_\+this\+\_\+cpu\+\_\+base}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} tflags)
+\item 
+static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$ \mbox{\hyperlink{timer_8c_a0b12c6a8ae3f5e777fc4e547ce9518d7}{get\+\_\+timer\+\_\+base}} (\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}} tflags)
+\item 
+static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$ \mbox{\hyperlink{timer_8c_ad8544d84506da5397310e7b96007e532}{get\+\_\+target\+\_\+base}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, unsigned tflags)
+\item 
+static void \mbox{\hyperlink{timer_8c_aac4312de5abe906b41e58985621cb0d0}{forward\+\_\+timer\+\_\+base}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}})
+\item 
+static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$ \mbox{\hyperlink{timer_8c_aabe9bd7b971bdbaa7f3769dd26351848}{lock\+\_\+timer\+\_\+base}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned long $\ast$\mbox{\hyperlink{test__printf_8c_ad972ee18075b2763a4b30612cec53c5d}{flags}}) \mbox{\hyperlink{compiler__types_8h_a6bc6af579890d9cfaa45b8487b130166}{\+\_\+\+\_\+acquires}}(\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}} -\/$>$ \mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}-\/$>$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_ab3c967d3bbabd50408175b9ced155305}{\+\_\+\+\_\+mod\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned long expires, unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{pldmfw__private_8h_a831da8238513c0ea1614c63427a49391}{options}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_a6f51086e8adb0210c2a318f626cacd14}{mod\+\_\+timer\+\_\+pending}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned long expires)
+\item 
+\mbox{\hyperlink{timer_8c_a9b2825551ff747f9738e141bc310932c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a6f51086e8adb0210c2a318f626cacd14}{mod\+\_\+timer\+\_\+pending}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned long expires)
+\item 
+\mbox{\hyperlink{timer_8c_af753572082b9688c2ddd9c07456b852f}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2timer_8h_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_a8a520d7bccb8808a3cc80911a676739d}{timer\+\_\+reduce}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, unsigned long expires)
+\item 
+\mbox{\hyperlink{timer_8c_ac2ddea6fc5a39cb4197d64f771e14941}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a8a520d7bccb8808a3cc80911a676739d}{timer\+\_\+reduce}})
+\item 
+void \mbox{\hyperlink{timer_8c_aa77a27e782a19c16847d42e6303004f7}{add\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+\mbox{\hyperlink{timer_8c_ac2fc9a02855c6c73903cfab42d442e32}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2timer_8h_aa77a27e782a19c16847d42e6303004f7}{add\+\_\+timer}})
+\item 
+void \mbox{\hyperlink{timer_8c_ac7f04f5cad5f046b1a960873f237fb41}{add\+\_\+timer\+\_\+on}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+\mbox{\hyperlink{timer_8c_a91ada5bd50d9a4b9f8e485a17bc6a7dd}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL}} (\mbox{\hyperlink{include_2linux_2timer_8h_ac7f04f5cad5f046b1a960873f237fb41}{add\+\_\+timer\+\_\+on}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_a3bd79563bc611a1338645de49e8621c8}{del\+\_\+timer}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+\mbox{\hyperlink{timer_8c_ab4f542670df0a2da344d25dfd3391658}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a3bd79563bc611a1338645de49e8621c8}{del\+\_\+timer}})
+\item 
+\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_a75b034e4a49b5b5cd0157b6f1404ef8b}{try\+\_\+to\+\_\+del\+\_\+timer\+\_\+sync}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+\mbox{\hyperlink{timer_8c_af0a15db43baa8caaa3ac50771c1718b5}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2timer_8h_a75b034e4a49b5b5cd0157b6f1404ef8b}{try\+\_\+to\+\_\+del\+\_\+timer\+\_\+sync}})
+\item 
+static void \mbox{\hyperlink{timer_8c_a67b999272b0e56d37904440e23f0d36a}{timer\+\_\+base\+\_\+init\+\_\+expiry\+\_\+lock}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}})
+\item 
+static void \mbox{\hyperlink{timer_8c_af774b33f55cbfd6df8ccfff7d5313a15}{timer\+\_\+base\+\_\+lock\+\_\+expiry}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}})
+\item 
+static void \mbox{\hyperlink{timer_8c_af7d5663de3d1dc1eea252b569d7aaa19}{timer\+\_\+base\+\_\+unlock\+\_\+expiry}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}})
+\item 
+static void \mbox{\hyperlink{timer_8c_aac5719463f2edf13e5fcab4b25a142ec}{timer\+\_\+sync\+\_\+wait\+\_\+running}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}})
+\item 
+static void \mbox{\hyperlink{timer_8c_a4704eb8d55dce0881dbcaa01d249331f}{del\+\_\+timer\+\_\+wait\+\_\+running}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}})
+\item 
+static void \mbox{\hyperlink{timer_8c_ade040099d09098af023605a2e6a9dd84}{call\+\_\+timer\+\_\+fn}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{helpers_8c_a80dda161ca20a455de26507f077b7989}{timer}}, void($\ast$fn)(struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$), unsigned long baseclk)
+\item 
+static void \mbox{\hyperlink{timer_8c_afe27f1a1e895109b717a4d9da47607e2}{expire\+\_\+timers}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} $\ast$\mbox{\hyperlink{list__sort_8h_ad05937a2e036331cdbc2eb49fed582bf}{head}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_a52ceeb1379be51bc30db3179d568df77}{collect\+\_\+expired\+\_\+timers}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} $\ast$\mbox{\hyperlink{uapi_2linux_2adfs__fs_8h_a7600cdc8667de3d0fe5e33325a9a45d1}{heads}})
+\item 
+static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{timer_8c_afd360f86b80d1405c38b6b6a981cd4bb}{next\+\_\+pending\+\_\+bucket}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}, unsigned \mbox{\hyperlink{suspend__ioctls_8h_aa3e1cf67c781421995955f68318172ea}{offset}}, unsigned \mbox{\hyperlink{structclk}{clk}})
+\item 
+static unsigned long \mbox{\hyperlink{timer_8c_a2dd029e1f5b0ae301992160ecbfa9689}{\+\_\+\+\_\+next\+\_\+timer\+\_\+interrupt}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}})
+\item 
+static void \mbox{\hyperlink{timer_8c_a78a4b257880bbf483367066498b53794}{\+\_\+\+\_\+run\+\_\+timers}} (struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$\mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}})
+\item 
+static \mbox{\hyperlink{compiler__types_8h_aaf10c7963a008f817131d8bbb88738c1}{\+\_\+\+\_\+latent\+\_\+entropy}} void \mbox{\hyperlink{timer_8c_aea9649a38a888c892b379acd33146224}{run\+\_\+timer\+\_\+softirq}} (struct \mbox{\hyperlink{structsoftirq__action}{softirq\+\_\+action}} $\ast$h)
+\item 
+static void \mbox{\hyperlink{timer_8c_ac471a1daa48b2621dbb4135d3f9dadd2}{run\+\_\+local\+\_\+timers}} (void)
+\item 
+void \mbox{\hyperlink{timer_8c_ab139d71c1a460e8d64c1856ebe2ab9d1}{update\+\_\+process\+\_\+times}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} user\+\_\+tick)
+\item 
+static void \mbox{\hyperlink{timer_8c_a567e5f5a102df7c96cee0154746401a8}{process\+\_\+timeout}} (struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$\mbox{\hyperlink{decode__rs_8c_a735e168770764edbf1b02c6299bf4286}{t}})
+\item 
+signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{timer_8c_a37e1f4f067aef41f2f1027e39b667ca7}{schedule\+\_\+timeout}} (signed long \mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}})
+\item 
+\mbox{\hyperlink{timer_8c_a9b757eaf0bd5af0827dfd9dbcc37b192}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{timer_8c_a37e1f4f067aef41f2f1027e39b667ca7}{schedule\+\_\+timeout}})
+\item 
+signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{timer_8c_a3eb6c8dd7a1fab638ff5663f39cdb963}{schedule\+\_\+timeout\+\_\+interruptible}} (signed long \mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}})
+\item 
+\mbox{\hyperlink{timer_8c_a1bd08f26ee081a02934b5a10375e8cce}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{timer_8c_a3eb6c8dd7a1fab638ff5663f39cdb963}{schedule\+\_\+timeout\+\_\+interruptible}})
+\item 
+signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{timer_8c_a94b4c9c9d2f743d6317c6dc39a2d8506}{schedule\+\_\+timeout\+\_\+killable}} (signed long \mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}})
+\item 
+\mbox{\hyperlink{timer_8c_aec094167dff56c8c7b12f84f770d71f9}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{timer_8c_a94b4c9c9d2f743d6317c6dc39a2d8506}{schedule\+\_\+timeout\+\_\+killable}})
+\item 
+signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{timer_8c_a291fae143d9c901aceb0125ba5fc7249}{schedule\+\_\+timeout\+\_\+uninterruptible}} (signed long \mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}})
+\item 
+\mbox{\hyperlink{timer_8c_adeeba020737cb2576355b32e3634594c}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{timer_8c_a291fae143d9c901aceb0125ba5fc7249}{schedule\+\_\+timeout\+\_\+uninterruptible}})
+\item 
+signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{timer_8c_a6aaf13dd3acf3fd9db984ab5075fe717}{schedule\+\_\+timeout\+\_\+idle}} (signed long \mbox{\hyperlink{nvme-fc-driver_8h_aab0b8a4320e771becf663b000c2cd7e1}{timeout}})
+\item 
+\mbox{\hyperlink{timer_8c_a5fd3cd915b9d0d9820a8ca3e5290a069}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{timer_8c_a6aaf13dd3acf3fd9db984ab5075fe717}{schedule\+\_\+timeout\+\_\+idle}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{timer_8c_a8099127ffe7d0959f779b17e2fdb9847}{init\+\_\+timer\+\_\+cpu}} (\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \mbox{\hyperlink{structcpu}{cpu}})
+\item 
+static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{timer_8c_af36a7c965ffc8be3ac91dc0ac862fe07}{init\+\_\+timer\+\_\+cpus}} (void)
+\item 
+void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} \mbox{\hyperlink{timer_8c_a53a13c0bb91e5e946cd8953e26c66881}{init\+\_\+timers}} (void)
+\item 
+void \mbox{\hyperlink{timer_8c_a22b49dedb06df367c3dfb5cbbdc37703}{msleep}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} msecs)
+\item 
+\mbox{\hyperlink{timer_8c_a05b0e5d0e99070e6a0c8c32c7decfdd4}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2delay_8h_a22b49dedb06df367c3dfb5cbbdc37703}{msleep}})
+\item 
+unsigned long \mbox{\hyperlink{timer_8c_a4a34e6ae00b02064cd18c1e9e5215834}{msleep\+\_\+interruptible}} (unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} msecs)
+\item 
+\mbox{\hyperlink{timer_8c_aeaa030237e00d6dbb8a6cac201014a4b}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2delay_8h_a4a34e6ae00b02064cd18c1e9e5215834}{msleep\+\_\+interruptible}})
+\item 
+void \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} \mbox{\hyperlink{timer_8c_acb5b7912f7b187014f38a167bcb6f4da}{usleep\+\_\+range}} (unsigned long \mbox{\hyperlink{uapi_2sound_2asoc_8h_af76c6939ecb8056b71b7547c8c5d6baa}{min}}, unsigned long \mbox{\hyperlink{uapi_2sound_2asoc_8h_a6e8685b4cbfc45d33424980899b70587}{max}})
+\item 
+\mbox{\hyperlink{timer_8c_a95133a6c0acdad85e054234e196c8dbf}{E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL}} (\mbox{\hyperlink{include_2linux_2delay_8h_afae57b9562d6f2c3128176ec686fd663}{usleep\+\_\+range}})
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{timer_8c_a3c994dd4f9c48be31254494214f9d1c7}\label{timer_8c_a3c994dd4f9c48be31254494214f9d1c7}} 
+\index{timer.c@{timer.c}!BASE\_DEF@{BASE\_DEF}}
+\index{BASE\_DEF@{BASE\_DEF}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{BASE\_DEF}{BASE\_DEF}}
+{\footnotesize\ttfamily \#define B\+A\+S\+E\+\_\+\+D\+EF~0}
+
+\mbox{\Hypertarget{timer_8c_a8ffa53822dd746303c066e073304ba85}\label{timer_8c_a8ffa53822dd746303c066e073304ba85}} 
+\index{timer.c@{timer.c}!BASE\_STD@{BASE\_STD}}
+\index{BASE\_STD@{BASE\_STD}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{BASE\_STD}{BASE\_STD}}
+{\footnotesize\ttfamily \#define B\+A\+S\+E\+\_\+\+S\+TD~0}
+
+\mbox{\Hypertarget{timer_8c_a40473b47b4871fa538a0fa131f94e774}\label{timer_8c_a40473b47b4871fa538a0fa131f94e774}} 
+\index{timer.c@{timer.c}!CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}}
+\index{CREATE\_TRACE\_POINTS@{CREATE\_TRACE\_POINTS}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{CREATE\_TRACE\_POINTS}{CREATE\_TRACE\_POINTS}}
+{\footnotesize\ttfamily \#define C\+R\+E\+A\+T\+E\+\_\+\+T\+R\+A\+C\+E\+\_\+\+P\+O\+I\+N\+TS}
+
+\mbox{\Hypertarget{timer_8c_a8af2ee19288b43a24c792e4c7c0fe83f}\label{timer_8c_a8af2ee19288b43a24c792e4c7c0fe83f}} 
+\index{timer.c@{timer.c}!LVL\_BITS@{LVL\_BITS}}
+\index{LVL\_BITS@{LVL\_BITS}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_BITS}{LVL\_BITS}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+B\+I\+TS~6}
+
+\mbox{\Hypertarget{timer_8c_a00d20c303b9ba2495ca633c59169b606}\label{timer_8c_a00d20c303b9ba2495ca633c59169b606}} 
+\index{timer.c@{timer.c}!LVL\_CLK\_DIV@{LVL\_CLK\_DIV}}
+\index{LVL\_CLK\_DIV@{LVL\_CLK\_DIV}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_CLK\_DIV}{LVL\_CLK\_DIV}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+D\+IV~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{timer_8c_a672a564c386758d99bb25a705cd0d356}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT}})}
+
+\mbox{\Hypertarget{timer_8c_a0c8f60abf4f2c31514b347933223fcaa}\label{timer_8c_a0c8f60abf4f2c31514b347933223fcaa}} 
+\index{timer.c@{timer.c}!LVL\_CLK\_MASK@{LVL\_CLK\_MASK}}
+\index{LVL\_CLK\_MASK@{LVL\_CLK\_MASK}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_CLK\_MASK}{LVL\_CLK\_MASK}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+M\+A\+SK~(\mbox{\hyperlink{timer_8c_a00d20c303b9ba2495ca633c59169b606}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+D\+IV}} -\/ 1)}
+
+\mbox{\Hypertarget{timer_8c_a672a564c386758d99bb25a705cd0d356}\label{timer_8c_a672a564c386758d99bb25a705cd0d356}} 
+\index{timer.c@{timer.c}!LVL\_CLK\_SHIFT@{LVL\_CLK\_SHIFT}}
+\index{LVL\_CLK\_SHIFT@{LVL\_CLK\_SHIFT}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_CLK\_SHIFT}{LVL\_CLK\_SHIFT}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT~3}
+
+\mbox{\Hypertarget{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}\label{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}} 
+\index{timer.c@{timer.c}!LVL\_DEPTH@{LVL\_DEPTH}}
+\index{LVL\_DEPTH@{LVL\_DEPTH}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_DEPTH}{LVL\_DEPTH}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+D\+E\+P\+TH~8}
+
+\mbox{\Hypertarget{timer_8c_a1e4afecbf947a3e96846be062ad7eebc}\label{timer_8c_a1e4afecbf947a3e96846be062ad7eebc}} 
+\index{timer.c@{timer.c}!LVL\_GRAN@{LVL\_GRAN}}
+\index{LVL\_GRAN@{LVL\_GRAN}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_GRAN}{LVL\_GRAN}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+G\+R\+AN(\begin{DoxyParamCaption}\item[{}]{n }\end{DoxyParamCaption})~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{timer_8c_a21b1020c9c9d8bc899c59de4a17b9875}{L\+V\+L\+\_\+\+S\+H\+I\+FT}}(n))}
+
+\mbox{\Hypertarget{timer_8c_a852069ad9c9872d35b724acdacef4a70}\label{timer_8c_a852069ad9c9872d35b724acdacef4a70}} 
+\index{timer.c@{timer.c}!LVL\_MASK@{LVL\_MASK}}
+\index{LVL\_MASK@{LVL\_MASK}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_MASK}{LVL\_MASK}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+M\+A\+SK~(\mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}} -\/ 1)}
+
+\mbox{\Hypertarget{timer_8c_a93d5b62a1540fb07e08ec1581efd6836}\label{timer_8c_a93d5b62a1540fb07e08ec1581efd6836}} 
+\index{timer.c@{timer.c}!LVL\_OFFS@{LVL\_OFFS}}
+\index{LVL\_OFFS@{LVL\_OFFS}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_OFFS}{LVL\_OFFS}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+O\+F\+FS(\begin{DoxyParamCaption}\item[{}]{n }\end{DoxyParamCaption})~((n) $\ast$ \mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}})}
+
+\mbox{\Hypertarget{timer_8c_a21b1020c9c9d8bc899c59de4a17b9875}\label{timer_8c_a21b1020c9c9d8bc899c59de4a17b9875}} 
+\index{timer.c@{timer.c}!LVL\_SHIFT@{LVL\_SHIFT}}
+\index{LVL\_SHIFT@{LVL\_SHIFT}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_SHIFT}{LVL\_SHIFT}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+S\+H\+I\+FT(\begin{DoxyParamCaption}\item[{}]{n }\end{DoxyParamCaption})~((n) $\ast$ \mbox{\hyperlink{timer_8c_a672a564c386758d99bb25a705cd0d356}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT}})}
+
+\mbox{\Hypertarget{timer_8c_a8548c9e2e89c960491a11a157462e55f}\label{timer_8c_a8548c9e2e89c960491a11a157462e55f}} 
+\index{timer.c@{timer.c}!LVL\_SIZE@{LVL\_SIZE}}
+\index{LVL\_SIZE@{LVL\_SIZE}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_SIZE}{LVL\_SIZE}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+S\+I\+ZE~(1\mbox{\hyperlink{vdso_2const_8h_a2d1ace2be4b6d58d3260b1b5fd1d63e0}{UL}} $<$$<$ \mbox{\hyperlink{timer_8c_a8af2ee19288b43a24c792e4c7c0fe83f}{L\+V\+L\+\_\+\+B\+I\+TS}})}
+
+\mbox{\Hypertarget{timer_8c_aea0003275fd34e2cba0c0c36a9255068}\label{timer_8c_aea0003275fd34e2cba0c0c36a9255068}} 
+\index{timer.c@{timer.c}!LVL\_START@{LVL\_START}}
+\index{LVL\_START@{LVL\_START}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{LVL\_START}{LVL\_START}}
+{\footnotesize\ttfamily \#define L\+V\+L\+\_\+\+S\+T\+A\+RT(\begin{DoxyParamCaption}\item[{}]{n }\end{DoxyParamCaption})~((\mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}} -\/ 1) $<$$<$ (((n) -\/ 1) $\ast$ \mbox{\hyperlink{timer_8c_a672a564c386758d99bb25a705cd0d356}{L\+V\+L\+\_\+\+C\+L\+K\+\_\+\+S\+H\+I\+FT}}))}
+
+\mbox{\Hypertarget{timer_8c_aaf9c45508d26fdab7527d47ab46e446e}\label{timer_8c_aaf9c45508d26fdab7527d47ab46e446e}} 
+\index{timer.c@{timer.c}!MOD\_TIMER\_NOTPENDING@{MOD\_TIMER\_NOTPENDING}}
+\index{MOD\_TIMER\_NOTPENDING@{MOD\_TIMER\_NOTPENDING}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{MOD\_TIMER\_NOTPENDING}{MOD\_TIMER\_NOTPENDING}}
+{\footnotesize\ttfamily \#define M\+O\+D\+\_\+\+T\+I\+M\+E\+R\+\_\+\+N\+O\+T\+P\+E\+N\+D\+I\+NG~0x04}
+
+\mbox{\Hypertarget{timer_8c_ab71838b158b9bb7987e9326943e2b567}\label{timer_8c_ab71838b158b9bb7987e9326943e2b567}} 
+\index{timer.c@{timer.c}!MOD\_TIMER\_PENDING\_ONLY@{MOD\_TIMER\_PENDING\_ONLY}}
+\index{MOD\_TIMER\_PENDING\_ONLY@{MOD\_TIMER\_PENDING\_ONLY}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{MOD\_TIMER\_PENDING\_ONLY}{MOD\_TIMER\_PENDING\_ONLY}}
+{\footnotesize\ttfamily \#define M\+O\+D\+\_\+\+T\+I\+M\+E\+R\+\_\+\+P\+E\+N\+D\+I\+N\+G\+\_\+\+O\+N\+LY~0x01}
+
+\mbox{\Hypertarget{timer_8c_a938a9d474f972c87a9b9dcf1807ccc0d}\label{timer_8c_a938a9d474f972c87a9b9dcf1807ccc0d}} 
+\index{timer.c@{timer.c}!MOD\_TIMER\_REDUCE@{MOD\_TIMER\_REDUCE}}
+\index{MOD\_TIMER\_REDUCE@{MOD\_TIMER\_REDUCE}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{MOD\_TIMER\_REDUCE}{MOD\_TIMER\_REDUCE}}
+{\footnotesize\ttfamily \#define M\+O\+D\+\_\+\+T\+I\+M\+E\+R\+\_\+\+R\+E\+D\+U\+CE~0x02}
+
+\mbox{\Hypertarget{timer_8c_a46fcc8bbda0a7f510c2e44d3e4b9c584}\label{timer_8c_a46fcc8bbda0a7f510c2e44d3e4b9c584}} 
+\index{timer.c@{timer.c}!NR\_BASES@{NR\_BASES}}
+\index{NR\_BASES@{NR\_BASES}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{NR\_BASES}{NR\_BASES}}
+{\footnotesize\ttfamily \#define N\+R\+\_\+\+B\+A\+S\+ES~1}
+
+\mbox{\Hypertarget{timer_8c_a2733ceaadab31da68b8568673d619b47}\label{timer_8c_a2733ceaadab31da68b8568673d619b47}} 
+\index{timer.c@{timer.c}!WHEEL\_SIZE@{WHEEL\_SIZE}}
+\index{WHEEL\_SIZE@{WHEEL\_SIZE}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{WHEEL\_SIZE}{WHEEL\_SIZE}}
+{\footnotesize\ttfamily \#define W\+H\+E\+E\+L\+\_\+\+S\+I\+ZE~(\mbox{\hyperlink{timer_8c_a8548c9e2e89c960491a11a157462e55f}{L\+V\+L\+\_\+\+S\+I\+ZE}} $\ast$ \mbox{\hyperlink{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}{L\+V\+L\+\_\+\+D\+E\+P\+TH}})}
+
+\mbox{\Hypertarget{timer_8c_ab33e17fbf9115d47e59ab0e1abffd5bc}\label{timer_8c_ab33e17fbf9115d47e59ab0e1abffd5bc}} 
+\index{timer.c@{timer.c}!WHEEL\_TIMEOUT\_CUTOFF@{WHEEL\_TIMEOUT\_CUTOFF}}
+\index{WHEEL\_TIMEOUT\_CUTOFF@{WHEEL\_TIMEOUT\_CUTOFF}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{WHEEL\_TIMEOUT\_CUTOFF}{WHEEL\_TIMEOUT\_CUTOFF}}
+{\footnotesize\ttfamily \#define W\+H\+E\+E\+L\+\_\+\+T\+I\+M\+E\+O\+U\+T\+\_\+\+C\+U\+T\+O\+FF~(\mbox{\hyperlink{timer_8c_aea0003275fd34e2cba0c0c36a9255068}{L\+V\+L\+\_\+\+S\+T\+A\+RT}}(\mbox{\hyperlink{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}{L\+V\+L\+\_\+\+D\+E\+P\+TH}}))}
+
+\mbox{\Hypertarget{timer_8c_ac4124e8a024eab90d3d96fd12ab65843}\label{timer_8c_ac4124e8a024eab90d3d96fd12ab65843}} 
+\index{timer.c@{timer.c}!WHEEL\_TIMEOUT\_MAX@{WHEEL\_TIMEOUT\_MAX}}
+\index{WHEEL\_TIMEOUT\_MAX@{WHEEL\_TIMEOUT\_MAX}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{WHEEL\_TIMEOUT\_MAX}{WHEEL\_TIMEOUT\_MAX}}
+{\footnotesize\ttfamily \#define W\+H\+E\+E\+L\+\_\+\+T\+I\+M\+E\+O\+U\+T\+\_\+\+M\+AX~(\mbox{\hyperlink{timer_8c_ab33e17fbf9115d47e59ab0e1abffd5bc}{W\+H\+E\+E\+L\+\_\+\+T\+I\+M\+E\+O\+U\+T\+\_\+\+C\+U\+T\+O\+FF}} -\/ \mbox{\hyperlink{timer_8c_a1e4afecbf947a3e96846be062ad7eebc}{L\+V\+L\+\_\+\+G\+R\+AN}}(\mbox{\hyperlink{timer_8c_ab4fe7daa99598985c1cd1ae2b0b7e343}{L\+V\+L\+\_\+\+D\+E\+P\+TH}} -\/ 1))}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{timer_8c_ab3c967d3bbabd50408175b9ced155305}\label{timer_8c_ab3c967d3bbabd50408175b9ced155305}} 
+\index{timer.c@{timer.c}!\_\_mod\_timer@{\_\_mod\_timer}}
+\index{\_\_mod\_timer@{\_\_mod\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_mod\_timer()}{\_\_mod\_timer()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} \+\_\+\+\_\+mod\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{unsigned long}]{expires,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{options }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 1
+Here is the caller graph for this function\+:
+% FIG 2
+\mbox{\Hypertarget{timer_8c_a2dd029e1f5b0ae301992160ecbfa9689}\label{timer_8c_a2dd029e1f5b0ae301992160ecbfa9689}} 
+\index{timer.c@{timer.c}!\_\_next\_timer\_interrupt@{\_\_next\_timer\_interrupt}}
+\index{\_\_next\_timer\_interrupt@{\_\_next\_timer\_interrupt}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_next\_timer\_interrupt()}{\_\_next\_timer\_interrupt()}}
+{\footnotesize\ttfamily static unsigned long \+\_\+\+\_\+next\+\_\+timer\+\_\+interrupt (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 3
+Here is the caller graph for this function\+:
+% FIG 4
+\mbox{\Hypertarget{timer_8c_a4e1acfc7d4aeb2e17804c752b334f769}\label{timer_8c_a4e1acfc7d4aeb2e17804c752b334f769}} 
+\index{timer.c@{timer.c}!\_\_round\_jiffies@{\_\_round\_jiffies}}
+\index{\_\_round\_jiffies@{\_\_round\_jiffies}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_round\_jiffies()}{\_\_round\_jiffies()}}
+{\footnotesize\ttfamily unsigned long \+\_\+\+\_\+round\+\_\+jiffies (\begin{DoxyParamCaption}\item[{unsigned long}]{j,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+round\+\_\+jiffies -\/ function to round jiffies to a full second @j\+: the time in (absolute) jiffies that should be rounded @cpu\+: the processor number on which the timeout will happen
+
+\mbox{\hyperlink{timer_8c_a4e1acfc7d4aeb2e17804c752b334f769}{\+\_\+\+\_\+round\+\_\+jiffies()}} rounds an absolute time in the future (in jiffies) up or down to (approximately) full seconds. This is useful for timers for which the exact time they fire does not matter too much, as long as they fire approximately every X seconds.
+
+By rounding these timers to whole seconds, all such timers will fire at the same time, rather than at various times spread out. \mbox{\hyperlink{classThe}{The}} goal of this is to have the C\+PU wake up less, which saves power.
+
+\mbox{\hyperlink{classThe}{The}} exact rounding is skewed for each processor to avoid all processors firing at the exact same time, which could lead to lock contention or spurious cache line bouncing.
+
+\mbox{\hyperlink{classThe}{The}} return value is the rounded version of the @j parameter. Here is the call graph for this function\+:
+% FIG 5
+\mbox{\Hypertarget{timer_8c_ac0d8e7c31bc88cbd53b3cf8d9afb39fa}\label{timer_8c_ac0d8e7c31bc88cbd53b3cf8d9afb39fa}} 
+\index{timer.c@{timer.c}!\_\_round\_jiffies\_relative@{\_\_round\_jiffies\_relative}}
+\index{\_\_round\_jiffies\_relative@{\_\_round\_jiffies\_relative}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_round\_jiffies\_relative()}{\_\_round\_jiffies\_relative()}}
+{\footnotesize\ttfamily unsigned long \+\_\+\+\_\+round\+\_\+jiffies\+\_\+relative (\begin{DoxyParamCaption}\item[{unsigned long}]{j,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+round\+\_\+jiffies\+\_\+relative -\/ function to round jiffies to a full second @j\+: the time in (relative) jiffies that should be rounded @cpu\+: the processor number on which the timeout will happen
+
+\mbox{\hyperlink{timer_8c_ac0d8e7c31bc88cbd53b3cf8d9afb39fa}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+relative()}} rounds a time delta in the future (in jiffies) up or down to (approximately) full seconds. This is useful for timers for which the exact time they fire does not matter too much, as long as they fire approximately every X seconds.
+
+By rounding these timers to whole seconds, all such timers will fire at the same time, rather than at various times spread out. \mbox{\hyperlink{classThe}{The}} goal of this is to have the C\+PU wake up less, which saves power.
+
+\mbox{\hyperlink{classThe}{The}} exact rounding is skewed for each processor to avoid all processors firing at the exact same time, which could lead to lock contention or spurious cache line bouncing.
+
+\mbox{\hyperlink{classThe}{The}} return value is the rounded version of the @j parameter. Here is the call graph for this function\+:
+% FIG 6
+Here is the caller graph for this function\+:
+% FIG 7
+\mbox{\Hypertarget{timer_8c_aabe1018c51943579ffd08cd6c528d58e}\label{timer_8c_aabe1018c51943579ffd08cd6c528d58e}} 
+\index{timer.c@{timer.c}!\_\_round\_jiffies\_up@{\_\_round\_jiffies\_up}}
+\index{\_\_round\_jiffies\_up@{\_\_round\_jiffies\_up}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_round\_jiffies\_up()}{\_\_round\_jiffies\_up()}}
+{\footnotesize\ttfamily unsigned long \+\_\+\+\_\+round\+\_\+jiffies\+\_\+up (\begin{DoxyParamCaption}\item[{unsigned long}]{j,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up -\/ function to round jiffies up to a full second @j\+: the time in (absolute) jiffies that should be rounded @cpu\+: the processor number on which the timeout will happen
+
+This is the same as \mbox{\hyperlink{timer_8c_a4e1acfc7d4aeb2e17804c752b334f769}{\+\_\+\+\_\+round\+\_\+jiffies()}} except that it will never round down. This is useful for timeouts for which the exact time of firing does not matter too much, as long as they don\textquotesingle{}t fire too early. Here is the call graph for this function\+:
+% FIG 8
+\mbox{\Hypertarget{timer_8c_afb76f13f5acda52545861239aec62539}\label{timer_8c_afb76f13f5acda52545861239aec62539}} 
+\index{timer.c@{timer.c}!\_\_round\_jiffies\_up\_relative@{\_\_round\_jiffies\_up\_relative}}
+\index{\_\_round\_jiffies\_up\_relative@{\_\_round\_jiffies\_up\_relative}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_round\_jiffies\_up\_relative()}{\_\_round\_jiffies\_up\_relative()}}
+{\footnotesize\ttfamily unsigned long \+\_\+\+\_\+round\+\_\+jiffies\+\_\+up\+\_\+relative (\begin{DoxyParamCaption}\item[{unsigned long}]{j,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up\+\_\+relative -\/ function to round jiffies up to a full second @j\+: the time in (relative) jiffies that should be rounded @cpu\+: the processor number on which the timeout will happen
+
+This is the same as \mbox{\hyperlink{timer_8c_ac0d8e7c31bc88cbd53b3cf8d9afb39fa}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+relative()}} except that it will never round down. This is useful for timeouts for which the exact time of firing does not matter too much, as long as they don\textquotesingle{}t fire too early. Here is the call graph for this function\+:
+% FIG 9
+Here is the caller graph for this function\+:
+% FIG 10
+\mbox{\Hypertarget{timer_8c_a78a4b257880bbf483367066498b53794}\label{timer_8c_a78a4b257880bbf483367066498b53794}} 
+\index{timer.c@{timer.c}!\_\_run\_timers@{\_\_run\_timers}}
+\index{\_\_run\_timers@{\_\_run\_timers}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_run\_timers()}{\_\_run\_timers()}}
+{\footnotesize\ttfamily static void \+\_\+\+\_\+run\+\_\+timers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\+\_\+\+\_\+run\+\_\+timers -\/ run all expired timers (if any) on this C\+PU. @base\+: the timer vector to be processed. Here is the call graph for this function\+:
+% FIG 11
+Here is the caller graph for this function\+:
+% FIG 12
+\mbox{\Hypertarget{timer_8c_aa77a27e782a19c16847d42e6303004f7}\label{timer_8c_aa77a27e782a19c16847d42e6303004f7}} 
+\index{timer.c@{timer.c}!add\_timer@{add\_timer}}
+\index{add\_timer@{add\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{add\_timer()}{add\_timer()}}
+{\footnotesize\ttfamily void add\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})}
+
+add\+\_\+timer -\/ start a timer @timer\+: the timer to be added
+
+\mbox{\hyperlink{classThe}{The}} kernel will do a -\/$>$function(@timer) callback from the timer interrupt at the -\/$>$expires point in the future. \mbox{\hyperlink{classThe}{The}} current time is \textquotesingle{}jiffies\textquotesingle{}.
+
+\mbox{\hyperlink{classThe}{The}} timer\textquotesingle{}s -\/$>$expires, -\/$>$function fields must be set prior calling this function.
+
+Timers with an -\/$>$expires field in the past will be executed in the next timer tick. Here is the call graph for this function\+:
+% FIG 13
+Here is the caller graph for this function\+:
+% FIG 14
+\mbox{\Hypertarget{timer_8c_ac7f04f5cad5f046b1a960873f237fb41}\label{timer_8c_ac7f04f5cad5f046b1a960873f237fb41}} 
+\index{timer.c@{timer.c}!add\_timer\_on@{add\_timer\_on}}
+\index{add\_timer\_on@{add\_timer\_on}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{add\_timer\_on()}{add\_timer\_on()}}
+{\footnotesize\ttfamily void add\+\_\+timer\+\_\+on (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})}
+
+add\+\_\+timer\+\_\+on -\/ start a timer on a particular C\+PU @timer\+: the timer to be added @cpu\+: the C\+PU to start it on
+
+This is not very scalable on S\+MP. Double adds are not possible. Here is the call graph for this function\+:
+% FIG 15
+Here is the caller graph for this function\+:
+% FIG 16
+\mbox{\Hypertarget{timer_8c_ac17e6d1897af870a5d8853379eba4d75}\label{timer_8c_ac17e6d1897af870a5d8853379eba4d75}} 
+\index{timer.c@{timer.c}!calc\_index@{calc\_index}}
+\index{calc\_index@{calc\_index}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{calc\_index()}{calc\_index()}}
+{\footnotesize\ttfamily static unsigned calc\+\_\+index (\begin{DoxyParamCaption}\item[{unsigned long}]{expires,  }\item[{unsigned}]{lvl,  }\item[{unsigned long $\ast$}]{bucket\+\_\+expiry }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 17
+\mbox{\Hypertarget{timer_8c_a10f40a64f0151ed9ee2fd08234a24165}\label{timer_8c_a10f40a64f0151ed9ee2fd08234a24165}} 
+\index{timer.c@{timer.c}!calc\_wheel\_index@{calc\_wheel\_index}}
+\index{calc\_wheel\_index@{calc\_wheel\_index}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{calc\_wheel\_index()}{calc\_wheel\_index()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} calc\+\_\+wheel\+\_\+index (\begin{DoxyParamCaption}\item[{unsigned long}]{expires,  }\item[{unsigned long}]{clk,  }\item[{unsigned long $\ast$}]{bucket\+\_\+expiry }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 18
+Here is the caller graph for this function\+:
+% FIG 19
+\mbox{\Hypertarget{timer_8c_ade040099d09098af023605a2e6a9dd84}\label{timer_8c_ade040099d09098af023605a2e6a9dd84}} 
+\index{timer.c@{timer.c}!call\_timer\_fn@{call\_timer\_fn}}
+\index{call\_timer\_fn@{call\_timer\_fn}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{call\_timer\_fn()}{call\_timer\_fn()}}
+{\footnotesize\ttfamily static void call\+\_\+timer\+\_\+fn (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$)}]{fn,  }\item[{unsigned long}]{baseclk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 20
+Here is the caller graph for this function\+:
+% FIG 21
+\mbox{\Hypertarget{timer_8c_a52ceeb1379be51bc30db3179d568df77}\label{timer_8c_a52ceeb1379be51bc30db3179d568df77}} 
+\index{timer.c@{timer.c}!collect\_expired\_timers@{collect\_expired\_timers}}
+\index{collect\_expired\_timers@{collect\_expired\_timers}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{collect\_expired\_timers()}{collect\_expired\_timers()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} collect\+\_\+expired\+\_\+timers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} $\ast$}]{heads }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 22
+Here is the caller graph for this function\+:
+% FIG 23
+\mbox{\Hypertarget{timer_8c_aa3dcb0f2dac7d82c13e8171a5bc836da}\label{timer_8c_aa3dcb0f2dac7d82c13e8171a5bc836da}} 
+\index{timer.c@{timer.c}!debug\_assert\_init@{debug\_assert\_init}}
+\index{debug\_assert\_init@{debug\_assert\_init}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{debug\_assert\_init()}{debug\_assert\_init()}}
+{\footnotesize\ttfamily static void debug\+\_\+assert\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 24
+Here is the caller graph for this function\+:
+% FIG 25
+\mbox{\Hypertarget{timer_8c_afc3ac2a3af3291fc5cf755ece203d659}\label{timer_8c_afc3ac2a3af3291fc5cf755ece203d659}} 
+\index{timer.c@{timer.c}!debug\_deactivate@{debug\_deactivate}}
+\index{debug\_deactivate@{debug\_deactivate}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{debug\_deactivate()}{debug\_deactivate()}}
+{\footnotesize\ttfamily static void debug\+\_\+deactivate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 26
+Here is the caller graph for this function\+:
+% FIG 27
+\mbox{\Hypertarget{timer_8c_adb35e41f13d2808abf6cf343d6fdebb1}\label{timer_8c_adb35e41f13d2808abf6cf343d6fdebb1}} 
+\index{timer.c@{timer.c}!debug\_init@{debug\_init}}
+\index{debug\_init@{debug\_init}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{debug\_init()}{debug\_init()}}
+{\footnotesize\ttfamily static void debug\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 28
+Here is the caller graph for this function\+:
+% FIG 29
+\mbox{\Hypertarget{timer_8c_aed72d3379ff3ce4015788de9ead16a19}\label{timer_8c_aed72d3379ff3ce4015788de9ead16a19}} 
+\index{timer.c@{timer.c}!debug\_timer\_activate@{debug\_timer\_activate}}
+\index{debug\_timer\_activate@{debug\_timer\_activate}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{debug\_timer\_activate()}{debug\_timer\_activate()}}
+{\footnotesize\ttfamily static void debug\+\_\+timer\+\_\+activate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 30
+\mbox{\Hypertarget{timer_8c_a6eeec6688bf55c5866ea8d6e5ff94116}\label{timer_8c_a6eeec6688bf55c5866ea8d6e5ff94116}} 
+\index{timer.c@{timer.c}!debug\_timer\_assert\_init@{debug\_timer\_assert\_init}}
+\index{debug\_timer\_assert\_init@{debug\_timer\_assert\_init}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{debug\_timer\_assert\_init()}{debug\_timer\_assert\_init()}}
+{\footnotesize\ttfamily static void debug\+\_\+timer\+\_\+assert\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 31
+\mbox{\Hypertarget{timer_8c_a71881fe28fcf1d6fffb233c5490e034e}\label{timer_8c_a71881fe28fcf1d6fffb233c5490e034e}} 
+\index{timer.c@{timer.c}!debug\_timer\_deactivate@{debug\_timer\_deactivate}}
+\index{debug\_timer\_deactivate@{debug\_timer\_deactivate}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{debug\_timer\_deactivate()}{debug\_timer\_deactivate()}}
+{\footnotesize\ttfamily static void debug\+\_\+timer\+\_\+deactivate (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 32
+\mbox{\Hypertarget{timer_8c_a8a88ecd8db0b889bb5b0a26683ff5a93}\label{timer_8c_a8a88ecd8db0b889bb5b0a26683ff5a93}} 
+\index{timer.c@{timer.c}!debug\_timer\_init@{debug\_timer\_init}}
+\index{debug\_timer\_init@{debug\_timer\_init}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{debug\_timer\_init()}{debug\_timer\_init()}}
+{\footnotesize\ttfamily static void debug\+\_\+timer\+\_\+init (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 33
+\mbox{\Hypertarget{timer_8c_a4b7c93172b387fae39e4ae863175c4ee}\label{timer_8c_a4b7c93172b387fae39e4ae863175c4ee}} 
+\index{timer.c@{timer.c}!DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}}
+\index{DEFINE\_PER\_CPU@{DEFINE\_PER\_CPU}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{DEFINE\_PER\_CPU()}{DEFINE\_PER\_CPU()}}
+{\footnotesize\ttfamily static D\+E\+F\+I\+N\+E\+\_\+\+P\+E\+R\+\_\+\+C\+PU (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}}]{,  }\item[{timer\+\_\+bases}]{\mbox{[}\+N\+R\+\_\+\+B\+A\+S\+E\+S\mbox{]} }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+\mbox{\Hypertarget{timer_8c_a3bd79563bc611a1338645de49e8621c8}\label{timer_8c_a3bd79563bc611a1338645de49e8621c8}} 
+\index{timer.c@{timer.c}!del\_timer@{del\_timer}}
+\index{del\_timer@{del\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{del\_timer()}{del\_timer()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} del\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})}
+
+del\+\_\+timer -\/ deactivate a timer. @timer\+: the timer to be deactivated
+
+\mbox{\hyperlink{timer_8c_a3bd79563bc611a1338645de49e8621c8}{del\+\_\+timer()}} deactivates a timer -\/ this works on both active and inactive timers.
+
+\mbox{\hyperlink{classThe}{The}} function returns whether it has deactivated a pending timer or not. (ie. \mbox{\hyperlink{timer_8c_a3bd79563bc611a1338645de49e8621c8}{del\+\_\+timer()}} of an inactive timer returns 0, \mbox{\hyperlink{timer_8c_a3bd79563bc611a1338645de49e8621c8}{del\+\_\+timer()}} of an active timer returns 1.) Here is the call graph for this function\+:
+% FIG 34
+Here is the caller graph for this function\+:
+% FIG 35
+\mbox{\Hypertarget{timer_8c_a4704eb8d55dce0881dbcaa01d249331f}\label{timer_8c_a4704eb8d55dce0881dbcaa01d249331f}} 
+\index{timer.c@{timer.c}!del\_timer\_wait\_running@{del\_timer\_wait\_running}}
+\index{del\_timer\_wait\_running@{del\_timer\_wait\_running}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{del\_timer\_wait\_running()}{del\_timer\_wait\_running()}}
+{\footnotesize\ttfamily static void del\+\_\+timer\+\_\+wait\+\_\+running (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+\mbox{\Hypertarget{timer_8c_aaeb8a20cc8d0debd33938d338d0a29f4}\label{timer_8c_aaeb8a20cc8d0debd33938d338d0a29f4}} 
+\index{timer.c@{timer.c}!detach\_if\_pending@{detach\_if\_pending}}
+\index{detach\_if\_pending@{detach\_if\_pending}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{detach\_if\_pending()}{detach\_if\_pending()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} detach\+\_\+if\+\_\+pending (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{clear\+\_\+pending }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 36
+Here is the caller graph for this function\+:
+% FIG 37
+\mbox{\Hypertarget{timer_8c_ab9cbbbdbb5e7159b4b3b59a77cc5446c}\label{timer_8c_ab9cbbbdbb5e7159b4b3b59a77cc5446c}} 
+\index{timer.c@{timer.c}!detach\_timer@{detach\_timer}}
+\index{detach\_timer@{detach\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{detach\_timer()}{detach\_timer()}}
+{\footnotesize\ttfamily static void detach\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{clear\+\_\+pending }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 38
+Here is the caller graph for this function\+:
+% FIG 39
+\mbox{\Hypertarget{timer_8c_ad7561dce29207f4dc527aef41d80e8a7}\label{timer_8c_ad7561dce29207f4dc527aef41d80e8a7}} 
+\index{timer.c@{timer.c}!do\_init\_timer@{do\_init\_timer}}
+\index{do\_init\_timer@{do\_init\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{do\_init\_timer()}{do\_init\_timer()}}
+{\footnotesize\ttfamily static void do\+\_\+init\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$)}]{func,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{const char $\ast$}]{name,  }\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 40
+\mbox{\Hypertarget{timer_8c_ad8965b4cf425dd3b29b2427fa2061fd4}\label{timer_8c_ad8965b4cf425dd3b29b2427fa2061fd4}} 
+\index{timer.c@{timer.c}!enqueue\_timer@{enqueue\_timer}}
+\index{enqueue\_timer@{enqueue\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{enqueue\_timer()}{enqueue\_timer()}}
+{\footnotesize\ttfamily static void enqueue\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx,  }\item[{unsigned long}]{bucket\+\_\+expiry }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 41
+Here is the caller graph for this function\+:
+% FIG 42
+\mbox{\Hypertarget{timer_8c_afe27f1a1e895109b717a4d9da47607e2}\label{timer_8c_afe27f1a1e895109b717a4d9da47607e2}} 
+\index{timer.c@{timer.c}!expire\_timers@{expire\_timers}}
+\index{expire\_timers@{expire\_timers}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{expire\_timers()}{expire\_timers()}}
+{\footnotesize\ttfamily static void expire\+\_\+timers (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{struct \mbox{\hyperlink{structhlist__head}{hlist\+\_\+head}} $\ast$}]{head }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 43
+Here is the caller graph for this function\+:
+% FIG 44
+\mbox{\Hypertarget{timer_8c_ac2fc9a02855c6c73903cfab42d442e32}\label{timer_8c_ac2fc9a02855c6c73903cfab42d442e32}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_aa77a27e782a19c16847d42e6303004f7}{add\+\_\+timer}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_ab4f542670df0a2da344d25dfd3391658}\label{timer_8c_ab4f542670df0a2da344d25dfd3391658}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a3bd79563bc611a1338645de49e8621c8}{del\+\_\+timer}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_ab465fe4f03649ea9c18c84ca22bdd597}\label{timer_8c_ab465fe4f03649ea9c18c84ca22bdd597}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a43f065b71f5f6e54a3b3b28831faa996}{init\+\_\+timer\+\_\+key}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a5452c297c773eb0754aa029dc4877ab1}\label{timer_8c_a5452c297c773eb0754aa029dc4877ab1}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{linux_2jiffies_8h_a78417aa0b6f81f5e9a1c0aac10040f25}{jiffies\+\_\+64}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_af753572082b9688c2ddd9c07456b852f}\label{timer_8c_af753572082b9688c2ddd9c07456b852f}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a9b2825551ff747f9738e141bc310932c}\label{timer_8c_a9b2825551ff747f9738e141bc310932c}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a6f51086e8adb0210c2a318f626cacd14}{mod\+\_\+timer\+\_\+pending}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a05b0e5d0e99070e6a0c8c32c7decfdd4}\label{timer_8c_a05b0e5d0e99070e6a0c8c32c7decfdd4}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2delay_8h_a22b49dedb06df367c3dfb5cbbdc37703}{msleep}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_aeaa030237e00d6dbb8a6cac201014a4b}\label{timer_8c_aeaa030237e00d6dbb8a6cac201014a4b}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2delay_8h_a4a34e6ae00b02064cd18c1e9e5215834}{msleep\+\_\+interruptible}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a9b757eaf0bd5af0827dfd9dbcc37b192}\label{timer_8c_a9b757eaf0bd5af0827dfd9dbcc37b192}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{timer_8c_a37e1f4f067aef41f2f1027e39b667ca7}{schedule\+\_\+timeout}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a5fd3cd915b9d0d9820a8ca3e5290a069}\label{timer_8c_a5fd3cd915b9d0d9820a8ca3e5290a069}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [10/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{timer_8c_a6aaf13dd3acf3fd9db984ab5075fe717}{schedule\+\_\+timeout\+\_\+idle}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a1bd08f26ee081a02934b5a10375e8cce}\label{timer_8c_a1bd08f26ee081a02934b5a10375e8cce}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [11/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{timer_8c_a3eb6c8dd7a1fab638ff5663f39cdb963}{schedule\+\_\+timeout\+\_\+interruptible}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_aec094167dff56c8c7b12f84f770d71f9}\label{timer_8c_aec094167dff56c8c7b12f84f770d71f9}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [12/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{timer_8c_a94b4c9c9d2f743d6317c6dc39a2d8506}{schedule\+\_\+timeout\+\_\+killable}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_adeeba020737cb2576355b32e3634594c}\label{timer_8c_adeeba020737cb2576355b32e3634594c}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [13/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{timer_8c_a291fae143d9c901aceb0125ba5fc7249}{schedule\+\_\+timeout\+\_\+uninterruptible}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_ac2ddea6fc5a39cb4197d64f771e14941}\label{timer_8c_ac2ddea6fc5a39cb4197d64f771e14941}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [14/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a8a520d7bccb8808a3cc80911a676739d}{timer\+\_\+reduce}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_af0a15db43baa8caaa3ac50771c1718b5}\label{timer_8c_af0a15db43baa8caaa3ac50771c1718b5}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [15/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a75b034e4a49b5b5cd0157b6f1404ef8b}{try\+\_\+to\+\_\+del\+\_\+timer\+\_\+sync}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a95133a6c0acdad85e054234e196c8dbf}\label{timer_8c_a95133a6c0acdad85e054234e196c8dbf}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL@{EXPORT\_SYMBOL}}
+\index{EXPORT\_SYMBOL@{EXPORT\_SYMBOL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL()}{EXPORT\_SYMBOL()}\hspace{0.1cm}{\footnotesize\ttfamily [16/16]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+OL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2delay_8h_afae57b9562d6f2c3128176ec686fd663}{usleep\+\_\+range}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a83f07d0e85e0c85aeebea763aa927e86}\label{timer_8c_a83f07d0e85e0c85aeebea763aa927e86}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [1/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a4e1acfc7d4aeb2e17804c752b334f769}{\+\_\+\+\_\+round\+\_\+jiffies}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_ac5b95078a716c6ed2675d3a31f81c921}\label{timer_8c_ac5b95078a716c6ed2675d3a31f81c921}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [2/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_ac0d8e7c31bc88cbd53b3cf8d9afb39fa}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+relative}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_aea34f67d6cca20693b6f8d807e609ce6}\label{timer_8c_aea34f67d6cca20693b6f8d807e609ce6}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [3/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_aabe1018c51943579ffd08cd6c528d58e}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_acbccd0ce23d064a9f5c37b36f202397b}\label{timer_8c_acbccd0ce23d064a9f5c37b36f202397b}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [4/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_afb76f13f5acda52545861239aec62539}{\+\_\+\+\_\+round\+\_\+jiffies\+\_\+up\+\_\+relative}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a91ada5bd50d9a4b9f8e485a17bc6a7dd}\label{timer_8c_a91ada5bd50d9a4b9f8e485a17bc6a7dd}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [5/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_ac7f04f5cad5f046b1a960873f237fb41}{add\+\_\+timer\+\_\+on}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_afb2542354e60b59bbf3694201f5265b9}\label{timer_8c_afb2542354e60b59bbf3694201f5265b9}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [6/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a77c94ba5ba4b35ffb9504219e9b88477}{round\+\_\+jiffies}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a4c60b62004a0dfe8fad93130a3a4bd12}\label{timer_8c_a4c60b62004a0dfe8fad93130a3a4bd12}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [7/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_ab6ba1f3fa2ef3e0e9abc66249b4b6866}{round\+\_\+jiffies\+\_\+relative}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a19626b34dff475827e7662a015cbe739}\label{timer_8c_a19626b34dff475827e7662a015cbe739}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [8/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_a4008885cc703cead04c2c16a15bf1809}{round\+\_\+jiffies\+\_\+up}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_a5015e343062086a0d1b7bbab2d9d682d}\label{timer_8c_a5015e343062086a0d1b7bbab2d9d682d}} 
+\index{timer.c@{timer.c}!EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}}
+\index{EXPORT\_SYMBOL\_GPL@{EXPORT\_SYMBOL\_GPL}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{EXPORT\_SYMBOL\_GPL()}{EXPORT\_SYMBOL\_GPL()}\hspace{0.1cm}{\footnotesize\ttfamily [9/9]}}
+{\footnotesize\ttfamily E\+X\+P\+O\+R\+T\+\_\+\+S\+Y\+M\+B\+O\+L\+\_\+\+G\+PL (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{include_2linux_2timer_8h_aaa346fec6efb9ae52ebc544f542b8888}{round\+\_\+jiffies\+\_\+up\+\_\+relative}}}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{timer_8c_aac4312de5abe906b41e58985621cb0d0}\label{timer_8c_aac4312de5abe906b41e58985621cb0d0}} 
+\index{timer.c@{timer.c}!forward\_timer\_base@{forward\_timer\_base}}
+\index{forward\_timer\_base@{forward\_timer\_base}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{forward\_timer\_base()}{forward\_timer\_base()}}
+{\footnotesize\ttfamily static void forward\+\_\+timer\+\_\+base (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 45
+\mbox{\Hypertarget{timer_8c_ad8544d84506da5397310e7b96007e532}\label{timer_8c_ad8544d84506da5397310e7b96007e532}} 
+\index{timer.c@{timer.c}!get\_target\_base@{get\_target\_base}}
+\index{get\_target\_base@{get\_target\_base}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{get\_target\_base()}{get\_target\_base()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}$\ast$ get\+\_\+target\+\_\+base (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{unsigned}]{tflags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 46
+Here is the caller graph for this function\+:
+% FIG 47
+\mbox{\Hypertarget{timer_8c_a0b12c6a8ae3f5e777fc4e547ce9518d7}\label{timer_8c_a0b12c6a8ae3f5e777fc4e547ce9518d7}} 
+\index{timer.c@{timer.c}!get\_timer\_base@{get\_timer\_base}}
+\index{get\_timer\_base@{get\_timer\_base}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{get\_timer\_base()}{get\_timer\_base()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}$\ast$ get\+\_\+timer\+\_\+base (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{tflags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 48
+Here is the caller graph for this function\+:
+% FIG 49
+\mbox{\Hypertarget{timer_8c_ac2f3c25eb2b862ab863895e935d6a0f1}\label{timer_8c_ac2f3c25eb2b862ab863895e935d6a0f1}} 
+\index{timer.c@{timer.c}!get\_timer\_cpu\_base@{get\_timer\_cpu\_base}}
+\index{get\_timer\_cpu\_base@{get\_timer\_cpu\_base}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{get\_timer\_cpu\_base()}{get\_timer\_cpu\_base()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}$\ast$ get\+\_\+timer\+\_\+cpu\+\_\+base (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{tflags,  }\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 50
+\mbox{\Hypertarget{timer_8c_aa6b0b4cf93b4c903902fb2ae40dc4bda}\label{timer_8c_aa6b0b4cf93b4c903902fb2ae40dc4bda}} 
+\index{timer.c@{timer.c}!get\_timer\_this\_cpu\_base@{get\_timer\_this\_cpu\_base}}
+\index{get\_timer\_this\_cpu\_base@{get\_timer\_this\_cpu\_base}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{get\_timer\_this\_cpu\_base()}{get\_timer\_this\_cpu\_base()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}$\ast$ get\+\_\+timer\+\_\+this\+\_\+cpu\+\_\+base (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{build_8c_a10e94b422ef0c20dcdec20d31a1f5049}{u32}}}]{tflags }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 51
+\mbox{\Hypertarget{timer_8c_a8099127ffe7d0959f779b17e2fdb9847}\label{timer_8c_a8099127ffe7d0959f779b17e2fdb9847}} 
+\index{timer.c@{timer.c}!init\_timer\_cpu@{init\_timer\_cpu}}
+\index{init\_timer\_cpu@{init\_timer\_cpu}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{init\_timer\_cpu()}{init\_timer\_cpu()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} init\+\_\+timer\+\_\+cpu (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 52
+Here is the caller graph for this function\+:
+% FIG 53
+\mbox{\Hypertarget{timer_8c_af36a7c965ffc8be3ac91dc0ac862fe07}\label{timer_8c_af36a7c965ffc8be3ac91dc0ac862fe07}} 
+\index{timer.c@{timer.c}!init\_timer\_cpus@{init\_timer\_cpus}}
+\index{init\_timer\_cpus@{init\_timer\_cpus}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{init\_timer\_cpus()}{init\_timer\_cpus()}}
+{\footnotesize\ttfamily static void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} init\+\_\+timer\+\_\+cpus (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 54
+Here is the caller graph for this function\+:
+% FIG 55
+\mbox{\Hypertarget{timer_8c_a43f065b71f5f6e54a3b3b28831faa996}\label{timer_8c_a43f065b71f5f6e54a3b3b28831faa996}} 
+\index{timer.c@{timer.c}!init\_timer\_key@{init\_timer\_key}}
+\index{init\_timer\_key@{init\_timer\_key}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{init\_timer\_key()}{init\_timer\_key()}}
+{\footnotesize\ttfamily void init\+\_\+timer\+\_\+key (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{void($\ast$)(struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$)}]{func,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{flags,  }\item[{const char $\ast$}]{name,  }\item[{struct \mbox{\hyperlink{structlock__class__key}{lock\+\_\+class\+\_\+key}} $\ast$}]{key }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 56
+Here is the caller graph for this function\+:
+% FIG 57
+\mbox{\Hypertarget{timer_8c_a53a13c0bb91e5e946cd8953e26c66881}\label{timer_8c_a53a13c0bb91e5e946cd8953e26c66881}} 
+\index{timer.c@{timer.c}!init\_timers@{init\_timers}}
+\index{init\_timers@{init\_timers}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{init\_timers()}{init\_timers()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{test__stackinit_8c_aca8f1e05ca62886e6d99e8dc006e5500}{\+\_\+\+\_\+init}} init\+\_\+timers (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 58
+Here is the caller graph for this function\+:
+% FIG 59
+\mbox{\Hypertarget{timer_8c_a5a85d68e89d2504da20aa4435fc26e90}\label{timer_8c_a5a85d68e89d2504da20aa4435fc26e90}} 
+\index{timer.c@{timer.c}!internal\_add\_timer@{internal\_add\_timer}}
+\index{internal\_add\_timer@{internal\_add\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{internal\_add\_timer()}{internal\_add\_timer()}}
+{\footnotesize\ttfamily static void internal\+\_\+add\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 60
+Here is the caller graph for this function\+:
+% FIG 61
+\mbox{\Hypertarget{timer_8c_adbc14e814832902987aa9cf1e176db62}\label{timer_8c_adbc14e814832902987aa9cf1e176db62}} 
+\index{timer.c@{timer.c}!is\_timers\_nohz\_active@{is\_timers\_nohz\_active}}
+\index{is\_timers\_nohz\_active@{is\_timers\_nohz\_active}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{is\_timers\_nohz\_active()}{is\_timers\_nohz\_active()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}} is\+\_\+timers\+\_\+nohz\+\_\+active (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 62
+\mbox{\Hypertarget{timer_8c_aabe9bd7b971bdbaa7f3769dd26351848}\label{timer_8c_aabe9bd7b971bdbaa7f3769dd26351848}} 
+\index{timer.c@{timer.c}!lock\_timer\_base@{lock\_timer\_base}}
+\index{lock\_timer\_base@{lock\_timer\_base}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{lock\_timer\_base()}{lock\_timer\_base()}}
+{\footnotesize\ttfamily static struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}}$\ast$ lock\+\_\+timer\+\_\+base (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{unsigned long $\ast$}]{flags }\end{DoxyParamCaption}) -\/$>$ \mbox{\hyperlink{uapi_2sound_2asoc_8h_a1e6d1acac45e82029ae79792aa471d61}{base}}-\/$>$\mbox{\hyperlink{atomic64_8c_a6c9fd65abbac4c294c5cad29ae7a7c56}{lock}})
+\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 63
+Here is the caller graph for this function\+:
+% FIG 64
+\mbox{\Hypertarget{timer_8c_afb296f65603747b72f808c52ba36be9a}\label{timer_8c_afb296f65603747b72f808c52ba36be9a}} 
+\index{timer.c@{timer.c}!mod\_timer@{mod\_timer}}
+\index{mod\_timer@{mod\_timer}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{mod\_timer()}{mod\_timer()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mod\+\_\+timer (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{unsigned long}]{expires }\end{DoxyParamCaption})}
+
+mod\+\_\+timer -\/ modify a timer\textquotesingle{}s timeout @timer\+: the timer to be modified @expires\+: new timeout in jiffies
+
+\mbox{\hyperlink{timer_8c_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer()}} is a more efficient way to update the expire field of an active timer (if the timer is inactive it will be activated)
+
+mod\+\_\+timer(timer, expires) is equivalent to\+: \begin{DoxyVerb}del_timer(timer); timer->expires = expires; add_timer(timer);
+\end{DoxyVerb}
+
+
+Note that if there are multiple unserialized concurrent users of the same timer, then \mbox{\hyperlink{timer_8c_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer()}} is the only safe way to modify the timeout, since \mbox{\hyperlink{timer_8c_aa77a27e782a19c16847d42e6303004f7}{add\+\_\+timer()}} cannot modify an already running timer.
+
+\mbox{\hyperlink{classThe}{The}} function returns whether it has modified a pending timer or not. (ie. \mbox{\hyperlink{timer_8c_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer()}} of an inactive timer returns 0, \mbox{\hyperlink{timer_8c_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer()}} of an active timer returns 1.) Here is the call graph for this function\+:
+% FIG 65
+Here is the caller graph for this function\+:
+% FIG 66
+\mbox{\Hypertarget{timer_8c_a6f51086e8adb0210c2a318f626cacd14}\label{timer_8c_a6f51086e8adb0210c2a318f626cacd14}} 
+\index{timer.c@{timer.c}!mod\_timer\_pending@{mod\_timer\_pending}}
+\index{mod\_timer\_pending@{mod\_timer\_pending}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{mod\_timer\_pending()}{mod\_timer\_pending()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} mod\+\_\+timer\+\_\+pending (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{unsigned long}]{expires }\end{DoxyParamCaption})}
+
+mod\+\_\+timer\+\_\+pending -\/ modify a pending timer\textquotesingle{}s timeout @timer\+: the pending timer to be modified @expires\+: new timeout in jiffies
+
+\mbox{\hyperlink{timer_8c_a6f51086e8adb0210c2a318f626cacd14}{mod\+\_\+timer\+\_\+pending()}} is the same for pending timers as \mbox{\hyperlink{timer_8c_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer()}}, but will not re-\/activate and modify already deleted timers.
+
+It is useful for unserialized use of timers. Here is the call graph for this function\+:
+% FIG 67
+\mbox{\Hypertarget{timer_8c_a22b49dedb06df367c3dfb5cbbdc37703}\label{timer_8c_a22b49dedb06df367c3dfb5cbbdc37703}} 
+\index{timer.c@{timer.c}!msleep@{msleep}}
+\index{msleep@{msleep}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{msleep()}{msleep()}}
+{\footnotesize\ttfamily void msleep (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{msecs }\end{DoxyParamCaption})}
+
+msleep -\/ sleep safely even with waitqueue interruptions @msecs\+: Time in milliseconds to sleep for Here is the call graph for this function\+:
+% FIG 68
+Here is the caller graph for this function\+:
+% FIG 69
+\mbox{\Hypertarget{timer_8c_a4a34e6ae00b02064cd18c1e9e5215834}\label{timer_8c_a4a34e6ae00b02064cd18c1e9e5215834}} 
+\index{timer.c@{timer.c}!msleep\_interruptible@{msleep\_interruptible}}
+\index{msleep\_interruptible@{msleep\_interruptible}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{msleep\_interruptible()}{msleep\_interruptible()}}
+{\footnotesize\ttfamily unsigned long msleep\+\_\+interruptible (\begin{DoxyParamCaption}\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{msecs }\end{DoxyParamCaption})}
+
+msleep\+\_\+interruptible -\/ sleep waiting for signals @msecs\+: Time in milliseconds to sleep for Here is the call graph for this function\+:
+% FIG 70
+Here is the caller graph for this function\+:
+% FIG 71
+\mbox{\Hypertarget{timer_8c_afd360f86b80d1405c38b6b6a981cd4bb}\label{timer_8c_afd360f86b80d1405c38b6b6a981cd4bb}} 
+\index{timer.c@{timer.c}!next\_pending\_bucket@{next\_pending\_bucket}}
+\index{next\_pending\_bucket@{next\_pending\_bucket}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{next\_pending\_bucket()}{next\_pending\_bucket()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} next\+\_\+pending\+\_\+bucket (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{unsigned}]{offset,  }\item[{unsigned}]{clk }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 72
+Here is the caller graph for this function\+:
+% FIG 73
+\mbox{\Hypertarget{timer_8c_a567e5f5a102df7c96cee0154746401a8}\label{timer_8c_a567e5f5a102df7c96cee0154746401a8}} 
+\index{timer.c@{timer.c}!process\_timeout@{process\_timeout}}
+\index{process\_timeout@{process\_timeout}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{process\_timeout()}{process\_timeout()}}
+{\footnotesize\ttfamily static void process\+\_\+timeout (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{t }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 74
+Here is the caller graph for this function\+:
+% FIG 75
+\mbox{\Hypertarget{timer_8c_a77c94ba5ba4b35ffb9504219e9b88477}\label{timer_8c_a77c94ba5ba4b35ffb9504219e9b88477}} 
+\index{timer.c@{timer.c}!round\_jiffies@{round\_jiffies}}
+\index{round\_jiffies@{round\_jiffies}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{round\_jiffies()}{round\_jiffies()}}
+{\footnotesize\ttfamily unsigned long round\+\_\+jiffies (\begin{DoxyParamCaption}\item[{unsigned long}]{j }\end{DoxyParamCaption})}
+
+round\+\_\+jiffies -\/ function to round jiffies to a full second @j\+: the time in (absolute) jiffies that should be rounded
+
+\mbox{\hyperlink{timer_8c_a77c94ba5ba4b35ffb9504219e9b88477}{round\+\_\+jiffies()}} rounds an absolute time in the future (in jiffies) up or down to (approximately) full seconds. This is useful for timers for which the exact time they fire does not matter too much, as long as they fire approximately every X seconds.
+
+By rounding these timers to whole seconds, all such timers will fire at the same time, rather than at various times spread out. \mbox{\hyperlink{classThe}{The}} goal of this is to have the C\+PU wake up less, which saves power.
+
+\mbox{\hyperlink{classThe}{The}} return value is the rounded version of the @j parameter. Here is the call graph for this function\+:
+% FIG 76
+Here is the caller graph for this function\+:
+% FIG 77
+\mbox{\Hypertarget{timer_8c_a342284f2b099aeb492179c0a09f48bb9}\label{timer_8c_a342284f2b099aeb492179c0a09f48bb9}} 
+\index{timer.c@{timer.c}!round\_jiffies\_common@{round\_jiffies\_common}}
+\index{round\_jiffies\_common@{round\_jiffies\_common}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{round\_jiffies\_common()}{round\_jiffies\_common()}}
+{\footnotesize\ttfamily static unsigned long round\+\_\+jiffies\+\_\+common (\begin{DoxyParamCaption}\item[{unsigned long}]{j,  }\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{cpu,  }\item[{\mbox{\hyperlink{include_2linux_2types_8h_afaa87723b8417d40fcf45b7330261ef9}{bool}}}]{force\+\_\+up }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 78
+\mbox{\Hypertarget{timer_8c_ab6ba1f3fa2ef3e0e9abc66249b4b6866}\label{timer_8c_ab6ba1f3fa2ef3e0e9abc66249b4b6866}} 
+\index{timer.c@{timer.c}!round\_jiffies\_relative@{round\_jiffies\_relative}}
+\index{round\_jiffies\_relative@{round\_jiffies\_relative}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{round\_jiffies\_relative()}{round\_jiffies\_relative()}}
+{\footnotesize\ttfamily unsigned long round\+\_\+jiffies\+\_\+relative (\begin{DoxyParamCaption}\item[{unsigned long}]{j }\end{DoxyParamCaption})}
+
+round\+\_\+jiffies\+\_\+relative -\/ function to round jiffies to a full second @j\+: the time in (relative) jiffies that should be rounded
+
+\mbox{\hyperlink{timer_8c_ab6ba1f3fa2ef3e0e9abc66249b4b6866}{round\+\_\+jiffies\+\_\+relative()}} rounds a time delta in the future (in jiffies) up or down to (approximately) full seconds. This is useful for timers for which the exact time they fire does not matter too much, as long as they fire approximately every X seconds.
+
+By rounding these timers to whole seconds, all such timers will fire at the same time, rather than at various times spread out. \mbox{\hyperlink{classThe}{The}} goal of this is to have the C\+PU wake up less, which saves power.
+
+\mbox{\hyperlink{classThe}{The}} return value is the rounded version of the @j parameter. Here is the call graph for this function\+:
+% FIG 79
+Here is the caller graph for this function\+:
+% FIG 80
+\mbox{\Hypertarget{timer_8c_a4008885cc703cead04c2c16a15bf1809}\label{timer_8c_a4008885cc703cead04c2c16a15bf1809}} 
+\index{timer.c@{timer.c}!round\_jiffies\_up@{round\_jiffies\_up}}
+\index{round\_jiffies\_up@{round\_jiffies\_up}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{round\_jiffies\_up()}{round\_jiffies\_up()}}
+{\footnotesize\ttfamily unsigned long round\+\_\+jiffies\+\_\+up (\begin{DoxyParamCaption}\item[{unsigned long}]{j }\end{DoxyParamCaption})}
+
+round\+\_\+jiffies\+\_\+up -\/ function to round jiffies up to a full second @j\+: the time in (absolute) jiffies that should be rounded
+
+This is the same as \mbox{\hyperlink{timer_8c_a77c94ba5ba4b35ffb9504219e9b88477}{round\+\_\+jiffies()}} except that it will never round down. This is useful for timeouts for which the exact time of firing does not matter too much, as long as they don\textquotesingle{}t fire too early. Here is the call graph for this function\+:
+% FIG 81
+\mbox{\Hypertarget{timer_8c_aaa346fec6efb9ae52ebc544f542b8888}\label{timer_8c_aaa346fec6efb9ae52ebc544f542b8888}} 
+\index{timer.c@{timer.c}!round\_jiffies\_up\_relative@{round\_jiffies\_up\_relative}}
+\index{round\_jiffies\_up\_relative@{round\_jiffies\_up\_relative}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{round\_jiffies\_up\_relative()}{round\_jiffies\_up\_relative()}}
+{\footnotesize\ttfamily unsigned long round\+\_\+jiffies\+\_\+up\+\_\+relative (\begin{DoxyParamCaption}\item[{unsigned long}]{j }\end{DoxyParamCaption})}
+
+round\+\_\+jiffies\+\_\+up\+\_\+relative -\/ function to round jiffies up to a full second @j\+: the time in (relative) jiffies that should be rounded
+
+This is the same as \mbox{\hyperlink{timer_8c_ab6ba1f3fa2ef3e0e9abc66249b4b6866}{round\+\_\+jiffies\+\_\+relative()}} except that it will never round down. This is useful for timeouts for which the exact time of firing does not matter too much, as long as they don\textquotesingle{}t fire too early. Here is the call graph for this function\+:
+% FIG 82
+\mbox{\Hypertarget{timer_8c_ac471a1daa48b2621dbb4135d3f9dadd2}\label{timer_8c_ac471a1daa48b2621dbb4135d3f9dadd2}} 
+\index{timer.c@{timer.c}!run\_local\_timers@{run\_local\_timers}}
+\index{run\_local\_timers@{run\_local\_timers}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{run\_local\_timers()}{run\_local\_timers()}}
+{\footnotesize\ttfamily static void run\+\_\+local\+\_\+timers (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 83
+Here is the caller graph for this function\+:
+% FIG 84
+\mbox{\Hypertarget{timer_8c_aea9649a38a888c892b379acd33146224}\label{timer_8c_aea9649a38a888c892b379acd33146224}} 
+\index{timer.c@{timer.c}!run\_timer\_softirq@{run\_timer\_softirq}}
+\index{run\_timer\_softirq@{run\_timer\_softirq}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{run\_timer\_softirq()}{run\_timer\_softirq()}}
+{\footnotesize\ttfamily static \mbox{\hyperlink{compiler__types_8h_aaf10c7963a008f817131d8bbb88738c1}{\+\_\+\+\_\+latent\+\_\+entropy}} void run\+\_\+timer\+\_\+softirq (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structsoftirq__action}{softirq\+\_\+action}} $\ast$}]{h }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 85
+Here is the caller graph for this function\+:
+% FIG 86
+\mbox{\Hypertarget{timer_8c_a37e1f4f067aef41f2f1027e39b667ca7}\label{timer_8c_a37e1f4f067aef41f2f1027e39b667ca7}} 
+\index{timer.c@{timer.c}!schedule\_timeout@{schedule\_timeout}}
+\index{schedule\_timeout@{schedule\_timeout}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{schedule\_timeout()}{schedule\_timeout()}}
+{\footnotesize\ttfamily signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} schedule\+\_\+timeout (\begin{DoxyParamCaption}\item[{signed long}]{timeout }\end{DoxyParamCaption})}
+
+schedule\+\_\+timeout -\/ sleep until timeout @timeout\+: timeout value in jiffies
+
+Make the current task sleep until @timeout jiffies have elapsed. \mbox{\hyperlink{classThe}{The}} function behavior depends on the current task state (see also set\+\_\+current\+\_\+state() description)\+:
+
+T\+A\+S\+K\+\_\+\+R\+U\+N\+N\+I\+NG -\/ the scheduler is called, but the task does not sleep at all. That happens because \mbox{\hyperlink{kernel_2sched_2core_8c_a519aa9d31c398aed8b6dd2a79df1fd0b}{sched\+\_\+submit\+\_\+work()}} does nothing for tasks in T\+A\+S\+K\+\_\+\+R\+U\+N\+N\+I\+NG state.
+
+T\+A\+S\+K\+\_\+\+U\+N\+I\+N\+T\+E\+R\+R\+U\+P\+T\+I\+B\+LE -\/ at least @timeout jiffies are guaranteed to pass before the routine returns unless the current task is explicitly woken up, (e.\+g. by \mbox{\hyperlink{kernel_2sched_2core_8c_a53212be4e2644aeff9ffd4bc19f7186e}{wake\+\_\+up\+\_\+process()}}).
+
+T\+A\+S\+K\+\_\+\+I\+N\+T\+E\+R\+R\+U\+P\+T\+I\+B\+LE -\/ the routine may return early if a signal is delivered to the current task or the current task is explicitly woken up.
+
+\mbox{\hyperlink{classThe}{The}} current task state is guaranteed to be T\+A\+S\+K\+\_\+\+R\+U\+N\+N\+I\+NG when this routine returns.
+
+Specifying a @timeout value of M\+A\+X\+\_\+\+S\+C\+H\+E\+D\+U\+L\+E\+\_\+\+T\+I\+M\+E\+O\+UT will schedule the C\+PU away without a bound on the timeout. In this case the return value will be M\+A\+X\+\_\+\+S\+C\+H\+E\+D\+U\+L\+E\+\_\+\+T\+I\+M\+E\+O\+UT.
+
+Returns 0 when the timer has expired otherwise the remaining time in jiffies will be returned. In all cases the return value is guaranteed to be non-\/negative. Here is the call graph for this function\+:
+% FIG 87
+Here is the caller graph for this function\+:
+% FIG 88
+\mbox{\Hypertarget{timer_8c_a6aaf13dd3acf3fd9db984ab5075fe717}\label{timer_8c_a6aaf13dd3acf3fd9db984ab5075fe717}} 
+\index{timer.c@{timer.c}!schedule\_timeout\_idle@{schedule\_timeout\_idle}}
+\index{schedule\_timeout\_idle@{schedule\_timeout\_idle}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{schedule\_timeout\_idle()}{schedule\_timeout\_idle()}}
+{\footnotesize\ttfamily signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} schedule\+\_\+timeout\+\_\+idle (\begin{DoxyParamCaption}\item[{signed long}]{timeout }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 89
+Here is the caller graph for this function\+:
+% FIG 90
+\mbox{\Hypertarget{timer_8c_a3eb6c8dd7a1fab638ff5663f39cdb963}\label{timer_8c_a3eb6c8dd7a1fab638ff5663f39cdb963}} 
+\index{timer.c@{timer.c}!schedule\_timeout\_interruptible@{schedule\_timeout\_interruptible}}
+\index{schedule\_timeout\_interruptible@{schedule\_timeout\_interruptible}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{schedule\_timeout\_interruptible()}{schedule\_timeout\_interruptible()}}
+{\footnotesize\ttfamily signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} schedule\+\_\+timeout\+\_\+interruptible (\begin{DoxyParamCaption}\item[{signed long}]{timeout }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 91
+Here is the caller graph for this function\+:
+% FIG 92
+\mbox{\Hypertarget{timer_8c_a94b4c9c9d2f743d6317c6dc39a2d8506}\label{timer_8c_a94b4c9c9d2f743d6317c6dc39a2d8506}} 
+\index{timer.c@{timer.c}!schedule\_timeout\_killable@{schedule\_timeout\_killable}}
+\index{schedule\_timeout\_killable@{schedule\_timeout\_killable}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{schedule\_timeout\_killable()}{schedule\_timeout\_killable()}}
+{\footnotesize\ttfamily signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} schedule\+\_\+timeout\+\_\+killable (\begin{DoxyParamCaption}\item[{signed long}]{timeout }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 93
+Here is the caller graph for this function\+:
+% FIG 94
+\mbox{\Hypertarget{timer_8c_a291fae143d9c901aceb0125ba5fc7249}\label{timer_8c_a291fae143d9c901aceb0125ba5fc7249}} 
+\index{timer.c@{timer.c}!schedule\_timeout\_uninterruptible@{schedule\_timeout\_uninterruptible}}
+\index{schedule\_timeout\_uninterruptible@{schedule\_timeout\_uninterruptible}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{schedule\_timeout\_uninterruptible()}{schedule\_timeout\_uninterruptible()}}
+{\footnotesize\ttfamily signed long \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} schedule\+\_\+timeout\+\_\+uninterruptible (\begin{DoxyParamCaption}\item[{signed long}]{timeout }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 95
+Here is the caller graph for this function\+:
+% FIG 96
+\mbox{\Hypertarget{timer_8c_a67b999272b0e56d37904440e23f0d36a}\label{timer_8c_a67b999272b0e56d37904440e23f0d36a}} 
+\index{timer.c@{timer.c}!timer\_base\_init\_expiry\_lock@{timer\_base\_init\_expiry\_lock}}
+\index{timer\_base\_init\_expiry\_lock@{timer\_base\_init\_expiry\_lock}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{timer\_base\_init\_expiry\_lock()}{timer\_base\_init\_expiry\_lock()}}
+{\footnotesize\ttfamily static void timer\+\_\+base\+\_\+init\+\_\+expiry\+\_\+lock (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 97
+\mbox{\Hypertarget{timer_8c_af774b33f55cbfd6df8ccfff7d5313a15}\label{timer_8c_af774b33f55cbfd6df8ccfff7d5313a15}} 
+\index{timer.c@{timer.c}!timer\_base\_lock\_expiry@{timer\_base\_lock\_expiry}}
+\index{timer\_base\_lock\_expiry@{timer\_base\_lock\_expiry}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{timer\_base\_lock\_expiry()}{timer\_base\_lock\_expiry()}}
+{\footnotesize\ttfamily static void timer\+\_\+base\+\_\+lock\+\_\+expiry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 98
+\mbox{\Hypertarget{timer_8c_af7d5663de3d1dc1eea252b569d7aaa19}\label{timer_8c_af7d5663de3d1dc1eea252b569d7aaa19}} 
+\index{timer.c@{timer.c}!timer\_base\_unlock\_expiry@{timer\_base\_unlock\_expiry}}
+\index{timer\_base\_unlock\_expiry@{timer\_base\_unlock\_expiry}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{timer\_base\_unlock\_expiry()}{timer\_base\_unlock\_expiry()}}
+{\footnotesize\ttfamily static void timer\+\_\+base\+\_\+unlock\+\_\+expiry (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 99
+\mbox{\Hypertarget{timer_8c_a3fe40e9a8b464a3126f72e706903b8f3}\label{timer_8c_a3fe40e9a8b464a3126f72e706903b8f3}} 
+\index{timer.c@{timer.c}!timer\_get\_idx@{timer\_get\_idx}}
+\index{timer\_get\_idx@{timer\_get\_idx}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{timer\_get\_idx()}{timer\_get\_idx()}}
+{\footnotesize\ttfamily static unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} timer\+\_\+get\+\_\+idx (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 100
+\mbox{\Hypertarget{timer_8c_a8a520d7bccb8808a3cc80911a676739d}\label{timer_8c_a8a520d7bccb8808a3cc80911a676739d}} 
+\index{timer.c@{timer.c}!timer\_reduce@{timer\_reduce}}
+\index{timer\_reduce@{timer\_reduce}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{timer\_reduce()}{timer\_reduce()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} timer\+\_\+reduce (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{unsigned long}]{expires }\end{DoxyParamCaption})}
+
+timer\+\_\+reduce -\/ Modify a timer\textquotesingle{}s timeout if it would reduce the timeout @timer\+: \mbox{\hyperlink{classThe}{The}} timer to be modified @expires\+: New timeout in jiffies
+
+\mbox{\hyperlink{timer_8c_a8a520d7bccb8808a3cc80911a676739d}{timer\+\_\+reduce()}} is very similar to \mbox{\hyperlink{timer_8c_afb296f65603747b72f808c52ba36be9a}{mod\+\_\+timer()}}, except that it will only modify a running timer if that would reduce the expiration time (it will start a timer that isn\textquotesingle{}t running). Here is the call graph for this function\+:
+% FIG 101
+Here is the caller graph for this function\+:
+% FIG 102
+\mbox{\Hypertarget{timer_8c_af19f33524026c370a2b49c8f01492144}\label{timer_8c_af19f33524026c370a2b49c8f01492144}} 
+\index{timer.c@{timer.c}!timer\_set\_idx@{timer\_set\_idx}}
+\index{timer\_set\_idx@{timer\_set\_idx}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{timer\_set\_idx()}{timer\_set\_idx()}}
+{\footnotesize\ttfamily static void timer\+\_\+set\+\_\+idx (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer,  }\item[{unsigned \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{idx }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 103
+\mbox{\Hypertarget{timer_8c_aac5719463f2edf13e5fcab4b25a142ec}\label{timer_8c_aac5719463f2edf13e5fcab4b25a142ec}} 
+\index{timer.c@{timer.c}!timer\_sync\_wait\_running@{timer\_sync\_wait\_running}}
+\index{timer\_sync\_wait\_running@{timer\_sync\_wait\_running}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{timer\_sync\_wait\_running()}{timer\_sync\_wait\_running()}}
+{\footnotesize\ttfamily static void timer\+\_\+sync\+\_\+wait\+\_\+running (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+Here is the caller graph for this function\+:
+% FIG 104
+\mbox{\Hypertarget{timer_8c_a44328abefbb99604c4acc032ecb4efda}\label{timer_8c_a44328abefbb99604c4acc032ecb4efda}} 
+\index{timer.c@{timer.c}!trigger\_dyntick\_cpu@{trigger\_dyntick\_cpu}}
+\index{trigger\_dyntick\_cpu@{trigger\_dyntick\_cpu}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{trigger\_dyntick\_cpu()}{trigger\_dyntick\_cpu()}}
+{\footnotesize\ttfamily static void trigger\+\_\+dyntick\+\_\+cpu (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} $\ast$}]{base,  }\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+Here is the call graph for this function\+:
+% FIG 105
+Here is the caller graph for this function\+:
+% FIG 106
+\mbox{\Hypertarget{timer_8c_a75b034e4a49b5b5cd0157b6f1404ef8b}\label{timer_8c_a75b034e4a49b5b5cd0157b6f1404ef8b}} 
+\index{timer.c@{timer.c}!try\_to\_del\_timer\_sync@{try\_to\_del\_timer\_sync}}
+\index{try\_to\_del\_timer\_sync@{try\_to\_del\_timer\_sync}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{try\_to\_del\_timer\_sync()}{try\_to\_del\_timer\_sync()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}} try\+\_\+to\+\_\+del\+\_\+timer\+\_\+sync (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structtimer__list}{timer\+\_\+list}} $\ast$}]{timer }\end{DoxyParamCaption})}
+
+try\+\_\+to\+\_\+del\+\_\+timer\+\_\+sync -\/ Try to deactivate a timer @timer\+: timer to delete
+
+This function tries to deactivate a timer. Upon successful (ret $>$= 0) exit the timer is not queued and the handler is not running on any C\+PU. Here is the call graph for this function\+:
+% FIG 107
+\mbox{\Hypertarget{timer_8c_ab139d71c1a460e8d64c1856ebe2ab9d1}\label{timer_8c_ab139d71c1a460e8d64c1856ebe2ab9d1}} 
+\index{timer.c@{timer.c}!update\_process\_times@{update\_process\_times}}
+\index{update\_process\_times@{update\_process\_times}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{update\_process\_times()}{update\_process\_times()}}
+{\footnotesize\ttfamily void update\+\_\+process\+\_\+times (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{dcache_8h_ad65b480f8c8270356b45a9890f6499ae}{int}}}]{user\+\_\+tick }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:
+% FIG 108
+Here is the caller graph for this function\+:
+% FIG 109
+\mbox{\Hypertarget{timer_8c_acb5b7912f7b187014f38a167bcb6f4da}\label{timer_8c_acb5b7912f7b187014f38a167bcb6f4da}} 
+\index{timer.c@{timer.c}!usleep\_range@{usleep\_range}}
+\index{usleep\_range@{usleep\_range}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{usleep\_range()}{usleep\_range()}}
+{\footnotesize\ttfamily void \mbox{\hyperlink{include_2linux_2sched_2debug_8h_a4e921e4f66bcb641532ae81d2b50b237}{\+\_\+\+\_\+sched}} usleep\+\_\+range (\begin{DoxyParamCaption}\item[{unsigned long}]{min,  }\item[{unsigned long}]{max }\end{DoxyParamCaption})}
+
+usleep\+\_\+range -\/ Sleep for an approximate time @min\+: Minimum time in usecs to sleep @max\+: Maximum time in usecs to sleep
+
+In non-\/atomic context where the exact wakeup time is flexible, use \mbox{\hyperlink{timer_8c_acb5b7912f7b187014f38a167bcb6f4da}{usleep\+\_\+range()}} instead of \mbox{\hyperlink{include_2asm-generic_2delay_8h_ab30c75a12af6056d3b86379f75de1eff}{udelay()}}. \mbox{\hyperlink{classThe}{The}} sleep improves responsiveness by avoiding the C\+P\+U-\/hogging busy-\/wait of \mbox{\hyperlink{include_2asm-generic_2delay_8h_ab30c75a12af6056d3b86379f75de1eff}{udelay()}}, and the range reduces power usage by allowing hrtimers to take advantage of an already-\/ scheduled interrupt instead of scheduling a new one just for this sleep. Here is the call graph for this function\+:
+% FIG 110
+Here is the caller graph for this function\+:
+% FIG 111
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{timer_8c_a088154ed118b389773d888d423373b44}\label{timer_8c_a088154ed118b389773d888d423373b44}} 
+\index{timer.c@{timer.c}!\_\_\_\_cacheline\_aligned@{\_\_\_\_cacheline\_aligned}}
+\index{\_\_\_\_cacheline\_aligned@{\_\_\_\_cacheline\_aligned}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_\_\_cacheline\_aligned}{\_\_\_\_cacheline\_aligned}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structtimer__base}{timer\+\_\+base}} \mbox{\hyperlink{struct________cacheline__aligned}{\+\_\+\+\_\+\+\_\+\+\_\+cacheline\+\_\+aligned}}}
+
+\mbox{\Hypertarget{timer_8c_a8e6b5b9bc26149945217b8986cd4dc3d}\label{timer_8c_a8e6b5b9bc26149945217b8986cd4dc3d}} 
+\index{timer.c@{timer.c}!\_\_cacheline\_aligned\_in\_smp@{\_\_cacheline\_aligned\_in\_smp}}
+\index{\_\_cacheline\_aligned\_in\_smp@{\_\_cacheline\_aligned\_in\_smp}!timer.c@{timer.c}}
+\doxysubsubsection{\texorpdfstring{\_\_cacheline\_aligned\_in\_smp}{\_\_cacheline\_aligned\_in\_smp}}
+{\footnotesize\ttfamily \mbox{\hyperlink{arch_2x86_2power_2hibernate_8c_ac70256eba5d496ddd459398ad1e20715}{\+\_\+\+\_\+visible}} \mbox{\hyperlink{actypes_8h_ae9add973f3ccbe0212adbfea3b68be67}{u64}} \mbox{\hyperlink{linux_2jiffies_8h_a78417aa0b6f81f5e9a1c0aac10040f25}{jiffies\+\_\+64}} \+\_\+\+\_\+cacheline\+\_\+aligned\+\_\+in\+\_\+smp = \mbox{\hyperlink{linux_2jiffies_8h_a152536f8b1eb3c8081ec2b3c96198498}{I\+N\+I\+T\+I\+A\+L\+\_\+\+J\+I\+F\+F\+I\+ES}}}
+
