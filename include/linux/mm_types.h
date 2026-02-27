@@ -69,7 +69,9 @@ struct mem_cgroup;
 
 struct page {
 	unsigned long flags;		/* Atomic flags, some possibly
-					 * updated asynchronously */
+					 * updated asynchronously 成员布局：SECTION(稀疏内存模型中的段编号),NODE（节点编号）
+					 * ZONE(区域类型),FLAG(标志位)
+	 */
 	/*
 	 * Five words (20/40 bytes) are available in this union.
 	 * WARNING: bit 0 of the first word is used for PageTail(). That
