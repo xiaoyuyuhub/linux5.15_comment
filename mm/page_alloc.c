@@ -6193,23 +6193,90 @@ static void zoneref_set_zone(struct zone *zone, struct zoneref *zoneref)
 /*
  * Builds allocation fallback zone lists.
  *
- * Add all populated zones of a node to the zonelist.
+ * 为“某一个 node(pgdat)”构建其 zone 引用列表（zoneref 子数组）：
+ * - 遍历该 node 的所有 zone（pgdat->node_zones[0..MAX_NR_ZONES-1]）
+ * - 把“可管理的 zone”（managed_zone(zone)==true）加入到 zonerefs 数组里
+ * - 返回加入了多少个 zone（nr_zones）
+ *
+ * 注意：这里“构建的是某一个 node 自己贡献的 zones 子序列”，
+ * 上层 build_zonelists_in_node_order() 会把多个 node 的子序列拼接起来。
  */
 static int build_zonerefs_node(pg_data_t *pgdat, struct zoneref *zonerefs)
 {
+	/*
+	 * zone：临时指针，指向当前遍历到的 pgdat->node_zones[zone_type]
+	 */
 	struct zone *zone;
+
+	/*
+	 * zone_type：zone 的索引（enum zone_type），这里初始化为 MAX_NR_ZONES，
+	 * 下面 do-while 里先 -- 再用，因此第一次访问的是 MAX_NR_ZONES-1。
+	 *
+	 * 这段代码采用 “倒序遍历”：
+	 *   MAX_NR_ZONES-1, MAX_NR_ZONES-2, ..., 1, 0
+	 */
 	enum zone_type zone_type = MAX_NR_ZONES;
+
+	/*
+	 * nr_zones：已经写入到 zonerefs[] 的元素数量（写入计数器）
+	 * 也是下一次要写入的下标。
+	 */
 	int nr_zones = 0;
 
+	/*
+	 * do { ... } while(zone_type);
+	 *
+	 * 这个写法的关键点：
+	 * 1) 先 zone_type--，所以第一次处理的是 (MAX_NR_ZONES-1)
+	 * 2) 循环条件是 while(zone_type)，也就是当 zone_type != 0 时继续；
+	 *    但因为是 do-while，zone_type==0 的那一轮也会执行一次：
+	 *    - 当 zone_type 变为 0 时，仍会执行本轮 body（处理 zone_idx=0）
+	 *    - 执行完后判断 while(0) 为 false，退出
+	 *
+	 * 所以它会覆盖所有 zone_idx：MAX_NR_ZONES-1 .. 0（包括 0）
+	 */
 	do {
+		/* 先递减，再用：实现从最高 idx 到最低 idx 的倒序遍历 */
 		zone_type--;
+
+		/*
+		 * 取出当前 zone 的地址：
+		 * pgdat->node_zones 是一个数组头指针（struct zone node_zones[MAX_NR_ZONES]）
+		 * “+ zone_type” 就是取 node_zones[zone_type] 的地址
+		 */
 		zone = pgdat->node_zones + zone_type;
+
+		/*
+		 * managed_zone(zone)：判断这个 zone 是否属于“可管理/可分配”的范围
+		 * （最常见：zone->managed_pages > 0）
+		 *
+		 * 如果该 zone 没有可管理页（比如完全没有内存、或不参与 buddy 管理），
+		 * 就不把它加入 zonelist。
+		 */
 		if (managed_zone(zone)) {
+			/*
+			 * 把当前 zone 写入 zonerefs[nr_zones]：
+			 * zoneref_set_zone(zone, &zonerefs[nr_zones])
+			 * 然后 nr_zones++，移动到下一个写入槽位。
+			 *
+			 * 这行是“真正写入 zoneref 数组”的关键动作。
+			 */
 			zoneref_set_zone(zone, &zonerefs[nr_zones++]);
+
+			/*
+			 * check_highest_zone(zone_type)：
+			 * 这是在构建过程中维护某个“全局/每node”的最高 zone 相关信息，
+			 * 用于后续分配路径的快速判断（比如 classzone_idx 的边界/最高可用 zone）。
+			 *
+			 * 你可以先把它理解为：记录“目前见到的最高 zone_idx”。
+			 */
 			check_highest_zone(zone_type);
 		}
+
+	/* 只要 zone_type != 0 就继续；zone_type==0 那一轮执行完就退出 */
 	} while (zone_type);
 
+	/* 返回本 node 一共写入了多少个 zoneref（也就是多少个 zone 被加入） */
 	return nr_zones;
 }
 
@@ -6427,25 +6494,102 @@ int find_next_best_node(int node, nodemask_t *used_node_mask)
 
 /*
  * Build zonelists ordered by node and zones within node.
- * This results in maximum locality--normal zone overflows into local
- * DMA zone, if any--but risks exhausting DMA zone.
+ *
+ * 构建“按 node 顺序优先”的 zonelist：
+ *   - 先按 node_order[] 指定的 node 访问顺序（通常：本地 node 在前，距离近的在前）
+ *   - 再在每个 node 内，把该 node 的各个 zone（DMA/DMA32/NORMAL/MOVABLE...）
+ *     按某个既定 zone 顺序写入到 zoneref 数组中。
+ *
+ * 这样做能最大化 locality（优先使用本地 node 的内存）。
+ *
+ * 注释里提到的风险：
+ *   “normal zone overflows into local DMA zone, if any--but risks exhausting DMA zone.”
+ *   意思是：因为本地 node 的多个 zone 会被连续排在一起，当 NORMAL 紧张时，
+ *   分配扫描可能很快进入本地 DMA/DMA32 这类受限 zone，从而消耗它们，
+ *   可能导致真正必须使用 DMA 的设备/驱动后续分配受影响。
  */
 static void build_zonelists_in_node_order(pg_data_t *pgdat, int *node_order,
 		unsigned nr_nodes)
 {
+	/*
+	 * zonerefs 是“写入指针”（cursor）：
+	 * 指向 pgdat->node_zonelists[ZONELIST_FALLBACK] 这张 zonelist
+	 * 底层数组 _zonerefs 的某个位置。
+	 *
+	 * 这张表属于“发起 node = pgdat”：
+	 * 将来从该 node 发起分配（或以该 node 作为 local node）时，会沿着这张表扫描。
+	 */
 	struct zoneref *zonerefs;
 	int i;
 
+	/*
+	 * 取到 zoneref 数组的起始地址。
+	 *
+	 * pgdat->node_zonelists[ZONELIST_FALLBACK]：
+	 *   - ZONELIST_FALLBACK 是某类 zonelist（通常是默认回退路径用的那张）
+	 *   - _zonerefs 是连续数组，里面每个元素是一个 zoneref
+	 *
+	 * 最终 _zonerefs 的形态是：
+	 *   [ (zone*, zone_idx), (zone*, zone_idx), ..., (NULL,0) ]
+	 * 末尾 (NULL,0) 是终止标记。
+	 */
 	zonerefs = pgdat->node_zonelists[ZONELIST_FALLBACK]._zonerefs;
 
+	/*
+	 * 按 node_order[] 指定的 node 顺序构建：
+	 *
+	 * node_order[i] 是一个 node id（整数），表示第 i 个要加入 zonelist 的 node。
+	 * 常见：node_order[0] = 本地 node id（pgdat->node_id）
+	 *       后面按 NUMA distance 从近到远排列。
+	 *
+	 * nr_nodes 是 node_order[] 的有效长度。
+	 */
 	for (i = 0; i < nr_nodes; i++) {
 		int nr_zones;
 
+		/*
+		 * NODE_DATA(nid) 把 node id 转成该 node 的 pg_data_t*（pgdat）。
+		 * 这里用 node 变量表示“当前正在被追加到 zonelist 里的候选 node”。
+		 *
+		 * 注意区分：
+		 *   - pgdat：这张 zonelist 的拥有者（local node / 发起 node）
+		 *   - node ：当前要追加 zone 的那个 node（可能是本地，也可能是远端 fallback）
+		 */
 		pg_data_t *node = NODE_DATA(node_order[i]);
 
+		/*
+		 * 把这个 node 的 zones 追加写入到 zonerefs 指向的位置。
+		 *
+		 * build_zonerefs_node(node, zonerefs) 的职责：
+		 *   - 遍历 node->node_zones[] 中的各个 zone（顺序由它内部决定）
+		 *   - 过滤掉空 zone（例如 managed_pages=0 / !populated_zone）
+		 *   - 对每个有效 zone，写一个 zoneref：
+		 *         zonerefs[k].zone     = &node->node_zones[zone_idx];
+		 *         zonerefs[k].zone_idx = zone_idx;
+		 *     并累计写入个数
+		 *
+		 * 返回值 nr_zones：
+		 *   - 表示一共写了多少个 zoneref（也就是这个 node 贡献了多少个 zone）
+		 */
 		nr_zones = build_zonerefs_node(node, zonerefs);
+
+		/*
+		 * 把写入指针向后移动 nr_zones：
+		 * 因为刚刚已经把当前 node 的 nr_zones 个 zoneref 填进数组了，
+		 * 下一轮要从“下一个空槽位”继续写下一个 node 的 zones。
+		 */
 		zonerefs += nr_zones;
 	}
+
+	/*
+	 * 写入终止标记（非常关键）：
+	 * zonelist 的 zoneref 数组用 zone==NULL 作为结束符。
+	 *
+	 * 之后分配路径（例如 get_page_from_freelist）线性扫描 zoneref[] 时，
+	 * 读到 zone==NULL 就停止，避免越界。
+	 *
+	 * zone_idx 置 0 主要是规整/防脏数据，终止元素不会真正参与分配逻辑。
+	 */
 	zonerefs->zone = NULL;
 	zonerefs->zone_idx = 0;
 }
