@@ -811,19 +811,168 @@ void __init initmem_init(void)
 }
 #endif
 
+/*
+ * paging_init()
+ *
+ * 作用：
+ * ------------------------------------------------------------
+ * 完成体系结构相关内存管理初始化中的“页管理初始化”阶段。
+ *
+ * 在 x86 上，这个函数并不是去“开启分页”
+ * （分页在更早阶段就已经启用了），
+ * 而是继续完成 Linux 内存管理子系统需要的初始化工作，主要包括：
+ *
+ *   1. 初始化 sparse memory 模型相关结构
+ *   2. 清理默认 node 0 的内存状态标记
+ *   3. 根据实际探测到的物理内存，初始化各 node / zone 的范围和大小
+ *
+ * 你可以把它理解为：
+ *   “把前面启动阶段已经探测到的物理内存信息，
+ *    正式接入 Linux 的 node/zone/page 管理框架中”
+ *
+ * 调用关系上，它处于：
+ *
+ *   setup_arch()
+ *     -> paging_init()
+ *
+ * 在整个内存初始化大流程里，它的定位更偏向：
+ *   “搭 zone/node 框架，为后面的 memmap(page 描述符)初始化做准备”
+ *
+ * 整体逻辑：
+ * ------------------------------------------------------------
+ * [A] 初始化 sparse memory 相关元数据框架
+ * [B] 清掉默认 node 0 的内存状态位
+ * [C] 根据实际内存布局初始化 zone 大小和边界
+ */
 void __init paging_init(void)
 {
+	/*
+	 * [A] sparse_init()
+	 *
+	 * 初始化 SPARSEMEM 内存模型相关的数据结构。
+	 *
+	 * 为什么这里要做这个？
+	 * --------------------------------------------------------
+	 * Linux 需要先决定如何用“内存模型”来描述整个物理地址空间。
+	 *
+	 * 常见内存模型有：
+	 *   - FLATMEM
+	 *   - DISCONTIGMEM
+	 *   - SPARSEMEM
+	 *
+	 * 在现代 x86_64 上，通常使用 SPARSEMEM。
+	 *
+	 * SPARSEMEM 的核心思想：
+	 * --------------------------------------------------------
+	 * 不把整个物理地址空间视为一个完全连续的大平面，
+	 * 而是按 section 为粒度组织内存。
+	 *
+	 * 这样做适合处理：
+	 *   - 物理内存存在空洞（hole）
+	 *   - NUMA 多节点
+	 *   - 内存热插拔
+	 *   - 超大物理地址空间
+	 *
+	 * sparse_init() 大体会完成：
+	 *   - 建立 memory section 相关结构
+	 *   - 为存在内存的 section 建立使用关系
+	 *   - 准备好后续 pfn_to_page()/page_to_pfn() 等映射依赖的底层框架
+	 *
+	 * 注意：
+	 *   这里还不是“逐页初始化 struct page”，
+	 *   而是先把“page 元数据应该如何组织和寻址”的框架准备好。
+	 */
 	sparse_init();
 
 	/*
-	 * clear the default setting with node 0
-	 * note: don't use nodes_clear here, that is really clearing when
-	 *	 numa support is not compiled in, and later node_set_state
-	 *	 will not set it back.
+	 * [B] 清除 node 0 的默认内存状态
+	 *
+	 * 这里这两句很关键，它们在“纠正启动早期的默认假设”。
+	 *
+	 * 背景：
+	 * --------------------------------------------------------
+	 * 在更早的初始化阶段，为了让系统能先跑起来，
+	 * 内核可能默认认为 node 0 存在内存，或者先给 node 0 打上一些初始状态标记。
+	 *
+	 * 但到了这里，系统已经逐步具备依据真实物理内存布局
+	 * 来重新建立 node/zone 状态的能力了，
+	 * 因此要先把这个“默认 node 0 有内存”的假设清掉，
+	 * 后面再由真正的内存探测结果重新设置。
+	 *
+	 * N_MEMORY：
+	 *   表示该 NUMA node 上存在内存
+	 *
+	 * N_NORMAL_MEMORY：
+	 *   表示该 node 上存在 normal memory
+	 *   （通常是可直接纳入常规内存管理的普通内存）
+	 *
+	 * 为什么只清 node 0？
+	 * --------------------------------------------------------
+	 * 因为默认假设通常就是“node 0 先有内存”，
+	 * 这里是把这个默认值撤销掉。
+	 *
+	 * 后续在 zone/node 初始化过程中，会依据真实情况重新给各 node
+	 * 设置 N_MEMORY / N_NORMAL_MEMORY 等状态。
+	 *
+	 * 注释里特别强调：
+	 *   不要用 nodes_clear()
+	 *
+	 * 原因是：
+	 *   nodes_clear() 是把整个 nodemask 彻底清空，
+	 *   但在 !NUMA 配置下，它的行为和这里想要的“只撤销默认 node 0 状态”
+	 *   不是一回事，可能会把后续需要保留/恢复的状态逻辑搞乱。
+	 *
+	 * 更准确地说：
+	 *   node_clear_state(0, xxx) 只是清除 node 0 的某个 state bit；
+	 *   而 nodes_clear() 会把整组节点状态位整体清空，副作用过大。
 	 */
 	node_clear_state(0, N_MEMORY);
 	node_clear_state(0, N_NORMAL_MEMORY);
 
+	/*
+	 * [C] zone_sizes_init()
+	 *
+	 * 根据当前体系结构和实际物理内存布局，初始化各个 zone 的大小、
+	 * 边界以及所属 node 的内存分布信息。
+	 *
+	 * 这是 paging_init() 中最核心的一步。
+	 *
+	 * 它大体会做什么？
+	 * --------------------------------------------------------
+	 * 1. 计算各 zone 的 PFN 范围
+	 *    例如：
+	 *      ZONE_DMA
+	 *      ZONE_DMA32
+	 *      ZONE_NORMAL
+	 *      ZONE_MOVABLE
+	 *
+	 * 2. 统计每个 node 上各 zone 的页数
+	 *
+	 * 3. 建立 pg_data_t / zone 的基础边界信息
+	 *    例如：
+	 *      - zone_start_pfn
+	 *      - spanned_pages
+	 *      - present_pages
+	 *
+	 * 4. 通过 free_area_init() 等后续过程，
+	 *    为 buddy allocator 和 memmap 初始化打基础
+	 *
+	 * 你可以把它理解成：
+	 *   “正式回答：哪些 PFN 属于哪个 node、哪个 zone”
+	 *
+	 * 为什么这一阶段重要？
+	 * --------------------------------------------------------
+	 * 因为后面像：
+	 *   - memmap_init()
+	 *   - memmap_init_zone_range()
+	 *   - memblock_free_all()
+	 *
+	 * 这些流程都依赖于 zone 的边界和 node 的内存分布信息。
+	 *
+	 * 换句话说：
+	 *   sparse_init() 先搭“内存模型框架”
+	 *   zone_sizes_init() 再把“实际物理内存”塞进 node/zone 体系
+	 */
 	zone_sizes_init();
 }
 

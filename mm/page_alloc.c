@@ -7156,69 +7156,290 @@ overlap_memmap_init(unsigned long zone, unsigned long *pfn)
 }
 
 /*
- * Initially all pages are reserved - free ones are freed
- * up by memblock_free_all() once the early boot process is
- * done. Non-atomic initialization, single-pass.
+ * memmap_init_range()
  *
- * All aligned pageblocks are initialized to the specified migratetype
- * (usually MIGRATE_MOVABLE). Besides setting the migratetype, no related
- * zone stats (e.g., nr_isolate_pageblock) are touched.
+ * 作用：
+ * ------------------------------------------------------------
+ * 对一段 PFN 区间 [start_pfn, start_pfn + size) 对应的 struct page
+ * 逐页进行初始化。
+ *
+ * 这里初始化的是“mem_map/vmemmap 中的元数据页描述符”，也就是：
+ *   每个物理页框（PFN）对应的 struct page。
+ *
+ * 需要注意：
+ * 1. 这个函数“初始化 page 描述符”，不是把页加入伙伴系统；
+ * 2. 早期启动阶段，所有页一开始都认为是 reserved；
+ * 3. 真正可释放为 buddy allocator 可用页，是后面 memblock_free_all()
+ *    再去做的；
+ * 4. 本函数还会在 pageblock 对齐处设置 pageblock migratetype，
+ *    通常设成 MIGRATE_MOVABLE，减少启动阶段不可移动页到处散落。
+ *
+ * 参数说明：
+ * ------------------------------------------------------------
+ * size:
+ *   本次要初始化的页数
+ *
+ * nid:
+ *   这些页所属 NUMA node id
+ *
+ * zone:
+ *   这些页所属的 zone 编号（ZONE_DMA / ZONE_NORMAL / ...）
+ *
+ * start_pfn:
+ *   起始 PFN
+ *
+ * zone_end_pfn:
+ *   当前 zone 的结束 PFN（半开区间尾）
+ *   某些 early init 场景下用于判断 deferred init 是否停止
+ *
+ * context:
+ *   初始化上下文：
+ *   - MEMINIT_EARLY   : 启动早期初始化
+ *   - MEMINIT_HOTPLUG : 热插拔内存初始化
+ *
+ * altmap:
+ *   供 ZONE_DEVICE / device memory 使用的备用 vmemmap 描述
+ *   一般普通 RAM 初始化时为 NULL
+ *
+ * migratetype:
+ *   pageblock 的迁移类型，通常传 MIGRATE_MOVABLE
+ *
+ * 整体逻辑：
+ * ------------------------------------------------------------
+ * [A] 计算本次结束 PFN，并更新 highest_memmap_pfn
+ * [B] 若是 ZONE_DEVICE，则按 altmap 规则调整初始化范围
+ * [C] 遍历 [start_pfn, end_pfn) 中每一个 PFN
+ * [D] early init 阶段处理 memmap 重叠 / deferred init
+ * [E] 找到该 PFN 对应 struct page 并做单页初始化
+ * [F] hotplug 场景下把页标记为 Reserved
+ * [G] 若到达 pageblock 边界，则设置 pageblock migratetype
  */
 void __meminit memmap_init_range(unsigned long size, int nid, unsigned long zone,
 		unsigned long start_pfn, unsigned long zone_end_pfn,
 		enum meminit_context context,
 		struct vmem_altmap *altmap, int migratetype)
 {
+	/*
+	 * [A] 计算本次要初始化的结束 PFN
+	 *
+	 * end_pfn 是半开区间尾：
+	 *   [start_pfn, end_pfn)
+	 *
+	 * 也就是说，总共初始化 size 个 PFN。
+	 */
 	unsigned long pfn, end_pfn = start_pfn + size;
 	struct page *page;
 
+	/*
+	 * 记录目前为止 memmap 初始化涉及到的最高 PFN
+	 *
+	 * highest_memmap_pfn 是一个全局上界，
+	 * 表示“已经初始化过 struct page 元数据的最高 PFN”。
+	 *
+	 * 这里用 end_pfn - 1 是因为：
+	 *   区间是 [start_pfn, end_pfn)
+	 *   所以最后一个实际页是 end_pfn - 1
+	 *
+	 * 例如：
+	 *   start_pfn = 100, size = 10
+	 *   end_pfn   = 110
+	 *   实际最后一个 PFN 是 109
+	 */
 	if (highest_memmap_pfn < end_pfn - 1)
 		highest_memmap_pfn = end_pfn - 1;
 
 #ifdef CONFIG_ZONE_DEVICE
 	/*
-	 * Honor reservation requested by the driver for this ZONE_DEVICE
-	 * memory. We limit the total number of pages to initialize to just
-	 * those that might contain the memory mapping. We will defer the
-	 * ZONE_DEVICE page initialization until after we have released
-	 * the hotplug lock.
+	 * [B] ZONE_DEVICE 特殊处理
+	 *
+	 * ZONE_DEVICE 不是普通系统 RAM，而是设备私有内存/device memory，
+	 * 例如某些持久内存（pmem）、GPU/device private memory 等。
+	 *
+	 * 对这类内存，驱动可能通过 altmap 指定：
+	 * - 哪些 PFN 范围需要保留（reserve）
+	 * - 哪些 PFN 实际用于承载 vmemmap/memmap 元数据
+	 *
+	 * 这里的逻辑是：
+	 * 1. 如果是 ZONE_DEVICE，但没有 altmap，直接返回；
+	 *    因为不知道该初始化哪些 memmap 范围。
+	 *
+	 * 2. 如果 start_pfn 恰好是 altmap 的 base_pfn，
+	 *    则跳过 altmap->reserve 这部分保留页，不对它们做普通初始化。
+	 *
+	 * 3. 重新收缩 end_pfn，只初始化那些“可能实际包含内存映射”的页。
+	 *
+	 * 这些页的真正 page 初始化可能会被推迟到 hotplug 锁释放后再继续。
 	 */
 	if (zone == ZONE_DEVICE) {
 		if (!altmap)
 			return;
 
+		/*
+		 * 如果从 altmap 起始 PFN 开始初始化，
+		 * 先跳过驱动要求保留的 reserve 区域
+		 */
 		if (start_pfn == altmap->base_pfn)
 			start_pfn += altmap->reserve;
+
+		/*
+		 * end_pfn 不再使用 start_pfn + size，
+		 * 而是按 altmap 实际允许初始化的偏移范围来限制
+		 */
 		end_pfn = altmap->base_pfn + vmem_altmap_offset(altmap);
 	}
 #endif
 
+	/*
+	 * [C] 逐 PFN 遍历本次区间
+	 *
+	 * 注意这里不是按 pageblock 遍历，而是按“单个页面”遍历：
+	 * 每次循环处理一个 PFN 对应的 struct page。
+	 *
+	 * pageblock 相关的 migratetype 设置，是在后面的 pageblock 对齐点顺带做。
+	 */
 	for (pfn = start_pfn; pfn < end_pfn; ) {
 		/*
-		 * There can be holes in boot-time mem_map[]s handed to this
-		 * function.  They do not exist on hotplugged memory.
+		 * [D] 仅在 early boot 初始化场景下，处理两个特殊逻辑：
+		 *
+		 *   1. overlap_memmap_init()
+		 *   2. defer_init()
+		 *
+		 * 这两个分支都只在 MEMINIT_EARLY 下有意义；
+		 * 热插拔内存（MEMINIT_HOTPLUG）通常不会有 boot-time mem_map hole
+		 * 或 early deferred struct page init 这种情况。
 		 */
 		if (context == MEMINIT_EARLY) {
+			/*
+			 * [D-1] overlap_memmap_init(zone, &pfn)
+			 *
+			 * 作用：
+			 *   处理 boot-time mem_map/vmemmap 本身占用了物理内存的情况，
+			 *   避免把“承载 memmap 自己的那部分页”再当成普通内存页初始化。
+			 *
+			 * 为什么会有 overlap？
+			 *   在某些内存模型/架构下，memmap（struct page 数组自身）
+			 *   可能也放在普通物理内存中。
+			 *
+			 * 于是就会出现：
+			 *   “某些 PFN 对应的 struct page 元数据，恰好也存放在这批 PFN 覆盖的物理页里”
+			 *
+			 * 此时如果不特殊处理，就会发生“正在初始化描述自己的元数据区域”、
+			 * 或错误覆盖 memmap 存储区域的问题。
+			 *
+			 * overlap_memmap_init() 内部可能会推进 pfn，
+			 * 跳过这段重叠区域，因此这里如果返回 true 就直接 continue，
+			 * 进入下一轮，不再执行后面的单页初始化。
+			 */
 			if (overlap_memmap_init(zone, &pfn))
 				continue;
+
+			/*
+			 * [D-2] defer_init(nid, pfn, zone_end_pfn)
+			 *
+			 * 作用：
+			 *   判断当前是否要启用“deferred struct page init”
+			 *   （延迟初始化部分高端/后部内存的 struct page）
+			 *
+			 * 原因：
+			 *   机器内存特别大时，如果在早期启动阶段把全部 struct page
+			 *   一次性初始化完，启动会很慢。
+			 *
+			 * 所以内核允许：
+			 *   启动初期先初始化一部分必要内存，
+			 *   剩余部分的 page 描述符后续再由后台/后续流程补做初始化。
+			 *
+			 * 如果 defer_init() 返回 true：
+			 *   表示从当前 pfn 开始不再继续初始化了，
+			 *   直接 break，退出整个循环。
+			 */
 			if (defer_init(nid, pfn, zone_end_pfn))
 				break;
 		}
 
+		/*
+		 * [E] 根据 PFN 找到对应的 struct page
+		 *
+		 * pfn_to_page(pfn)：
+		 *   将 PFN 转换为其对应的 struct page *
+		 *
+		 * 这一步非常关键：
+		 *   后面真正初始化的是 page 描述符本身，而不是页内容。
+		 */
 		page = pfn_to_page(pfn);
+
+		/*
+		 * 初始化单个页描述符
+		 *
+		 * __init_single_page(page, pfn, zone, nid) 通常会完成：
+		 * - 设置该页所属 zone/node
+		 * - 设置 page->flags 的初始状态
+		 * - 清理/初始化一些基础字段
+		 * - 让这个 struct page 进入“已建立基础元数据”的状态
+		 *
+		 * 这里做的是“基础 page 元数据初始化”，
+		 * 不是“释放到伙伴系统可分配”。
+		 */
 		__init_single_page(page, pfn, zone, nid);
+
+		/*
+		 * [F] 热插拔内存场景下，将页显式标记为 Reserved
+		 *
+		 * 为什么只在 HOTPLUG 里这样做？
+		 *   热插拔内存接入系统时，刚初始化完 struct page 后，
+		 *   通常还不能立刻作为普通可分配页使用；
+		 *   需要后续更完整的 onlining / zone 管理 / buddy 接入流程。
+		 *
+		 * 所以先把它标记成 Reserved，防止被提前错误分配。
+		 *
+		 * 启动早期（MEMINIT_EARLY）时，整体逻辑本来就是：
+		 *   “起初都视为 reserved，后续 memblock_free_all() 再释放可用页”
+		 * 因此这里不需要单独再设。
+		 */
 		if (context == MEMINIT_HOTPLUG)
 			__SetPageReserved(page);
 
 		/*
-		 * Usually, we want to mark the pageblock MIGRATE_MOVABLE,
-		 * such that unmovable allocations won't be scattered all
-		 * over the place during system boot.
+		 * [G] 在 pageblock 对齐位置设置 pageblock migratetype
+		 *
+		 * pageblock：
+		 *   内存迁移/回收/反碎片管理使用的更大粒度块，
+		 *   一个 pageblock 包含多个连续页面。
+		 *
+		 * IS_ALIGNED(pfn, pageblock_nr_pages)：
+		 *   判断当前 pfn 是否是某个 pageblock 的起始页
+		 *
+		 * 只有在 pageblock 起点上，才需要设置该 pageblock 的 migratetype。
+		 *
+		 * 常见场景下会设为 MIGRATE_MOVABLE，目的在于：
+		 *   启动早期尽量把可移动页集中，
+		 *   避免不可移动分配（内核常驻对象等）过早打散到整个内存中，
+		 *   从而减轻长期内存碎片问题。
+		 *
+		 * 注意：
+		 *   这里只是设置 pageblock 的迁移类型标记；
+		 *   并不会在这里更新相关 zone 统计信息
+		 *   （例如 nr_isolate_pageblock 等）。
 		 */
 		if (IS_ALIGNED(pfn, pageblock_nr_pages)) {
 			set_pageblock_migratetype(page, migratetype);
+
+			/*
+			 * cond_resched():
+			 *   条件性让出 CPU
+			 *
+			 * 因为大内存机器上这个循环可能非常长，
+			 * 每处理一个 pageblock 边界就给调度器一个机会，
+			 * 避免长时间占用 CPU 导致系统响应变差。
+			 *
+			 * early boot 下这里未必总会真的调度，
+			 * 但这是一个“必要时可抢占/让出”的保护点。
+			 */
 			cond_resched();
 		}
+
+		/*
+		 * 继续处理下一个 PFN
+		 */
 		pfn++;
 	}
 }
@@ -7346,27 +7567,196 @@ static void __init init_unavailable_range(unsigned long spfn,
 			node, zone_names[zone], pgcnt);
 }
 
+/*
+ * memmap_init_zone_range()
+ *
+ * 作用：
+ * --------
+ * 把当前 memblock 给出的 [start_pfn, end_pfn) 这段“实际存在的物理内存”，
+ * 映射/归属到某个 zone 内，并为这段 PFN 对应的 struct page 做初始化。
+ *
+ * 同时，它还负责处理“空洞（hole）”：
+ * - 如果本次实际内存段的起点 start_pfn，比前一次处理结束位置 *hole_pfn 更靠后，
+ *   说明中间有一段 PFN 范围没有实际内存；
+ * - 那么这段 [*hole_pfn, start_pfn) 就是 unavailable range，需要调用
+ *   init_unavailable_range() 去初始化这些“洞”对应的 memmap。
+ *
+ * 参数含义：
+ * --------
+ * zone:
+ *   当前正在初始化的 zone（例如 DMA / DMA32 / Normal / Movable）
+ *
+ * start_pfn, end_pfn:
+ *   当前 memblock 提供的一段“该 node 上实际存在的物理内存区间”
+ *   注意是 PFN 半开区间 [start_pfn, end_pfn)
+ *
+ * hole_pfn:
+ *   记录“前一次已经处理到哪里了”的游标
+ *   - 若当前实际内存段起点 > *hole_pfn，说明中间存在 hole
+ *   - 本次处理完后，会把 *hole_pfn 更新为当前 end_pfn
+ *
+ * 整体逻辑：
+ * --------
+ * [A] 取出当前 zone 的边界
+ * [B] 用 clamp() 把 memblock 区间裁剪到 zone 内部
+ * [C] 若裁剪后为空，直接返回
+ * [D] 对当前实际存在的内存段做 struct page 初始化
+ * [E] 若前后存在 hole，则补初始化 unavailable range
+ * [F] 更新 hole_pfn，供后续区间继续使用
+ */
 static void __init memmap_init_zone_range(struct zone *zone,
 					  unsigned long start_pfn,
 					  unsigned long end_pfn,
 					  unsigned long *hole_pfn)
 {
+	/*
+	 * [A] 取得当前 zone 的 PFN 边界信息
+	 *
+	 * zone_start_pfn:
+	 *   当前 zone 的起始 PFN
+	 *
+	 * zone_end_pfn:
+	 *   当前 zone 的结束 PFN（半开区间尾）
+	 *   = zone 起始 PFN + zone 跨度页数 spanned_pages
+	 *
+	 * 这里要注意：
+	 * - spanned_pages 表示 zone 覆盖的总范围大小，
+	 *   包括 present pages 和 holes
+	 * - 因此 zone 的范围是“逻辑覆盖范围”，不一定每一页都真的有内存
+	 */
 	unsigned long zone_start_pfn = zone->zone_start_pfn;
 	unsigned long zone_end_pfn = zone_start_pfn + zone->spanned_pages;
+
+	/*
+	 * 当前 zone 所属 node id，以及 zone 在该 node 中的编号
+	 *
+	 * nid:
+	 *   NUMA node id
+	 *
+	 * zone_id:
+	 *   zone 的索引号，例如：
+	 *   ZONE_DMA / ZONE_DMA32 / ZONE_NORMAL / ZONE_MOVABLE ...
+	 *
+	 * 后续初始化 struct page 时，需要知道“这页属于哪个 node、哪个 zone”
+	 */
 	int nid = zone_to_nid(zone), zone_id = zone_idx(zone);
 
+	/*
+	 * [B] 将输入的 memblock 区间裁剪（clamp）到当前 zone 的范围内
+	 *
+	 * 原因：
+	 *   外层传进来的 [start_pfn, end_pfn) 是“某个 node 上的一段实际内存”，
+	 *   但这段区间未必完整落在当前 zone 里。
+	 *
+	 * 所以这里要把它限制到：
+	 *   [zone_start_pfn, zone_end_pfn)
+	 *
+	 * 例子：
+	 *   zone 范围:      [1000, 2000)
+	 *   输入区间:       [ 900, 1500)
+	 *   clamp 后得到:   [1000, 1500)
+	 *
+	 * 再例如：
+	 *   zone 范围:      [1000, 2000)
+	 *   输入区间:       [2100, 2500)
+	 *   clamp 后 start=end=2000，表示与本 zone 无交集
+	 */
 	start_pfn = clamp(start_pfn, zone_start_pfn, zone_end_pfn);
 	end_pfn = clamp(end_pfn, zone_start_pfn, zone_end_pfn);
 
+	/*
+	 * [C] 若裁剪后区间为空，则说明输入区间与当前 zone 没有交集
+	 *
+	 * 这里使用半开区间 [start_pfn, end_pfn)：
+	 * - start_pfn == end_pfn  -> 空区间
+	 * - start_pfn >  end_pfn  -> 理论上也视为无效
+	 *
+	 * 没有需要初始化的内容，直接返回
+	 */
 	if (start_pfn >= end_pfn)
 		return;
 
+	/*
+	 * [D] 初始化当前“实际存在内存段”对应的 memmap（struct page 数组）
+	 *
+	 * memmap_init_range() 作用：
+	 *   对 [start_pfn, end_pfn) 这段 PFN 所对应的 struct page 逐页初始化，
+	 *   设置 page->flags、所属 node/zone、初始 pageblock migratetype 等信息。
+	 *
+	 * 参数解释：
+	 *   end_pfn - start_pfn:
+	 *       本次要初始化的页数
+	 *
+	 *   nid:
+	 *       这些页属于哪个 NUMA node
+	 *
+	 *   zone_id:
+	 *       这些页属于哪个 zone
+	 *
+	 *   start_pfn:
+	 *       本次初始化的起始 PFN
+	 *
+	 *   zone_end_pfn:
+	 *       当前 zone 的结束 PFN
+	 *       这个参数会被底层用于边界控制或辅助判断
+	 *
+	 *   MEMINIT_EARLY:
+	 *       表示当前处于 early boot 的 memmap 初始化阶段
+	 *
+	 *   NULL:
+	 *       这里对应 context / altmap 等扩展参数，此处没有传入
+	 *
+	 *   MIGRATE_MOVABLE:
+	 *       初始化 pageblock 的默认迁移类型
+	 *       注意这并不意味着这些页将来一定只给 movable 用，
+	 *       而是 early 初始化阶段先给一个默认 pageblock migratetype
+	 *
+	 * 这里初始化的是“真实存在的物理内存页”的 struct page。
+	 */
 	memmap_init_range(end_pfn - start_pfn, nid, zone_id, start_pfn,
 			  zone_end_pfn, MEMINIT_EARLY, NULL, MIGRATE_MOVABLE);
 
+	/*
+	 * [E] 检查当前实际内存段前面是否存在 hole（空洞）
+	 *
+	 * 逻辑：
+	 *   *hole_pfn 记录的是“前一次处理结束的位置”
+	 *
+	 * 如果：
+	 *   *hole_pfn < start_pfn
+	 *
+	 * 就说明在：
+	 *   [*hole_pfn, start_pfn)
+	 * 这一段 PFN 范围内，没有实际存在的物理内存。
+	 *
+	 * 也就是说，这是一段 zone 内部的“空洞”：
+	 * - 它属于该 zone 的逻辑覆盖范围（spanned_pages 里算进去了）
+	 * - 但它不是 present memory
+	 *
+	 * 为什么 hole 也要处理？
+	 *   因为 vmemmap / memmap 往往要求整个 zone 覆盖范围内对应的
+	 *   struct page 元数据都要有一致处理，
+	 *   即使这些 PFN 实际不可用，也需要把对应 page 结构初始化成
+	 *   “reserved / unavailable” 一类状态，避免后续把这些洞当成普通内存使用。
+	 *
+	 * init_unavailable_range() 就是在做这个事：
+	 *   为 [*hole_pfn, start_pfn) 这一段“无可用物理页”的 PFN 范围，
+	 *   初始化对应的 struct page 元数据。
+	 */
 	if (*hole_pfn < start_pfn)
 		init_unavailable_range(*hole_pfn, start_pfn, zone_id, nid);
 
+	/*
+	 * [F] 更新 hole_pfn
+	 *
+	 * 当前这段实际存在内存处理完后，
+	 * 把“已处理到的位置”推进到 end_pfn。
+	 *
+	 * 后面如果还有新的实际内存段：
+	 * - 若新段紧挨着当前 end_pfn 开始，则没有 hole
+	 * - 若新段起点大于当前 end_pfn，则中间会形成新的 hole，
+	 *   下一次进入本函数时就会被上面的 [E] 逻辑识别出来
+	 */
 	*hole_pfn = end_pfn;
 }
 
