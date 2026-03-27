@@ -721,60 +721,241 @@ static void __init init_trampoline(void)
 #endif
 }
 
+/*
+ * init_mem_mapping()
+ *
+ * 作用概述：
+ * A. 做建立早期内存映射前的一些 CPU / 页表能力准备
+ * B. 计算需要建立 direct mapping 的物理内存上界
+ * C. 先建立 [0, ISA_END_ADDRESS) 的固定早期映射
+ * D. 初始化 trampoline 映射
+ * E. 为整个物理内存建立 direct mapping
+ *    - 如果 memblock 是 bottom-up 分配，则分两段 bottom-up 建图
+ *    - 否则按 top-down 方式建图
+ * F. 切换到新的内核页表，并刷新 TLB
+ * G. 调用平台/虚拟化相关钩子，最后做早期内存测试
+ *
+ * 背景理解：
+ * 在 x86 启动早期，虽然已经有初始页表可以让 CPU 进入长模式并执行内核代码，
+ * 但那套页表通常只是“够启动”的最小映射，不是完整的内核 direct mapping。
+ *
+ * 这个函数的任务，就是把系统物理内存大范围映射到内核线性地址空间，
+ * 使得后续内核可以通过固定偏移的线性地址直接访问物理内存。
+ *
+ * 对 x86_64 来说，这一套通常就是：
+ *   __va(phys) <-> __pa(virt)
+ * 背后的 direct mapping 区域。
+ */
 void __init init_mem_mapping(void)
 {
+	/*
+	 * end:
+	 *   本次需要建立 direct mapping 的物理地址上界（字节单位）
+	 */
 	unsigned long end;
 
+	/*
+	 * A1. 检查是否在启动阶段禁用 PTI（Page Table Isolation）
+	 *
+	 * PTI 是 Meltdown 缓解机制的一部分，会影响页表布局。
+	 * 这里先根据启动参数和平台能力做一次早期判断，
+	 * 以便后续页表建立逻辑采用正确策略。
+	 */
 	pti_check_boottime_disable();
+
+	/*
+	 * A2. 探测当前系统可使用的页大小映射能力
+	 *
+	 * 主要是确认后续建立 direct mapping 时，能否优先使用大页
+	 * （如 2MB / 1GB huge mapping），从而减少页表项数量，提高性能。
+	 */
 	probe_page_size_mask();
+
+	/*
+	 * A3. 设置 PCID（Process-Context ID）相关能力
+	 *
+	 * PCID 可以减少 CR3 切换带来的 TLB flush 开销。
+	 * 虽然此时系统还在非常早期阶段，但这里会先完成能力准备。
+	 */
 	setup_pcid();
 
 #ifdef CONFIG_X86_64
+	/*
+	 * B1. x86_64 下，映射上界取 max_pfn
+	 *
+	 * max_pfn:
+	 *   系统中“最高有效物理页帧号 + 1”
+	 *
+	 * 左移 PAGE_SHIFT 后，得到最高需要映射的物理地址上界 end。
+	 */
 	end = max_pfn << PAGE_SHIFT;
 #else
+	/*
+	 * B2. x86_32 下，一般只先处理 low memory，因此使用 max_low_pfn
+	 */
 	end = max_low_pfn << PAGE_SHIFT;
 #endif
 
-	/* the ISA range is always mapped regardless of memory holes */
+	/*
+	 * C. 先建立 [0, ISA_END_ADDRESS) 的映射
+	 *
+	 * ISA_END_ADDRESS 通常对应传统 ISA 低端地址范围结束位置。
+	 * 注释里的意思是：
+	 *   即使这段地址范围里存在内存空洞（memory holes），
+	 *   也始终建立映射。
+	 *
+	 * 为什么？
+	 * 因为这段低地址空间在早期启动中很特殊，很多传统 x86 早期访问、
+	 * BIOS/固件遗留区域、低端 trampoline 等都可能依赖它。
+	 *
+	 * init_memory_mapping(start, end, prot):
+	 *   为 [start, end) 建立页表映射，权限为 PAGE_KERNEL。
+	 */
 	init_memory_mapping(0, ISA_END_ADDRESS, PAGE_KERNEL);
 
-	/* Init the trampoline, possibly with KASLR memory offset */
+	/*
+	 * D. 初始化 trampoline 映射
+	 *
+	 * trampoline 是 x86 启动/切换/唤醒等路径中使用的一小段特殊代码区域。
+	 * 例如 AP 启动、实模式/低地址跳板等场景都可能依赖它。
+	 *
+	 * “possibly with KASLR memory offset” 表示：
+	 *   如果启用了 KASLR，trampoline 所关联的位置或映射可能需要考虑
+	 *   随机化后的内核物理/虚拟偏移。
+	 */
 	init_trampoline();
 
 	/*
-	 * If the allocation is in bottom-up direction, we setup direct mapping
-	 * in bottom-up, otherwise we setup direct mapping in top-down.
+	 * E. 建立剩余物理内存的 direct mapping
+	 *
+	 * 这里的核心目标是把 [ISA_END_ADDRESS, end) 这大段物理内存
+	 * 建立成内核线性映射。
+	 *
+	 * 但具体采用 bottom-up 还是 top-down，取决于 memblock 当前
+	 * 的早期分配策略。
+	 *
+	 * memblock_bottom_up() == true:
+	 *   说明早期内存分配器倾向于从低地址向高地址分配
+	 *
+	 * memblock_bottom_up() == false:
+	 *   则倾向于从高地址向低地址分配
+	 *
+	 * 页表本身也需要占用物理内存，所以 direct mapping 的建立顺序
+	 * 会影响“页表页”分配在什么位置。
 	 */
 	if (memblock_bottom_up()) {
+		/*
+		 * kernel_end:
+		 *   内核镜像结束地址 _end 对应的物理地址
+		 *
+		 * __pa_symbol(_end):
+		 *   把内核链接符号 _end 转成其实际物理地址
+		 *
+		 * _end 通常表示：
+		 *   内核镜像（text/data/bss 等）在内存中的末尾
+		 */
 		unsigned long kernel_end = __pa_symbol(_end);
 
 		/*
-		 * we need two separate calls here. This is because we want to
-		 * allocate page tables above the kernel. So we first map
-		 * [kernel_end, end) to make memory above the kernel be mapped
-		 * as soon as possible. And then use page tables allocated above
-		 * the kernel to map [ISA_END_ADDRESS, kernel_end).
+		 * 这里必须拆成两次 bottom-up 建图，而不是一次性
+		 * 映射 [ISA_END_ADDRESS, end)。
+		 *
+		 * 原因：
+		 *   希望“建立页表所需的新页表页”优先分配在内核镜像上方，
+		 *   避免页表分配压到内核镜像下面或与关键早期区域冲突。
+		 *
+		 * 所以第一步先映射 [kernel_end, end)：
+		 *   这样一来，内核镜像上方的大块内存会尽快进入 direct mapping，
+		 *   后续分配页表页时，就可以优先从内核上方分配。
 		 */
 		memory_map_bottom_up(kernel_end, end);
+
+		/*
+		 * 第二步再映射 [ISA_END_ADDRESS, kernel_end)
+		 *
+		 * 此时建立这部分映射所需的页表页，已经可以放到“内核镜像上方”
+		 * 已映射好的区域里了。
+		 *
+		 * 这是这个函数里比较关键的一个设计点：
+		 *   映射顺序不是随便定的，而是为了控制早期页表页的分配位置。
+		 */
 		memory_map_bottom_up(ISA_END_ADDRESS, kernel_end);
 	} else {
+		/*
+		 * 如果 memblock 当前不是 bottom-up 分配，
+		 * 就直接采用 top-down 方式映射整个 [ISA_END_ADDRESS, end)。
+		 *
+		 * 也就是从高地址向低地址推进建立 direct mapping。
+		 */
 		memory_map_top_down(ISA_END_ADDRESS, end);
 	}
 
 #ifdef CONFIG_X86_64
+	/*
+	 * F1. x86_64 下，如果 max_pfn > max_low_pfn，说明系统存在 high memory
+	 *     以上的更多物理页（或者说 max_low_pfn 还未更新到完整范围）。
+	 *
+	 * 建立完整 direct mapping 后，就可以把 max_low_pfn 直接提升到 max_pfn。
+	 *
+	 * 注释 “can we preserve max_low_pfn ?” 的意思更像历史兼容上的疑问，
+	 * 但实际这里就是把 low pfn 上界扩展为整个物理内存上界。
+	 */
 	if (max_pfn > max_low_pfn) {
 		/* can we preserve max_low_pfn ?*/
 		max_low_pfn = max_pfn;
 	}
 #else
+	/*
+	 * F2. x86_32 下，还需要初始化 early ioremap 所使用的页表范围
+	 *
+	 * 因为 32 位下地址空间更紧张，很多早期映射逻辑和 64 位不一样。
+	 */
 	early_ioremap_page_table_range_init();
 #endif
 
+	/*
+	 * G1. 把 CR3 切换到 swaper_pg_dir
+	 *
+	 * swapper_pg_dir:
+	 *   内核主页全局目录（顶级页表）
+	 *
+	 * 前面建立好的 direct mapping 都已经填进这套主内核页表里，
+	 * 现在正式加载它，让 CPU 开始使用完整的内核页表。
+	 */
 	load_cr3(swapper_pg_dir);
+
+	/*
+	 * G2. 全量刷新 TLB
+	 *
+	 * 因为 CR3 和页表内容刚刚发生了重要变化，
+	 * 必须刷新 TLB，确保 CPU 后续地址转换使用的是最新映射。
+	 */
 	__flush_tlb_all();
 
+	/*
+	 * G3. 调用架构/平台相关的扩展钩子
+	 *
+	 * x86_init.hyper.init_mem_mapping()：
+	 *   这是 hypervisor / 平台层预留的初始化钩子，
+	 *   某些虚拟化环境或平台特定场景下，可能需要在这里对内存映射
+	 *   做额外处理。
+	 */
 	x86_init.hyper.init_mem_mapping();
 
+	/*
+	 * G4. 进行早期内存测试
+	 *
+	 * early_memtest(start, end):
+	 *   对已映射的物理内存范围做一个早期检测
+	 *
+	 * 这里测试区间是：
+	 *   [0, max_pfn_mapped << PAGE_SHIFT)
+	 *
+	 * max_pfn_mapped:
+	 *   当前已经成功建立映射的最大 PFN 上界
+	 *
+	 * 这个步骤主要用于尽早发现部分物理内存错误。
+	 */
 	early_memtest(0, max_pfn_mapped << PAGE_SHIFT);
 }
 

@@ -552,37 +552,173 @@ failed:
 }
 
 /*
- * Allocate the accumulated non-linear sections, allocate a mem_map
- * for each and record the physical to section mapping.
+ * sparse_init()
+ *
+ * 作用概述：
+ * A. 遍历系统中所有“present section”（即物理上存在内存的 section）
+ * B. 按 NUMA node 对这些 section 进行分组
+ * C. 对每个 node 调用 sparse_init_nid()，为该 node 下的 section 初始化
+ *    sparsemem 相关的数据结构以及 mem_map / usemap 等内容
+ * D. 最后补上最后一个 node 的初始化
+ * E. 打印 vmemmap 建立的最终信息
+ *
+ * 背景说明：
+ * 在 SPARSEMEM 模型下，物理内存不是简单连续管理的，而是按 section 为单位组织。
+ * 每个 section 对应一个 struct mem_section，真正的 struct page 数组（vmemmap）
+ * 也是按 section / node 逐步建立和关联起来的。
+ *
+ * 这个函数的核心思路不是“逐页初始化”，而是：
+ *   先以 section 为粒度扫描所有 present memory，
+ *   再把“属于同一个 NUMA node 的连续 present section”合并成一组，
+ *   最后按 node 批量初始化。
  */
 void __init sparse_init(void)
 {
+	/*
+	 * pnum_begin:
+	 *   当前这一段连续 present section 的起始 section 编号
+	 *
+	 * pnum_end:
+	 *   for_each_present_section_nr() 迭代变量，
+	 *   指向当前扫描到的 section 编号
+	 *
+	 * map_count:
+	 *   当前这段连续 section 一共包含多少个 section
+	 *   初始为 1，因为下面会从 pnum_begin + 1 开始扫描
+	 */
 	unsigned long pnum_end, pnum_begin, map_count = 1;
+
+	/*
+	 * nid_begin:
+	 *   当前这段连续 section 所属的 NUMA node id
+	 */
 	int nid_begin;
 
+	/*
+	 * A. 建立“哪些内存 section 是 present 的”这一基础信息
+	 *
+	 * memblocks_present() 会根据早期 memblock 记录下来的物理内存布局，
+	 * 标记对应 section 为 present。
+	 *
+	 * 可以理解为：
+	 *   它先告诉 sparse memory 子系统：
+	 *   “哪些 section 里实际上有物理内存，后面只处理这些 section”
+	 */
 	memblocks_present();
 
+	/*
+	 * B. 找到系统中第一个 present section
+	 *
+	 * first_present_section_nr() 返回第一个存在内存的 section 编号。
+	 * 后面整个扫描都从这里开始。
+	 */
 	pnum_begin = first_present_section_nr();
+
+	/*
+	 * 根据第一个 present section，找到它所属的 NUMA node
+	 *
+	 * __nr_to_section(pnum_begin):
+	 *   把 section 编号转换成对应的 mem_section
+	 *
+	 * sparse_early_nid(...):
+	 *   在早期 sparse 初始化阶段，根据 section 判断它属于哪个 node
+	 */
 	nid_begin = sparse_early_nid(__nr_to_section(pnum_begin));
 
-	/* Setup pageblock_order for HUGETLB_PAGE_SIZE_VARIABLE */
+	/*
+	 * C. 设置 pageblock_order
+	 *
+	 * pageblock 是内存迁移、反碎片、hugepage 等机制使用的重要粒度。
+	 * 在某些配置下（如 HUGETLB_PAGE_SIZE_VARIABLE），pageblock_order
+	 * 需要在这里尽早确定。
+	 *
+	 * 后续很多内存初始化逻辑会依赖这个粒度。
+	 */
 	set_pageblock_order();
 
+	/*
+	 * D. 遍历所有剩余的 present section
+	 *
+	 * 从 pnum_begin + 1 开始，因为第一个 present section 已经作为
+	 * 当前分组的起点处理了。
+	 *
+	 * 这个循环的目标是：
+	 *   把“属于同一个 nid 的连续 present section”聚合在一起。
+	 *
+	 * 一旦发现当前扫描到的 section 所属 node 发生变化，
+	 * 就说明前面那一段 [pnum_begin, pnum_end) 已经结束，
+	 * 需要立刻对前一个 node 做一次 sparse_init_nid() 初始化。
+	 */
 	for_each_present_section_nr(pnum_begin + 1, pnum_end) {
+		/*
+		 * 取出当前扫描到的 section 所属的 node id
+		 */
 		int nid = sparse_early_nid(__nr_to_section(pnum_end));
 
+		/*
+		 * 如果当前 section 仍然属于当前分组所在的 node，
+		 * 说明这一段连续区间还可以继续扩展。
+		 *
+		 * map_count++ 表示当前 node 下连续 section 数量再加 1。
+		 */
 		if (nid == nid_begin) {
 			map_count++;
 			continue;
 		}
-		/* Init node with sections in range [pnum_begin, pnum_end) */
+
+		/*
+		 * 如果执行到这里，说明 node 发生了切换：
+		 *
+		 * 之前累计的这一段 [pnum_begin, pnum_end)
+		 * 都属于 nid_begin 这个 node，
+		 * 现在要先把这一段交给 sparse_init_nid() 初始化。
+		 *
+		 * 参数含义：
+		 *   nid_begin  : 当前要初始化的 node
+		 *   pnum_begin : 这一段起始 section 编号
+		 *   pnum_end   : 这一段结束 section 编号（开区间右边界）
+		 *   map_count  : 这一段包含的 section 数量
+		 *
+		 * 注意这里区间是 [pnum_begin, pnum_end)，
+		 * 即包含 pnum_begin，不包含 pnum_end。
+		 */
 		sparse_init_nid(nid_begin, pnum_begin, pnum_end, map_count);
+
+		/*
+		 * 下面开始切换到新的 node 分组：
+		 *
+		 * nid_begin = nid;
+		 *   当前分组所属 node 变成新 node
+		 *
+		 * pnum_begin = pnum_end;
+		 *   新分组从当前这个 section 开始
+		 *
+		 * map_count = 1;
+		 *   当前 section 自己先算 1 个
+		 */
 		nid_begin = nid;
 		pnum_begin = pnum_end;
 		map_count = 1;
 	}
-	/* cover the last node */
+
+	/*
+	 * E. 循环结束后，最后一个 node 的那一段还没有提交初始化，
+	 *    所以这里需要补一次。
+	 *
+	 * 因为 for_each_present_section_nr() 只会在“发现 node 切换”时
+	 * 处理前一段，而最后一段不会自动触发切换条件。
+	 *
+	 * 所以必须在循环外手动处理最后累计下来的区间。
+	 */
 	sparse_init_nid(nid_begin, pnum_begin, pnum_end, map_count);
+
+	/*
+	 * F. 打印最后一次 vmemmap 填充信息
+	 *
+	 * sparse/vmemmap 初始化过程中，vmemmap 的建立可能是分段进行的，
+	 * 这个函数用于输出最后一段尚未打印的 vmemmap populate 信息，
+	 * 便于调试和观察内存模型初始化过程。
+	 */
 	vmemmap_populate_print_last();
 }
 

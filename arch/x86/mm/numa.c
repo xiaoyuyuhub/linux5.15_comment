@@ -718,23 +718,110 @@ static int __init dummy_numa_init(void)
 /**
  * x86_numa_init - Initialize NUMA
  *
- * Try each configured NUMA initialization method until one succeeds.  The
- * last fallback is dummy single node config encompassing whole memory and
- * never fails.
+ * A. NUMA 初始化总入口
+ *    这是 x86 架构下 NUMA 拓扑初始化的统一入口函数。
+ *
+ * B. 初始化策略
+ *    如果用户没有通过启动参数显式关闭 NUMA（numa_off == 0），
+ *    则按“优先级顺序”尝试多种 NUMA 发现/初始化方法：
+ *
+ *      1) ACPI NUMA
+ *      2) AMD 特定 NUMA
+ *
+ *    只要其中任意一种成功，函数就直接返回，不再继续尝试后续方法。
+ *
+ * C. 最终兜底
+ *    如果：
+ *      - NUMA 被关闭了；或者
+ *      - 所有真实 NUMA 探测方法都失败了；
+ *
+ *    则使用 dummy_numa_init() 构造一个“伪 NUMA”环境：
+ *      - 整个系统只有 1 个 node
+ *      - 全部物理内存都归到这个 node
+ *
+ *    这样后续内存管理代码仍然可以按统一 NUMA 框架继续执行。
+ *
+ * D. 为什么一定要有 dummy fallback
+ *    Linux 内核后续很多内存管理逻辑（pgdat、zone、zonelist、per-node 数据结构等）
+ *    都依赖 node 概念。即使硬件实际上不是 NUMA，或者 NUMA 拓扑解析失败，
+ *    内核仍然希望得到一个最小可用的 node 拓扑。
+ *    因此 dummy 单节点方案永远不会失败。
  */
 void __init x86_numa_init(void)
 {
+	/*
+	 * A. 如果没有通过启动参数关闭 NUMA，
+	 *    就尝试真正的 NUMA 拓扑发现方式。
+	 *
+	 * numa_off:
+	 *   表示是否禁用 NUMA。
+	 *   常见来源是内核启动参数，比如 "numa=off"。
+	 *
+	 * !numa_off:
+	 *   说明 NUMA 功能允许启用，可以继续探测真实硬件拓扑。
+	 */
 	if (!numa_off) {
+
 #ifdef CONFIG_ACPI_NUMA
+		/*
+		 * B1. 先尝试 ACPI NUMA 初始化
+		 *
+		 * ACPI NUMA 是最常见、最标准的一种 NUMA 拓扑发现方式，
+		 * 通常通过解析 ACPI 的 SRAT / SLIT 等表，获得：
+		 *   - node 与 CPU 的对应关系
+		 *   - node 与内存区域的对应关系
+		 *   - node 间距离信息
+		 *
+		 * numa_init(init_func):
+		 *   是一个统一封装，它会调用具体的 init_func 去做初始化。
+		 *
+		 * 返回值约定：
+		 *   这里 if (!numa_init(...)) return;
+		 *   说明返回 0 表示成功，非 0 表示失败。
+		 *
+		 * 因此：
+		 *   - 成功：直接 return，NUMA 初始化结束
+		 *   - 失败：继续尝试后续方法
+		 */
 		if (!numa_init(x86_acpi_numa_init))
 			return;
 #endif
+
 #ifdef CONFIG_AMD_NUMA
+		/*
+		 * B2. 如果 ACPI NUMA 不成功，再尝试 AMD 特定 NUMA 初始化
+		 *
+		 * 某些 AMD 平台可以通过特定机制提供 NUMA 拓扑信息，
+		 * 因此这里作为 ACPI 之后的备选方案。
+		 *
+		 * 同样：
+		 *   - 返回 0 表示成功，直接 return
+		 *   - 非 0 表示失败，继续走兜底逻辑
+		 */
 		if (!numa_init(amd_numa_init))
 			return;
 #endif
 	}
 
+	/*
+	 * C. 兜底：使用 dummy NUMA 初始化
+	 *
+	 * 到这里说明两种情况之一：
+	 *
+	 * 1) NUMA 被关闭了（numa_off == 1）
+	 * 2) 前面的真实 NUMA 探测方法都失败了
+	 *
+	 * dummy_numa_init() 会构造一个单节点 NUMA 视图：
+	 *   - 系统只有一个 node（通常是 node 0）
+	 *   - 所有 CPU 和所有内存都归到这个 node
+	 *
+	 * 这样后续：
+	 *   NODE_DATA(nid)
+	 *   zone_sizes_init()
+	 *   free_area_init()
+	 *   build_all_zonelists()
+	 * 等流程都可以继续按统一 node/zone 框架运行。
+	 */
 	numa_init(dummy_numa_init);
 }
 

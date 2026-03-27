@@ -3084,14 +3084,49 @@ do_steal:
 /*
  * Do the hard work of removing an element from the buddy allocator.
  * Call me with the zone->lock already held.
+ *
+ * 真正去 buddy（zone->free_area[]）里取块的核心函数之一。
+ *
+ * 注意：
+ * 1. 调用这个函数时，zone->lock 必须已经拿住
+ * 2. 它只处理“当前这个 zone 内部”的分配
+ * 3. 它不做 zonelist 扫描，那是 get_page_from_freelist() 的事情
+ * 4. 它也不做 slowpath reclaim，那是 __alloc_pages_slowpath() 的事情
+ *
+ * 它主要做三件事：
+ *   - 先考虑 CMA 特殊分配
+ *   - 再尝试 __rmqueue_smallest() 按当前 migratetype 直接拿
+ *   - 如果失败，再尝试 CMA fallback 或 migratetype fallback
  */
 static __always_inline struct page *
 __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 						unsigned int alloc_flags)
 {
+	/*
+	 * page:
+	 *   最终成功分配到的页块头 page。
+	 */
 	struct page *page;
 
+	/*
+	 * 只有在启用了 CONFIG_CMA 时，下面这段 CMA 逻辑才有意义。
+	 *
+	 * CMA (Contiguous Memory Allocator)：
+	 *   用于给设备等场景保留可做大块连续分配的区域。
+	 */
 	if (IS_ENABLED(CONFIG_CMA)) {
+		/*
+		 * 这里做的是一个“优先从 CMA 区域取页”的平衡策略：
+		 *
+		 * 如果当前分配允许使用 CMA（ALLOC_CMA），
+		 * 并且当前 zone 中的空闲 CMA 页数超过总空闲页数的一半，
+		 * 那么优先尝试从 CMA 区域取块。
+		 *
+		 * 目的：
+		 *   对于 movable 分配，不要总是只从普通 movable 区域取，
+		 *   当 zone 的大量空闲页其实集中在 CMA 区域时，
+		 *   适当地从 CMA 拿，可以平衡普通区域和 CMA 区域的使用。
+		 */
 		/*
 		 * Balance movable allocations between regular and CMA areas by
 		 * allocating from CMA when over half of the zone's free memory
@@ -3100,24 +3135,99 @@ __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 		if (alloc_flags & ALLOC_CMA &&
 		    zone_page_state(zone, NR_FREE_CMA_PAGES) >
 		    zone_page_state(zone, NR_FREE_PAGES) / 2) {
+
+			/*
+			 * __rmqueue_cma_fallback(zone, order)
+			 *
+			 * 尝试从 CMA 区域拿一个 order 阶的块。
+			 *
+			 * 成功：
+			 *   page != NULL
+			 *   直接跳到 out 返回
+			 */
 			page = __rmqueue_cma_fallback(zone, order);
 			if (page)
 				goto out;
 		}
 	}
+
 retry:
+	/*
+	 * 第一优先路径：
+	 *   按当前 migratetype，直接从 buddy 中找最小满足的块。
+	 *
+	 * __rmqueue_smallest():
+	 *   - 优先从 free_area[order] 的对应 migratetype 链表找
+	 *   - 没有就往更高阶找
+	 *   - 找到后通过 expand() 逐级拆分到目标 order
+	 *
+	 * 这是“最直接、最理想”的 buddy 分配路径。
+	 */
 	page = __rmqueue_smallest(zone, order, migratetype);
+
+	/*
+	 * 如果这条最理想路径失败了：
+	 */
 	if (unlikely(!page)) {
+
+		/*
+		 * 如果当前分配允许使用 CMA，
+		 * 那么再尝试一次 CMA fallback。
+		 *
+		 * 为什么前面已经试过，这里还要再试？
+		 *
+		 * 因为前面那次“优先从 CMA”只在一个更严格的条件下触发：
+		 *   free CMA pages > free total pages / 2
+		 *
+		 * 这里只要 alloc_flags 允许 CMA，就再给 CMA 一次机会，
+		 * 作为普通 migratetype 直接取块失败后的备用路径。
+		 */
 		if (alloc_flags & ALLOC_CMA)
 			page = __rmqueue_cma_fallback(zone, order);
 
+		/*
+		 * 如果 CMA fallback 也失败，
+		 * 再尝试 migratetype fallback。
+		 *
+		 * __rmqueue_fallback(zone, order, migratetype, alloc_flags)
+		 *
+		 * 作用：
+		 *   - 当指定 migratetype 的 free_list 没有可用块时，
+		 *   - 尝试从其它 migratetype 的 free_list 借块
+		 *   - 必要时还会触发 pageblock 迁移类型的调整/偷块等操作
+		 *
+		 * 注意：
+		 *   这个函数返回的是 “是否成功制造出可重试条件”，
+		 *   不是直接返回 page。
+		 *
+		 * 如果它返回 true，说明：
+		 *   buddy 的内部状态已经被调整过了，
+		 *   现在值得重新回到 retry，再试一次 __rmqueue_smallest()。
+		 *
+		 * 所以这里不是：
+		 *   page = __rmqueue_fallback(...)
+		 *
+		 * 而是：
+		 *   如果 fallback 成功调整好环境 -> goto retry
+		 */
 		if (!page && __rmqueue_fallback(zone, order, migratetype,
 								alloc_flags))
 			goto retry;
 	}
+
 out:
+	/*
+	 * 如果最终成功分到 page：
+	 *   记录 trace 事件，说明在 zone 锁保护下完成了一次页分配。
+	 */
 	if (page)
 		trace_mm_page_alloc_zone_locked(page, order, migratetype);
+
+	/*
+	 * 返回：
+	 *   成功 -> struct page*
+	 *   失败 -> NULL
+	 */
 	return page;
 }
 
@@ -3125,27 +3235,118 @@ out:
  * Obtain a specified number of elements from the buddy allocator, all under
  * a single hold of the lock, for efficiency.  Add them to the supplied list.
  * Returns the number of new pages which were placed at *list.
+ *
+ * 从 buddy 分配器中批量取出指定数量的页块，
+ * 在一次持有 zone->lock 的临界区内完成，以提高效率。
+ *
+ * 然后把成功取到的页块挂到调用者提供的链表 list 上。
+ *
+ * 返回值：
+ *   返回“真正成功挂到 list 上的块数”
+ *   注意：这不一定等于循环次数 i，因为某些 page 可能被 check_pcp_refill() 过滤掉。
  */
 static int rmqueue_bulk(struct zone *zone, unsigned int order,
 			unsigned long count, struct list_head *list,
 			int migratetype, unsigned int alloc_flags)
 {
+	/*
+	 * i:
+	 *   循环计数器，表示已经尝试从 buddy 取了多少次。
+	 *
+	 * allocated:
+	 *   真正成功加入 list 的块数。
+	 *
+	 * 这两个不一定相等！
+	 */
 	int i, allocated = 0;
 
+	/*
+	 * 注释含义：
+	 * 调用到这里时，外层 PCP 路径已经持有 local_lock_irq，
+	 * 对 PCP 路径来说，这在 PREEMPT_RT 和普通内核配置下，
+	 * 已经相当于做了与 spin_lock_irqsave 类似的本地保护。
+	 *
+	 * 但这里仍然需要再拿 zone->lock，
+	 * 因为 buddy 的 free_area[] 是 zone 级共享结构，必须用 zone 锁保护。
+	 */
 	/*
 	 * local_lock_irq held so equivalent to spin_lock_irqsave for
 	 * both PREEMPT_RT and non-PREEMPT_RT configurations.
 	 */
+
+	/*
+	 * 拿 zone 的自旋锁，开始进入 buddy 临界区。
+	 *
+	 * 后面 __rmqueue() 会操作：
+	 *   zone->free_area[]
+	 *   各 order 的空闲链表
+	 *   migratetype fallback 等
+	 *
+	 * 所以必须持有 zone->lock。
+	 */
 	spin_lock(&zone->lock);
+
+	/*
+	 * 循环 count 次，尝试批量取块。
+	 *
+	 * 注意：
+	 *   这里一次加锁，循环批量取多个块，
+	 *   这是它“bulk”的意义所在：
+	 *   比起每取一个块都单独加解锁，效率高很多。
+	 */
 	for (i = 0; i < count; ++i) {
+
+		/*
+		 * 从 buddy 中分配一个 order 阶、指定 migratetype 的块。
+		 *
+		 * __rmqueue():
+		 *   - 可能直接命中对应 free_list
+		 *   - 可能 fallback
+		 *   - 可能调用 __rmqueue_smallest()/expand() 拆分更大块
+		 *
+		 * 返回：
+		 *   - 成功：块头 page
+		 *   - 失败：NULL
+		 */
 		struct page *page = __rmqueue(zone, order, migratetype,
 								alloc_flags);
+
+		/*
+		 * 如果这次从 buddy 没拿到块，则提前终止批量 refill。
+		 *
+		 * 不再继续循环，因为后面大概率也取不到。
+		 */
 		if (unlikely(page == NULL))
 			break;
 
+		/*
+		 * check_pcp_refill(page):
+		 *   检查这个 page 是否适合放入 PCP refill 链表。
+		 *
+		 * 如果返回 true，则跳过当前 page，不把它加入 list。
+		 *
+		 * 注意：
+		 *   这里即便 continue，说明这个 page 已经从 buddy 取出来了，
+		 *   所以后面统计时仍然要算进“从 buddy 拿走的页数”。
+		 */
 		if (unlikely(check_pcp_refill(page)))
 			continue;
 
+		/*
+		 * 把 page 挂到调用者提供的 list 尾部。
+		 *
+		 * list_add_tail():
+		 *   追加到链表尾，而不是头部。
+		 *
+		 * 这么做的意义在下面注释里已经说明：
+		 *   expand() 拆出来的 buddy pages 到这里时通常是按物理页号顺序到达的，
+		 *   把它们按尾插保持顺序，
+		 *   这样最终 PCP 链表中的页块在某些情况下也维持物理顺序。
+		 *
+		 * 物理顺序的好处：
+		 *   对某些 IO 设备更友好，
+		 *   因为设备可能可以按页号顺序更容易做前向合并/请求合并。
+		 */
 		/*
 		 * Split buddy pages returned by expand() are received here in
 		 * physical page order. The page is added to the tail of
@@ -3157,12 +3358,41 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 		 * pages are ordered properly.
 		 */
 		list_add_tail(&page->lru, list);
+
+		/*
+		 * 真正成功加入 PCP refill 链表的块数 +1
+		 */
 		allocated++;
+
+		/*
+		 * 如果这个块来自 CMA migratetype，
+		 * 那么 zone 的 NR_FREE_CMA_PAGES 统计也要减少。
+		 *
+		 * 因为这批页现在已经不再空闲地属于 CMA free pages 了。
+		 *
+		 * 减少的页数是 2^order，即 (1 << order)
+		 */
 		if (is_migrate_cma(get_pcppage_migratetype(page)))
 			__mod_zone_page_state(zone, NR_FREE_CMA_PAGES,
 					      -(1 << order));
 	}
 
+	/*
+	 * 这里是一个很关键的统计点，注释也特意强调了：
+	 *
+	 * i:
+	 *   表示从 buddy 里“成功取出了多少个块”
+	 *   就算其中有些 page 因 check_pcp_refill() 没有加入 list，
+	 *   也依然已经从 buddy free_area[] 里移除了。
+	 *
+	 * allocated:
+	 *   只是“成功挂进 PCP list 的块数”
+	 *
+	 * 所以更新 NR_FREE_PAGES 时，必须按 i 来减，
+	 * 不能按 allocated 来减。
+	 *
+	 * 减少的总页数 = i << order
+	 */
 	/*
 	 * i pages were removed from the buddy list even if some leak due
 	 * to check_pcp_refill failing so adjust NR_FREE_PAGES based
@@ -3170,7 +3400,15 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 	 * pages added to the pcp list.
 	 */
 	__mod_zone_page_state(zone, NR_FREE_PAGES, -(i << order));
+
+	/*
+	 * 释放 zone 锁
+	 */
 	spin_unlock(&zone->lock);
+
+	/*
+	 * 返回真正挂进 PCP 链表的块数
+	 */
 	return allocated;
 }
 
@@ -3712,6 +3950,16 @@ static inline void zone_statistics(struct zone *preferred_zone, struct zone *z,
 }
 
 /* Remove page from the per-cpu list, caller must protect the list */
+/*
+ * 从 per-cpu list (PCP) 中取出一个页块。
+ *
+ * 注意：
+ *   调用者必须已经保护好 PCP 链表（也就是外层已经加了 PCP 相关锁）。
+ *
+ * 这个函数做两件事：
+ *   1. 如果 PCP 链表为空，则从 buddy 批量搬一批页进来（refill）
+ *   2. 从 PCP 链表头取出一个页块返回
+ */
 static inline
 struct page *__rmqueue_pcplist(struct zone *zone, unsigned int order,
 			int migratetype,
@@ -3719,13 +3967,65 @@ struct page *__rmqueue_pcplist(struct zone *zone, unsigned int order,
 			struct per_cpu_pages *pcp,
 			struct list_head *list)
 {
+	/*
+	 * page:
+	 *   最终取到的页块头 page。
+	 */
 	struct page *page;
 
+	/*
+	 * do-while 的原因：
+	 *   取出的 page 还要经过 check_new_pcp(page) 检查。
+	 *   如果检查失败，则继续取下一个。
+	 *
+	 * 正常情况下通常只会循环一次。
+	 */
 	do {
+		/*
+		 * 如果当前 PCP 链表为空：
+		 *   说明本地小缓存已经没有当前 order/migratetype 对应的页块了，
+		 *   需要从 buddy 批量搬运(refill)一批进来。
+		 */
 		if (list_empty(list)) {
+
+			/*
+			 * batch:
+			 *   PCP 每次从 buddy 批量取页时的“批量大小”。
+			 *
+			 * pcp->batch 表示该 PCP 的默认批量大小。
+			 * 这里先读出来。
+			 */
 			int batch = READ_ONCE(pcp->batch);
+
+			/*
+			 * alloced:
+			 *   实际本次从 buddy 批量搬进 PCP 的“块数”。
+			 *
+			 * 注意：
+			 *   这里是“块数”，不是页数。
+			 *   最后更新 pcp->count 时，还要再乘以 (1 << order)。
+			 */
 			int alloced;
 
+			/*
+			 * 如果 batch > 1，则根据 order 对 batch 做缩放。
+			 *
+			 * 为什么？
+			 *   因为高阶页块更大，一个块就包含更多页。
+			 *   如果仍然按 order-0 的 batch 去 refill，
+			 *   一次搬太多高阶块，会让 PCP 占太多内存，不合理。
+			 *
+			 * 逻辑：
+			 *   batch = max(batch >> order, 2);
+			 *
+			 * 含义：
+			 *   - order 越大，batch 越小
+			 *   - 但至少保证 batch = 2
+			 *
+			 * 注释里还提到：
+			 *   batch 可能为 1，特别是小 zone 或 boot pageset 情况，
+			 *   那种情况下 PCP 不应该长期缓存 free pages。
+			 */
 			/*
 			 * Scale batch relative to order if batch implies
 			 * free pages can be stored on the PCP. Batch can
@@ -3735,36 +4035,174 @@ struct page *__rmqueue_pcplist(struct zone *zone, unsigned int order,
 			 */
 			if (batch > 1)
 				batch = max(batch >> order, 2);
+
+			/*
+			 * rmqueue_bulk():
+			 *   从 zone 的 buddy 中批量取出 batch 个 order 阶页块，
+			 *   挂到当前 PCP 的 list 链表上。
+			 *
+			 * 参数：
+			 *   zone         - 当前 zone
+			 *   order        - 当前请求阶数
+			 *   batch        - 想批量搬多少个块
+			 *   list         - 搬到哪个 PCP 链表
+			 *   migratetype  - 当前迁移类型
+			 *   alloc_flags  - allocator 内部标志
+			 *
+			 * 返回值 alloced：
+			 *   实际成功搬进来的块数（可能小于 batch）
+			 */
 			alloced = rmqueue_bulk(zone, order,
 					batch, list,
 					migratetype, alloc_flags);
 
+			/*
+			 * 更新 pcp->count：
+			 *
+			 * pcp->count 表示当前 PCP 中缓存的“页数”，不是块数。
+			 *
+			 * alloced 是块数，
+			 * 每个块大小是 2^order pages，
+			 * 所以新增页数是：
+			 *   alloced << order
+			 */
 			pcp->count += alloced << order;
+
+			/*
+			 * 如果 refill 之后 list 还是空：
+			 *   说明 buddy 那边也没成功拿到页
+			 *   那么直接返回 NULL。
+			 *
+			 * 这表示：
+			 *   当前 PCP 路径失败了。
+			 */
 			if (unlikely(list_empty(list)))
 				return NULL;
 		}
 
+		/*
+		 * 走到这里说明 list 非空。
+		 *
+		 * list_first_entry(list, struct page, lru)：
+		 *   从 PCP 链表头取出第一个 page。
+		 *
+		 * 为什么用 lru 字段？
+		 *   因为 struct page 中常用 lru/list_head 这类通用链表节点
+		 *   来把 page 挂到各种链表里。
+		 *   在这里，它被复用来挂 PCP 链表。
+		 */
 		page = list_first_entry(list, struct page, lru);
+
+		/*
+		 * 把这个 page 从 PCP 链表中摘掉。
+		 */
 		list_del(&page->lru);
+
+		/*
+		 * PCP 的缓存页数减少。
+		 *
+		 * 取走的是一个 order 阶块，
+		 * 所以减少的页数是 2^order，即 (1 << order)。
+		 */
 		pcp->count -= 1 << order;
+
+	/*
+	 * check_new_pcp(page):
+	 *   对从 PCP 取出的 page 做检查。
+	 *
+	 * 如果检查失败，循环继续，再从 list 中取下一个。
+	 * 如果检查通过，退出循环。
+	 */
 	} while (check_new_pcp(page));
 
+	/*
+	 * 返回从 PCP 中成功拿到的页块头 page。
+	 */
 	return page;
 }
 
 /* Lock and remove page from the per-cpu list */
+/*
+ * 从 per-cpu list（PCP）中加锁取页。
+ *
+ * 作用：
+ *   这是 zone 内部分配的“快路径”之一。
+ *   优先尝试从当前 CPU 对应的 per-cpu pageset 中拿页，
+ *   这样可以减少对 zone->lock（buddy 全局锁）的争用。
+ */
 static struct page *rmqueue_pcplist(struct zone *preferred_zone,
 			struct zone *zone, unsigned int order,
 			gfp_t gfp_flags, int migratetype,
 			unsigned int alloc_flags)
 {
+	/*
+	 * pcp:
+	 *   指向当前 CPU 在这个 zone 上对应的 per_cpu_pages 结构。
+	 *
+	 * 它里面维护了当前 CPU 的小型本地页缓存（PCP）。
+	 */
 	struct per_cpu_pages *pcp;
+
+	/*
+	 * list:
+	 *   当前这次分配实际要访问的 PCP 链表头。
+	 *
+	 * PCP 不是只有一个链表，而是按：
+	 *   - order
+	 *   - migratetype
+	 * 组合映射成不同的 list。
+	 */
 	struct list_head *list;
+
+	/*
+	 * page:
+	 *   最终从 PCP 取出来的页块块头 page。
+	 */
 	struct page *page;
+
+	/*
+	 * flags:
+	 *   local_lock_irqsave() 用来保存/恢复本地中断状态。
+	 */
 	unsigned long flags;
 
+	/*
+	 * local_lock_irqsave(&pagesets.lock, flags);
+	 *
+	 * 这里不是拿 zone 的全局锁，而是拿 PCP 相关的本地锁。
+	 *
+	 * 含义：
+	 *   锁住当前 CPU 的 pagesets 临界区，并关闭本地中断，
+	 *   防止当前 CPU 上并发访问 PCP 结构导致不一致。
+	 *
+	 * 为什么用 local_lock 而不是普通 spin_lock？
+	 *   因为 PCP 是“per-cpu”的，本质上是每 CPU 独享的局部缓存，
+	 *   主要防的是本 CPU 上的抢占/中断重入，而不是全局多 CPU 抢同一把锁。
+	 */
 	local_lock_irqsave(&pagesets.lock, flags);
 
+	/*
+	 * 在分配时，降低 free_factor。
+	 *
+	 * 背景：
+	 *   PCP 不仅管“分配时怎么取页”，也管“释放时怎么批量回收页到 buddy”。
+	 *
+	 * free_factor 用于控制：
+	 *   后面如果有批量 free，应该一次从 PCP 往 buddy 回流多少页。
+	 *
+	 * 这里在 allocation（分配）时做：
+	 *   pcp->free_factor >>= 1;
+	 *
+	 * 含义：
+	 *   发生分配，说明当前 PCP 的缓存压力在增大，
+	 *   那么就把“后续批量 free 的激进程度”先降低一点。
+	 *
+	 * 你可以先粗略理解成：
+	 *   “取页时，降低后续批量释放规模倾向”
+	 *
+	 * 配套逻辑在 free 路径中的 nr_pcp_free() 里，
+	 * 那边在连续 free 时会把 free_factor 再慢慢调大。
+	 */
 	/*
 	 * On allocation, reduce the number of pages that are batch freed.
 	 * See nr_pcp_free() where free_factor is increased for subsequent
@@ -3772,18 +4210,104 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
 	 */
 	pcp = this_cpu_ptr(zone->per_cpu_pageset);
 	pcp->free_factor >>= 1;
+
+	/*
+	 * 根据 migratetype + order，算出当前要访问 PCP 中的哪条链表。
+	 *
+	 * order_to_pindex(migratetype, order)：
+	 *   把 “迁移类型 + 阶数” 映射成 PCP lists[] 的某个下标。
+	 *
+	 * 于是：
+	 *   pcp->lists[...] 就是这次要取页块的具体链表。
+	 */
 	list = &pcp->lists[order_to_pindex(migratetype, order)];
+
+	/*
+	 * 真正从 PCP 链表里取页的底层函数。
+	 *
+	 * 参数解释：
+	 *   zone
+	 *     当前实际分配的 zone
+	 *
+	 *   order
+	 *     请求的阶数
+	 *
+	 *   migratetype
+	 *     当前分配迁移类型
+	 *
+	 *   alloc_flags
+	 *     allocator 内部控制标志
+	 *
+	 *   pcp
+	 *     当前 CPU 的 per_cpu_pages
+	 *
+	 *   list
+	 *     当前具体要操作的 PCP 链表
+	 *
+	 * 返回值：
+	 *   - 成功：块头 page
+	 *   - 失败：NULL
+	 *
+	 * 这里的 __rmqueue_pcplist() 内部可能会：
+	 *   - 如果 list 为空，尝试从 buddy 批量 refill 到 PCP
+	 *   - 然后再从 PCP 取一个返回
+	 */
 	page = __rmqueue_pcplist(zone, order, migratetype, alloc_flags, pcp, list);
+
+	/*
+	 * 释放本地 PCP 锁，恢复中断状态。
+	 */
 	local_unlock_irqrestore(&pagesets.lock, flags);
+
+	/*
+	 * 如果成功拿到了页：
+	 *   更新统计。
+	 */
 	if (page) {
+		/*
+		 * 记录 PGALLOC 事件：
+		 *   page_zonenum(page) 表示这个页属于哪个 zone 类型
+		 *   这里计数是 1
+		 *
+		 * 注意：
+		 *   PCP 路径这里统计的是“成功分配了一个 page/块事件”
+		 *   而不是像 buddy 某些路径那样直接按 (1 << order) 更新 freepage_state。
+		 *
+		 * 具体空闲页状态变化，通常在 refill / rmqueue 更底层已处理。
+		 */
 		__count_zid_vm_events(PGALLOC, page_zonenum(page), 1);
+
+		/*
+		 * 记录 zone 统计：
+		 *   preferred_zone 是本来更期望的 zone
+		 *   zone 是这次实际取页的 zone
+		 *
+		 * 用于统计本地命中/fallback 等情况。
+		 */
 		zone_statistics(preferred_zone, zone, 1);
 	}
+
+	/*
+	 * 返回 page：
+	 *   成功 -> struct page*
+	 *   失败 -> NULL
+	 */
 	return page;
 }
 
 /*
  * Allocate a page from the given zone. Use pcplists for order-0 allocations.
+ *
+ * 从给定 zone 分配页。
+ *
+ * 核心思想：
+ *   1. 如果可以，优先走 PCP(per-cpu page list) 快路径
+ *   2. PCP 不走/走不了，再进入 zone 的 buddy（free_area[]）
+ *
+ * 注意：
+ *   虽然注释说“Use pcplists for order-0 allocations”，
+ *   但这里的 pcp_allowed_order(order) 可能允许的不一定只局限于 order-0，
+ *   具体取决于当前内核配置/实现策略。
  */
 static inline
 struct page *rmqueue(struct zone *preferred_zone,
@@ -3791,31 +4315,143 @@ struct page *rmqueue(struct zone *preferred_zone,
 			gfp_t gfp_flags, unsigned int alloc_flags,
 			int migratetype)
 {
+	/*
+	 * flags:
+	 *   用于保存/恢复中断状态，因为后面会拿 zone->lock 自旋锁，
+	 *   需要用 spin_lock_irqsave()。
+	 */
 	unsigned long flags;
+
+	/*
+	 * page:
+	 *   最终分配成功后返回的页块头 struct page*。
+	 */
 	struct page *page;
 
+	/*
+	 * 如果当前 order 允许走 PCP 快路径：
+	 *
+	 * pcp_allowed_order(order):
+	 *   判断当前请求是否适合从 per-cpu pageset 取页。
+	 *
+	 * PCP 的意义：
+	 *   避免频繁去拿 zone 的全局锁，提高小页分配性能。
+	 */
 	if (likely(pcp_allowed_order(order))) {
+		/*
+		 * 这里处理 CMA 相关特殊情况。
+		 *
+		 * 背景：
+		 *   MIGRATE_MOVABLE 的 PCP 链表里，可能混有来自 CMA 区域的页。
+		 *   但如果当前分配上下文不允许用 CMA 区域，就必须跳过 PCP。
+		 *
+		 * 条件含义拆开：
+		 *
+		 * 1) !IS_ENABLED(CONFIG_CMA)
+		 *    - 如果压根没启用 CMA，那就不存在这个问题，PCP 可直接用
+		 *
+		 * 2) alloc_flags & ALLOC_CMA
+		 *    - 如果当前分配明确允许使用 CMA，也可以走 PCP
+		 *
+		 * 3) migratetype != MIGRATE_MOVABLE
+		 *    - 如果当前不是 MOVABLE 类型，也不会碰到“PCP 里可能混有 CMA 页”这个问题
+		 *
+		 * 满足以上任一条件，就可以安全走 PCP。
+		 */
 		/*
 		 * MIGRATE_MOVABLE pcplist could have the pages on CMA area and
 		 * we need to skip it when CMA area isn't allowed.
 		 */
 		if (!IS_ENABLED(CONFIG_CMA) || alloc_flags & ALLOC_CMA ||
 				migratetype != MIGRATE_MOVABLE) {
+			/*
+			 * 真正从 PCP 取页：
+			 *
+			 * preferred_zone:
+			 *   首选 zone（用于统计/局部性偏好）
+			 *
+			 * zone:
+			 *   当前实际分配的 zone
+			 *
+			 * order, gfp_flags, migratetype, alloc_flags:
+			 *   共同决定取页行为
+			 *
+			 * rmqueue_pcplist() 如果成功，直接返回 page；
+			 * 若失败，通常返回 NULL。
+			 */
 			page = rmqueue_pcplist(preferred_zone, zone, order,
 					gfp_flags, migratetype, alloc_flags);
+
+			/*
+			 * 不管成功还是失败，都先跳到 out：
+			 *   - 成功：out 里做收尾动作后返回
+			 *   - 失败：page==NULL，out 里会直接返回 NULL
+			 *
+			 * 注意：
+			 * 这里并不会自动 fallback 到 buddy，
+			 * 因为 PCP 逻辑内部通常已经包含了自己的 refill/处理逻辑；
+			 * 若走到这里返回 NULL，上层可能会在其它 zone 或 slowpath 再处理。
+			 */
 			goto out;
 		}
 	}
 
 	/*
+	 * __GFP_NOFAIL + order > 1 警告：
+	 *
+	 * __GFP_NOFAIL 表示调用者要求“绝不能失败”。
+	 * 对高阶页（尤其 order > 1）来说，这种要求非常危险，
+	 * 因为高阶连续页本来就更难分配，可能导致长时间卡住甚至系统压力异常。
+	 *
+	 * 所以内核明确警告：不希望有人拿 __GFP_NOFAIL 去申请大块高阶页。
+	 */
+	/*
 	 * We most definitely don't want callers attempting to
 	 * allocate greater than order-1 page units with __GFP_NOFAIL.
 	 */
 	WARN_ON_ONCE((gfp_flags & __GFP_NOFAIL) && (order > 1));
+
+	/*
+	 * 拿 zone 自旋锁，并关本地中断。
+	 *
+	 * 原因：
+	 *   接下来会操作 zone 的 buddy 结构（free_area[] 链表等），
+	 *   这些是 zone 级共享数据，必须加锁保护。
+	 */
 	spin_lock_irqsave(&zone->lock, flags);
 
+	/*
+	 * do-while 循环：
+	 *
+	 * 这里主要是为了配合 check_new_pages(page, order)。
+	 * 如果拿到的 page 在调试/校验阶段发现不合格，
+	 * 会重新再来一次。
+	 */
 	do {
+		/*
+		 * 每轮开始先清空 page
+		 */
 		page = NULL;
+
+		/*
+		 * HIGHATOMIC 优先尝试：
+		 *
+		 * 条件：
+		 *   1) order > 0
+		 *      - 只对高阶分配有意义
+		 *
+		 *   2) alloc_flags & ALLOC_HARDER
+		 *      - 当前分配属于“更强硬/更高优先级”的类型
+		 *        （例如某些原子上下文高优先级分配）
+		 *
+		 * 含义：
+		 *   先尝试从 MIGRATE_HIGHATOMIC 预留区域拿页，
+		 *   给高阶原子分配更高成功率。
+		 *
+		 * 为什么 order-0 不走这里？
+		 *   因为 HIGHATOMIC 主要是保留给高阶原子分配的，
+		 *   普通小页不该随便消耗它。
+		 */
 		/*
 		 * order-0 request can reach here when the pcplist is skipped
 		 * due to non-CMA allocation context. HIGHATOMIC area is
@@ -3823,34 +4459,123 @@ struct page *rmqueue(struct zone *preferred_zone,
 		 * request should skip it.
 		 */
 		if (order > 0 && alloc_flags & ALLOC_HARDER) {
+			/*
+			 * __rmqueue_smallest(zone, order, MIGRATE_HIGHATOMIC)
+			 *
+			 * 从当前 zone 的 buddy 中，优先在 HIGHATOMIC migratetype 上
+			 * 找到满足 order 的最小可用块。
+			 *
+			 * 成功则 page 指向分配到的块头 page。
+			 */
 			page = __rmqueue_smallest(zone, order, MIGRATE_HIGHATOMIC);
+
+			/*
+			 * 如果成功，打一个 trace，记录“在 zone 锁保护下”的分配事件。
+			 */
 			if (page)
 				trace_mm_page_alloc_zone_locked(page, order, migratetype);
 		}
+
+		/*
+		 * 如果前面没从 HIGHATOMIC 拿到，就走普通 buddy 分配路径。
+		 *
+		 * __rmqueue():
+		 *   - 根据 migratetype / alloc_flags
+		 *   - 在 zone->free_area[] 中找块
+		 *   - 必要时调用 __rmqueue_smallest()/fallback 等逻辑
+		 */
 		if (!page)
 			page = __rmqueue(zone, order, migratetype, alloc_flags);
+
+	/*
+	 * check_new_pages(page, order)：
+	 *   对新分配出来的页做检查（调试/一致性校验）
+	 *
+	 * 这个循环条件的含义是：
+	 *   如果 page != NULL，但是检查失败，
+	 *   就重新分配一次。
+	 *
+	 * 通常正常情况下这里只会走一轮。
+	 */
 	} while (page && check_new_pages(page, order));
+
+	/*
+	 * 如果最终还是没拿到页，跳转到 failed，解锁并返回 NULL。
+	 */
 	if (!page)
 		goto failed;
 
+	/*
+	 * 更新 zone 空闲页统计：
+	 *
+	 * 刚刚分配出去 2^order 个页，所以 zone 的 freepage 统计要减少。
+	 *
+	 * get_pcppage_migratetype(page):
+	 *   获取这个分配块的 migratetype，用于对应统计更新。
+	 */
 	__mod_zone_freepage_state(zone, -(1 << order),
 				  get_pcppage_migratetype(page));
+
+	/*
+	 * 释放 zone 锁，恢复中断状态。
+	 */
 	spin_unlock_irqrestore(&zone->lock, flags);
 
+	/*
+	 * 更新 VM 事件统计：
+	 *   PGALLOC 表示一次页分配事件
+	 *   page_zonenum(page) 表示该 page 属于哪个 zone 类型
+	 *   1 << order 表示本次分配了多少页
+	 */
 	__count_zid_vm_events(PGALLOC, page_zonenum(page), 1 << order);
+
+	/*
+	 * zone_statistics(preferred_zone, zone, 1)
+	 *
+	 * 更新 zone 统计信息，特别是：
+	 *   - 是否本地 zone 分配
+	 *   - 是否 fallback 到别的 zone / node
+	 *
+	 * preferred_zone:
+	 *   原本更希望从哪个 zone 分
+	 *
+	 * zone:
+	 *   实际从哪个 zone 分到了页
+	 */
 	zone_statistics(preferred_zone, zone, 1);
 
 out:
+	/*
+	 * 如果这个 zone 之前处于 ZONE_BOOSTED_WATERMARK 状态，
+	 * 那么现在清掉它，并唤醒 kswapd。
+	 *
+	 * 背景：
+	 *   boosted watermark 通常意味着系统最近对这个 zone 的内存水位要求被抬高了，
+	 *   现在既然又发生了分配，就顺便通知 kswapd 去回收/平衡。
+	 */
 	/* Separate test+clear to avoid unnecessary atomics */
 	if (test_bit(ZONE_BOOSTED_WATERMARK, &zone->flags)) {
 		clear_bit(ZONE_BOOSTED_WATERMARK, &zone->flags);
 		wakeup_kswapd(zone, 0, 0, zone_idx(zone));
 	}
 
+	/*
+	 * 调试检查：
+	 *   如果 page 非空，则确保它确实落在当前 zone 的合法范围内。
+	 */
 	VM_BUG_ON_PAGE(page && bad_range(zone, page), page);
+
+	/*
+	 * 返回：
+	 *   - 成功：struct page*
+	 *   - 失败：NULL
+	 */
 	return page;
 
 failed:
+	/*
+	 * 失败路径：解锁并返回 NULL
+	 */
 	spin_unlock_irqrestore(&zone->lock, flags);
 	return NULL;
 }
@@ -4148,32 +4873,120 @@ static inline unsigned int gfp_to_alloc_flags_cma(gfp_t gfp_mask,
 /*
  * get_page_from_freelist goes through the zonelist trying to allocate
  * a page.
+ *
+ * 作用：
+ *   沿着 zonelist 逐个扫描候选 zone，
+ *   尝试从某个满足条件的 zone 中分配页。
+ *
+ * 注意：
+ *   这里“allocate a page”并不一定只是 order-0 的单页，
+ *   实际上也可能是 2^order 个连续页块。
  */
 static struct page *
 get_page_from_freelist(gfp_t gfp_mask, unsigned int order, int alloc_flags,
 						const struct alloc_context *ac)
 {
+	/*
+	 * z:
+	 *   zoneref 指针，用来沿 zonelist._zonerefs[] 扫描。
+	 *
+	 * zone:
+	 *   当前扫描到的候选 zone。
+	 */
 	struct zoneref *z;
 	struct zone *zone;
+
+	/*
+	 * last_pgdat_dirty_limit:
+	 *   用于 spread_dirty_pages 策略时，记录最近一个被判定
+	 *   “超过 dirty limit”的 pgdat，避免同一个 node 重复检查。
+	 *
+	 * 初始为 NULL，表示还没遇到。
+	 */
 	struct pglist_data *last_pgdat_dirty_limit = NULL;
+
+	/*
+	 * no_fallback:
+	 *   当前这一轮是否启用了“避免碎片化 fallback”的限制。
+	 *
+	 * 它来自 alloc_flags 中的 ALLOC_NOFRAGMENT。
+	 */
 	bool no_fallback;
 
 retry:
 	/*
+	 * retry 标签：
+	 *   当某些策略（比如 ALLOC_NOFRAGMENT）被放宽后，
+	 *   会从这里重新开始扫描 zonelist。
+	 */
+
+	/*
 	 * Scan zonelist, looking for a zone with enough free.
 	 * See also __cpuset_node_allowed() comment in kernel/cpuset.c.
+	 *
+	 * 这里开始真正扫描 zonelist。
+	 */
+
+	/*
+	 * 如果 alloc_flags 里有 ALLOC_NOFRAGMENT，
+	 * 则本轮扫描优先避免那些会造成碎片的 fallback 行为。
 	 */
 	no_fallback = alloc_flags & ALLOC_NOFRAGMENT;
+
+	/*
+	 * 从 alloc_context 里取出首选 zoneref 作为扫描起点。
+	 * 这通常由 prepare_alloc_pages() 提前准备好。
+	 */
 	z = ac->preferred_zoneref;
+
+	/*
+	 * for_next_zone_zonelist_nodemask(...)
+	 *
+	 * 这是个宏/迭代器，作用是：
+	 *   从当前 zoneref 开始，
+	 *   沿 zonelist 依次取出 zone，
+	 *   同时满足：
+	 *     - zone_idx 不超过 ac->highest_zoneidx
+	 *     - zone 所属 node 在 ac->nodemask 允许范围内（如果 nodemask 非空）
+	 *
+	 * 每一轮循环都会得到一个候选 zone。
+	 */
 	for_next_zone_zonelist_nodemask(zone, z, ac->highest_zoneidx,
 					ac->nodemask) {
+		/*
+		 * page:
+		 *   如果当前 zone 分配成功，返回的页块块头 page。
+		 *
+		 * mark:
+		 *   当前分配使用的 watermark 阈值（min/low/high 之一）
+		 */
 		struct page *page;
 		unsigned long mark;
 
+		/*
+		 * cpuset 约束检查。
+		 *
+		 * 条件拆开看：
+		 * 1) cpusets_enabled()：系统启用了 cpuset
+		 * 2) alloc_flags & ALLOC_CPUSET：这次分配需要遵守 cpuset
+		 * 3) !__cpuset_zone_allowed(zone, gfp_mask)：当前 zone 不被当前 cpuset 允许
+		 *
+		 * 如果不允许，直接跳过当前 zone。
+		 */
 		if (cpusets_enabled() &&
 			(alloc_flags & ALLOC_CPUSET) &&
 			!__cpuset_zone_allowed(zone, gfp_mask))
 				continue;
+
+		/*
+		 * spread_dirty_pages 相关逻辑：
+		 *
+		 * 当在为 page cache 写入分配页时，
+		 * Linux 希望脏页压力在各 node 之间尽量均衡，
+		 * 不要让某个 node 超过它应承担的 dirty 比例。
+		 *
+		 * ac->spread_dirty_pages 为真时，表示当前分配需要考虑这个限制。
+		 */
 		/*
 		 * When allocating a page cache page for writing, we
 		 * want to get it from a node that is within its dirty
@@ -4194,32 +5007,97 @@ retry:
 		 * dirty-throttling and the flusher threads.
 		 */
 		if (ac->spread_dirty_pages) {
+			/*
+			 * 如果上一个因为 dirty limit 被拒绝的 node，
+			 * 恰好和当前 zone 属于同一个 pgdat，
+			 * 那就没必要重复检查，直接跳过。
+			 */
 			if (last_pgdat_dirty_limit == zone->zone_pgdat)
 				continue;
 
+			/*
+			 * node_dirty_ok():
+			 *   检查当前 zone 所属 node 是否还在脏页限制范围内。
+			 *
+			 * 如果不 ok：
+			 *   记录这个 pgdat，避免重复检查；
+			 *   跳过当前 zone。
+			 */
 			if (!node_dirty_ok(zone->zone_pgdat)) {
 				last_pgdat_dirty_limit = zone->zone_pgdat;
 				continue;
 			}
 		}
 
+		/*
+		 * no_fallback 相关逻辑：
+		 *
+		 * 如果当前轮要求“避免碎片化 fallback”，
+		 * 并且系统有多个 online node，
+		 * 且当前 zone 不是首选 zone，
+		 * 那么要特别检查：
+		 *
+		 *   如果马上要从“远端 node”分配了，
+		 *   则放宽 nofragment 约束，重新 retry。
+		 *
+		 * 原因：
+		 *   本地性(locality)比碎片避免更重要。
+		 *   也就是说，宁可允许碎片化 fallback，
+		 *   也不要太早跨 node 去远端分配。
+		 */
 		if (no_fallback && nr_online_nodes > 1 &&
 		    zone != ac->preferred_zoneref->zone) {
 			int local_nid;
 
 			/*
-			 * If moving to a remote node, retry but allow
-			 * fragmenting fallbacks. Locality is more important
-			 * than fragmentation avoidance.
+			 * 当前首选 zone 所在 node 记为 local_nid
 			 */
 			local_nid = zone_to_nid(ac->preferred_zoneref->zone);
+
+			/*
+			 * 如果当前 zone 已经不在本地 node 上，
+			 * 说明即将跨 node fallback。
+			 *
+			 * 这时清掉 ALLOC_NOFRAGMENT，重新从 retry 开始扫描，
+			 * 允许使用那些可能会碎片化、但仍在本地 node 的 fallback 类型。
+			 *
+			 * 目标：
+			 *   先尽量留在本地 node 内解决问题，
+			 *   再考虑远程 node。
+			 */
 			if (zone_to_nid(zone) != local_nid) {
 				alloc_flags &= ~ALLOC_NOFRAGMENT;
 				goto retry;
 			}
 		}
 
+		/*
+		 * 计算这次分配当前使用的 watermark 阈值。
+		 *
+		 * alloc_flags & ALLOC_WMARK_MASK 决定使用：
+		 *   min / low / high 中的哪一个。
+		 *
+		 * 默认很多情况是 LOW watermark。
+		 */
 		mark = wmark_pages(zone, alloc_flags & ALLOC_WMARK_MASK);
+
+		/*
+		 * 快速 watermark 检查：
+		 *
+		 * zone_watermark_fast() 用于判断当前 zone 在不做复杂操作的前提下，
+		 * 是否有足够的空闲页满足这次分配。
+		 *
+		 * 参数里包括：
+		 *   - zone
+		 *   - order
+		 *   - mark（水位）
+		 *   - highest_zoneidx
+		 *   - alloc_flags
+		 *   - gfp_mask
+		 *
+		 * 如果 fast check 失败，不一定意味着彻底不能分配，
+		 * 只是说明“快路径看起来不够安全/不够空闲”。
+		 */
 		if (!zone_watermark_fast(zone, order, mark,
 				       ac->highest_zoneidx, alloc_flags,
 				       gfp_mask)) {
@@ -4227,32 +5105,70 @@ retry:
 
 #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
 			/*
-			 * Watermark failed for this zone, but see if we can
-			 * grow this zone if it contains deferred pages.
+			 * 如果启用了 deferred struct page init，
+			 * 那么当前 zone 虽然 watermark 不够，
+			 * 但有可能还有“尚未完全初始化的页”可用。
+			 *
+			 * _deferred_grow_zone() 试图把这些 deferred pages
+			 * 初始化进来扩充 zone。
+			 *
+			 * 如果成功，重新尝试当前 zone。
 			 */
 			if (static_branch_unlikely(&deferred_pages)) {
 				if (_deferred_grow_zone(zone, order))
 					goto try_this_zone;
 			}
 #endif
+			/*
+			 * 如果 alloc_flags 带 ALLOC_NO_WATERMARKS，
+			 * 说明当前分配被允许无视 watermark 限制（例如某些特殊高优先级分配）。
+			 *
+			 * 那么就直接试当前 zone。
+			 */
 			/* Checked here to keep the fast path fast */
 			BUILD_BUG_ON(ALLOC_NO_WATERMARKS < NR_WMARK);
 			if (alloc_flags & ALLOC_NO_WATERMARKS)
 				goto try_this_zone;
 
+			/*
+			 * 如果当前系统不启用 node reclaim，
+			 * 或者当前 zone 不允许做 reclaim，
+			 * 那么这个 zone 就先跳过。
+			 */
 			if (!node_reclaim_enabled() ||
 			    !zone_allows_reclaim(ac->preferred_zoneref->zone, zone))
 				continue;
 
+			/*
+			 * 对当前 zone 所属 node 做 node reclaim。
+			 *
+			 * 这是 NUMA 下的一种“局部回收”：
+			 * 先尝试在当前 node 内部回收一些页，
+			 * 尽量避免过早去远端 node 分配。
+			 */
 			ret = node_reclaim(zone->zone_pgdat, gfp_mask, order);
+
 			switch (ret) {
 			case NODE_RECLAIM_NOSCAN:
+				/*
+				 * 没有真正扫描/回收，说明帮不上忙，跳过当前 zone。
+				 */
 				/* did not scan */
 				continue;
+
 			case NODE_RECLAIM_FULL:
+				/*
+				 * 扫描了，但还是基本不可回收，跳过当前 zone。
+				 */
 				/* scanned but unreclaimable */
 				continue;
+
 			default:
+				/*
+				 * node reclaim 做完后，再检查一次 watermark。
+				 * 如果现在够了，就尝试当前 zone；
+				 * 否则继续找下一个 zone。
+				 */
 				/* did we reclaim enough */
 				if (zone_watermark_ok(zone, order, mark,
 					ac->highest_zoneidx, alloc_flags))
@@ -4263,11 +5179,43 @@ retry:
 		}
 
 try_this_zone:
+		/*
+		 * 真正尝试在当前 zone 分配。
+		 *
+		 * rmqueue():
+		 *   - 先尝试 PCP
+		 *   - 不行再进入 buddy
+		 *   - 最终返回块头 page
+		 *
+		 * 参数：
+		 *   ac->preferred_zoneref->zone
+		 *       首选 zone（用于某些 fallback / 迁移类型判断）
+		 *   zone
+		 *       当前真正尝试分配的 zone
+		 *   order
+		 *   gfp_mask
+		 *   alloc_flags
+		 *   ac->migratetype
+		 */
 		page = rmqueue(ac->preferred_zoneref->zone, zone, order,
 				gfp_mask, alloc_flags, ac->migratetype);
+
+		/*
+		 * 如果成功拿到 page：
+		 */
 		if (page) {
+			/*
+			 * prep_new_page():
+			 *   对新分配出来的页做初始化整理，
+			 *   比如清理某些状态、做调试检查、初始化元数据等。
+			 */
 			prep_new_page(page, order, gfp_mask, alloc_flags);
 
+			/*
+			 * 如果这是高阶原子分配（高阶 + ALLOC_HARDER），
+			 * 则可能需要把这个 pageblock 预留成 highatomic，
+			 * 为未来原子上下文高阶分配保留资源。
+			 */
 			/*
 			 * If this is a high-order atomic allocation then check
 			 * if the pageblock should be reserved for the future
@@ -4275,9 +5223,16 @@ try_this_zone:
 			if (unlikely(order && (alloc_flags & ALLOC_HARDER)))
 				reserve_highatomic_pageblock(page, zone, order);
 
+			/*
+			 * 成功，直接返回
+			 */
 			return page;
 		} else {
 #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
+			/*
+			 * 如果 rmqueue 失败，但 zone 里还有 deferred pages，
+			 * 可以尝试先扩充 zone，再重试当前 zone。
+			 */
 			/* Try again if zone has deferred pages */
 			if (static_branch_unlikely(&deferred_pages)) {
 				if (_deferred_grow_zone(zone, order))
@@ -4288,6 +5243,16 @@ try_this_zone:
 	}
 
 	/*
+	 * 如果整个 zonelist 都试完了，还没分配到，
+	 * 且这一轮曾经启用 ALLOC_NOFRAGMENT，
+	 * 那么可能是因为“过度避免碎片”导致没有成功。
+	 *
+	 * 这在 UMA 上也可能发生：
+	 * zone 虽然有页，但因为 nofragment 策略太保守没用上。
+	 *
+	 * 所以这里把 ALLOC_NOFRAGMENT 清掉，再 retry 一轮。
+	 */
+	/*
 	 * It's possible on a UMA machine to get through all zones that are
 	 * fragmented. If avoiding fragmentation, reset and try again.
 	 */
@@ -4296,6 +5261,10 @@ try_this_zone:
 		goto retry;
 	}
 
+	/*
+	 * 所有可尝试 zone 都失败了，返回 NULL。
+	 * 上层 __alloc_pages() 会进入 slowpath。
+	 */
 	return NULL;
 }
 
@@ -5453,25 +6422,128 @@ EXPORT_SYMBOL_GPL(__alloc_pages_bulk);
 
 /*
  * This is the 'heart' of the zoned buddy allocator.
+ *
+ * 这是“分区(zone) buddy 分配器”的核心入口。
+ *
+ * 注意：
+ * 这里虽然叫 buddy allocator 的 heart，
+ * 但它不是直接操作 free_area[] 的最底层函数。
+ *
+ * 它主要负责：
+ * 1. 检查 order 是否合法
+ * 2. 结合当前上下文修正 gfp
+ * 3. 构造分配上下文 alloc_context
+ * 4. 先走快路径 get_page_from_freelist()
+ * 5. 快路径失败后走慢路径 __alloc_pages_slowpath()
+ * 6. 最后做 memcg 记账与 trace
  */
 struct page *__alloc_pages(gfp_t gfp, unsigned int order, int preferred_nid,
 							nodemask_t *nodemask)
 {
+	/*
+	 * 最终分配成功后返回的页。
+	 * 如果 order > 0，则这是“连续页块的块头 page”。
+	 */
 	struct page *page;
+
+	/*
+	 * alloc_flags：
+	 * 分配内部使用的标志，不完全等同于 gfp。
+	 *
+	 * 初始值是 ALLOC_WMARK_LOW：
+	 * 表示这次分配默认先按“低水位(low watermark)”标准来检查 zone 是否可分配。
+	 *
+	 * 后面 prepare_alloc_pages() / alloc_flags_nofragment() 等步骤
+	 * 会继续在这个基础上加一些内部控制位。
+	 */
 	unsigned int alloc_flags = ALLOC_WMARK_LOW;
+
+	/*
+	 * alloc_gfp：
+	 * 真正拿去执行分配的 gfp。
+	 *
+	 * 为什么要单独拷贝一份？
+	 * 因为原始 gfp 可能会在 prepare_alloc_pages() 过程中被调整，
+	 * 比如应用 cpuset / context / reclaim 相关约束后，
+	 * 实际用于分配的 gfp 可能和最初传进来的不完全一样。
+	 */
 	gfp_t alloc_gfp; /* The gfp_t that was actually used for allocation */
+
+	/*
+	 * alloc_context ac：
+	 * 分配上下文，是 __alloc_pages() 后面所有步骤共享的核心对象。
+	 *
+	 * 里面通常会放：
+	 *   - 这次分配的 zonelist
+	 *   - preferred_zoneref / preferred zone
+	 *   - highest_zoneidx
+	 *   - migratetype
+	 *   - nodemask
+	 *   - 是否 spread_dirty_pages
+	 *   - 是否允许跨 node fallback 等信息
+	 *
+	 * 这里先用 { } 做零初始化。
+	 */
 	struct alloc_context ac = { };
 
+	/*
+	 * 一些后续代码默认假定 order 是合法的，
+	 * 所以这里先做边界检查。
+	 *
+	 * MAX_ORDER 是 buddy 管理的最大 order 上限。
+	 * 如果请求的 order >= MAX_ORDER，就超出 buddy 能处理的范围了。
+	 *
+	 * 例如：
+	 *   如果 MAX_ORDER = 11，那么合法 order 通常是 0..10
+	 *   order=11 或更大就直接判定非法。
+	 */
 	/*
 	 * There are several places where we assume that the order value is sane
 	 * so bail out early if the request is out of bound.
 	 */
 	if (unlikely(order >= MAX_ORDER)) {
+		/*
+		 * 如果调用者没有带 __GFP_NOWARN，就打一条警告。
+		 *
+		 * WARN_ON_ONCE:
+		 *   条件为真时只警告一次，避免刷屏。
+		 *
+		 * 这里的条件：
+		 *   !(gfp & __GFP_NOWARN)
+		 * 即：如果没要求“静默失败”，那就警告。
+		 */
 		WARN_ON_ONCE(!(gfp & __GFP_NOWARN));
+
+		/* 非法 order 直接失败 */
 		return NULL;
 	}
 
+	/*
+	 * gfp_allowed_mask：
+	 * 全局允许的 GFP 掩码。
+	 *
+	 * 这里做一次与操作，保证传入的 gfp 不会使用当前系统上下文不允许的标志。
+	 *
+	 * 你可以理解成：
+	 *   “先把 gfp 裁剪到系统当前允许的范围内”
+	 */
 	gfp &= gfp_allowed_mask;
+
+	/*
+	 * current_gfp_context(gfp)：
+	 * 把当前线程/上下文对 GFP 的作用也叠加进来。
+	 *
+	 * 典型场景：
+	 *   memalloc_nofs_save()/restore()
+	 *   memalloc_noio_save()/restore()
+	 *
+	 * 含义：
+	 *   如果当前上下文被标记为 “不能进入 FS” 或 “不能进入 IO”，
+	 *   那么当前这次分配也必须继承这种约束。
+	 *
+	 * 另外 PF_MEMALLOC_PIN 等状态也会在这里影响分配，
+	 * 比如避免使用 movable zones。
+	 */
 	/*
 	 * Apply scoped allocation constraints. This is mainly about GFP_NOFS
 	 * resp. GFP_NOIO which has to be inherited for all allocation requests
@@ -5480,42 +6552,148 @@ struct page *__alloc_pages(gfp_t gfp, unsigned int order, int preferred_nid,
 	 * movable zones are not used during allocation.
 	 */
 	gfp = current_gfp_context(gfp);
+
+	/*
+	 * 初始时，实际用于分配的 gfp = 修正后的 gfp
+	 */
 	alloc_gfp = gfp;
+
+	/*
+	 * prepare_alloc_pages()：
+	 * 这是一个非常关键的准备函数。
+	 *
+	 * 它负责：
+	 *   1. 根据 gfp/order/preferred_nid/nodemask 构造 alloc_context ac
+	 *   2. 选出 zonelist / preferred_zoneref
+	 *   3. 计算 highest_zoneidx
+	 *   4. 计算 migratetype
+	 *   5. 必要时调整 alloc_gfp / alloc_flags
+	 *
+	 * 如果准备失败（比如根本没有可选 zone / 上下文不允许），直接返回 NULL。
+	 */
 	if (!prepare_alloc_pages(gfp, order, preferred_nid, nodemask, &ac,
 			&alloc_gfp, &alloc_flags))
 		return NULL;
 
+	/*
+	 * alloc_flags_nofragment()：
+	 * 用于“第一轮分配”尽量避免走那些会加剧碎片的 fallback 路径。
+	 *
+	 * 这里传入：
+	 *   ac.preferred_zoneref->zone
+	 *   gfp
+	 *
+	 * 作用：
+	 *   在优先 node / 本地 zone 还没尝试完之前，
+	 *   先禁止某些容易导致碎片恶化的类型回退。
+	 *
+	 * 也就是说，第一轮更偏向“局部且保守”的分配，
+	 * 避免一上来就打碎内存布局。
+	 */
 	/*
 	 * Forbid the first pass from falling back to types that fragment
 	 * memory until all local zones are considered.
 	 */
 	alloc_flags |= alloc_flags_nofragment(ac.preferred_zoneref->zone, gfp);
 
+	/*
+	 * 第一次分配尝试：快路径
+	 *
+	 * get_page_from_freelist() 做的事：
+	 *   - 沿 zonelist 扫描 zone
+	 *   - 检查 watermark / cpuset / nodemask / dirty spread 等约束
+	 *   - 选中一个可分配的 zone
+	 *   - 调用 rmqueue() / buddy 真正取页
+	 *
+	 * 如果快路径成功，直接跳到 out。
+	 */
 	/* First allocation attempt */
 	page = get_page_from_freelist(alloc_gfp, order, alloc_flags, &ac);
 	if (likely(page))
 		goto out;
 
+	/*
+	 * 快路径失败后，准备进入慢路径。
+	 *
+	 * 这里先把 alloc_gfp 恢复为修正后的原始 gfp。
+	 * 因为快路径中有些优化或约束，只适用于 fast path，
+	 * slowpath 可能会采用更激进/更全面的策略（如 reclaim/compaction）。
+	 */
 	alloc_gfp = gfp;
+
+	/*
+	 * spread_dirty_pages = false
+	 *
+	 * spread_dirty_pages 是一种“脏页扩散”相关策略，
+	 * 用来避免把脏页压力都压在某个 node / zone 上。
+	 *
+	 * 进入 slowpath 后，先关闭这类 fast-path 优化约束，
+	 * 否则可能妨碍分配成功。
+	 */
 	ac.spread_dirty_pages = false;
 
+	/*
+	 * 快路径为了优化，可能把 ac.nodemask 暂时替换成
+	 * cpuset_current_mems_allowed 这类更快的掩码。
+	 *
+	 * slowpath 前，需要把 nodemask 恢复成调用者原始传入的 nodemask。
+	 *
+	 * 否则 slowpath 可能会在错误的节点集合上做 reclaim / compaction / fallback。
+	 */
 	/*
 	 * Restore the original nodemask if it was potentially replaced with
 	 * &cpuset_current_mems_allowed to optimize the fast-path attempt.
 	 */
 	ac.nodemask = nodemask;
 
+	/*
+	 * 进入慢路径：
+	 *
+	 * __alloc_pages_slowpath() 可能会做：
+	 *   - direct reclaim
+	 *   - compaction
+	 *   - 重试快路径
+	 *   - 必要时 OOM
+	 *
+	 * 如果成功，返回 page；
+	 * 如果失败，返回 NULL。
+	 */
 	page = __alloc_pages_slowpath(alloc_gfp, order, &ac);
 
 out:
+	/*
+	 * memcg 内核内存记账：
+	 *
+	 * 如果开启了 memcg kmem 记账，并且这次 gfp 带了 __GFP_ACCOUNT，
+	 * 且前面成功分配到了 page，那么还要给这批页做 memcg 计费。
+	 *
+	 * 如果计费失败：
+	 *   - 说明这批页虽然物理上分到了，但在内存控制组语义上不允许
+	 *   - 于是必须把页释放回去，再返回 NULL
+	 */
 	if (memcg_kmem_enabled() && (gfp & __GFP_ACCOUNT) && page &&
 	    unlikely(__memcg_kmem_charge_page(page, gfp, order) != 0)) {
 		__free_pages(page, order);
 		page = NULL;
 	}
 
+	/*
+	 * tracepoint：
+	 * 记录一次页分配事件，方便 tracing / perf / 调试。
+	 *
+	 * 记录的信息包括：
+	 *   - 分到的 page
+	 *   - order
+	 *   - alloc_gfp
+	 *   - migratetype
+	 */
 	trace_mm_page_alloc(page, order, alloc_gfp, ac.migratetype);
 
+	/*
+	 * 返回最终结果：
+	 *   成功 -> struct page*
+	 *   失败 -> NULL
+	 */
 	return page;
 }
 EXPORT_SYMBOL(__alloc_pages);

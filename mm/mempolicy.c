@@ -2172,26 +2172,146 @@ EXPORT_SYMBOL(alloc_pages_vma);
  */
 struct page *alloc_pages(gfp_t gfp, unsigned order)
 {
+	/*
+	 * pol:
+	 *   当前这次分配要遵循的“内存策略对象”(mempolicy)
+	 *
+	 * 先默认指向系统默认策略 default_policy。
+	 *
+	 * 为什么先给默认值？
+	 *   因为不是所有上下文都适合去看 current 的任务策略，
+	 *   比如中断上下文里通常不能依赖当前进程语义。
+	 */
 	struct mempolicy *pol = &default_policy;
+
+	/*
+	 * 最终返回的页块块头 page。
+	 *
+	 * 注意：
+	 *   返回的是 struct page*，表示所分配连续页块的“第一页”。
+	 *   若 order > 0，则实际上是返回一个 2^order 连续页块的块头 page。
+	 */
 	struct page *page;
 
+	/*
+	 * 如果当前不在中断上下文，并且没有要求 “只在当前节点分配(__GFP_THISNODE)”，
+	 * 那么就去取当前任务 current 的 NUMA 内存策略。
+	 *
+	 * 条件拆开看：
+	 *
+	 * 1) !in_interrupt()
+	 *    - 只有不在中断上下文，才适合使用 current 进程的内存策略。
+	 *    - 中断上下文通常没有稳定/合理的进程内存策略语义。
+	 *
+	 * 2) !(gfp & __GFP_THISNODE)
+	 *    - 如果调用者已经明确要求“只许在当前 node 分配”，
+	 *      那就不再让 mempolicy 去改分配策略了。
+	 *    - 也就是说，__GFP_THISNODE 的约束优先级更高。
+	 *
+	 * 满足这两个条件时：
+	 *    pol = get_task_policy(current);
+	 *
+	 * 即：当前分配将遵循当前任务的 NUMA 内存策略。
+	 */
 	if (!in_interrupt() && !(gfp & __GFP_THISNODE))
 		pol = get_task_policy(current);
 
 	/*
+	 * 这里的注释意思是：
+	 *
+	 * 不需要为 current->mempolicy 或 default_policy 额外做引用计数。
+	 *
+	 * 原因：
+	 *   - current->mempolicy 对当前任务来说在这里是稳定可用的；
+	 *   - default_policy 是全局默认策略；
+	 *   - 此处只是短时间读取并使用它，不需要 grab/release 引用。
+	 */
+	/*
 	 * No reference counting needed for current->mempolicy
 	 * nor system default_policy
 	 */
+
+	/*
+	 * 根据 mempolicy 的 mode 决定走哪条分配分支。
+	 *
+	 * pol->mode 表示当前 NUMA 内存策略模式：
+	 *   - MPOL_INTERLEAVE      : 交错分配
+	 *   - MPOL_PREFERRED_MANY  : 多 preferred 节点优先
+	 *   - 其它（如默认、本地优先、bind 等）最终走 __alloc_pages()
+	 *
+	 * 也就是说，alloc_pages() 在这里扮演“策略分发器”角色。
+	 */
+
+	/*
+	 * 如果策略是 MPOL_INTERLEAVE（交错策略）：
+	 *
+	 * 含义：
+	 *   - 不总是从同一个 node 分配，
+	 *   - 而是按照某个节点集合进行轮转/交错分配，
+	 *   - 这样可以把内存分布到多个 node 上。
+	 *
+	 * interleave_nodes(pol):
+	 *   - 取出该策略下允许参与交错的节点集合/信息
+	 *
+	 * alloc_page_interleave():
+	 *   - 按交错策略实际分配页
+	 */
 	if (pol->mode == MPOL_INTERLEAVE)
 		page = alloc_page_interleave(gfp, order, interleave_nodes(pol));
+
+	/*
+	 * 如果策略是 MPOL_PREFERRED_MANY：
+	 *
+	 * 含义：
+	 *   - 允许多个 preferred node，
+	 *   - 优先从“更偏好”的节点集合里分配，
+	 *   - 比单一 preferred node 更灵活。
+	 *
+	 * 参数解释：
+	 *   numa_node_id()
+	 *     - 当前 CPU/执行上下文所在的本地 NUMA node id
+	 *
+	 *   pol
+	 *     - 当前内存策略对象
+	 *
+	 * alloc_pages_preferred_many():
+	 *   - 按 preferred-many 策略做分配
+	 */
 	else if (pol->mode == MPOL_PREFERRED_MANY)
 		page = alloc_pages_preferred_many(gfp, order,
 				numa_node_id(), pol);
+
+	/*
+	 * 其它大多数策略都走通用分配入口 __alloc_pages()。
+	 *
+	 * 这里传了两个非常关键的参数：
+	 *
+	 * 1) policy_node(gfp, pol, numa_node_id())
+	 *    - 根据 gfp、当前 mempolicy、当前本地 node，
+	 *      计算这次分配“首选 node”是谁
+	 *
+	 * 2) policy_nodemask(gfp, pol)
+	 *    - 根据 gfp 和 mempolicy，
+	 *      计算这次分配允许在哪些 node 上尝试
+	 *
+	 * __alloc_pages() 后面会进一步进入：
+	 *   get_page_from_freelist()
+	 *   沿 zonelist 扫描 zone
+	 *   然后 rmqueue() / buddy 真正取页
+	 *
+	 * 所以这里还没有真正从 buddy 拿页，
+	 * 这里只是在“准备分配参数 + 选择策略入口”。
+	 */
 	else
 		page = __alloc_pages(gfp, order,
 				policy_node(gfp, pol, numa_node_id()),
 				policy_nodemask(gfp, pol));
 
+	/*
+	 * 返回分配结果：
+	 *   - 成功：返回连续页块的块头 struct page*
+	 *   - 失败：返回 NULL
+	 */
 	return page;
 }
 EXPORT_SYMBOL(alloc_pages);
