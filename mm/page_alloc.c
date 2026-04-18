@@ -2399,17 +2399,87 @@ void __init init_cma_reserved_pageblock(struct page *page)
  * This behavior is a critical factor in sglist merging's success.
  *
  * -- nyc
+ *
+ * 这段大注释非常重要，核心意思是：
+ *
+ * expand() 里“拆分时左右半块处理的顺序”会影响最终小页分配出来的物理顺序。
+ * 而小页分配顺序又会显著影响 IO 子系统，尤其是 scatter-gather list(sglist)
+ * 的合并效果。
+ *
+ * 所以这里的拆分顺序不是随便写的，不要轻易改。
  */
 static inline void expand(struct zone *zone, struct page *page,
 	int low, int high, int migratetype)
 {
+	/*
+	 * size = 1 << high
+	 *
+	 * 这里的 size 表示“当前 high 阶块的页数大小”。
+	 *
+	 * 例如：
+	 *   high = 3
+	 *   size = 1 << 3 = 8 pages
+	 *
+	 * 注意：它表示的是页数，不是字节数。
+	 */
 	unsigned long size = 1 << high;
 
+	/*
+	 * 只要当前块阶数 high 还大于目标阶 low，
+	 * 就继续拆。
+	 *
+	 * high == low 时，说明已经拆到目标大小了，
+	 * 这时候就停止，保留 page 这半块返回给调用者。
+	 */
 	while (high > low) {
+		/*
+		 * 每次循环先把阶数降一级：
+		 *
+		 * 比如：
+		 *   high: 3 -> 2
+		 *   表示要把一个 order-3 的块拆成两个 order-2 的块
+		 */
 		high--;
+
+		/*
+		 * 当前块大小也减半：
+		 *
+		 * 例如原来 size=8 pages
+		 * 现在 size=4 pages
+		 *
+		 * 这表示“拆分后每个子块的大小”
+		 */
 		size >>= 1;
+
+		/*
+		 * &page[size] 就是“右半边兄弟块”的块头 page。
+		 *
+		 * 举例：
+		 *   page 指向 [100..107] 的块头 page@100
+		 *   如果 size = 4
+		 *   那么 &page[4] 就是 page@104
+		 *   也就是右半边 [104..107] 的块头
+		 *
+		 * 这里先做一个范围检查，确保这个 page 落在 zone 合法范围内。
+		 */
 		VM_BUG_ON_PAGE(bad_range(zone, &page[size]), &page[size]);
 
+		/*
+		 * guard page 逻辑：
+		 *
+		 * set_page_guard(zone, &page[size], high, migratetype)
+		 *
+		 * 某些调试/保护配置下，拆出来的右半边块不一定马上放回 free_list，
+		 * 而是先被标记成 guard page（或 guard block）。
+		 *
+		 * 这样做的作用：
+		 *   - 这些页仍然保持未映射/不可访问
+		 *   - 等它对应的 buddy 未来释放时，仍能正确合并回 allocator
+		 *   - 主要用于调试、检测越界等场景
+		 *
+		 * 如果成功设置为 guard page，则不再继续 add_to_free_list，
+		 * 直接进入下一轮拆分。
+		 */
 		/*
 		 * Mark as guard pages (or page), that will allow to
 		 * merge back to allocator when buddy will be freed.
@@ -2419,7 +2489,29 @@ static inline void expand(struct zone *zone, struct page *page,
 		if (set_page_guard(zone, &page[size], high, migratetype))
 			continue;
 
+		/*
+		 * 把右半边兄弟块挂回对应 high 阶 free_list。
+		 *
+		 * 关键点：
+		 *   - 当前 page（左半边）继续保留，后续还会继续拆
+		 *   - 右半边 &page[size] 作为空闲块回到 buddy
+		 *
+		 * 例如：
+		 *   [100..107] 拆成 [100..103] + [104..107]
+		 *   则 [104..107] 被挂回 free_area[2]
+		 */
 		add_to_free_list(&page[size], zone, high, migratetype);
+
+		/*
+		 * 给这个右半边兄弟块设置 buddy 阶数信息。
+		 *
+		 * 因为它现在作为一个新的 high 阶空闲块回到 buddy，
+		 * allocator 之后需要知道：
+		 *   - 它是 buddy 块
+		 *   - 它的 order = high
+		 *
+		 * 这一步通常会在 page 的私有字段/标志中记录 order。
+		 */
 		set_buddy_order(&page[size], high);
 	}
 }
@@ -2557,27 +2649,139 @@ static void prep_new_page(struct page *page, unsigned int order, gfp_t gfp_flags
 /*
  * Go through the free lists for the given migratetype and remove
  * the smallest available page from the freelists
+ *
+ * 沿着指定 migratetype 的 free lists，从目标 order 开始向上搜索，
+ * 找到“最小可用”的空闲块，然后把它从 free list 中摘下来。
+ *
+ * 这里说的 smallest，意思不是“全局最小”，而是：
+ *   - 从 current_order = order 开始找
+ *   - 找到的第一个可用块，就是满足需求的最小阶块
+ *
+ * 例如：
+ *   申请 order=2
+ *   free_area[2] 没有
+ *   free_area[3] 有
+ *   那就拿 free_area[3] 的块
+ *   再通过 expand() 拆成 order=2
  */
 static __always_inline
 struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
 						int migratetype)
 {
+	/*
+	 * current_order:
+	 *   当前正在搜索的阶数。
+	 *
+	 * 从请求的 order 开始，一直往更高阶搜到 MAX_ORDER-1。
+	 */
 	unsigned int current_order;
+
+	/*
+	 * area:
+	 *   指向当前 current_order 对应的 free_area。
+	 */
 	struct free_area *area;
+
+	/*
+	 * page:
+	 *   找到的空闲块头 page。
+	 *   如果成功，最终返回它；
+	 *   如果一路都没找到，返回 NULL。
+	 */
 	struct page *page;
 
+	/*
+	 * 从目标 order 开始，一层层往上找：
+	 *   free_area[order]
+	 *   free_area[order+1]
+	 *   free_area[order+2]
+	 *   ...
+	 *   free_area[MAX_ORDER-1]
+	 *
+	 * 这体现了 buddy 分配的核心思想：
+	 *   “先找同阶；没有再向上借更大的块”
+	 */
 	/* Find a page of the appropriate size in the preferred list */
 	for (current_order = order; current_order < MAX_ORDER; ++current_order) {
+
+		/*
+		 * 取出当前阶的 free_area。
+		 */
 		area = &(zone->free_area[current_order]);
+
+		/*
+		 * 从当前 free_area 中，按指定 migratetype 取一个空闲块头 page。
+		 *
+		 * get_page_from_free_area(area, migratetype)：
+		 *   - 只在当前 area 的指定 migratetype 的 free_list 里看
+		 *   - 不做 fallback 到其它 migratetype
+		 *
+		 * 成功：
+		 *   page 指向这个块的块头 page
+		 *
+		 * 失败：
+		 *   page == NULL
+		 */
 		page = get_page_from_free_area(area, migratetype);
+
+		/*
+		 * 如果这一层没有可用块，
+		 * 继续去更高阶 current_order+1 试。
+		 */
 		if (!page)
 			continue;
+
+		/*
+		 * 找到块后，先把它从当前 free list 中摘掉。
+		 *
+		 * del_page_from_free_list(page, zone, current_order)：
+		 *   - 从 zone->free_area[current_order].free_list[migratetype] 中删除
+		 *   - 清理 buddy/free list 相关状态
+		 *   - 更新这一层的空闲块统计
+		 *
+		 * 注意：
+		 *   这一步之后，这个块已经不再属于 buddy 空闲链表了。
+		 */
 		del_page_from_free_list(page, zone, current_order);
+
+		/*
+		 * 如果 current_order > order，
+		 * 说明拿到的是一个更大的块，需要拆分。
+		 *
+		 * expand(zone, page, order, current_order, migratetype)：
+		 *   - 把大块逐级拆成更小块
+		 *   - 最终保留一个 order 阶块给当前分配
+		 *   - 其余拆出来的“兄弟块”依次挂回对应 free_area
+		 *
+		 * 如果 current_order == order，
+		 * 则 expand() 基本相当于什么也不用拆，直接返回。
+		 */
 		expand(zone, page, order, current_order, migratetype);
+
+		/*
+		 * 给返回的块头 page 记录 migratetype。
+		 *
+		 * set_pcppage_migratetype(page, migratetype)：
+		 *   主要是给后续 PCP / free / 统计等路径使用，
+		 *   标记这次分配出来的块属于哪种迁移类型。
+		 */
 		set_pcppage_migratetype(page, migratetype);
+
+		/*
+		 * 返回最终得到的 order 阶块头 page。
+		 */
 		return page;
 	}
 
+	/*
+	 * 如果从 order 一直找到 MAX_ORDER-1 都没有可用块，
+	 * 则返回 NULL。
+	 *
+	 * 上层可能继续尝试：
+	 *   - CMA fallback
+	 *   - migratetype fallback
+	 *   - slowpath reclaim / compaction
+	 */
 	return NULL;
 }
 
