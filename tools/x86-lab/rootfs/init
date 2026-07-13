@@ -1,0 +1,27 @@
+#!/bin/sh
+# BusyBox 根文件系统的 PID 1。必须保持 POSIX sh 兼容，不能使用 Bash 专有语法。
+
+# devtmpfs 可能已由内核自动挂载，因此失败时允许继续；其余伪文件系统必须成功。
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t tmpfs tmpfs /tmp
+
+# 设置易识别的实验机名，并从内核命令行提取本次实际根设备。
+hostname x86-linux-lab
+root_device="$(sed -n 's/.*root=\([^ ]*\).*/\1/p' /proc/cmdline)"
+# 没有 root= 参数时使用内核默认名称，避免欢迎信息为空。
+test -n "$root_device" || root_device=/dev/root
+
+# 在串口上输出醒目的启动成功标志和当前内核信息。
+echo
+echo "============================================================"
+echo " Linux 5.15 x86_64 + BusyBox 已从 QEMU IDE 硬盘启动"
+echo " rootfs: $root_device (ext4)"
+echo " console: ttyS0"
+echo "============================================================"
+uname -a
+echo
+
+# setsid 创建新会话，cttyhack 把串口设为控制终端；exec 让 shell 接替 PID 1。
+exec setsid cttyhack /bin/sh
