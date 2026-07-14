@@ -2,7 +2,14 @@
 # Lima VM 内的主构建脚本。
 # 顺序：同步源码到大小写敏感 ext4 -> 交叉编译 x86_64 内核 -> 静态编译 BusyBox
 # -> 组装最小 rootfs.ext4 -> 将可运行和可调试产物导回 Mac 共享目录。
+# 学习重点：数组/循环、rsync、Python 管道、Kbuild、静态链接、ext4 镜像。
+# 推荐在 Lima 内用 DEBUG_VARS=1 DEBUG_STEP=1 单独运行，逐阶段查看中间文件。
 set -euo pipefail
+
+# 本文件既可由 build.sh 调用，也可在 Lima 内单独执行并启用统一调试功能。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # REPO_ROOT 必须由 Mac 侧 build.sh 注入；缺失时立即报错，防止写错目录。
 : "${REPO_ROOT:?REPO_ROOT is required}"
@@ -19,6 +26,9 @@ ROOTFS="$WORK_ROOT/rootfs"
 ARTIFACT_DIR="$REPO_ROOT/out/x86-lab"
 IMAGE="$WORK_ROOT/rootfs.ext4"
 JOBS="${JOBS:-$(nproc)}"
+# 保存可选清理开关的有效默认值，调试快照中不会再显示为 unset。
+CLEAN_BUILD="${CLEAN_BUILD:-0}"
+xlab_debug_point "VM 构建路径和参数已解析" REPO_ROOT WORK_ROOT KERNEL_SRC KERNEL_OUT BUSYBOX_SRC ROOTFS ARTIFACT_DIR IMAGE JOBS
 
 # 在耗时操作开始前一次性检查依赖，错误信息会指出应运行的初始化脚本。
 required=(x86_64-linux-gnu-gcc make rsync curl tar mke2fs qemu-system-x86_64)
@@ -32,6 +42,7 @@ done
 mkdir -p "$WORK_ROOT" "$ARTIFACT_DIR"
 
 echo "[1/5] 同步内核源码到 Lima 本地磁盘"
+xlab_debug_point "阶段 1/5：准备同步源码" REPO_ROOT KERNEL_SRC
 # rsync --delete 保证删除过的源码不会残留；大产物和分析目录不参与复制。
 mkdir -p "$KERNEL_SRC"
 rsync -a --delete \
@@ -61,10 +72,11 @@ for values in groups.values():
 done
 
 echo "[2/5] 配置并交叉编译 Linux 5.15 x86_64 bzImage"
+xlab_debug_point "阶段 2/5：准备配置和编译内核" KERNEL_SRC KERNEL_OUT CROSS_COMPILE JOBS CLEAN_BUILD
 # 清理源码树，输出文件统一写到独立的 KERNEL_OUT（O=）目录。
 make -C "$KERNEL_SRC" ARCH=x86_64 CROSS_COMPILE="$CROSS_COMPILE" mrproper
 # CLEAN_BUILD=1 用于彻底丢弃历史输出；默认保留目录但重新生成配置。
-if [[ "${CLEAN_BUILD:-0}" == "1" ]]; then
+if [[ "$CLEAN_BUILD" == "1" ]]; then
   rm -rf "$KERNEL_OUT"
 fi
 mkdir -p "$KERNEL_OUT"
@@ -108,6 +120,7 @@ make -C "$KERNEL_SRC" O="$KERNEL_OUT" ARCH=x86_64 \
   CROSS_COMPILE="$CROSS_COMPILE" -j"$JOBS" bzImage
 
 echo "[3/5] 下载并静态交叉编译 BusyBox $BUSYBOX_VERSION"
+xlab_debug_point "阶段 3/5：准备编译 BusyBox" BUSYBOX_VERSION BUSYBOX_SRC CROSS_COMPILE JOBS
 # 修复 Ubuntu 22.04 cross-glibc 静态 libm 归档中写死的绝对路径。
 sudo mkdir -p /usr/lib/x86_64-linux-gnu
 for archive in /usr/x86_64-linux-gnu/lib/libm-*.a /usr/x86_64-linux-gnu/lib/libmvec.a; do
@@ -128,6 +141,7 @@ sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' "$BUSYBOX_SRC/.config"
 make -C "$BUSYBOX_SRC" ARCH=x86_64 CROSS_COMPILE="$CROSS_COMPILE" -j"$JOBS"
 
 echo "[4/5] 生成 BusyBox rootfs 和 ext4 硬盘镜像"
+xlab_debug_point "阶段 4/5：准备制作基础 rootfs" ROOTFS IMAGE IMAGE_SIZE_MB
 # 重新创建 staging rootfs，防止旧文件混入镜像。
 sudo rm -rf "$ROOTFS"
 mkdir -p "$ROOTFS"
@@ -148,6 +162,7 @@ sudo chown "$(id -u):$(id -g)" "$IMAGE"
 e2fsck -fn "$IMAGE"
 
 echo "[5/5] 导出产物与校验信息"
+xlab_debug_point "阶段 5/5：准备导出产物" KERNEL_OUT ARTIFACT_DIR IMAGE
 # bzImage 用于启动，vmlinux 保留完整 ELF/DWARF 供 GDB，配置用于复现。
 install -m 0644 "$KERNEL_OUT/arch/x86/boot/bzImage" "$ARTIFACT_DIR/bzImage"
 install -m 0644 "$KERNEL_OUT/vmlinux" "$ARTIFACT_DIR/vmlinux"

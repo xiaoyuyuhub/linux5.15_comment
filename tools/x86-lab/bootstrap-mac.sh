@@ -2,7 +2,14 @@
 # Apple Silicon Mac 首次初始化脚本。
 # 作用：下载并校验 Lima，创建 ARM64 Ubuntu VM，安装 x86_64 交叉工具链、
 # QEMU、GRUB、GDB 和镜像工具。重复执行是安全的：已有组件会被复用。
+# 学习建议：DEBUG_VARS=1 DEBUG_STEP=1 可在下载、建 VM 和装软件前检查参数；
+# DEBUG_TRACE=1 会同时传进 VM，apt 输出很多，最好配合 DEBUG_VM_LOG 保存。
 set -euo pipefail
+
+# 载入统一调试能力；默认关闭，使用方法见 debug-lib.sh 和 README。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # 所有配置均允许用同名环境变量覆盖；默认值是本项目验证过的组合。
 LIMA_VERSION="${LIMA_VERSION:-2.1.4}"
@@ -10,6 +17,7 @@ INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 LIMA_HOME="${LIMA_INSTALL_DIR:-$HOME/.local}"
 LIMACTL="$LIMA_HOME/bin/limactl"
 APT_MIRROR="${APT_MIRROR:-https://mirrors.ustc.edu.cn/ubuntu-ports}"
+xlab_debug_point "Lima 初始化参数已解析" LIMA_VERSION INSTANCE LIMA_HOME LIMACTL APT_MIRROR
 
 # 防止脚本误在 Intel Mac 或 Linux 主机上创建不符合预期的环境。
 if [[ "$(uname -s)" != "Darwin" || "$(uname -m)" != "arm64" ]]; then
@@ -19,6 +27,7 @@ fi
 
 # 仅在 limactl 不存在时下载；同时从官方发布页下载 SHA256SUMS 做完整性校验。
 if [[ ! -x "$LIMACTL" ]]; then
+  xlab_debug_point "即将下载并校验 Lima" LIMA_VERSION LIMA_HOME LIMACTL
   asset="lima-${LIMA_VERSION}-Darwin-arm64.tar.gz"
   base_url="https://github.com/lima-vm/lima/releases/download/v${LIMA_VERSION}"
   # 临时目录会在脚本退出时自动删除。
@@ -39,6 +48,7 @@ fi
 # 首次创建：VZ 提供 Apple 原生虚拟化，客体仍是 ARM64；x86 由客体 QEMU TCG 模拟。
 # --mount-writable 让 Mac 仓库以相同绝对路径可写地共享进 VM。
 if ! "$LIMACTL" list --json 2>/dev/null | grep -q "\"name\":\"$INSTANCE\""; then
+  xlab_debug_point "即将创建 Lima VM" INSTANCE
   "$LIMACTL" start --yes \
     --name="$INSTANCE" \
     --vm-type=vz \
@@ -56,9 +66,20 @@ elif ! "$LIMACTL" list "$INSTANCE" --json | grep -q '"status":"Running"'; then
 fi
 
 # heredoc 中的命令在 Ubuntu VM 内执行；单引号标记可避免 Mac 侧提前展开变量。
-"$LIMACTL" shell "$INSTANCE" -- bash -s -- "$APT_MIRROR" <<'GUEST'
+"$LIMACTL" shell "$INSTANCE" -- env \
+  DEBUG_TRACE="${DEBUG_TRACE:-0}" \
+  DEBUG_VARS="${DEBUG_VARS:-0}" \
+  DEBUG_STEP="${DEBUG_STEP:-0}" \
+  DEBUG_ERRORS="${DEBUG_ERRORS:-0}" \
+  DEBUG_LOG="${DEBUG_VM_LOG:-}" \
+  bash -s -- "$APT_MIRROR" "$SCRIPT_DIR/debug-lib.sh" <<'GUEST'
 set -euo pipefail
 mirror="$1"
+debug_lib="$2"
+# Mac 仓库已共享进 Lima，因此 VM 内也能载入同一套调试函数。
+source "$debug_lib"
+xlab_debug_init
+xlab_debug_point "VM 软件安装阶段开始" mirror
 
 # 可通过 APT_MIRROR='' 禁用镜像站替换并使用 Ubuntu 官方 ports 源。
 if [[ -n "$mirror" ]]; then

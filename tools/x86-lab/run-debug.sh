@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # 内核源码级调试入口：QEMU 暂停，Mac 通过 SSH 隧道连接 VM 内的 GDB stub。
+# 学习重点：后台命令、$!、信号 trap 和端口转发；DEBUG_TRACE=1 能看到完整生命周期。
+# 注意脚本自身 DEBUG_* 调试与连接 QEMU 的内核 GDB 调试是两套独立机制。
 set -euo pipefail
+
+# 此处的“脚本调试”与后面的“内核 GDB 调试”相互独立，可同时开启。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # 路径、实例和端口均可覆盖；默认端口与 CLion Remote Debug 配置一致。
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
@@ -9,6 +16,7 @@ INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 ARTIFACT_DIR="$REPO_ROOT/out/x86-lab"
 GDB_PORT="${GDB_PORT:-1234}"
 SSH_CONFIG="$HOME/.lima/$INSTANCE/ssh.config"
+xlab_debug_point "内核 GDB 启动参数已解析" REPO_ROOT LIMACTL INSTANCE ARTIFACT_DIR GDB_PORT SSH_CONFIG
 
 # vmlinux 提供符号，bzImage 负责启动，rootfs.ext4 提供用户空间。
 for artifact in bzImage vmlinux rootfs.ext4; do
@@ -32,6 +40,7 @@ ssh -F "$SSH_CONFIG" \
 tunnel_pid=$!
 # 脚本退出或被中断时自动关闭后台 SSH 隧道。
 trap 'kill "$tunnel_pid" 2>/dev/null || true' EXIT INT TERM
+xlab_debug_point "SSH GDB 隧道进程已创建" tunnel_pid GDB_PORT SSH_CONFIG
 sleep 1
 kill -0 "$tunnel_pid" 2>/dev/null || {
   echo "无法建立 GDB 端口转发；请确认 Mac 的 $GDB_PORT 端口未被占用" >&2

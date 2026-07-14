@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # 快速启动路径：QEMU 直接装入 bzImage，ext4 镜像仅作为根硬盘。
 # 这种方式适合内核开发，但会跳过 BIOS -> MBR -> GRUB 的引导链。
+# 学习重点：反斜线续行、引号以及每个 QEMU 参数；DEBUG_VARS=1 可先核对产物路径。
 set -euo pipefail
+
+# 统一调试入口；DEBUG_VARS=1 可先确认 QEMU 使用的是哪组镜像。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # 定位仓库、Lima 和构建产物。
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 ARTIFACT_DIR="$REPO_ROOT/out/x86-lab"
+xlab_debug_point "快速启动参数已解析" REPO_ROOT LIMACTL INSTANCE ARTIFACT_DIR
 
 # 两项缺一都无法完成快速启动。
 [[ -f "$ARTIFACT_DIR/bzImage" && -f "$ARTIFACT_DIR/rootfs.ext4" ]] || {

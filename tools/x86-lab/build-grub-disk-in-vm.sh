@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 # 在 Lima Linux VM 内把内核、BusyBox rootfs 和 GRUB2 BIOS 引导器封装成 raw 硬盘。
 # 最终镜像可只用 QEMU -hda 启动，启动链为 SeaBIOS -> MBR -> core.img -> GRUB -> Linux。
+# 学习重点：EXIT trap、函数、loop 设备、挂载、状态码和需要 sudo 的资源清理。
+# 推荐 DEBUG_VARS=1 DEBUG_STEP=1；不要用 kill -9，否则 EXIT trap 没机会清理。
 set -euo pipefail
+
+# 统一调试入口；错误现场对 loop 设备、挂载和 grub-install 排错尤其有用。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # Mac 侧包装脚本必须传入共享仓库绝对路径。
 : "${REPO_ROOT:?REPO_ROOT is required}"
@@ -19,6 +26,7 @@ GRUB_EXTRACT="$WORK_ROOT/grub-pc-bin-2.06"
 GRUB_DIR="$GRUB_EXTRACT/usr/lib/grub/i386-pc"
 SOURCE_MOUNT="$WORK_ROOT/mnt-rootfs-source"
 TARGET_MOUNT="$WORK_ROOT/mnt-grub-disk"
+xlab_debug_point "GRUB 镜像路径和参数已解析" REPO_ROOT DISK_SIZE_MB ARTIFACT_DIR WORK_ROOT DISK ROOTFS_COPY GRUB_PACKAGE GRUB_DIR SOURCE_MOUNT TARGET_MOUNT
 
 # 先确认快速构建阶段已经提供了内核和基础根文件系统。
 for artifact in bzImage rootfs.ext4; do
@@ -40,6 +48,7 @@ mkdir -p "$WORK_ROOT" "$ARTIFACT_DIR" "$SOURCE_MOUNT" "$TARGET_MOUNT"
 # ARM64 Ubuntu 不提供可直接使用的 i386-pc 模块，因此下载官方 amd64 grub-pc-bin 数据包。
 # grub-install 本身在 ARM64 原生运行，只读取解包出的架构无关模块文件。
 if [[ ! -f "$GRUB_PACKAGE" ]]; then
+  xlab_debug_point "准备下载 GRUB i386-pc 模块包" GRUB_PACKAGE_URL GRUB_PACKAGE GRUB_PACKAGE_SHA256
   curl -fL "$GRUB_PACKAGE_URL" -o "$GRUB_PACKAGE"
 fi
 # 固定 SHA256，避免损坏或被替换的 deb 进入启动镜像。
@@ -75,6 +84,7 @@ trap cleanup EXIT
 disk_loop="$(sudo losetup --find --show --partscan "$DISK")"
 source_loop="$(sudo losetup --find --show --read-only "$ROOTFS_COPY")"
 partition="${disk_loop}p1"
+xlab_debug_point "loop 设备已创建" DISK disk_loop ROOTFS_COPY source_loop partition
 # udev 创建设备节点可能稍有延迟，最多等待约两秒。
 for _ in {1..20}; do
   [[ -b "$partition" ]] && break
@@ -103,6 +113,7 @@ sudo grub-install \
   --modules="part_msdos ext2 serial normal linux" \
   --recheck \
   "$disk_loop"
+xlab_debug_point "GRUB 已写入 MBR 和 embedding area" disk_loop partition TARGET_MOUNT GRUB_DIR
 
 # 先落盘再卸载；显式释放资源后清空变量，避免 EXIT trap 二次处理。
 sync

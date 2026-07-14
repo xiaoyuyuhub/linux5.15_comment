@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # BIOS/MBR/GRUB 调试入口：从 CPU reset vector 暂停，可在 0x7c00 截获 MBR。
+# 学习重点：Shell 管理 SSH/QEMU 进程，GDB 调试客体 CPU；两层调试可同时开启。
+# 推荐 DEBUG_TRACE=1 DEBUG_ERRORS=1，并在 GDB 中使用 hbreak *0x7c00。
 set -euo pipefail
+
+# 统一脚本调试入口；可与 BIOS/MBR 的 GDB 调试同时使用。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # 公共路径、硬盘镜像、GDB 端口和 Lima SSH 连接描述。
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
@@ -9,6 +16,7 @@ INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 DISK="$REPO_ROOT/out/x86-lab/grub-bios-disk.img"
 GDB_PORT="${GDB_PORT:-1234}"
 SSH_CONFIG="$HOME/.lima/$INSTANCE/ssh.config"
+xlab_debug_point "GRUB GDB 启动参数已解析" REPO_ROOT LIMACTL INSTANCE DISK GDB_PORT SSH_CONFIG
 
 # 完整硬盘和正在运行的 Lima 实例都是前置条件。
 [[ -f "$DISK" ]] || {
@@ -28,6 +36,7 @@ ssh -F "$SSH_CONFIG" \
 tunnel_pid=$!
 # 保证退出调试时不遗留 ssh 后台进程。
 trap 'kill "$tunnel_pid" 2>/dev/null || true' EXIT INT TERM
+xlab_debug_point "SSH GDB 隧道进程已创建" tunnel_pid GDB_PORT SSH_CONFIG
 sleep 1
 kill -0 "$tunnel_pid" 2>/dev/null || {
   echo "无法建立 GDB 端口转发；请确认 Mac 的 $GDB_PORT 端口未被占用" >&2

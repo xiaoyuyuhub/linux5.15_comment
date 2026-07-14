@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # 自动验收快速启动路径：启动 QEMU、向串口注入命令、核对架构/命令行并检查 ext4。
+# 学习重点：set +e、PIPESTATUS、timeout、tee、grep 断言和“允许的非零状态”。
+# 推荐 DEBUG_TRACE=1 DEBUG_ERRORS=1，同时对照 qemu-boot.log 阅读。
 set -euo pipefail
+
+# 统一调试入口；DEBUG_ERRORS=1 会解释每一个非预期失败发生在哪条命令。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # 日志保存在产物目录，失败时可直接搜索 panic、mount 或 QEMU 错误。
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
@@ -8,6 +15,7 @@ LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 ARTIFACT_DIR="$REPO_ROOT/out/x86-lab"
 LOG="$ARTIFACT_DIR/qemu-boot.log"
+xlab_debug_point "自动验证参数已解析" REPO_ROOT LIMACTL INSTANCE ARTIFACT_DIR LOG
 
 mkdir -p "$ARTIFACT_DIR"
 
@@ -34,6 +42,7 @@ set +e
 ' bash "$ARTIFACT_DIR" 2>&1 | tee "$LOG"
 # PIPESTATUS[0] 是 limactl/QEMU 管道状态，不是 tee 的状态。
 qemu_status=${PIPESTATUS[0]}
+xlab_debug_point "QEMU 验证进程已结束" qemu_status LOG
 set -e
 
 if [[ "$qemu_status" -ne 0 && "$qemu_status" -ne 124 ]]; then
@@ -45,6 +54,7 @@ fi
 grep -q "QEMU_X86_BOOT_OK" "$LOG"
 grep -q '^x86_64' "$LOG"
 grep -q 'root=/dev/sda' "$LOG"
+xlab_debug_point "启动日志关键标志均已匹配" qemu_status LOG
 
 # 客体曾以 rw 挂载镜像；关机后运行 e2fsck，0/1 均视为成功。
 set +e

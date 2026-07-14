@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 # 为 Mac 上的 CLion 生成 Linux 内核 Compilation Database。
 # 它把 VM 构建命令和生成头文件同步到 Mac，并将 VM 路径改写为本地路径。
+# 学习重点：命令替换、heredoc、管道、嵌入 Python、JSON 遍历和路径替换。
+# DEBUG_TRACE=1 可观察 Shell 命令；Python 内部逻辑直接结合下方逐行注释阅读。
 set -euo pipefail
+
+# 统一调试入口；建议用 DEBUG_TRACE=1 学习路径查询、rsync 和 JSON 改写流程。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/debug-lib.sh"
+xlab_debug_init
 
 # 数据库最终放在仓库根目录，CLion 必须“打开该 JSON 为项目”才能使用。
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
@@ -10,6 +17,7 @@ INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 CLION_BUILD="$REPO_ROOT/out/x86-lab/clion-build"
 VM_DATABASE="$REPO_ROOT/out/x86-lab/compile_commands.vm.json"
 DATABASE="$REPO_ROOT/compile_commands.json"
+xlab_debug_point "CLion 索引路径已解析" REPO_ROOT LIMACTL INSTANCE CLION_BUILD VM_DATABASE DATABASE
 
 # 确保 Lima 可用，并自动启动已停止的构建实例。
 [[ -x "$LIMACTL" ]] || {
@@ -24,6 +32,7 @@ fi
 vm_home="$($LIMACTL shell "$INSTANCE" -- printenv HOME | tr -d '\r')"
 vm_source="$vm_home/x86-linux-lab-work/linux-src"
 vm_build="$vm_home/x86-linux-lab-work/linux-out"
+xlab_debug_point "已查询 Lima 内的构建路径" vm_home vm_source vm_build
 
 # autoconf.h 是内核完成配置/构建的可靠标志；没有它就无法正确索引条件编译代码。
 "$LIMACTL" shell "$INSTANCE" -- test -f "$vm_build/include/generated/autoconf.h" || {
@@ -33,6 +42,7 @@ vm_build="$vm_home/x86-linux-lab-work/linux-out"
 
 # 用内核自带脚本从真实 .cmd 文件生成数据库，先保留 VM 原始路径。
 mkdir -p "$CLION_BUILD"
+xlab_debug_point "准备生成 VM Compilation Database" CLION_BUILD VM_DATABASE vm_source vm_build
 "$LIMACTL" shell "$INSTANCE" -- \
   python3 "$vm_source/scripts/clang-tools/gen_compile_commands.py" \
     -d "$vm_build" -o "$VM_DATABASE"
@@ -117,6 +127,7 @@ with open(destination, "w", encoding="utf-8") as stream:
 print(f"generated {len(database)} entries: {destination}")
 PY
 
+xlab_debug_point "本地 Compilation Database 已生成" DATABASE CLION_BUILD
 # 原始 VM 数据库只是中间文件；保留根目录数据库作为唯一 CLion 项目入口。
 rm -f "$VM_DATABASE"
 echo "CLion 索引数据库已准备完成。"
