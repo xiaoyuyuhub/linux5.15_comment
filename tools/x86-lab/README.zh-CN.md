@@ -10,6 +10,8 @@
 
 这份文档既是操作教程，也是本实验的设计记录。建议第一次按“首次完整搭建”顺序执行；以后按“常用场景速查”操作，遇到问题再查对应原理和故障排查章节。
 
+如果要系统学习当前完整硬盘从 CPU 加电、SeaBIOS、MBR、GRUB、`bzImage`、compressed kernel、解压正式内核直到 `start_kernel()` 的逐阶段原理，请阅读独立手册 [`GRUB-BIOS-BOOT-STUDY.md`](GRUB-BIOS-BOOT-STUDY.md)。
+
 ## 目录
 
 - [先建立正确的三层模型](#先建立正确的三层模型)
