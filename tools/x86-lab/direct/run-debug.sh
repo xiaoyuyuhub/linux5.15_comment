@@ -6,11 +6,11 @@ set -euo pipefail
 
 # 此处的“脚本调试”与后面的“内核 GDB 调试”相互独立，可同时开启。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 路径、实例和端口均可覆盖；默认端口与 CLion Remote Debug 配置一致。
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 ARTIFACT_DIR="$REPO_ROOT/out/x86-lab"
@@ -21,7 +21,7 @@ xlab_debug_point "内核 GDB 启动参数已解析" REPO_ROOT LIMACTL INSTANCE A
 # vmlinux 提供符号，bzImage 负责启动，rootfs.ext4 提供用户空间。
 for artifact in bzImage vmlinux rootfs.ext4; do
   [[ -f "$ARTIFACT_DIR/$artifact" ]] || {
-    echo "缺少 $artifact，请先运行 tools/x86-lab/build.sh" >&2
+    echo "缺少 $artifact，请先运行 tools/x86-lab/build/build.sh" >&2
     exit 1
   }
 done

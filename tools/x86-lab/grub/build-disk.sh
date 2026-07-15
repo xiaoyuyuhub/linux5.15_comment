@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Mac 侧 GRUB 硬盘封装入口：启动 Lima，并在 Linux VM 内操作 loop 设备和 ext4。
 # 学习重点：包装器怎样检查/启动 VM，并把磁盘容量及调试开关传到 VM。
-# 推荐：DEBUG_VARS=1 DEBUG_ERRORS=1 tools/x86-lab/build-grub-disk.sh。
+# 推荐：DEBUG_VARS=1 DEBUG_ERRORS=1 tools/x86-lab/grub/build-disk.sh。
 set -euo pipefail
 
 # 统一调试入口；可用 DEBUG_STEP=1 在进入 VM 前暂停检查参数。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 从脚本位置计算仓库根目录，避免依赖调用者当前目录。
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 # 两个变量都可由高级用户覆盖。
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
@@ -20,7 +20,7 @@ xlab_debug_point "GRUB 硬盘包装器参数已解析" REPO_ROOT LIMACTL INSTANC
 
 # GRUB 镜像构建依赖 Lima 中的 Linux 块设备工具。
 [[ -x "$LIMACTL" ]] || {
-  echo "找不到 limactl，请先运行 tools/x86-lab/bootstrap-mac.sh" >&2
+  echo "找不到 limactl，请先运行 tools/x86-lab/environment/bootstrap-mac.sh" >&2
   exit 1
 }
 # 已创建但停止的实例在这里自动恢复运行。
@@ -36,4 +36,4 @@ fi
   DEBUG_STEP="${DEBUG_STEP:-0}" \
   DEBUG_ERRORS="${DEBUG_ERRORS:-0}" \
   DEBUG_LOG="${DEBUG_VM_LOG:-}" \
-  bash "$REPO_ROOT/tools/x86-lab/build-grub-disk-in-vm.sh"
+  bash "$REPO_ROOT/tools/x86-lab/grub/build-disk-in-vm.sh"

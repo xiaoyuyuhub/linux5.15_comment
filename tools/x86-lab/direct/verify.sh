@@ -6,11 +6,11 @@ set -euo pipefail
 
 # 统一调试入口；DEBUG_ERRORS=1 会解释每一个非预期失败发生在哪条命令。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 日志保存在产物目录，失败时可直接搜索 panic、mount 或 QEMU 错误。
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 ARTIFACT_DIR="$REPO_ROOT/out/x86-lab"

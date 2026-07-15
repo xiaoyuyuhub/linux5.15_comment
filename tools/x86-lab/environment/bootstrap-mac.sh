@@ -8,7 +8,7 @@ set -euo pipefail
 
 # 载入统一调试能力；默认关闭，使用方法见 debug-lib.sh 和 README。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 所有配置均允许用同名环境变量覆盖；默认值是本项目验证过的组合。
@@ -72,7 +72,7 @@ fi
   DEBUG_STEP="${DEBUG_STEP:-0}" \
   DEBUG_ERRORS="${DEBUG_ERRORS:-0}" \
   DEBUG_LOG="${DEBUG_VM_LOG:-}" \
-  bash -s -- "$APT_MIRROR" "$SCRIPT_DIR/debug-lib.sh" <<'GUEST'
+  bash -s -- "$APT_MIRROR" "$SCRIPT_DIR/../common/debug-lib.sh" <<'GUEST'
 set -euo pipefail
 mirror="$1"
 debug_lib="$2"

@@ -7,7 +7,7 @@ set -euo pipefail
 
 # 统一调试入口；错误现场对 loop 设备、挂载和 grub-install 排错尤其有用。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # Mac 侧包装脚本必须传入共享仓库绝对路径。
@@ -31,14 +31,14 @@ xlab_debug_point "GRUB 镜像路径和参数已解析" REPO_ROOT DISK_SIZE_MB AR
 # 先确认快速构建阶段已经提供了内核和基础根文件系统。
 for artifact in bzImage rootfs.ext4; do
   [[ -f "$ARTIFACT_DIR/$artifact" ]] || {
-    echo "缺少 $artifact，请先运行 tools/x86-lab/build.sh" >&2
+    echo "缺少 $artifact，请先运行 tools/x86-lab/build/build.sh" >&2
     exit 1
   }
 done
 # loop、分区、格式化和 GRUB 安装所需命令必须全部存在。
 for command_name in curl sha256sum dpkg-deb parted losetup mkfs.ext4 grub-install; do
   command -v "$command_name" >/dev/null || {
-    echo "缺少工具：$command_name；请先运行 bootstrap-mac.sh" >&2
+    echo "缺少工具：$command_name；请先运行 tools/x86-lab/environment/bootstrap-mac.sh" >&2
     exit 1
   }
 done
@@ -100,7 +100,7 @@ sudo cp -a "$SOURCE_MOUNT/." "$TARGET_MOUNT/"
 sudo install -m 0755 "$REPO_ROOT/tools/x86-lab/rootfs/init" "$TARGET_MOUNT/init"
 sudo mkdir -p "$TARGET_MOUNT/boot/grub"
 sudo install -m 0644 "$ARTIFACT_DIR/bzImage" "$TARGET_MOUNT/boot/bzImage"
-sudo install -m 0644 "$REPO_ROOT/tools/x86-lab/grub.cfg" \
+sudo install -m 0644 "$REPO_ROOT/tools/x86-lab/grub/grub.cfg" \
   "$TARGET_MOUNT/boot/grub/grub.cfg"
 
 # BIOS 安装模式将 boot.img 写入 MBR 引导代码区，将 core.img 嵌入 1 MiB 间隙。

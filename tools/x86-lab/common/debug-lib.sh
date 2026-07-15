@@ -9,9 +9,9 @@
 #   DEBUG_LOG=文件  把调试输出追加到文件；Mac Bash 3.2 会同时记录 stderr。
 #
 # 示例：
-#   DEBUG_TRACE=1 DEBUG_ERRORS=1 tools/x86-lab/build.sh
-#   DEBUG_VARS=1 DEBUG_STEP=1 tools/x86-lab/run.sh
-#   DEBUG_TRACE=1 DEBUG_LOG=/tmp/build.trace tools/x86-lab/build.sh
+#   DEBUG_TRACE=1 DEBUG_ERRORS=1 tools/x86-lab/build/build.sh
+#   DEBUG_VARS=1 DEBUG_STEP=1 tools/x86-lab/direct/run.sh
+#   DEBUG_TRACE=1 DEBUG_LOG=/tmp/build.trace tools/x86-lab/build/build.sh
 
 # 防止同一进程重复 source 本文件时重复安装 trap 或打开日志描述符。
 if [[ "${XLAB_DEBUG_LIB_LOADED:-0}" == "1" ]]; then

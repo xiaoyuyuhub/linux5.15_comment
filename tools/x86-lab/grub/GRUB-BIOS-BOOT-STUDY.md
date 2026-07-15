@@ -7,6 +7,8 @@
 
 本手册解释的不是“如何输入一条 QEMU 命令”，而是这条命令背后每一阶段实际做了什么：CPU 从哪里开始执行、BIOS 为什么把 MBR 放到 `0x7c00`、GRUB 如何读取 ext4 中的 `bzImage`、Linux 哪些 16 位 setup 代码被 GRUB 跳过、compressed kernel 如何进入 32 位和 64 位、正式内核怎样覆盖同一物理地址、何时切换到高半区虚拟地址，以及最终如何进入 `start_kernel()`、挂载 BusyBox 根文件系统。
 
+仓库现已另行实现不含 GRUB 的两阶段 BIOS loader。若要实际执行本手册中“被 GRUB 跳过”的 `start_of_setup → main.c → pm.c → pmjump.S`，请阅读 [`../native/README.zh-CN.md`](../native/README.zh-CN.md)。
+
 文中有两类数字：
 
 - **协议规定或源码定义**：例如 BIOS MBR 入口 `0x7c00`、compressed 64 位入口相对偏移 `0x200`。
@@ -164,7 +166,7 @@ compressed startup_64 = 0x01000200
 
 ## 3. 当前完整硬盘镜像结构
 
-镜像由 `tools/x86-lab/build-grub-disk-in-vm.sh` 制作，QEMU 只接收：
+镜像由 `tools/x86-lab/grub/build-disk-in-vm.sh` 制作，QEMU 只接收：
 
 ```bash
 -hda out/x86-lab/grub-bios-disk.img
@@ -989,7 +991,7 @@ hbreak *0x01000000
 
 ```bash
 cd /Users/xuyu/Desktop/code/linux5.15_comment
-tools/x86-lab/run-grub-debug.sh
+tools/x86-lab/grub/run-debug.sh
 ```
 
 QEMU 使用 `-S` 从 reset vector 前暂停，GDB 连接地址为：

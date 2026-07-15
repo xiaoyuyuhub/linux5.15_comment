@@ -6,11 +6,11 @@ set -euo pipefail
 
 # 统一调试入口；DEBUG_VARS=1 可先确认 QEMU 使用的是哪组镜像。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 定位仓库、Lima 和构建产物。
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 ARTIFACT_DIR="$REPO_ROOT/out/x86-lab"
@@ -18,7 +18,7 @@ xlab_debug_point "快速启动参数已解析" REPO_ROOT LIMACTL INSTANCE ARTIFA
 
 # 两项缺一都无法完成快速启动。
 [[ -f "$ARTIFACT_DIR/bzImage" && -f "$ARTIFACT_DIR/rootfs.ext4" ]] || {
-  echo "缺少构建产物，请先运行 tools/x86-lab/build.sh" >&2
+  echo "缺少构建产物，请先运行 tools/x86-lab/build/build.sh" >&2
   exit 1
 }
 

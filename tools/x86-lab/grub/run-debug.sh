@@ -6,11 +6,11 @@ set -euo pipefail
 
 # 统一脚本调试入口；可与 BIOS/MBR 的 GDB 调试同时使用。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 公共路径、硬盘镜像、GDB 端口和 Lima SSH 连接描述。
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 DISK="$REPO_ROOT/out/x86-lab/grub-bios-disk.img"
@@ -20,7 +20,7 @@ xlab_debug_point "GRUB GDB 启动参数已解析" REPO_ROOT LIMACTL INSTANCE DIS
 
 # 完整硬盘和正在运行的 Lima 实例都是前置条件。
 [[ -f "$DISK" ]] || {
-  echo "缺少 GRUB 硬盘镜像，请先运行 tools/x86-lab/build-grub-disk.sh" >&2
+  echo "缺少 GRUB 硬盘镜像，请先运行 tools/x86-lab/grub/build-disk.sh" >&2
   exit 1
 }
 [[ -f "$SSH_CONFIG" ]] || {

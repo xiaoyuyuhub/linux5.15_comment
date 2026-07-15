@@ -10,7 +10,9 @@
 
 这份文档既是操作教程，也是本实验的设计记录。建议第一次按“首次完整搭建”顺序执行；以后按“常用场景速查”操作，遇到问题再查对应原理和故障排查章节。
 
-如果要系统学习当前完整硬盘从 CPU 加电、SeaBIOS、MBR、GRUB、`bzImage`、compressed kernel、解压正式内核直到 `start_kernel()` 的逐阶段原理，请阅读独立手册 [`GRUB-BIOS-BOOT-STUDY.md`](GRUB-BIOS-BOOT-STUDY.md)。
+如果要系统学习当前完整硬盘从 CPU 加电、SeaBIOS、MBR、GRUB、`bzImage`、compressed kernel、解压正式内核直到 `start_kernel()` 的逐阶段原理，请阅读独立手册 [`grub/GRUB-BIOS-BOOT-STUDY.md`](grub/GRUB-BIOS-BOOT-STUDY.md)。
+
+如果要完全绕过 GRUB，并实际执行 Linux 自带的 `header.S:start_of_setup → main.c → pm.c → pmjump.S` 16 位路径，请使用独立的 [`native/README.zh-CN.md`](native/README.zh-CN.md) 实验。
 
 ## 目录
 
@@ -80,22 +82,48 @@ Path Mapping 是字符串路径翻译规则，不是目录挂载，也不会在 
 
 ## 脚本与配置文件总览
 
-| 文件 | 在哪运行 | 用途 |
-|---|---|---|
-| `debug-lib.sh` | Mac 或 Lima | 所有 Bash 脚本共用的 trace、变量快照、学习断点和错误现场函数 |
-| `bootstrap-mac.sh` | Mac，部分命令下发到 VM | 安装 Lima、创建 ARM64 Ubuntu、安装交叉工具链/QEMU/GDB/镜像工具 |
-| `build.sh` | Mac | 主构建包装器，把参数传给 Lima |
-| `build-in-vm.sh` | Lima | 同步源码、编译内核/BusyBox、制作基础 ext4、导出产物 |
-| `verify.sh` | Mac + Lima | 无人值守启动快速路径，验证架构、根盘和文件系统 |
-| `run.sh` | Mac + Lima | 用 `-kernel` 快速进入内核与 BusyBox |
-| `run-debug.sh` | Mac + Lima | 快速路径加 `-S/-gdb` 和 SSH 端口转发 |
-| `build-grub-disk.sh` | Mac | 完整硬盘镜像包装器 |
-| `build-grub-disk-in-vm.sh` | Lima | 分区、loop 挂载、复制系统、安装 GRUB BIOS |
-| `run-grub.sh` | Mac + Lima | 只用 `-hda` 从完整硬盘启动 |
-| `run-grub-debug.sh` | Mac + Lima | 从 reset vector 调试 BIOS/MBR/GRUB |
-| `setup-clion.sh` | Mac + Lima | 生成并改写 Compilation Database，复制生成头文件 |
-| `rootfs/init` | x86 客体 | 最小系统 PID 1，挂载伪文件系统并启动 shell |
-| `grub.cfg` | GRUB | 串口菜单、内核位置和 `root=/dev/sda1` 参数 |
+脚本按职责和启动方式分目录，根目录只保留总手册，避免以后再次堆成一排：
+
+```text
+tools/x86-lab/
+├── README.zh-CN.md              总入口和完整操作手册
+├── common/                      所有方式共用的 Bash 调试能力
+├── environment/                 Mac/Lima/交叉工具链初始化
+├── build/                       生成三种方式共用的内核、BusyBox、rootfs
+├── direct/                      QEMU -kernel 快速启动与调试
+├── grub/                        GRUB 完整硬盘的构建、启动、调试和原理手册
+├── native/                      无 GRUB 教学 loader 的构建、源码和手册
+├── ide/                         CLion 索引准备
+└── rootfs/                      x86 客体的 /init
+```
+
+三条启动路径的边界如下：
+
+| 分类 | QEMU 入口 | 主要用途 | 是否经过 `0x7c00` |
+|---|---|---|---|
+| `direct/` | `-kernel bzImage -hda rootfs.ext4` | 最快进入内核、调试内核 C/汇编源码 | 否 |
+| `grub/` | `-hda grub-bios-disk.img` | 学 BIOS、MBR、GRUB 和标准 Linux boot protocol | 是，执行 GRUB 的 MBR 代码 |
+| `native/` | `-hda native-bios-disk.img` | 学自制 loader 与 Linux 16 位 setup 全路径 | 是，执行本仓库 `loader/stage1.S` |
+
+| 分类 | 文件 | 在哪运行 | 用途 |
+|---|---|---|---|
+| 公共 | `common/debug-lib.sh` | Mac 或 Lima | trace、变量快照、学习断点和错误现场函数 |
+| 环境 | `environment/bootstrap-mac.sh` | Mac，部分命令下发到 VM | 安装 Lima、交叉工具链、QEMU、GDB 和镜像工具 |
+| 基础构建 | `build/build.sh` | Mac | 主构建包装器，把参数传给 Lima |
+| 基础构建 | `build/build-in-vm.sh` | Lima | 编译内核/BusyBox、制作基础 ext4、导出产物 |
+| `-kernel` | `direct/verify.sh` | Mac + Lima | 无人值守验证架构、根盘和文件系统 |
+| `-kernel` | `direct/run.sh` | Mac + Lima | 快速进入内核与 BusyBox |
+| `-kernel` | `direct/run-debug.sh` | Mac + Lima | 加 `-S/-gdb` 与 SSH 端口转发 |
+| GRUB | `grub/build-disk.sh` | Mac | GRUB 完整硬盘镜像包装器 |
+| GRUB | `grub/build-disk-in-vm.sh` | Lima | 分区、loop 挂载、复制系统、安装 GRUB BIOS |
+| GRUB | `grub/run.sh` / `grub/run-debug.sh` | Mac + Lima | 正常启动或从 reset vector 调试 |
+| GRUB | `grub/grub.cfg` | GRUB | 串口菜单、内核位置和根文件系统参数 |
+| Native | `native/build-disk.sh` | Mac | 无 GRUB 两阶段 BIOS 教学硬盘包装器 |
+| Native | `native/build-disk-in-vm.sh` | Lima | 汇编 Stage 1/2、封装固定 LBA 硬盘并校验 |
+| Native | `native/run.sh` / `native/run-debug.sh` | Mac + Lima | 正常启动或调试完整早期地址链 |
+| Native | `native/loader/` | Lima 编译、x86 客体执行 | Stage 1/2 汇编与链接脚本 |
+| IDE | `ide/setup-clion.sh` | Mac + Lima | 生成 Compilation Database，复制生成头文件 |
+| 客体 | `rootfs/init` | x86 客体 | 最小 PID 1，挂载伪文件系统并启动 shell |
 
 所有脚本都使用 `set -euo pipefail`：命令失败、未定义变量或管道中间失败都会让脚本停止。这样错误会尽量出现在真正失败的位置，而不是几十条命令后才表现为损坏的镜像。
 
@@ -105,34 +133,34 @@ Path Mapping 是字符串路径翻译规则，不是目录挂载，也不会在 
 cd /Users/xuyu/Desktop/code/linux5.15_comment
 
 # 1. 安装 Lima、创建 Ubuntu arm64 VM、安装交叉工具链和 QEMU
-tools/x86-lab/bootstrap-mac.sh
+tools/x86-lab/environment/bootstrap-mac.sh
 
 # 2. 构建 x86_64 bzImage、静态 BusyBox 和 256 MiB ext4 镜像
-tools/x86-lab/build.sh
+tools/x86-lab/build/build.sh
 
 # 3. 自动启动并验证 x86_64、/dev/sda 和内核命令行
-tools/x86-lab/verify.sh
+tools/x86-lab/direct/verify.sh
 
 # 4. 进入交互式 BusyBox shell；退出 QEMU 用 Ctrl-A X
-tools/x86-lab/run.sh
+tools/x86-lab/direct/run.sh
 ```
 
 首次完整搭建建议继续生成两项派生产物：
 
 ```bash
 # 让 CLion 获得跨文件跳转所需的真实 Kbuild 编译数据库
-tools/x86-lab/setup-clion.sh
+tools/x86-lab/ide/setup-clion.sh
 
 # 制作包含 MBR、GRUB、内核和 rootfs 的完整硬盘
-tools/x86-lab/build-grub-disk.sh
+tools/x86-lab/grub/build-disk.sh
 
 # 从硬盘原生引导
-tools/x86-lab/run-grub.sh
+tools/x86-lab/grub/run.sh
 ```
 
 ## 实际 QEMU 命令
 
-`run.sh` 最终在 ARM64 Linux 构建机内执行：
+`direct/run.sh` 最终在 ARM64 Linux 构建机内执行：
 
 ```bash
 qemu-system-x86_64 \
@@ -184,7 +212,7 @@ macOS 默认卷大小写不敏感，而内核同时存在 `xt_TCPMSS.c`/`xt_tcpm
 默认构建保留 VM 中的目标文件以便失败后增量重试。需要完全清理时运行：
 
 ```bash
-CLEAN_BUILD=1 tools/x86-lab/build.sh
+CLEAN_BUILD=1 tools/x86-lab/build/build.sh
 ```
 
 BusyBox 使用同一交叉编译前缀，并启用 `CONFIG_STATIC=y`。静态链接避免 rootfs 还要复制 x86_64 glibc 动态加载器和共享库。
@@ -212,7 +240,7 @@ Ubuntu 22.04 的 `libc6-dev-amd64-cross` 有一个路径细节：`libm.a` linker
 如果在中国大陆以外使用，可让 bootstrap 使用 Ubuntu 官方源：
 
 ```bash
-APT_MIRROR='' tools/x86-lab/bootstrap-mac.sh
+APT_MIRROR='' tools/x86-lab/environment/bootstrap-mac.sh
 ```
 
 ## 本机验证记录（2026-07-10）
@@ -238,7 +266,7 @@ APT_MIRROR='' tools/x86-lab/bootstrap-mac.sh
 
 ```bash
 cd /Users/xuyu/Desktop/code/linux5.15_comment
-tools/x86-lab/run-debug.sh
+tools/x86-lab/direct/run-debug.sh
 ```
 
 脚本会给 QEMU 增加 `-S -gdb tcp:127.0.0.1:1234`。QEMU 实际运行在 Lima 内，脚本同时建立 SSH 隧道，把 Mac 的 `127.0.0.1:1234` 转发到 Lima。终端必须保持运行。
@@ -260,12 +288,12 @@ info registers
 bt
 ```
 
-若要调试更晚的启动路径，可以在 `rest_init`、`kernel_init`、`do_mount_root` 或本仓库关注的函数处设置断点。`run-debug.sh` 使用 `-S`，所以每次重新调试都从 CPU 尚未执行的状态开始；不需要在 BusyBox 中运行 `gdbserver`。
+若要调试更晚的启动路径，可以在 `rest_init`、`kernel_init`、`do_mount_root` 或本仓库关注的函数处设置断点。`direct/run-debug.sh` 使用 `-S`，所以每次重新调试都从 CPU 尚未执行的状态开始；不需要在 BusyBox 中运行 `gdbserver`。
 
 结束时在 QEMU 终端按 `Ctrl-A X`。脚本退出后会自动关闭 SSH 隧道。若 1234 已被占用，可以让脚本与 CLion 同时改用其他端口，例如：
 
 ```bash
-GDB_PORT=1235 tools/x86-lab/run-debug.sh
+GDB_PORT=1235 tools/x86-lab/direct/run-debug.sh
 ```
 
 ## 纯硬盘启动：SeaBIOS + MBR + GRUB2 + Linux
@@ -284,13 +312,13 @@ CPU reset → SeaBIOS → MBR(0x7c00) → GRUB2 core.img
 cd /Users/xuyu/Desktop/code/linux5.15_comment
 
 # 先确保 bzImage、BusyBox 和基础 rootfs 已存在
-tools/x86-lab/build.sh
+tools/x86-lab/build/build.sh
 
 # 制作 512 MiB、MBR 分区表、GRUB2 i386-pc 的完整硬盘
-tools/x86-lab/build-grub-disk.sh
+tools/x86-lab/grub/build-disk.sh
 
 # 只从硬盘启动；退出使用 Ctrl-A X
-tools/x86-lab/run-grub.sh
+tools/x86-lab/grub/run.sh
 ```
 
 实际 QEMU 命令的关键部分只有：
@@ -331,7 +359,7 @@ ARM64 Ubuntu 没有发行 `grub-pc-bin` 包。脚本从 Ubuntu 官方仓库下�
 启动暂停态 QEMU：
 
 ```bash
-tools/x86-lab/run-grub-debug.sh
+tools/x86-lab/grub/run-debug.sh
 ```
 
 此脚本同样把 Lima 中 QEMU 的 GDB Stub 转发到 Mac `127.0.0.1:1234`，但 QEMU 使用 `-S` 在 CPU reset vector 执行前暂停，并且仍然只提供 `-hda`。
@@ -359,7 +387,7 @@ add-auto-load-safe-path /Users/xuyu/Desktop/code/linux5.15_comment/.gdbinit
 停止当前调试会话，再重新启动一次 CLion Remote Debug 后，正常顺序变成：
 
 ```text
-run-grub-debug.sh 用 -S 暂停 QEMU
+grub/run-debug.sh 用 -S 暂停 QEMU
 → CLion target remote 连接
 → hookpost-remote 自动执行 hbreak *0x7c00
 → CLion 继续目标
@@ -414,7 +442,7 @@ continue
 
 ```bash
 cd /Users/xuyu/Desktop/code/linux5.15_comment
-tools/x86-lab/setup-clion.sh
+tools/x86-lab/ide/setup-clion.sh
 ```
 
 脚本完成三件事：
@@ -431,9 +459,9 @@ tools/x86-lab/setup-clion.sh
 4. 如果询问 Toolchain，选择 Mac 本机的默认 Clang toolchain。
 5. 等待右下角索引完成，再测试 `Command-B`、`Command-点击`、**Go to Definition** 和 **Find Usages**。
 
-以后重新构建或修改内核配置后，再运行一次 `setup-clion.sh`，随后在 CLion 选择 **Tools | Compilation Database | Reload Compilation Database Project**。也可以在 **Settings | Build, Execution, Deployment | Build Tools** 把自动同步改为 **Any changes**。
+以后重新构建或修改内核配置后，再运行一次 `ide/setup-clion.sh`，随后在 CLion 选择 **Tools | Compilation Database | Reload Compilation Database Project**。也可以在 **Settings | Build, Execution, Deployment | Build Tools** 把自动同步改为 **Any changes**。
 
-生成的根目录 `compile_commands.json` 和 `out/x86-lab/clion-build/` 都是本机路径相关的派生产物，已经被 Git 忽略，不应该提交。Compilation Database 模式用于导航和代码分析；真正编译仍使用 `tools/x86-lab/build.sh`，内核运行调试仍使用 `tools/x86-lab/run-debug.sh`。
+生成的根目录 `compile_commands.json` 和 `out/x86-lab/clion-build/` 都是本机路径相关的派生产物，已经被 Git 忽略，不应该提交。Compilation Database 模式用于导航和代码分析；真正编译仍使用 `tools/x86-lab/build/build.sh`，内核运行调试仍使用 `tools/x86-lab/direct/run-debug.sh`。
 
 ### 只有当前文件能跳转、跨文件不能跳转时
 
@@ -460,7 +488,7 @@ tools/x86-lab/setup-clion.sh
 6. 修改 `.config` 或重新构建后，再执行：
 
    ```bash
-   tools/x86-lab/setup-clion.sh
+   tools/x86-lab/ide/setup-clion.sh
    ```
 
    然后在 CLion 执行 **Tools | Compilation Database | Reload Compilation Database Project**。
@@ -490,7 +518,7 @@ vmlinux + GDB + Path Mapping -> 运行时调试 -> 断点、变量、寄存器�
 
 Bash 脚本是解释执行的，没有像 C/内核那样统一使用 GDB 的 DWARF 断点。CLion 可以编辑、运行和检查 Shell 脚本，但默认并不提供等价于 C/C++ Debugger 的 Bash 逐行断点、局部变量窗口。最可靠的方法是语法检查、执行跟踪、条件暂停和缩小到 VM 内脚本。
 
-本目录所有 Bash 脚本已经接入 [debug-lib.sh](./debug-lib.sh)。正常运行时调试功能完全关闭；不需要改脚本，只需在原命令前增加环境变量。
+本目录所有 Bash 脚本已经接入 [`common/debug-lib.sh`](common/debug-lib.sh)。正常运行时调试功能完全关闭；不需要改脚本，只需在原命令前增加环境变量。
 
 ### 调试框架的底层原理
 
@@ -576,17 +604,17 @@ export PS4='+ [${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]:-main}] '
 + [build-in-vm.sh:83:main] make -C /home/xuyu.guest/... bzImage
 ```
 
-表示 `build-in-vm.sh` 第 83 行、脚本顶层即将执行展开后的 `make`。命令替换存在嵌套层次时可能出现 `++`、`+++`；加号越多通常表示当前 trace 越深，而不是命令内容的一部分。
+表示 `build/build-in-vm.sh` 第 83 行、脚本顶层即将执行展开后的 `make`。命令替换存在嵌套层次时可能出现 `++`、`+++`；加号越多通常表示当前 trace 越深，而不是命令内容的一部分。
 
 #### 3. 环境变量为什么能控制一次运行
 
 命令前的赋值：
 
 ```bash
-DEBUG_TRACE=1 DEBUG_ERRORS=1 tools/x86-lab/build.sh
+DEBUG_TRACE=1 DEBUG_ERRORS=1 tools/x86-lab/build/build.sh
 ```
 
-表示只为新启动的 `build.sh` 进程设置环境变量。它近似于先 `export` 再执行，但不会永久改变当前终端后续命令的环境。
+表示只为新启动的 `build/build.sh` 进程设置环境变量。它近似于先 `export` 再执行，但不会永久改变当前终端后续命令的环境。
 
 脚本使用：
 
@@ -721,7 +749,7 @@ set -euo pipefail
 - `set -u`：读取未定义变量时报错；可选值应写成 `${VALUE:-default}`。
 - `set -o pipefail`：管道中间命令失败时，不再只看最后一个命令的成功状态。
 
-例如默认情况下 `false | tee log` 可能因为 `tee` 成功而表现为成功；开启 `pipefail` 后，前面的失败可以向外传播。`verify.sh` 某些位置会有意识地临时 `set +e`，读取 `PIPESTATUS` 或保存退出码后再手工判断，这属于预期状态处理，不是忽略错误。
+例如默认情况下 `false | tee log` 可能因为 `tee` 成功而表现为成功；开启 `pipefail` 后，前面的失败可以向外传播。`direct/verify.sh` 某些位置会有意识地临时 `set +e`，读取 `PIPESTATUS` 或保存退出码后再手工判断，这属于预期状态处理，不是忽略错误。
 
 #### 9. 调试日志背后的文件描述符
 
@@ -749,7 +777,7 @@ exec 2> >(tee -a "$DEBUG_LOG" >&2)
 
 #### 10. 调试开关如何跨越 Mac 和 Lima
 
-Mac 的 `build.sh` 与 VM 内的 `build-in-vm.sh` 是两个不同 Bash 进程，环境不会凭空跨虚拟机继承。包装脚本显式执行：
+Mac 的 `build/build.sh` 与 VM 内的 `build/build-in-vm.sh` 是两个不同 Bash 进程，环境不会凭空跨虚拟机继承。包装脚本显式执行：
 
 ```bash
 limactl shell "$INSTANCE" -- env \
@@ -758,7 +786,7 @@ limactl shell "$INSTANCE" -- env \
   DEBUG_STEP="${DEBUG_STEP:-0}" \
   DEBUG_ERRORS="${DEBUG_ERRORS:-0}" \
   DEBUG_LOG="${DEBUG_VM_LOG:-}" \
-  bash "$REPO_ROOT/tools/x86-lab/build-in-vm.sh"
+  bash "$REPO_ROOT/tools/x86-lab/build/build-in-vm.sh"
 ```
 
 传播链是：
@@ -817,14 +845,14 @@ BusyBox /init 读取参数
 | `trap ERR` 捕获命令失败 | 捕获断点、异常和信号 |
 | 能看到 `make` 如何被调用，不能进入其内部 C 代码 | 能进入 `start_kernel` 等内核函数 |
 
-所以 `DEBUG_TRACE=1 tools/x86-lab/run-debug.sh` 可以同时存在两层调试：Shell 层观察 SSH 隧道和 QEMU 如何启动，GDB 层连接 QEMU Stub 观察 x86 Linux 内核如何执行。
+所以 `DEBUG_TRACE=1 tools/x86-lab/direct/run-debug.sh` 可以同时存在两层调试：Shell 层观察 SSH 隧道和 QEMU 如何启动，GDB 层连接 QEMU Stub 观察 x86 Linux 内核如何执行。
 
 #### 13. 一次完整调试的执行顺序
 
 执行：
 
 ```bash
-DEBUG_TRACE=1 DEBUG_VARS=1 DEBUG_ERRORS=1 tools/x86-lab/build.sh
+DEBUG_TRACE=1 DEBUG_VARS=1 DEBUG_ERRORS=1 tools/x86-lab/build/build.sh
 ```
 
 内部顺序如下：
@@ -860,19 +888,19 @@ DEBUG_TRACE=1 DEBUG_VARS=1 DEBUG_ERRORS=1 tools/x86-lab/build.sh
 
 ```bash
 # 初学推荐：先看阶段参数和错误现场，不打印海量命令
-DEBUG_VARS=1 DEBUG_ERRORS=1 tools/x86-lab/build.sh
+DEBUG_VARS=1 DEBUG_ERRORS=1 tools/x86-lab/build/build.sh
 
 # 完整逐行跟踪 Mac 包装器和 VM 主构建脚本
-DEBUG_TRACE=1 DEBUG_ERRORS=1 tools/x86-lab/build.sh
+DEBUG_TRACE=1 DEBUG_ERRORS=1 tools/x86-lab/build/build.sh
 
 # 在每个主要阶段暂停，观察变量后按 Enter 继续
-DEBUG_VARS=1 DEBUG_STEP=1 tools/x86-lab/build.sh
+DEBUG_VARS=1 DEBUG_STEP=1 tools/x86-lab/build/build.sh
 
 # Mac 与 VM 分开记录；VM 日志放共享仓库，所以 Mac 也能直接打开
 DEBUG_TRACE=1 \
 DEBUG_LOG=/tmp/x86-build-mac.trace \
 DEBUG_VM_LOG=/Users/xuyu/Desktop/code/linux5.15_comment/out/x86-lab/build-vm.trace \
-tools/x86-lab/build.sh
+tools/x86-lab/build/build.sh
 ```
 
 兼容性细节：Lima Ubuntu 的 Bash 5 支持 `BASH_XTRACEFD`，因此 `DEBUG_VM_LOG` 可以只收集 xtrace；macOS 自带 Bash 3.2 不支持该变量，`DEBUG_LOG` 会通过 `tee` 同时记录 xtrace 和 stderr。两种情况下终端输出都不会被吞掉。这个区别也是学习 Shell 时很典型的“同为 Bash，但版本能力不同”。
@@ -888,7 +916,7 @@ tools/x86-lab/build.sh
 ```
 
 - 第一个 `+` 是 Bash xtrace 标志，不是命令内容。
-- `build-in-vm.sh` 是正在执行的文件。
+- `build/build-in-vm.sh` 是正在执行的文件。
 - `83` 是命令所在行号；脚本增加注释后行号会变化，以当前文件为准。
 - `main` 表示当前在脚本顶层；函数内部会显示函数名。
 - 后面是变量和命令替换完成后真正交给系统执行的命令。
@@ -946,38 +974,42 @@ mount | grep x86-linux-lab-work
 - `status=127` 通常表示命令不存在。
 - `status=126` 通常表示文件存在但不可执行。
 - `status=1` 是普通失败，需要结合命令自己的错误输出。
-- `status=124` 常见于 `timeout` 超时；`verify.sh` 对预期超时有自己的判断。
+- `status=124` 常见于 `timeout` 超时；`direct/verify.sh` 对预期超时有自己的判断。
 - `command` 是失败时 Bash 正在执行的命令。
 - 调用栈用于区分顶层失败和函数/子 shell 中的失败。
 
-错误报告不会吞掉原退出码，脚本仍会按 `set -e` 原有规则结束。`verify.sh` 中为了检查 QEMU 和 `e2fsck` 而刻意使用的 `set +e` 属于预期错误处理，最终是否失败仍由后续状态判断决定。
+错误报告不会吞掉原退出码，脚本仍会按 `set -e` 原有规则结束。`direct/verify.sh` 中为了检查 QEMU 和 `e2fsck` 而刻意使用的 `set +e` 属于预期错误处理，最终是否失败仍由后续状态判断决定。
 
 ### 每个脚本最值得观察什么
 
 | 脚本 | 推荐命令 | 重点学习内容 |
 |---|---|---|
-| `bootstrap-mac.sh` | `DEBUG_VARS=1 DEBUG_STEP=1 ...` | 平台判断、下载校验、VM 创建、heredoc 下发 |
-| `build.sh` | `DEBUG_TRACE=1 ...` | Mac 包装器如何用 `env` 向 Lima 传参 |
-| `build-in-vm.sh` | `DEBUG_VARS=1 DEBUG_STEP=1 ...` | 数组、循环、rsync、管道、Kbuild、BusyBox、ext4 |
-| `verify.sh` | `DEBUG_TRACE=1 DEBUG_ERRORS=1 ...` | `set +e`、`PIPESTATUS`、timeout、grep 断言 |
-| `run.sh` | `DEBUG_VARS=1 ...` | 多行命令、QEMU 参数和引号 |
-| `run-debug.sh` | `DEBUG_TRACE=1 DEBUG_ERRORS=1 ...` | 后台进程 `$!`、SSH 隧道、trap 清理 |
-| `build-grub-disk.sh` | `DEBUG_VARS=1 ...` | 包装器与 VM 环境变量传递 |
-| `build-grub-disk-in-vm.sh` | `DEBUG_VARS=1 DEBUG_STEP=1 ...` | 函数、EXIT trap、loop、mount、状态码 |
-| `run-grub.sh` | `DEBUG_VARS=1 ...` | 纯 `-hda` QEMU 参数 |
-| `run-grub-debug.sh` | `DEBUG_TRACE=1 ...` | 后台 SSH 与 BIOS GDB stub 生命周期 |
-| `setup-clion.sh` | `DEBUG_TRACE=1 ...` | heredoc、Python、JSON、管道和路径改写 |
+| `environment/bootstrap-mac.sh` | `DEBUG_VARS=1 DEBUG_STEP=1 ...` | 平台判断、下载校验、VM 创建、heredoc 下发 |
+| `build/build.sh` | `DEBUG_TRACE=1 ...` | Mac 包装器如何用 `env` 向 Lima 传参 |
+| `build/build-in-vm.sh` | `DEBUG_VARS=1 DEBUG_STEP=1 ...` | 数组、循环、rsync、管道、Kbuild、BusyBox、ext4 |
+| `direct/verify.sh` | `DEBUG_TRACE=1 DEBUG_ERRORS=1 ...` | `set +e`、`PIPESTATUS`、timeout、grep 断言 |
+| `direct/run.sh` | `DEBUG_VARS=1 ...` | 多行命令、QEMU 参数和引号 |
+| `direct/run-debug.sh` | `DEBUG_TRACE=1 DEBUG_ERRORS=1 ...` | 后台进程 `$!`、SSH 隧道、trap 清理 |
+| `grub/build-disk.sh` | `DEBUG_VARS=1 ...` | 包装器与 VM 环境变量传递 |
+| `grub/build-disk-in-vm.sh` | `DEBUG_VARS=1 DEBUG_STEP=1 ...` | 函数、EXIT trap、loop、mount、状态码 |
+| `grub/run.sh` | `DEBUG_VARS=1 ...` | 纯 `-hda` QEMU 参数 |
+| `grub/run-debug.sh` | `DEBUG_TRACE=1 ...` | 后台 SSH 与 BIOS GDB stub 生命周期 |
+| `native/build-disk.sh` | `DEBUG_VARS=1 DEBUG_STEP=1 ...` | 固定 LBA 参数与包装器传参 |
+| `native/build-disk-in-vm.sh` | `DEBUG_TRACE=1 ...` | 汇编、链接、扇区写入与逐字节校验 |
+| `native/run.sh` / `native/run-debug.sh` | `DEBUG_TRACE=1 ...` | 原生 loader 启动和 GDB Stub 生命周期 |
+| `ide/setup-clion.sh` | `DEBUG_TRACE=1 ...` | heredoc、Python、JSON、管道和路径改写 |
 
 下面各小节是不依赖公共辅助库的 Bash 基础调试方法，也适用于你以后自己写的其他脚本。
 
 ### 1. 只做语法检查，不执行
 
 ```bash
-bash -n tools/x86-lab/build.sh
-bash -n tools/x86-lab/build-in-vm.sh
+bash -n tools/x86-lab/build/build.sh
+bash -n tools/x86-lab/build/build-in-vm.sh
 
 # 一次检查全部脚本
-for f in tools/x86-lab/*.sh tools/x86-lab/rootfs/init; do
+find tools/x86-lab -type f \( -name '*.sh' -o -path '*/rootfs/init' \) -print0 |
+while IFS= read -r -d '' f; do
   echo "checking $f"
   bash -n "$f"
 done
@@ -989,7 +1021,7 @@ done
 
 ```bash
 export PS4='+ ${BASH_SOURCE}:${LINENO}:${FUNCNAME[0]:-main}: '
-bash -x tools/x86-lab/build.sh 2>&1 | tee /tmp/x86-build-trace.log
+bash -x tools/x86-lab/build/build.sh 2>&1 | tee /tmp/x86-build-trace.log
 ```
 
 `-x` 会在执行每条命令前打印变量展开后的内容。`PS4` 给每行增加源文件、行号和函数名；`tee` 同时显示并保存日志。日志可能含本机路径和环境变量，分享前应检查是否包含敏感信息。
@@ -1027,21 +1059,21 @@ fi
 然后这样运行：
 
 ```bash
-DEBUG_PAUSE=1 tools/x86-lab/build.sh
+DEBUG_PAUSE=1 tools/x86-lab/build/build.sh
 ```
 
 这不是机器级断点，但对脚本最实用：暂停后可另开终端查看进程、目录、loop 设备和日志。
 
 ### 5. 直接调试 VM 内脚本
 
-`build.sh` 和 `build-grub-disk.sh` 只是包装器。复杂逻辑发生在 Lima 的 `build-in-vm.sh` 与 `build-grub-disk-in-vm.sh`，要看真实 Linux 命令应直接进入 VM：
+`build/build.sh`、`grub/build-disk.sh` 和 `native/build-disk.sh` 是 Mac 包装器。复杂逻辑发生在对应的 `*-in-vm.sh`，要看真实 Linux 命令应直接进入 VM：
 
 ```bash
 ~/.local/bin/limactl shell linux-x86-builder
 
 export REPO_ROOT=/Users/xuyu/Desktop/code/linux5.15_comment
 export PS4='+ ${BASH_SOURCE}:${LINENO}:${FUNCNAME[0]:-main}: '
-bash -x "$REPO_ROOT/tools/x86-lab/build-in-vm.sh"
+bash -x "$REPO_ROOT/tools/x86-lab/build/build-in-vm.sh"
 ```
 
 GRUB 脚本会使用 `sudo`、loop 设备和挂载点；脚本已有 `trap cleanup EXIT`。调试时不要随意 `kill -9`，因为 SIGKILL 无法触发清理。若异常中止，可检查：
@@ -1057,7 +1089,7 @@ sudo losetup -a
 
 完整硬盘启动时：
 
-1. 运行 `tools/x86-lab/run-grub.sh`。
+1. 运行 `tools/x86-lab/grub/run.sh`。
 2. GRUB 菜单出现时按 `e`。
 3. 找到以 `linux /boot/bzImage` 开头的一行。
 4. 在末尾追加 `debug_init=1`。
@@ -1065,7 +1097,7 @@ sudo losetup -a
 
 随后串口会打印 `/init` 中展开后的命令，例如挂载 `sysfs`、设置 hostname、解析 `/proc/cmdline`。这个修改只对本次启动有效，不会写回 `grub.cfg`。
 
-快速 `-kernel` 路径可临时手工修改 `run.sh` 的 `-append`，在引号内追加 `debug_init=1`。学习完成后撤销该临时修改；或者直接复制 QEMU 命令到终端再追加参数。
+快速 `-kernel` 路径可临时手工修改 `direct/run.sh` 的 `-append`，在引号内追加 `debug_init=1`。学习完成后撤销该临时修改；或者直接复制 QEMU 命令到终端再追加参数。
 
 `ash` 的调试能力比 Bash 少：没有 `BASH_SOURCE`、Bash 数组或 `FUNCNAME`。本项目使用 `PS4='+ init:${LINENO}: '` 和 `set -x`，因此至少能看到 `/init` 行号及展开后的命令。
 
@@ -1090,7 +1122,7 @@ set debug=                  # 关闭内部调试输出
 
 可新建 **Shell Script** Run Configuration：
 
-- Script path：选择例如 `tools/x86-lab/build.sh`。
+- Script path：选择例如 `tools/x86-lab/build/build.sh`。
 - Working directory：`/Users/xuyu/Desktop/code/linux5.15_comment`。
 - Interpreter path：`/bin/bash`。
 - Environment variables：按需加入 `CLEAN_BUILD=1`、`GDB_PORT=1235` 等。
@@ -1103,48 +1135,48 @@ CLion 用于编辑、导航和启动脚本；需要“每行执行了什么、�
 
 ```bash
 cd /Users/xuyu/Desktop/code/linux5.15_comment
-tools/x86-lab/bootstrap-mac.sh
-tools/x86-lab/build.sh
-tools/x86-lab/verify.sh
-tools/x86-lab/setup-clion.sh
-tools/x86-lab/build-grub-disk.sh
-tools/x86-lab/run-grub.sh
+tools/x86-lab/environment/bootstrap-mac.sh
+tools/x86-lab/build/build.sh
+tools/x86-lab/direct/verify.sh
+tools/x86-lab/ide/setup-clion.sh
+tools/x86-lab/grub/build-disk.sh
+tools/x86-lab/grub/run.sh
 ```
 
 ### 只修改普通内核源码后
 
 ```bash
-tools/x86-lab/build.sh
-tools/x86-lab/setup-clion.sh
-tools/x86-lab/run-debug.sh
+tools/x86-lab/build/build.sh
+tools/x86-lab/ide/setup-clion.sh
+tools/x86-lab/direct/run-debug.sh
 ```
 
 ### 修改内核配置或怀疑旧目标文件污染
 
 ```bash
-CLEAN_BUILD=1 tools/x86-lab/build.sh
-tools/x86-lab/setup-clion.sh
+CLEAN_BUILD=1 tools/x86-lab/build/build.sh
+tools/x86-lab/ide/setup-clion.sh
 ```
 
 ### 只修改 `/init` 或 `grub.cfg`
 
-基础 `rootfs.ext4` 中的 `/init` 由 `build.sh` 写入，因此修改 `/init` 后要重跑 `build.sh`。完整硬盘里的 `/init`、`grub.cfg` 和 `bzImage` 由 GRUB 封装阶段复制，任何一个变化后都要重跑：
+基础 `rootfs.ext4` 中的 `/init` 由 `build/build.sh` 写入，因此修改 `/init` 后要重跑该脚本。完整硬盘里的 `/init`、`grub/grub.cfg` 和 `bzImage` 由 GRUB 封装阶段复制，任何一个变化后都要重跑：
 
 ```bash
-tools/x86-lab/build-grub-disk.sh
+tools/x86-lab/grub/build-disk.sh
 ```
 
 ### 快速调试内核
 
 ```bash
-tools/x86-lab/run-debug.sh
+tools/x86-lab/direct/run-debug.sh
 # CLion 连接 127.0.0.1:1234，break start_kernel，然后 Resume
 ```
 
 ### 调试 BIOS 到 MBR
 
 ```bash
-tools/x86-lab/run-grub-debug.sh
+tools/x86-lab/grub/run-debug.sh
 ```
 
 ```gdb
@@ -1165,20 +1197,20 @@ ls -l ~/.local/bin/limactl
 ~/.local/bin/limactl start linux-x86-builder
 ```
 
-首次缺少命令时重跑 `tools/x86-lab/bootstrap-mac.sh`；脚本会复用已有实例和软件包。
+首次缺少命令时重跑 `tools/x86-lab/environment/bootstrap-mac.sh`；脚本会复用已有实例和软件包。
 
 ### 下载 Ubuntu 包很慢或镜像不可达
 
 ```bash
 # 使用官方 Ubuntu ports 源
-APT_MIRROR='' tools/x86-lab/bootstrap-mac.sh
+APT_MIRROR='' tools/x86-lab/environment/bootstrap-mac.sh
 ```
 
 反之在中国大陆可保留默认 USTC 镜像。GRUB amd64 数据包固定从 Ubuntu 官方 archive 下载并校验 SHA256。
 
 ### Kbuild 报 `xt_TCPMSS.o` 或大小写相关文件不存在
 
-不要在默认大小写不敏感 APFS 共享目录中直接构建。`build-in-vm.sh` 会同步到 Lima ext4，并从 Git index 恢复仅大小写不同的文件。确认仓库是 Git checkout，且相关文件仍在 index：
+不要在默认大小写不敏感 APFS 共享目录中直接构建。`build/build-in-vm.sh` 会同步到 Lima ext4，并从 Git index 恢复仅大小写不同的文件。确认仓库是 Git checkout，且相关文件仍在 index：
 
 ```bash
 git ls-files | grep -i 'xt_tcpmss.c'
@@ -1211,7 +1243,7 @@ git ls-files | grep -i 'xt_tcpmss.c'
 
 ```bash
 lsof -nP -iTCP:1234 -sTCP:LISTEN
-GDB_PORT=1235 tools/x86-lab/run-debug.sh
+GDB_PORT=1235 tools/x86-lab/direct/run-debug.sh
 ```
 
 若改端口，CLion Target 必须同步改成 `127.0.0.1:1235`。运行调试脚本的终端必须保持打开，因为该进程同时维护 SSH 隧道和 QEMU。
@@ -1245,19 +1277,20 @@ sha256sum -c grub-bios-disk.SHA256SUMS
 file bzImage vmlinux busybox rootfs.ext4 grub-bios-disk.img
 ```
 
-## 两条启动路径的最终对照
+## 三条启动路径的最终对照
 
-| 项目 | 快速内核路径 | 完整硬盘路径 |
-|---|---|---|
-| 启动脚本 | `run.sh` / `run-debug.sh` | `run-grub.sh` / `run-grub-debug.sh` |
-| QEMU 内核加载 | `-kernel bzImage` | 无 |
-| 硬盘 | `rootfs.ext4`，无分区表 | `grub-bios-disk.img`，MBR + ext4 分区 |
-| 根设备 | `/dev/sda` | `/dev/sda1` |
-| 内核参数来源 | QEMU `-append` | `/boot/grub/grub.cfg` |
-| 能否观察 0x7c00 | 不能，已绕过硬盘引导 | 能 |
-| 适合用途 | 快速改内核、源码级 GDB | 学习 BIOS/MBR/GRUB/完整启动链 |
+| 项目 | `direct/` 快速路径 | `grub/` 标准硬盘路径 | `native/` 教学 loader 路径 |
+|---|---|---|---|
+| 启动脚本 | `run.sh` / `run-debug.sh` | `run.sh` / `run-debug.sh` | `run.sh` / `run-debug.sh` |
+| QEMU 内核加载 | `-kernel bzImage` | 无 | 无 |
+| 硬盘 | `rootfs.ext4`，无分区表 | `grub-bios-disk.img` | `native-bios-disk.img` |
+| 根设备 | `/dev/sda` | `/dev/sda1` | `/dev/sda1` |
+| 内核参数来源 | QEMU `-append` | `/boot/grub/grub.cfg` | loader 写入 boot params |
+| `0x7c00` 执行者 | 不经过 | GRUB `boot.img` | `native/loader/stage1.S` |
+| Linux 16 位 setup 主线 | 启动协议实现决定，主要用于快速运行 | GRUB 通常直接按 32 位协议交接 | 明确执行 `header.S → main.c → pm.c` |
+| 适合用途 | 快速改内核、源码级 GDB | 学 BIOS/MBR/GRUB | 学固定 LBA loader 和 Linux setup |
 
-两者并不是谁取代谁：日常内核开发使用快速路径节省时间；研究 bootloader 时使用完整硬盘路径保证启动过程原生、可观察。
+三者互不取代：日常内核开发用 `direct/`；研究标准 bootloader 用 `grub/`；研究 Linux 16 位 setup 和自制加载器用 `native/`。
 
 ## 官方参考
 

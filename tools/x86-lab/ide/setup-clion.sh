@@ -7,11 +7,11 @@ set -euo pipefail
 
 # 统一调试入口；建议用 DEBUG_TRACE=1 学习路径查询、rsync 和 JSON 改写流程。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 数据库最终放在仓库根目录，CLion 必须“打开该 JSON 为项目”才能使用。
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 CLION_BUILD="$REPO_ROOT/out/x86-lab/clion-build"
@@ -21,7 +21,7 @@ xlab_debug_point "CLion 索引路径已解析" REPO_ROOT LIMACTL INSTANCE CLION_
 
 # 确保 Lima 可用，并自动启动已停止的构建实例。
 [[ -x "$LIMACTL" ]] || {
-  echo "找不到 limactl，请先运行 tools/x86-lab/bootstrap-mac.sh" >&2
+  echo "找不到 limactl，请先运行 tools/x86-lab/environment/bootstrap-mac.sh" >&2
   exit 1
 }
 if ! "$LIMACTL" list "$INSTANCE" --json 2>/dev/null | grep -q '"status":"Running"'; then
@@ -36,7 +36,7 @@ xlab_debug_point "已查询 Lima 内的构建路径" vm_home vm_source vm_build
 
 # autoconf.h 是内核完成配置/构建的可靠标志；没有它就无法正确索引条件编译代码。
 "$LIMACTL" shell "$INSTANCE" -- test -f "$vm_build/include/generated/autoconf.h" || {
-  echo "缺少内核构建结果，请先运行 tools/x86-lab/build.sh" >&2
+  echo "缺少内核构建结果，请先运行 tools/x86-lab/build/build.sh" >&2
   exit 1
 }
 

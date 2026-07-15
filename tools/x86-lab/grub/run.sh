@@ -6,11 +6,11 @@ set -euo pipefail
 
 # 统一脚本调试入口；它不会改变“只从硬盘启动”的 QEMU 参数。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # 解析公共路径与实例设置。
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd -P)"
 LIMACTL="${LIMACTL:-$HOME/.local/bin/limactl}"
 INSTANCE="${LIMA_INSTANCE:-linux-x86-builder}"
 DISK="$REPO_ROOT/out/x86-lab/grub-bios-disk.img"
@@ -18,7 +18,7 @@ xlab_debug_point "GRUB 硬盘启动参数已解析" REPO_ROOT LIMACTL INSTANCE D
 
 # 镜像包含 MBR、GRUB core.img、ext4 分区、bzImage 和 BusyBox 根文件系统。
 [[ -f "$DISK" ]] || {
-  echo "缺少 GRUB 硬盘镜像，请先运行 tools/x86-lab/build-grub-disk.sh" >&2
+  echo "缺少 GRUB 硬盘镜像，请先运行 tools/x86-lab/grub/build-disk.sh" >&2
   exit 1
 }
 

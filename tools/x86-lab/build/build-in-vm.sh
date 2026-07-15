@@ -8,7 +8,7 @@ set -euo pipefail
 
 # 本文件既可由 build.sh 调用，也可在 Lima 内单独执行并启用统一调试功能。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-source "$SCRIPT_DIR/debug-lib.sh"
+source "$SCRIPT_DIR/../common/debug-lib.sh"
 xlab_debug_init
 
 # REPO_ROOT 必须由 Mac 侧 build.sh 注入；缺失时立即报错，防止写错目录。
@@ -34,7 +34,7 @@ xlab_debug_point "VM 构建路径和参数已解析" REPO_ROOT WORK_ROOT KERNEL_
 required=(x86_64-linux-gnu-gcc make rsync curl tar mke2fs qemu-system-x86_64)
 for command_name in "${required[@]}"; do
   command -v "$command_name" >/dev/null || {
-    echo "缺少工具：$command_name；请先运行 bootstrap-mac.sh" >&2
+    echo "缺少工具：$command_name；请先运行 tools/x86-lab/environment/bootstrap-mac.sh" >&2
     exit 1
   }
 done
