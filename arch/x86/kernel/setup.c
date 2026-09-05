@@ -1443,7 +1443,8 @@ void __init setup_arch(char **cmdline_p)
 	early_acpi_boot_init();
 
 	/*
-	 * initmem 子系统初始化，建立 memory block 等抽象，创建初始化NUMA系统，pgdata等结构体
+	 * initmem 子系统初始化，建立 memory block 等抽象，创建初始化NUMA系统，pgdata等结构体，这里注意是只是初始化
+	 * 为赋值，都是后面的事情
 	 */
 	initmem_init();
 
